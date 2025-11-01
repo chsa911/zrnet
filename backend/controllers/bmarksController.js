@@ -23,7 +23,7 @@ function availableMatch() {
       { isAvailable: 1 },
       { isAvailable: "1" },
       { isAvailable: "true" },
-      { isAvailable: { $exists: false } }, // missing => available
+      { isAvailable: { $exists: false } }, // missing => available (legacy)
       { status: { $in: ["free", "available", null] } },
     ],
   };
@@ -261,8 +261,8 @@ async function preview(req, res) {
    Query: ?BBreite=..&BHoehe=..&code=eik202
    Behavior:
    - Accepts fallback series (ei → eik) when size maps to an 'i' series
-   - If code doesn't exist in pool, returns ok:true + creatable:true
-   - Adds matchedSeries (actual input series) and allowed (accepted series)
+   - Code MUST exist in barcodes pool and be available (no implicit defaults)
+   - Returns 404 if code is not in pool, 409 if not available or already used
 ============================================================================= */
 async function validateForSize(req, res) {
   try {
@@ -303,7 +303,7 @@ async function validateForSize(req, res) {
     if (!m) {
       return res.status(400).json({
         ok: false,
-        reason: `Code must be <series><digits>, e.g. ${prefix}001`,
+        reason: `Code must be <series><digits>`,
         expectedSeries: prefix,
         allowed,
       });
@@ -336,15 +336,12 @@ async function validateForSize(req, res) {
     const bc = await Barcode.findOne({ code: codeRx }).lean();
 
     if (!bc) {
-      // Not in pool → allow creation (esp. for fallback like eik404)
-      return res.json({
-        ok: true,
-        series: prefix,          // expected series from size
+      // Not in pool → reject (no fabricated defaults)
+      return res.status(404).json({
+        ok: false,
+        reason: "Barcode not in pool",
         matchedSeries: inputSeries,
-        code: normalized,
-        exists: false,
-        available: true,
-        creatable: true,
+        expectedSeries: prefix,
         allowed,
       });
     }

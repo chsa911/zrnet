@@ -3,52 +3,44 @@ const express = require("express");
 const router = express.Router();
 const mongoose = require("mongoose");
 
-/* ---- Model (use existing if present; else fallback to loose model) ---- */
+/* ---------- Model (use your real model if present) ---------- */
 let Book;
 try {
-  Book = require("../models/Book"); // if you already have a schema, this will be used
+  Book = require("../models/Book"); // your schema
 } catch {
-  // fallback: strict:false so any shape works; uses 'books' collection explicitly
+  // Loose fallback: any fields, collection: 'books'
   const Loose = new mongoose.Schema({}, { strict: false, timestamps: false });
   Book = mongoose.models.Book || mongoose.model("Book", Loose, "books");
 }
 
-/* ---- helpers ---- */
-function toInt(v, def) {
+/* ---------- helpers ---------- */
+const toInt = (v, def) => {
   const n = Number.parseInt(v, 10);
   return Number.isFinite(n) && n > 0 ? n : def;
-}
-function sortDir(order) {
-  return String(order).toLowerCase() === "asc" ? 1 : -1;
-}
-function escapeRegex(s) {
-  return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-}
+};
+const sortDir = (order) => (String(order).toLowerCase() === "asc" ? 1 : -1);
+const escapeRegex = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+const isObjectId = (s) => typeof s === "string" && /^[0-9a-fA-F]{24}$/.test(s);
 
-/* ---- GET /api/books  (list + search) ----
-   Query:
-     - page, limit, sortBy, order
-     - q | search | term | s  (search term)
-   Search fields:
-     Titel, BAutor, BVerlag, BKw, barcode, BMark, BMarkb
------------------------------------------------------------------------ */
+/* =========================================================
+   GET /api/books  (list + search)
+   Query: page,limit,sortBy,order, q|search|term|s
+   Searches fields: Titel, BAutor, BVerlag, BKw, barcode, BMark, BMarkb
+========================================================= */
 router.get("/", async (req, res, next) => {
   try {
     const page  = toInt(req.query.page, 1);
     const limit = toInt(req.query.limit, 20);
     const sortBy = req.query.sortBy || req.query.sort || "BEind";
-    const order = req.query.order || req.query.direction || "desc";
+    const order  = req.query.order || req.query.direction || "desc";
 
-    const termRaw =
-      (req.query.q ??
-       req.query.search ??
-       req.query.term ??
-       req.query.s ??
-       "").toString().trim();
+    const termRaw = String(
+      req.query.q ?? req.query.search ?? req.query.term ?? req.query.s ?? ""
+    ).trim();
 
     const query = {};
     if (termRaw) {
-      const rx = new RegExp(escapeRegex(termRaw), "i"); // substring, case-insensitive
+      const rx = new RegExp(escapeRegex(termRaw), "i");
       query.$or = [
         { Titel: rx },
         { BAutor: rx },
@@ -68,16 +60,16 @@ router.get("/", async (req, res, next) => {
       Book.countDocuments(query),
     ]);
 
-    res.set("Cache-Control", "no-store"); // avoid 304s in dev
+    res.set("Cache-Control", "no-store");
     return res.json({ items, total, page, limit });
   } catch (err) {
-    return next(err);
+    next(err);
   }
 });
 
-/* ---- (optional) simple autocomplete ----
+/* =========================================================
    GET /api/books/autocomplete?field=BAutor&q=har
------------------------------------------------------------------------ */
+========================================================= */
 router.get("/autocomplete", async (req, res, next) => {
   try {
     const field = String(req.query.field || "").trim();
@@ -92,10 +84,55 @@ router.get("/autocomplete", async (req, res, next) => {
       { $limit: 20 },
     ];
 
-    const col = Book.collection;
-    const rows = await col.aggregate(pipeline).toArray();
+    const rows = await Book.collection.aggregate(pipeline).toArray();
     res.set("Cache-Control", "no-store");
     return res.json(rows.map((r) => r.value).filter(Boolean));
+  } catch (err) {
+    next(err);
+  }
+});
+
+/* =========================================================
+   PATCH /api/books/:id
+   Body: partial fields to set, e.g. { status: "finished" } or { BTop: true }
+   - :id may be a Mongo _id OR a barcode-like id (barcode/BMark/BMarkb)
+========================================================= */
+router.patch("/:id", async (req, res, next) => {
+  try {
+    const id = String(req.params.id || "").trim();
+    if (!id) return res.status(400).json({ error: "missing_id" });
+
+    // Build a flexible filter
+    let filter;
+    if (isObjectId(id)) {
+      filter = { _id: new mongoose.Types.ObjectId(id) };
+    } else {
+      filter = { $or: [{ barcode: id }, { BMark: id }, { BMarkb: id }] };
+    }
+
+    // Only allow setting simple fields (extend as you need)
+    const patch = {};
+    for (const [k, v] of Object.entries(req.body || {})) {
+      if (v === undefined) continue;
+      // whitelist typical fields you update
+      if (["status", "BTop", "Titel", "BAutor", "BVerlag", "BKw", "BSeiten"].includes(k)) {
+        patch[k] = v;
+      }
+    }
+
+    if (Object.keys(patch).length === 0) {
+      return res.status(400).json({ error: "empty_patch" });
+    }
+
+    const updated = await Book.findOneAndUpdate(
+      filter,
+      { $set: patch },
+      { new: true }
+    ).lean();
+
+    if (!updated) return res.status(404).json({ error: "not_found" });
+
+    return res.json({ ok: true, item: updated });
   } catch (err) {
     next(err);
   }
