@@ -3,6 +3,10 @@ const express = require("express");
 const router = express.Router();
 const mongoose = require("mongoose");
 
+// 👉 hook into your controller
+const { registerBook /*, headAvailable, getBook, updateBook, deleteBook */ } =
+  require("../controllers/booksController");
+
 /* ---------- Model (use your real model if present) ---------- */
 let Book;
 try {
@@ -24,8 +28,6 @@ const isObjectId = (s) => typeof s === "string" && /^[0-9a-fA-F]{24}$/.test(s);
 
 /* =========================================================
    GET /api/books  (list + search)
-   Query: page,limit,sortBy,order, q|search|term|s
-   Searches fields: Titel, BAutor, BVerlag, BKw, barcode, BMark, BMarkb
 ========================================================= */
 router.get("/", async (req, res, next) => {
   try {
@@ -68,6 +70,13 @@ router.get("/", async (req, res, next) => {
 });
 
 /* =========================================================
+   POST /api/books  (create/register)  ✅ this fixes the 404
+   (alias /register kept for legacy callers)
+========================================================= */
+router.post("/", registerBook);
+router.post("/register", registerBook);
+
+/* =========================================================
    GET /api/books/autocomplete?field=BAutor&q=har
 ========================================================= */
 router.get("/autocomplete", async (req, res, next) => {
@@ -94,8 +103,6 @@ router.get("/autocomplete", async (req, res, next) => {
 
 /* =========================================================
    PATCH /api/books/:id
-   Body: partial fields to set, e.g. { status: "finished" } or { BTop: true }
-   - :id may be a Mongo _id OR a barcode-like id (barcode/BMark/BMarkb)
 ========================================================= */
 router.patch("/:id", async (req, res, next) => {
   try {
@@ -114,7 +121,6 @@ router.patch("/:id", async (req, res, next) => {
     const patch = {};
     for (const [k, v] of Object.entries(req.body || {})) {
       if (v === undefined) continue;
-      // whitelist typical fields you update
       if (["status", "BTop", "Titel", "BAutor", "BVerlag", "BKw", "BSeiten"].includes(k)) {
         patch[k] = v;
       }

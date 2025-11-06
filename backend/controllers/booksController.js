@@ -4,28 +4,18 @@ const mongoose = require("mongoose");
 const { Types } = mongoose;
 const Book = require("../models/Book");
 const Barcode = require("../models/Barcode");
+const SizeRule = require("../models/SizeRule");
+const { sizeToPrefixFromDb } = require("../utils/sizeToPrefixFromDb");
 
-/**
- * -------- Helpers --------
- */
+/* --------------------------------- helpers -------------------------------- */
 
 const escapeRx = (s) => String(s).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
-function idOrCodeQuery(v) {
-  const s = String(v || "").trim();
-  return Types.ObjectId.isValid(s)
-    ? { _id: s }
-    : { code: new RegExp(`^${escapeRx(s)}$`, "i") };
-}
-
-// remove invalid _id values from arbitrary payloads to prevent CastErrors
 function stripInvalidId(obj) {
   if (!obj || typeof obj !== "object") return obj;
   if ("_id" in obj) {
     const s = String(obj._id || "");
-    if (!Types.ObjectId.isValid(s)) {
-      delete obj._id;
-    }
+    if (!Types.ObjectId.isValid(s)) delete obj._id;
   }
   return obj;
 }
@@ -55,16 +45,85 @@ function resolveSort(sortByRaw, orderRaw) {
   return { [key]: order };
 }
 
-// Central "free" definition for barcodes (used everywhere)
-const FREE_FILTER_BASE = {
-  isAvailable: true,
-  status: { $in: ["free", "available"] },
-  assignedBookId: { $exists: false },
+// tolerant number parsing ("12,4" → 12.4)
+const toNum = (v) => {
+  if (v === null || v === undefined) return NaN;
+  const s = String(v).trim().replace(",", ".");
+  const n = Number(s);
+  return Number.isFinite(n) ? n : NaN;
 };
 
-/**
- * -------- Controllers --------
- */
+// get width/height from many shapes (German + aliases)
+function getDims(body) {
+  const b = body || {};
+  const dims = b.dimensions || b.size || {};
+  const wRaw = b.width ?? dims.width ?? b.W ?? b.w ?? b.BBreite;
+  const hRaw = b.height ?? dims.height ?? b.H ?? b.h ?? b.BHoehe;
+  const width = toNum(wRaw);
+  const height = toNum(hRaw);
+  return { width, height };
+}
+
+// derive barcode series from SizeRules (util first, DB fallback)
+async function deriveSeries(width, height) {
+  let series = null;
+  try {
+    series = await sizeToPrefixFromDb(width, height); // e.g., "ei" / "eki"
+  } catch (_) {
+    series = null;
+  }
+  if (!series) {
+    const rule = await SizeRule.findOne({
+      $or: [
+        {
+          "scope.W.min": { $lte: width }, "scope.W.max": { $gte: width },
+          "scope.B.min": { $lte: height }, "scope.B.max": { $gte: height },
+        },
+        {
+          minW: { $lte: width }, maxW: { $gte: width },
+          minB: { $lte: height }, maxB: { $gte: height },
+        },
+      ],
+    }).lean();
+
+    if (rule) {
+      series =
+        rule.series ||
+        rule.prefix ||
+        (Array.isArray(rule.bands) && rule.bands[0] && rule.bands[0].prefix) ||
+        null;
+    }
+  }
+  return series ? String(series).toLowerCase() : null;
+}
+
+// Choose a FREE barcode (isAvailable: true).
+// Prefers an exact requested code if provided, otherwise picks lowest rank (ties by code/_id)
+// that matches series or code prefix (and optional stricter prefix).
+async function pickFreeBarcode({ series, prefix, requested }) {
+  // 1) exact first (if UI sent a suggested code)
+  if (requested) {
+    const byExact = await Barcode.findOneAndUpdate(
+      { isAvailable: true, code: new RegExp(`^${escapeRx(requested)}$`, "i") },
+      { $set: { isAvailable: false } },
+      { new: true }
+    ).lean();
+    if (byExact) return byExact;
+  }
+
+  // 2) else by series (either explicit series field OR code prefix)
+  const seriesOrPrefix = { $or: [{ series }, { code: new RegExp(`^${escapeRx(series)}`, "i") }] };
+  const andFilter = [{ isAvailable: true }, seriesOrPrefix];
+  if (prefix) andFilter.push({ code: new RegExp(`^${escapeRx(prefix)}`, "i") });
+
+  return await Barcode.findOneAndUpdate(
+    { $and: andFilter },
+    { $set: { isAvailable: false } },           // flip to used immediately
+    { new: true, sort: { rank: 1, code: 1, _id: 1 } }
+  ).lean();
+}
+
+/* -------------------------------- controllers ----------------------------- */
 
 /**
  * GET /api/books
@@ -81,7 +140,6 @@ async function listBooks(req, res) {
     const filter = {};
     if (q) {
       const rx = new RegExp(escapeRx(q), "i");
-      // Cover common searchable fields from your Book model
       filter.$or = [
         { BAutor: rx },
         { BVerlag: rx },
@@ -135,124 +193,71 @@ async function getBook(req, res) {
 }
 
 /**
- * POST /api/books/register
+ * POST /api/books
  *
- * Auto-picks an existing, available barcode from the barcodes collection (never generates).
- * Request body:
- *  - sizeRange: string (required)     e.g., "S-30-40"
- *  - prefix?:   string (optional)     e.g., "ep" to restrict series
- *  - ...any other Book fields (title, author, etc.)
- *
- * Flow (transactional):
- *  1) Reserve a real, available barcode that matches { sizeRange, prefix? }.
- *  2) Create the book using the reserved barcode.
- *  3) Mark the barcode as assigned to the created book.
- *
- * On no availability, returns:
- *   404 { error: "no barcodes for this sizeRange available" }
+ * Flow:
+ *  - derive series from SizeRules (BBreite/BHoehe or width/height)
+ *  - pick FREE barcode with lowest rank (ties: code/_id)
+ *  - set isAvailable=false on the picked barcode
+ *  - create the book with that barcode
+ *  - no reservations/assignment/status fields
  */
 async function registerBook(req, res) {
-  // Disallow client-provided barcode identifiers — server chooses from DB only
-  const { sizeRange, prefix, ...bookPayloadRaw } = req.body || {};
+  const { prefix, ...bookPayloadRaw } = req.body || {};
 
-  if (!sizeRange) {
-    return res.status(400).json({ error: "sizeRange is required" });
-  }
-
-  // Defensive payload cleanup
+  // clean incoming payload (server decides barcode)
   stripInvalidId(bookPayloadRaw);
   const bookPayload = { ...bookPayloadRaw };
+  delete bookPayload._id;
   delete bookPayload.barcode;
   delete bookPayload.code;
   delete bookPayload.BMarkb;
   delete bookPayload.barcodeId;
-  delete bookPayload._id;
+  delete bookPayload.sizeRange; // legacy
 
-  const session = await Book.startSession();
-
-  try {
-    let responsePayload;
-
-    await session.withTransaction(async () => {
-      // 1) Reserve a real, available barcode
-      const reserveFilter = {
-        ...FREE_FILTER_BASE,
-        sizeRange,
-        ...(prefix ? { code: new RegExp(`^${escapeRx(prefix)}`, "i") } : {}),
-      };
-
-      const reserved = await Barcode.findOneAndUpdate(
-        reserveFilter,
-        {
-          $set: { isAvailable: false, status: "reserved", reservedAt: new Date() },
-          $currentDate: { updatedAt: true },
-        },
-        { new: true, sort: { code: 1 }, session }
-      ).lean();
-
-      if (!reserved) {
-        throw new Error("no barcodes for this sizeRange available");
-      }
-
-      const chosenCode = reserved.code;
-      const now = new Date();
-
-      // 2) Create the book with that barcode
-      const createdArr = await Book.create(
-        [
-          {
-            ...bookPayload,
-            barcode: chosenCode,
-            BMarkb: bookPayload.BMarkb || chosenCode,
-            sizeRange, // keep for convenience/queries
-            createdAt: now,
-            updatedAt: now,
-          },
-        ],
-        { session }
-      );
-      const created = createdArr[0];
-
-      // 3) Assign barcode to this book (reserved -> assigned)
-      const assigned = await Barcode.findOneAndUpdate(
-        {
-          _id: reserved._id,
-          isAvailable: false,
-          status: "reserved",
-          assignedBookId: { $exists: false },
-        },
-        {
-          $set: { status: "assigned", assignedBookId: created._id },
-          $currentDate: { updatedAt: true },
-          $unset: { releasedAt: 1 },
-        },
-        { new: true, session }
-      ).lean();
-
-      if (!assigned) {
-        throw new Error("Failed to assign barcode (concurrency).");
-      }
-
-      responsePayload = {
-        book: created.toObject ? created.toObject() : created,
-        barcode: { _id: assigned._id, code: assigned.code, status: assigned.status },
-      };
-    });
-
-    return res.status(201).json(responsePayload);
-  } catch (err) {
-    if (err.message === "no barcodes for this sizeRange available") {
-      return res.status(404).json({ error: "no barcodes for this sizeRange available" });
-    }
-    console.error("[registerBook] error:", err);
-    return res.status(500).json({ error: "Failed to register book" });
-  } finally {
-    session.endSession();
+  // parse dims
+  const { width, height } = getDims(req.body);
+  if (!Number.isFinite(width) || !Number.isFinite(height)) {
+    return res.status(400).json({ error: "width and height are required (numbers)" });
   }
+
+  // series by rules
+  const series = await deriveSeries(width, height);
+  if (!series) {
+    return res.status(404).json({ error: "No size rule matches the given inputs" });
+  }
+
+  // optional: prefer an exact code the UI suggested (from preview)
+  const requested = String(
+    (req.body && (req.body.barcode || req.body.BMarkb || req.body.code)) || ""
+  )
+    .trim()
+    .toLowerCase();
+
+  // pick FREE barcode
+  const picked = await pickFreeBarcode({ series, prefix, requested });
+  if (!picked) {
+    return res
+      .status(409)
+      .json({ error: "No barcodes available for the selected size rule/series" });
+  }
+
+  // create book with the chosen barcode
+  const created = await Book.create({
+    ...bookPayload,
+    barcode: picked.code,
+    BMarkb: bookPayload.BMarkb || picked.code,
+  });
+
+  return res.status(201).json({
+    book: created,
+    barcode: { code: picked.code },
+    rule: { series },
+  });
 }
 
 /**
- * PATCH /api/books/:id
+ * PUT/PATCH /api/books/:id
  */
 async function updateBook(req, res) {
   try {
@@ -261,13 +266,13 @@ async function updateBook(req, res) {
       return res.status(400).json({ error: "Invalid book id" });
     }
 
-    // Prevent invalid _id from causing cast errors
     stripInvalidId(req.body);
 
     const update = { ...req.body };
     // Never allow client to change these directly
     delete update._id;
-    delete update.barcodeId; // keep barcode linkage controlled by server logic
+    delete update.barcodeId;
+    delete update.barcodeSeries;
 
     const result = await Book.findByIdAndUpdate(
       id,
@@ -276,9 +281,6 @@ async function updateBook(req, res) {
     ).lean();
 
     if (!result) return res.status(404).json({ error: "Book not found" });
-
-    // Note: if you have hooks that free barcodes based on status changes,
-    // they will continue to run as before.
 
     res.json(result);
   } catch (err) {
@@ -289,7 +291,7 @@ async function updateBook(req, res) {
 
 /**
  * DELETE /api/books/:id
- * Also clears assignedBookId on the linked Barcode(s), if any.
+ * (Simple: free any barcodes on this book by making them available again)
  */
 async function deleteBook(req, res) {
   try {
@@ -298,30 +300,18 @@ async function deleteBook(req, res) {
       return res.status(400).json({ error: "Invalid book id" });
     }
 
-    // Find the book first (to inspect BMarkb/barcode)
     const book = await Book.findById(id).lean();
     if (!book) return res.status(404).json({ error: "Book not found" });
 
     const codes = [book.BMarkb, book.barcode].filter(Boolean);
-
     if (codes.length) {
       try {
-        // Free any barcodes pointing to this book + codes
         await Barcode.updateMany(
-          { code: { $in: codes }, assignedBookId: id },
-          {
-            $set: {
-              isAvailable: true,
-              status: "available",
-              assignedBookId: null,
-            },
-            $unset: { reservedAt: 1 },
-            $currentDate: { updatedAt: true },
-          }
+          { code: { $in: codes } },
+          { $set: { isAvailable: true } }
         );
-      } catch (linkErr) {
-        console.error("[deleteBook] unlink barcode error:", linkErr);
-        // Not fatal to deletion
+      } catch (e) {
+        console.error("[deleteBook] freeing barcodes error:", e);
       }
     }
 
@@ -335,21 +325,26 @@ async function deleteBook(req, res) {
 }
 
 /**
- * (Optional) HEAD /api/books/barcodes/available?sizeRange=S-30-40&prefix=ep
- * Lets the UI quickly check availability and show a friendly message before submitting.
+ * Optional: HEAD /api/books/available?BBreite=..&BHoehe=..&prefix=ep
+ * quick availability check (FREE only)
  */
 async function headAvailable(req, res) {
   try {
-    const { sizeRange, prefix } = req.query || {};
-    if (!sizeRange) return res.sendStatus(400);
+    const width = toNum(req.query.width ?? req.query.W ?? req.query.BBreite);
+    const height = toNum(req.query.height ?? req.query.H ?? req.query.BHoehe);
+    const prefix = req.query.prefix;
 
-    const filter = {
-      ...FREE_FILTER_BASE,
-      sizeRange,
-      ...(prefix ? { code: new RegExp(`^${escapeRx(prefix)}`, "i") } : {}),
-    };
+    if (!Number.isFinite(width) || !Number.isFinite(height)) {
+      return res.sendStatus(400);
+    }
 
-    const exists = await Barcode.findOne(filter).select({ _id: 1 }).lean();
+    const series = await deriveSeries(width, height);
+    if (!series) return res.sendStatus(404);
+
+    const filters = [{ isAvailable: true }, { $or: [{ series }, { code: new RegExp(`^${escapeRx(series)}`, "i") }] }];
+    if (prefix) filters.push({ code: new RegExp(`^${escapeRx(prefix)}`, "i") });
+
+    const exists = await Barcode.findOne({ $and: filters }).select({ _id: 1 }).lean();
     return res.sendStatus(exists ? 200 : 404);
   } catch (err) {
     console.error("[headAvailable] error:", err);
@@ -363,6 +358,5 @@ module.exports = {
   registerBook,
   updateBook,
   deleteBook,
-  headAvailable, // optional convenience endpoint
+  headAvailable,
 };
-
