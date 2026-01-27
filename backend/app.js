@@ -2,7 +2,7 @@
 const express = require("express");
 const cors = require("cors");
 const morgan = require("morgan");
-const mongoose = require("mongoose");
+const path = require("path");
 
 const app = express();
 
@@ -27,39 +27,47 @@ function makeCorsOptions() {
   return {
     origin(origin, cb) {
       if (!origin) return cb(null, true); // server-to-server, curl, tests
-      const o = origin.toLowerCase();
+      const o = String(origin).toLowerCase();
       const isLocalhost = /^http:\/\/localhost:\d{2,5}$/.test(o);
       if (envList.includes(o) || isLocalhost) return cb(null, true);
       return cb(new Error(`Not allowed by CORS: ${origin}`));
     },
-    credentials: true, // allow cookies/credentials
+    credentials: true,
     methods: ["GET", "POST", "PATCH", "PUT", "DELETE", "OPTIONS"],
-    allowedHeaders: [
-      "Content-Type",
-      "Authorization",
-      "X-Requested-With",
-      "Accept",
-    ],
+    allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With", "Accept"],
   };
 }
 const corsOptions = makeCorsOptions();
 
 app.use(cors(corsOptions));
-// Preflight for all routes
 app.options("*", cors(corsOptions));
 
-mongoose.connection.once("open", () => {
-  console.log("✅ Mongo connected to DB:", mongoose.connection.db.databaseName);
+/* ---------- health ---------- */
+app.get("/health", async (req, res, next) => {
+  try {
+    // Optional: verify PG connectivity on health endpoint
+    const pool = req.app.get("pgPool");
+    if (pool) {
+      await pool.query("select 1");
+    }
+    res.send("ok");
+  } catch (e) {
+    next(e);
+  }
 });
 
-/* ---------- health ---------- */
-app.get("/health", (_req, res) => res.send("ok"));
-
 /* ---------- routes ---------- */
-app.use("/api/barcodes", require("./routes/api/barcodes/debug"));
+// NOTE: routes must be migrated to use req.app.get("pgPool") (or a shared db module)
 app.use("/api/barcodes", require("./routes/api/barcodes/previewBarcode"));
 app.use("/api/books", require("./routes/books"));
 app.use("/api/bmarks", require("./routes/bmarks")); // keep if present
+
+// Public, read-only books endpoints for your static/public site
+app.use("/api/public/books", require("./routes/publicBooks"));
+
+/* ---------- static site ---------- */
+// Serve the /site folder at the web root (/, /index.html, /books/, ...)
+app.use(express.static(path.resolve(__dirname, "../site")));
 
 /* ---------- error handler ---------- */
 app.use((err, req, res, _next) => {

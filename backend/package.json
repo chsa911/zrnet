@@ -1,5 +1,5 @@
 {
-  "name": "rxlog-backend",
+  "name": "zrnet-backend",
   "version": "1.0.0",
   "main": "server.js",
   "type": "commonjs",
@@ -23,7 +23,8 @@
     "lint": "^0.8.19",
     "mongoose": "^8.17.2",
     "morgan": "^1.10.1",
-    "node-cron": "^4.2.1"
+    "node-cron": "^4.2.1",
+    "pg": "^8.17.2"
   },
   "devDependencies": {
     "@eslint/js": "^9.35.0",

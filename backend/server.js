@@ -5,46 +5,97 @@ require("dotenv").config({
   debug: true,
   override: true,
 });
-const mongoose = require("mongoose");
+
+const { Pool } = require("pg");
 const app = require("./app");
 
 // ✅ Read from env, provide defaults
 const PORT = Number(process.env.PORT || 4000);
-const MONGO_URI = process.env.MONGO_URI || "mongodb://127.0.0.1:27017/rxlog";
+const DATABASE_URL = process.env.DATABASE_URL;
 
-console.log("[env] MONGO_URI =", process.env.MONGO_URI);
+if (!DATABASE_URL) {
+  console.error("❌ Missing DATABASE_URL in environment (.env)");
+  process.exit(1);
+}
+
+// Neon / hosted Postgres typically requires SSL.
+// If your DATABASE_URL contains sslmode=require, enable SSL for node-postgres.
+const needsSSL =
+  /sslmode=require/i.test(DATABASE_URL) ||
+  String(process.env.PGSSLMODE || "").toLowerCase() === "require" ||
+  /neon\.tech/i.test(DATABASE_URL);
+
+const pool = new Pool({
+  connectionString: DATABASE_URL,
+  ...(needsSSL ? { ssl: { rejectUnauthorized: false } } : {}),
+});
+
+console.log("[env] DATABASE_URL set =", Boolean(process.env.DATABASE_URL));
 
 let startReleaseJob = null;
 try {
+  // keep this optional; job might not exist or might still be Mongo-based
   ({ start: startReleaseJob } = require("./jobs/releaseMarks"));
-} catch { /* ignore if missing */ }
+} catch {
+  /* ignore if missing */
+}
+
+let server = null;
+let shuttingDown = false;
+
+async function shutdown(signal) {
+  if (shuttingDown) return;
+  shuttingDown = true;
+
+  console.log(`\n👋 Shutting down (${signal})...`);
+  try {
+    if (server) {
+      await new Promise((resolve) => server.close(resolve));
+    }
+  } catch {}
+
+  try {
+    await pool.end();
+  } catch {}
+
+  process.exit(0);
+}
+
+process.on("SIGINT", () => shutdown("SIGINT"));
+process.on("SIGTERM", () => shutdown("SIGTERM"));
 
 (async () => {
   try {
-    // ✅ Use the defined variable
-    await mongoose.connect(MONGO_URI);
-    console.log("✅ MongoDB connected");
-    console.log("DB name:", mongoose.connection.name);
+    // ✅ Test Postgres connection
+    await pool.query("select 1 as ok");
+    console.log("✅ Postgres connected");
 
-    if (typeof startReleaseJob === "function") startReleaseJob();
+    // Optional: show DB name/user
+    const info = await pool.query(
+      "select current_database() as db, current_user as usr"
+    );
+    console.log("DB name:", info.rows[0]?.db, "| user:", info.rows[0]?.usr);
 
-    // ✅ app is the Express instance exported from app.js
-    app.listen(PORT, () => {
+    // Make pool accessible if other modules want it via app.get("pgPool")
+    app.set("pgPool", pool);
+
+    // If the job supports PG, pass pool; otherwise it may throw (caught below if you wrap inside)
+    if (typeof startReleaseJob === "function") {
+      try {
+        startReleaseJob({ pool });
+      } catch (e) {
+        console.warn("⚠️ releaseMarks job failed to start (ignored):", e?.message || e);
+      }
+    }
+
+    server = app.listen(PORT, () => {
       console.log(`🚀 API listening on http://localhost:${PORT}`);
     });
   } catch (err) {
-    console.error("❌ Mongo connection error:", err);
+    console.error("❌ Postgres connection error:", err);
+    try {
+      await pool.end();
+    } catch {}
     process.exit(1);
   }
 })();
-
-process.on("SIGINT", async () => {
-  console.log("\n👋 Shutting down...");
-  try { await mongoose.disconnect(); } catch {}
-  process.exit(0);
-});
-process.on("SIGTERM", async () => {
-  console.log("\n👋 Shutting down (SIGTERM)...");
-  try { await mongoose.disconnect(); } catch {}
-  process.exit(0);
-});

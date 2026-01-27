@@ -1,0 +1,169 @@
+// backend/routes/publicBooks.js
+// Read-only endpoints used by the public site (/site and /site/books).
+
+const express = require("express");
+const router = express.Router();
+
+function getPool(req) {
+  const pool = req.app.get("pgPool");
+  if (!pool) throw new Error("pgPool missing on app");
+  return pool;
+}
+
+const clampInt = (x, def, min, max) => {
+  const n = Number.parseInt(x, 10);
+  if (!Number.isFinite(n)) return def;
+  return Math.max(min, Math.min(max, n));
+};
+
+function normStr(v) {
+  if (v === undefined || v === null) return null;
+  const s = String(v).trim();
+  return s ? s : null;
+}
+
+/**
+ * GET /api/public/books
+ * Query:
+ *  - bucket: top|finished|abandoned|registered (default registered)
+ *  - author: substring filter
+ *  - title: substring filter
+ *  - q: free text across title/author/publisher/barcode
+ *  - limit (default 50, max 200)
+ *
+ * Returns array of rows: [{ author, title, ... }]
+ * (kept compatible with the existing public frontend)
+ */
+router.get("/", async (req, res) => {
+  try {
+    const pool = getPool(req);
+
+    const bucket = String(req.query.bucket || "registered").toLowerCase();
+    const limit = clampInt(req.query.limit, 50, 1, 200);
+
+    const author = normStr(req.query.author);
+    const title = normStr(req.query.title);
+    const q = normStr(req.query.q);
+
+    const where = [];
+    const params = [];
+
+    // Bucket filters + sorting
+    let orderBy = "b.registered_at DESC";
+    if (bucket === "top") {
+      where.push("b.top_book = true");
+      orderBy = "b.top_book_set_at DESC NULLS LAST, b.registered_at DESC";
+    } else if (bucket === "finished") {
+      where.push("b.reading_status = 'finished'");
+      orderBy = "b.reading_status_updated_at DESC NULLS LAST, b.registered_at DESC";
+    } else if (bucket === "abandoned") {
+      where.push("b.reading_status = 'abandoned'");
+      orderBy = "b.reading_status_updated_at DESC NULLS LAST, b.registered_at DESC";
+    } else {
+      // registered
+      orderBy = "b.registered_at DESC";
+    }
+
+    if (author) {
+      params.push(`%${author}%`);
+      where.push(`COALESCE(b.author_display, b.author) ILIKE $${params.length}`);
+    }
+    if (title) {
+      params.push(`%${title}%`);
+      where.push(`COALESCE(b.full_title, b.title_keyword) ILIKE $${params.length}`);
+    }
+    if (q) {
+      params.push(`%${q}%`);
+      const p = `$${params.length}`;
+      where.push(
+        `(
+          COALESCE(b.full_title, b.title_keyword) ILIKE ${p} OR
+          COALESCE(b.author_display, b.author) ILIKE ${p} OR
+          b.publisher ILIKE ${p} OR
+          b.title_keyword ILIKE ${p} OR
+          b.title_keyword2 ILIKE ${p} OR
+          b.title_keyword3 ILIKE ${p} OR
+          b.isbn10 ILIKE ${p} OR
+          b.isbn13 ILIKE ${p} OR
+          bb.barcode ILIKE ${p}
+        )`
+      );
+    }
+
+    const whereSql = where.length ? `WHERE ${where.join(" AND ")}` : "";
+
+    const { rows } = await pool.query(
+      `
+      SELECT
+        b.id,
+        COALESCE(b.author_display, b.author) AS author,
+        COALESCE(b.full_title, b.title_keyword) AS title,
+        b.registered_at,
+        b.reading_status,
+        b.reading_status_updated_at,
+        b.top_book,
+        b.top_book_set_at,
+        bb.barcode
+      FROM public.books b
+      LEFT JOIN LATERAL (
+        SELECT barcode FROM public.book_barcodes bb WHERE bb.book_id = b.id LIMIT 1
+      ) bb ON true
+      ${whereSql}
+      ORDER BY ${orderBy}
+      LIMIT $${params.length + 1}
+      `,
+      [...params, limit]
+    );
+
+    return res.json(rows);
+  } catch (err) {
+    console.error("GET /api/public/books error", err);
+    return res.status(500).json({ error: "internal_error" });
+  }
+});
+
+/**
+ * GET /api/public/books/stats?year=2026
+ * Returns: { finished, abandoned, top }
+ */
+router.get("/stats", async (req, res) => {
+  try {
+    const pool = getPool(req);
+    const year = clampInt(req.query.year, new Date().getFullYear(), 1970, 2100);
+
+    const start = `${year}-01-01`;
+    const end = `${year + 1}-01-01`;
+
+    const { rows } = await pool.query(
+      `
+      SELECT
+        count(*) FILTER (
+          WHERE b.reading_status = 'finished'
+            AND b.reading_status_updated_at >= $1::timestamptz
+            AND b.reading_status_updated_at <  $2::timestamptz
+        )::int AS finished,
+
+        count(*) FILTER (
+          WHERE b.reading_status = 'abandoned'
+            AND b.reading_status_updated_at >= $1::timestamptz
+            AND b.reading_status_updated_at <  $2::timestamptz
+        )::int AS abandoned,
+
+        count(*) FILTER (
+          WHERE b.top_book = true
+            AND b.top_book_set_at >= $1::timestamptz
+            AND b.top_book_set_at <  $2::timestamptz
+        )::int AS top
+      FROM public.books b
+      `,
+      [start, end]
+    );
+
+    return res.json(rows[0] || { finished: 0, abandoned: 0, top: 0 });
+  } catch (err) {
+    console.error("GET /api/public/books/stats error", err);
+    return res.status(500).json({ error: "internal_error" });
+  }
+});
+
+module.exports = router;
