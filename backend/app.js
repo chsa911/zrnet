@@ -73,13 +73,13 @@ app.use("/api/bmarks", require("./routes/bmarks"));
 app.use("/api/mobile", require("./routes/mobileSync"));
 // Public, read-only books endpoints for your static/public site
 app.use("/api/public/books", require("./routes/publicBooks"));
-
+  
 /* ---------- static public website ---------- */
 /**
- * Serve the static website from backend/public (this is what you showed in your folder tree).
+ *  Serve the static website from backend/public (this is what you showed in your folder tree).
  * This enables:
  *   GET /            -> backend/public/index.html
- *   GET /ausruestung.html, /autoren.html, /books/... etc.
+  *   GET /ausruestung.html, /autoren.html, /books/... etc.
  */
 const publicDir = path.resolve(__dirname, "public");
 app.use(express.static(publicDir));
