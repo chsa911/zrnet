@@ -1,26 +1,22 @@
 services:
   api:
-    build: ./backend
-    env_file: ./.env
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    env_file:
+      - .env
     ports:
       - "4000:4000"
-    depends_on:
-      - mongo
+    restart: unless-stopped
 
   web:
-    build: ./frontend
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    environment:
+      - VITE_API_BASE_URL=/api
     ports:
-      - "8080:80"
+      - "80:80"
     depends_on:
       - api
-
-  mongo:
-    image: mongo:7
     restart: unless-stopped
-    volumes:
-      - mongo-data:/data/db
-    ports:
-      - "27017:27017"
-
-volumes:
-  mongo-data:
