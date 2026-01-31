@@ -1,0 +1,17 @@
+zenreader.net, www.zenreader.net, staging.zenreader.net {
+  encode gzip zstd
+
+  handle_path /api/* {
+    reverse_proxy api:4000
+  }
+
+  # if you want the React app at /app/
+  handle_path /app/* {
+    reverse_proxy web:80
+  }
+
+  # everything else -> backend (serves backend/public/index.html etc.)
+  handle {
+    reverse_proxy api:4000
+  }
+}
