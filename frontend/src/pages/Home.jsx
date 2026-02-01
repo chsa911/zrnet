@@ -80,6 +80,7 @@ export default function Home() {
           <a className="zr-btn" href="/ueber_mich.html">About me</a>
           <a className="zr-btn" href="/">HOME</a>
           <a className="zr-btn" href="/analytics/">Readingdiary</a>
+          <a className="zr-btn" href="/impressum/">Disclaimer</a>
           <a className="zr-btn" href="/kontaktformular.html">Contact</a>
           <a className="zr-btn" href="/newsletter.html">Newsletter</a>
           <a className="zr-btn" href="/merchandise.html">Shop</a>

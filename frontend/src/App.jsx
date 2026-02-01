@@ -5,9 +5,6 @@ import { Routes, Route, Navigate } from "react-router-dom";
 import Layout from "./components/Layout";
 import Home from "./pages/Home";
 import AnalyticsPage from "./pages/AnalyticsPage";
-import RegisterPage from "./pages/RegisterPage";
-import SearchUpdatePage from "./pages/SearchUpdatePage";
-import BooksPage from "./pages/BooksPage";
 import LegacyHtmlPage from "./pages/LegacyHtmlPage";
 
 function NotFound() {
@@ -24,14 +21,15 @@ export default function App() {
     <Routes>
       <Route element={<Layout />}>
         <Route index element={<Home />} />
-        <Route path="index.html" element={<Navigate to="/" replace />} />
 
-        <Route path="register" element={<RegisterPage />} />
-        <Route path="update" element={<SearchUpdatePage />} />
-        <Route path="analytics" element={<AnalyticsPage />} />
-        <Route path="books" element={<BooksPage />} />
+        {/* Make /analytics and /analytics/ both work */}
+        <Route path="analytics/*" element={<AnalyticsPage />} />
 
-        {/* Catch old links like /ueber_mich.html, /faq.html, ... */}
+        {/* HARD-REMOVE: public access to admin pages */}
+        <Route path="register" element={<Navigate to="/" replace />} />
+        <Route path="update" element={<Navigate to="/" replace />} />
+
+        {/* legacy html routes like /ueber_mich.html */}
         <Route path=":page.html" element={<LegacyHtmlPage />} />
 
         <Route path="*" element={<NotFound />} />
