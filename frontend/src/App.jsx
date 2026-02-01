@@ -1,46 +1,41 @@
-import { BrowserRouter, Routes, Route, NavLink, Navigate } from "react-router-dom";
-import RegistrationForm from "./pages/RegisterPage"; // your component as given
-import SearchUpdatePage from "./pages/SearchUpdatePage";  // the page we built
+// frontend/src/App.jsx
+import React from "react";
+import { Routes, Route, Navigate } from "react-router-dom";
+
+import Layout from "./components/Layout";
+import Home from "./pages/Home";
+import AnalyticsPage from "./pages/AnalyticsPage";
+import RegisterPage from "./pages/RegisterPage";
+import SearchUpdatePage from "./pages/SearchUpdatePage";
+import BooksPage from "./pages/BooksPage";
+import LegacyHtmlPage from "./pages/LegacyHtmlPage";
+
+function NotFound() {
+  return (
+    <div style={{ padding: 24, fontFamily: "Arial, sans-serif" }}>
+      <h2>404</h2>
+      <p>Page not found.</p>
+    </div>
+  );
+}
 
 export default function App() {
   return (
-    <BrowserRouter>
-      <div className="min-h-screen flex flex-col">
-        {/* Top bar */}
-        <header className="border-b bg-white/70 backdrop-blur sticky top-0 z-10">
-          <div className="max-w-6xl mx-auto px-4 h-14 flex items-center justify-between">
-            <div className="font-semibold">zrnet</div>
-            <nav className="flex items-center gap-4 text-sm">
-              <NavLink
-                to="/register"
-                className={({ isActive }) =>
-                  `px-3 py-1.5 rounded ${isActive ? "bg-blue-600 text-white" : "hover:bg-gray-100"}`
-                }
-              >
-                Registrieren
-              </NavLink>
-              <NavLink
-                to="/update"
-                className={({ isActive }) =>
-                  `px-3 py-1.5 rounded ${isActive ? "bg-blue-600 text-white" : "hover:bg-gray-100"}`
-                }
-              >
-                Suche / Update
-              </NavLink>
-            </nav>
-          </div>
-        </header>
+    <Routes>
+      <Route element={<Layout />}>
+        <Route index element={<Home />} />
+        <Route path="index.html" element={<Navigate to="/" replace />} />
 
-        {/* Content */}
-        <main className="max-w-6xl mx-auto w-full p-4 flex-1">
-          <Routes>
-            <Route path="/" element={<Navigate to="/register" replace />} />
-            <Route path="/register" element={<RegistrationForm />} />
-            <Route path="/update" element={<SearchUpdatePage />} />
-            <Route path="*" element={<div className="p-6">Seite nicht gefunden</div>} />
-          </Routes>
-        </main>
-      </div>
-    </BrowserRouter>
+        <Route path="register" element={<RegisterPage />} />
+        <Route path="update" element={<SearchUpdatePage />} />
+        <Route path="analytics" element={<AnalyticsPage />} />
+        <Route path="books" element={<BooksPage />} />
+
+        {/* Catch old links like /ueber_mich.html, /faq.html, ... */}
+        <Route path=":page.html" element={<LegacyHtmlPage />} />
+
+        <Route path="*" element={<NotFound />} />
+      </Route>
+    </Routes>
   );
 }
