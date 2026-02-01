@@ -1,4 +1,3 @@
-// frontend/src/App.jsx
 import React from "react";
 import { Routes, Route, Navigate } from "react-router-dom";
 
@@ -11,7 +10,8 @@ function NotFound() {
   return (
     <div style={{ padding: 24, fontFamily: "Arial, sans-serif" }}>
       <h2>404</h2>
-      <p>Page not found.</p>
+      <p>Seite nicht gefunden.</p>
+      <a href="/" style={{ color: "#00d37c" }}>Zur Startseite</a>
     </div>
   );
 }
@@ -20,18 +20,21 @@ export default function App() {
   return (
     <Routes>
       <Route element={<Layout />}>
+        {/* Home */}
         <Route index element={<Home />} />
+        <Route path="index.html" element={<Navigate to="/" replace />} />
 
-        {/* Make /analytics and /analytics/ both work */}
+        {/* Analytics (both /analytics and /analytics/ and deeper) */}
         <Route path="analytics/*" element={<AnalyticsPage />} />
 
-        {/* HARD-REMOVE: public access to admin pages */}
+        {/* HARD REMOVE public admin pages */}
         <Route path="register" element={<Navigate to="/" replace />} />
         <Route path="update" element={<Navigate to="/" replace />} />
 
-        {/* legacy html routes like /ueber_mich.html */}
+        {/* Legacy pages like /ueber_mich.html, /faq.html, /merchandise.html, /impressum.html */}
         <Route path=":page.html" element={<LegacyHtmlPage />} />
 
+        {/* 404 */}
         <Route path="*" element={<NotFound />} />
       </Route>
     </Routes>

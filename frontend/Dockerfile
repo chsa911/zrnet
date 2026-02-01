@@ -3,7 +3,7 @@ FROM node:20-alpine AS build
 WORKDIR /app
 
 COPY package*.json ./
-# Use npm ci if possible, otherwise fall back to npm install (lock mismatch)
+# Prefer npm ci, fallback to npm install when lockfile is out of sync
 RUN if [ -f package-lock.json ]; then npm ci || npm install; else npm install; fi
 
 COPY . .

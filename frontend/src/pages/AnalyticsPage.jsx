@@ -1,4 +1,3 @@
-// frontend/src/pages/AnalyticsPage.jsx
 import React, { useEffect, useState } from "react";
 
 export default function AnalyticsPage() {
@@ -22,7 +21,7 @@ export default function AnalyticsPage() {
   }, [year]);
 
   return (
-    <div style={{ padding: 16 }}>
+    <div style={{ background: "mintcream", borderRadius: 12, padding: 16 }}>
       <h2 style={{ fontFamily: "Arial, sans-serif" }}>Analytics {year}</h2>
 
       {err ? (
