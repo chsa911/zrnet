@@ -1,25 +1,6 @@
 import React, { useEffect, useState } from "react";
 
 export default function Home() {
-  // Load external CSS the old HTML relied on
-  useEffect(() => {
-    const ensureLink = (href) => {
-      const existing = Array.from(document.querySelectorAll("link[rel='stylesheet']")).find(
-        (l) => l.href === href || l.getAttribute("href") === href
-      );
-      if (existing) return;
-
-      const link = document.createElement("link");
-      link.rel = "stylesheet";
-      link.href = href;
-      document.head.appendChild(link);
-    };
-
-    ensureLink("https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css");
-    ensureLink("https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.3/font/bootstrap-icons.css");
-    ensureLink("/assets/css/styles.min.css");
-  }, []);
-
   // 2026 reading stats logic
   const DEFAULT_YEAR = 2026;
   const [stats, setStats] = useState({ finished: "—", abandoned: "—", top: "—" });
@@ -63,87 +44,18 @@ export default function Home() {
 
   return (
     <div style={{ backgroundColor: "#95d4cf", minHeight: "100vh" }}>
-      {/* Top area */}
-      <header className="zr-topbar">
-        <a className="zr-logo" href="/">
-          <img src="/assets/images/allgemein/logo.jpeg" alt="Zenreader logo" />
-        </a>
-
-        <form className="zr-search" action="/books/" method="get">
-          <input type="text" name="q" placeholder="Bücher oder Autoren suchen…" />
-          <button type="submit" aria-label="Search">
-            🔎
-          </button>
-        </form>
-
-        <nav className="zr-nav">
-          <a className="zr-btn" href="/ueber_mich.html">About me</a>
-          <a className="zr-btn" href="/">HOME</a>
-          <a className="zr-btn" href="/analytics/">Readingdiary</a>
-          <a className="zr-btn" href="/impressum/">Disclaimer</a>
-          <a className="zr-btn" href="/kontaktformular.html">Contact</a>
-          <a className="zr-btn" href="/newsletter.html">Newsletter</a>
-          <a className="zr-btn" href="/merchandise.html">Shop</a>
-          <a className="zr-btn" href="/faq.html">FAQ</a>
-          <a className="zr-btn" href="https://admin.zenreader.net/">Login</a>
-          <a className="zr-btn zr-youtube" href="https://www.youtube.com/@zenreader2026">Youtube</a>
-          <a className="zr-btn zr-tiktok" href="https://www.tiktok.com/@zenreader26">Tiktok</a>
-          <a className="zr-btn zr-instagram" href="https://www.instagram.com/zenreader26/">Instagram</a>
-        </nav>
-      </header>
-
-      {/* Minimal fallback styles for the topbar (if styles.min.css doesn't define them) */}
-      <style>{`
-        .zr-topbar{
-          display:flex;
-          align-items:center;
-          gap:12px;
-          padding:12px 16px;
-          flex-wrap:wrap;
-        }
-        .zr-logo img{ height:72px; width:auto; display:block; }
-        .zr-search{ display:flex; gap:8px; align-items:center; flex:1 1 260px; }
-        .zr-search input{
-          width:100%;
-          max-width:520px;
-          padding:8px 10px;
-          border-radius:10px;
-          border:1px solid #cfcfcf;
-        }
-        .zr-search button{
-          padding:8px 10px;
-          border-radius:10px;
-          border:1px solid #cfcfcf;
-          background:#fff;
-          cursor:pointer;
-        }
-        .zr-nav{
-          display:flex;
-          flex-wrap:wrap;
-          gap:8px;
-          justify-content:flex-end;
-          margin-left:auto;
-        }
-        .zr-btn{
-          background:#d300bd;
-          color:#fff;
-          padding:6px 10px;
-          border:2px solid #fff;
-          border-radius:8px;
-          text-decoration:none;
-          font-size:14px;
-          line-height:1.2;
-          display:inline-block;
-          white-space:nowrap;
-        }
-        .zr-youtube{ background:#e60000; }
-        .zr-tiktok{ background:#111; }
-        .zr-instagram{ background:#d300bd; }
-      `}</style>
-
       {/* Stats */}
       <div style={{ maxWidth: 1100, margin: "14px auto 0", padding: "0 16px" }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", flexWrap: "wrap", gap: 10, marginBottom: 10 }}>
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "baseline",
+            flexWrap: "wrap",
+            gap: 10,
+            marginBottom: 10,
+          }}
+        >
           <div style={{ fontSize: 14, color: "#111", fontWeight: 600 }}>
             Books in <span>{DEFAULT_YEAR}</span>
           </div>
@@ -177,7 +89,7 @@ export default function Home() {
       </div>
 
       {/* Content area */}
-      <div style={{ backgroundColor: "mintcream" }}>
+      <div style={{ backgroundColor: "mintcream", marginTop: 14 }}>
         <main role="main">
           <div style={{ height: 10, backgroundColor: "rgb(0, 255, 191)" }} />
 
@@ -193,7 +105,8 @@ export default function Home() {
             </h5>
 
             <p style={{ fontFamily: "arial", margin: "1px 30px", fontSize: 20 }}>
-              This saying best explains my time consuming book procurement administering and reading process and my disruptive reading{" "}
+              This saying best explains my time consuming book procurement administering and reading process and my
+              disruptive reading{" "}
               <a style={{ fontFamily: "arial", fontSize: 20, color: "#00d37c" }} href="/technik.html">
                 technique{" "}
                 <img
@@ -202,7 +115,8 @@ export default function Home() {
                   style={{ width: "20%", height: 50, objectFit: "cover", marginLeft: 8 }}
                 />
               </a>{" "}
-              which enables me to read every free minute and to select only pageturners out of a big variety of books. A dream!!
+              which enables me to read every free minute and to select only pageturners out of a big variety of books. A
+              dream!!
             </p>
 
             <p style={{ fontFamily: "arial", margin: "1px 30px", fontSize: 20 }}>
@@ -267,7 +181,8 @@ export default function Home() {
               >
                 "bookdeckel"
               </a>
-              . And finally get to know my dog lili which accompanies me now on my reading trips and is now the symbol of my bookswipe promotion activities.
+              . And finally get to know my dog lili which accompanies me now on my reading trips and is now the symbol of
+              my bookswipe promotion activities.
             </p>
           </div>
 
