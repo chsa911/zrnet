@@ -56,7 +56,7 @@ export default function Header() {
           <NavItem to="/faq.html">FAQ</NavItem>
 
           {/* Social */}
-          <a className="zr-btn zr-youtube" href="https://www.youtube.com/@zenreader2026" target="_blank" rel="noreferrer">
+          <a className="zr-btn zr-youtube" href="https://www.youtube.com/@zenreader26" target="_blank" rel="noreferrer">
             Youtube
           </a>
           <a className="zr-btn zr-tiktok" href="https://www.tiktok.com/@zenreader26" target="_blank" rel="noreferrer">
