@@ -6,10 +6,7 @@ import { listBooks, updateBook } from "../api/books";
 // normalize: lower-case, strip non-alphanum
 const norm = (s) => String(s || "").toLowerCase().replace(/[^a-z0-9]/g, "");
 
-// pick the first existing value by alias; searches top-level keys (robust to case/underscores)
-function pick(b, aliases, { joinArray = ", " } = {}) {
-  if (!b || typeof b !== "object") return undefined;
-  const keyMap = new Map(Object.keys(b).map((k) => [norm(k), k]));
+     const keyMap = new Map(Object.keys(b).map((k) => [norm(k), k]));
   for (const alias of aliases) {
     const k = keyMap.get(norm(alias));
     if (k != null) {

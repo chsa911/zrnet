@@ -3,12 +3,15 @@ const express = require("express");
 const cors = require("cors");
 const morgan = require("morgan");
 const path = require("path");
+const cookieParser = require("cookie-parser");
 
 const app = express();
 
 /* ---------- middleware (before routes) ---------- */
 app.use(morgan("dev"));
 app.use(express.json());
+app.use(cookieParser());
+app.use(express.urlencoded({ extended: true }));
 
 /**
  * CORS with credentials:
@@ -69,6 +72,7 @@ app.get(["/api", "/api/"], (req, res) => {
     ok: true,
     endpoints: [
       "/api/health",
+      "/api/admin",
       "/api/books",
       "/api/bmarks",
       "/api/barcodes",
@@ -79,6 +83,7 @@ app.get(["/api", "/api/"], (req, res) => {
 });
 
 /* ---------- routes ---------- */
+app.use("/api/admin", require("./routes/admin"));
 app.use("/api/barcodes", require("./routes/api/barcodes/previewBarcode"));
 app.use("/api/books", require("./routes/books"));
 app.use("/api/bmarks", require("./routes/bmarks"));

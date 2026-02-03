@@ -5,13 +5,16 @@ import { BrowserRouter } from "react-router-dom";
 
 import App from "./App";
 import { AppProvider } from "./context/AppContext"; // keep if you have it
+import { I18nProvider } from "./context/I18nContext"; // <-- add this
 import "./index.css";
 
 ReactDOM.createRoot(document.getElementById("root")).render(
   <React.StrictMode>
     <BrowserRouter>
       <AppProvider>
-        <App />
+        <I18nProvider>
+          <App />
+        </I18nProvider>
       </AppProvider>
     </BrowserRouter>
   </React.StrictMode>
