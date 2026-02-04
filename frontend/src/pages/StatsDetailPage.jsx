@@ -1,238 +1,307 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { Link, useParams, useSearchParams } from "react-router-dom";
 import { useI18n } from "../context/I18nContext";
+import "./StatsDetailPage.css";
 
-function pick(obj, keys) {
-  if (!obj) return null;
-  for (const k of keys) {
-    const v = obj[k];
-    if (v !== undefined && v !== null && v !== "") return v;
-  }
-  return null;
+function inYear(dateStr, year) {
+  if (!dateStr) return false;
+  const d = new Date(dateStr);
+  if (Number.isNaN(d.getTime())) return false;
+  const start = new Date(Date.UTC(year, 0, 1));
+  const end = new Date(Date.UTC(year + 1, 0, 1));
+  return d >= start && d < end;
 }
 
-function safeHttpUrl(v) {
-  if (typeof v !== "string") return null;
-  const s = v.trim();
-  if (!s) return null;
-  if (/^https?:\/\//i.test(s)) return s;
-  return null;
+function getBookTitle(b) {
+  return b?.title || b?.book_title || b?.name || "(untitled)";
+}
+
+function getBookId(b, i) {
+  return (
+    b?.id ||
+    b?.book_id ||
+    b?.isbn ||
+    b?.asin ||
+    `${getBookTitle(b)}-${b?.author || ""}-${i}`
+  );
 }
 
 export default function StatsDetailPage() {
-  const { type } = useParams(); // stock | finished | abandoned | top
-  const [sp] = useSearchParams();
-  const year = sp.get("year");
+  const { type } = useParams();
+  const [sp, setSp] = useSearchParams();
   const { t } = useI18n();
 
-  const allowed = useMemo(() => new Set(["stock", "finished", "abandoned", "top"]), []);
-  const isValid = allowed.has(type);
+  const year = Number(sp.get("year")) || 2026; // keep your default
+  const author = sp.get("author") || "";
 
-  const pageTitle = useMemo(() => {
+  const cfg = useMemo(() => {
     const map = {
-      stock: t("stats_in_stock"),
-      finished: t("stats_finished"),
-      abandoned: t("stats_abandoned"),
-      top: t("stats_top"),
+      stock: { titleKey: "stats_in_stock" },
+      finished: { titleKey: "stats_finished", bucket: "finished", yearField: "reading_status_updated_at" },
+      abandoned: { titleKey: "stats_abandoned", bucket: "abandoned", yearField: "reading_status_updated_at" },
+      top: { titleKey: "stats_top", bucket: "top", yearField: "top_book_set_at" },
     };
-    return map[type] || `Stats: ${type}`;
-  }, [type, t]);
+    return map[type] || null;
+  }, [type]);
 
-  // pagination + search
-  const [q, setQ] = useState("");
-  const [items, setItems] = useState([]);
+  const [authors, setAuthors] = useState([]);
+  const [books, setBooks] = useState([]);
   const [offset, setOffset] = useState(0);
-  const limit = 120;
-
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
-  const [hasMore, setHasMore] = useState(false);
+  const [err, setErr] = useState("");
 
-  // reset when switching type/year
-  useEffect(() => {
-    setItems([]);
-    setOffset(0);
-    setHasMore(false);
-    setError("");
-  }, [type, year]);
-
-  async function fetchPage({ nextOffset, append }) {
-    // If your backend uses a different query param than "bucket", change it here:
-    const BUCKET_PARAM = "bucket";
-
-    const qs = new URLSearchParams();
-    qs.set(BUCKET_PARAM, type);
-    qs.set("limit", String(limit));
-    qs.set("offset", String(nextOffset));
-    qs.set("meta", "1"); // if backend supports it, it can return {items,total,...}
-
-    // only apply year filtering for non-stock (usually stock is lifetime)
-    if (type !== "stock" && year) qs.set("year", year);
-
-    // optional backend search support
-    if (q.trim()) qs.set("q", q.trim());
-
-    // try the most likely endpoint
-    const url = `/api/public/books?${qs.toString()}`;
-
-    const resp = await fetch(url, { headers: { Accept: "application/json" } });
-    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-
-    const data = await resp.json();
-
-    // Accept multiple response shapes:
-    // - { items: [...] }
-    // - [...]
-    // - { rows: [...] }
-    const newItems = Array.isArray(data) ? data : (data.items || data.rows || []);
-    const total = !Array.isArray(data) ? (typeof data.total === "number" ? data.total : null) : null;
-
-    setItems((prev) => (append ? [...prev, ...newItems] : newItems));
-    setOffset(nextOffset + newItems.length);
-
-    if (total != null) {
-      setHasMore(nextOffset + newItems.length < total);
-    } else {
-      // fallback: if we got a full page, assume there might be more
-      setHasMore(newItems.length === limit);
-    }
-  }
-
-  useEffect(() => {
-    if (!isValid) return;
-    const ac = new AbortController();
-
-    (async () => {
-      setLoading(true);
-      setError("");
-      try {
-        // first page
-        await fetchPage({ nextOffset: 0, append: false });
-      } catch (e) {
-        setError(e?.message || String(e));
-      } finally {
-        setLoading(false);
-      }
-    })();
-
-    return () => ac.abort();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [type, year, isValid, q]); // refetch when q changes (backend search). If you prefer client-only search, remove q here.
-
-  const normalized = useMemo(() => {
-    return items.map((b) => {
-      const author = pick(b, ["author", "author_display", "authorDisplay", "author_name", "authorName"]) || "—";
-      const title = pick(b, ["title", "full_title", "fullTitle", "title_keyword", "titleKeyword"]) || "—";
-
-      const purchase_url = safeHttpUrl(
-        pick(b, [
-          "purchase_url",
-          "purchaseUrl",
-          "purchase_link",
-          "purchaseLink",
-          "buy_url",
-          "buyUrl",
-          "buy_link",
-          "buyLink",
-          "amazon_url",
-          "amazonUrl",
-          "link",
-          "url",
-        ])
-      );
-
-      const id = pick(b, ["id", "book_id", "bookId", "barcode", "isbn"]) || `${author}-${title}`;
-
-      return { id, author, title, purchase_url };
+  const updateParams = (patch, options) => {
+    const next = new URLSearchParams(sp);
+    Object.entries(patch).forEach(([k, v]) => {
+      if (v === null || v === undefined || v === "") next.delete(k);
+      else next.set(k, String(v));
     });
-  }, [items]);
+    setSp(next, options);
+  };
 
-  if (!isValid) {
+  // STOCK: load ranking
+  useEffect(() => {
+    if (type !== "stock") return;
+    setLoading(true);
+    setErr("");
+
+    fetch(`/api/public/books/stock-authors?limit=120`, { headers: { Accept: "application/json" } })
+      .then((r) => {
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        return r.json();
+      })
+      .then((rows) => setAuthors(Array.isArray(rows) ? rows : []))
+      .catch((e) => setErr(e?.message || String(e)))
+      .finally(() => setLoading(false));
+  }, [type]);
+
+  // STOCK: load books for author
+  useEffect(() => {
+    if (type !== "stock") return;
+    if (!author) {
+      setBooks([]);
+      setOffset(0);
+      return;
+    }
+
+    setLoading(true);
+    setErr("");
+
+    fetch(`/api/public/books?bucket=stock&author=${encodeURIComponent(author)}&limit=200&offset=0`, {
+      headers: { Accept: "application/json" },
+    })
+      .then((r) => {
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        return r.json();
+      })
+      .then((rows) => {
+        setBooks(Array.isArray(rows) ? rows : []);
+        setOffset(200);
+      })
+      .catch((e) => setErr(e?.message || String(e)))
+      .finally(() => setLoading(false));
+  }, [type, author]);
+
+  // OTHER PAGES: load list (year-filtered client side)
+  useEffect(() => {
+    if (!cfg || type === "stock") return;
+
+    setLoading(true);
+    setErr("");
+    setBooks([]);
+    setOffset(0);
+
+    fetch(`/api/public/books?bucket=${encodeURIComponent(cfg.bucket)}&limit=200&offset=0`, {
+      headers: { Accept: "application/json" },
+    })
+      .then((r) => {
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        return r.json();
+      })
+      .then((rows) => {
+        const arr = Array.isArray(rows) ? rows : [];
+        const filtered = arr.filter((b) => inYear(b?.[cfg.yearField], year));
+        setBooks(filtered);
+        setOffset(200);
+      })
+      .catch((e) => setErr(e?.message || String(e)))
+      .finally(() => setLoading(false));
+  }, [cfg, type, year]);
+
+  const loadMore = async () => {
+    if (loading) return;
+
+    try {
+      setLoading(true);
+      setErr("");
+
+      if (type === "stock") {
+        if (!author) return;
+
+        const r = await fetch(
+          `/api/public/books?bucket=stock&author=${encodeURIComponent(author)}&limit=200&offset=${offset}`,
+          { headers: { Accept: "application/json" } }
+        );
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        const rows = await r.json();
+        const arr = Array.isArray(rows) ? rows : [];
+        setBooks((prev) => prev.concat(arr));
+        setOffset((o) => o + 200);
+      } else {
+        if (!cfg) return;
+
+        const r = await fetch(
+          `/api/public/books?bucket=${encodeURIComponent(cfg.bucket)}&limit=200&offset=${offset}`,
+          { headers: { Accept: "application/json" } }
+        );
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        const rows = await r.json();
+        const arr = Array.isArray(rows) ? rows : [];
+        const filtered = arr.filter((b) => inYear(b?.[cfg.yearField], year));
+        setBooks((prev) => prev.concat(filtered));
+        setOffset((o) => o + 200);
+      }
+    } catch (e) {
+      setErr(e?.message || String(e));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (!cfg) {
     return (
-      <div style={{ padding: 24 }}>
-        <h2>Unknown stats page</h2>
-        <p>Type: {String(type)}</p>
-        <Link to="/">← Back</Link>
+      <div className="zr-statsdetail">
+        <h2>404</h2>
+        <Link to="/">{t("nav_home")}</Link>
       </div>
     );
   }
 
   return (
-    <div style={{ padding: 24, maxWidth: 980 }}>
-      <div style={{ display: "flex", alignItems: "baseline", gap: 12, flexWrap: "wrap" }}>
-        <h2 style={{ margin: 0 }}>{pageTitle}</h2>
-        {type !== "stock" && year ? <span style={{ opacity: 0.7 }}>({year})</span> : null}
-        <Link to="/" style={{ marginLeft: "auto" }}>
+    <div className="zr-statsdetail">
+      <div className="zr-statsdetail-top">
+        <Link to="/" className="zr-statsdetail-back">
           ← {t("nav_home")}
         </Link>
-      </div>
 
-      <div style={{ marginTop: 16, display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
-        <input
-          value={q}
-          onChange={(e) => setQ(e.target.value)}
-          placeholder={t("search_placeholder")}
-          style={{ padding: "8px 10px", minWidth: 260 }}
-        />
-        <span style={{ opacity: 0.7 }}>
-          {normalized.length} {t("books") || "books"}
-        </span>
-      </div>
-
-      {error ? (
-        <div style={{ marginTop: 16, color: "crimson" }}>
-          {t("stats_error", { error }) || `Error: ${error}`}
+        <div className="zr-statsdetail-title">
+          {t(cfg.titleKey)}{" "}
+          {type === "stock" ? null : <span className="zr-statsdetail-year">{year}</span>}
         </div>
-      ) : null}
-
-      <ul style={{ listStyle: "none", padding: 0, marginTop: 18, lineHeight: 1.6 }}>
-        {normalized.map((b) => {
-          const href = b.purchase_url;
-
-          return (
-            <li key={b.id} style={{ padding: "6px 0", borderBottom: "1px solid rgba(0,0,0,0.06)" }}>
-              {href ? (
-                <>
-                  <a href={href} target="_blank" rel="noreferrer" style={{ color: "inherit", textDecoration: "none", fontWeight: 600 }}>
-                    {b.author}
-                  </a>
-                  {" — "}
-                  <a href={href} target="_blank" rel="noreferrer" style={{ color: "inherit", textDecoration: "none" }}>
-                    {b.title}
-                  </a>
-                </>
-              ) : (
-                <span>
-                  {b.author} — {b.title}
-                </span>
-              )}
-            </li>
-          );
-        })}
-      </ul>
-
-      <div style={{ marginTop: 16, display: "flex", gap: 10, alignItems: "center" }}>
-        {loading ? <span>{t("loading") || "Loading…"}</span> : null}
-
-        {!loading && hasMore ? (
-          <button
-            onClick={async () => {
-              setLoading(true);
-              setError("");
-              try {
-                await fetchPage({ nextOffset: offset, append: true });
-              } catch (e) {
-                setError(e?.message || String(e));
-              } finally {
-                setLoading(false);
-              }
-            }}
-            style={{ padding: "8px 12px", cursor: "pointer" }}
-          >
-            {t("load_more") || "Load more"}
-          </button>
-        ) : null}
       </div>
+
+      {err ? <div className="zr-statsdetail-error">{err}</div> : null}
+      {loading ? <div className="zr-statsdetail-loading">loading…</div> : null}
+
+      {type === "stock" ? (
+        <>
+          {!author ? (
+            <>
+              <div className="zr-statsdetail-subtitle">Most owned authors (in stock)</div>
+
+              <div className="zr-statsdetail-list">
+                {authors.length === 0 && !loading ? (
+                  <div className="zr-statsdetail-empty">No authors found.</div>
+                ) : (
+                  <ul>
+                    {authors.map((row, i) => {
+                      const name = row?.author || row?.name || row?.autor || row?.Author || "";
+                      const count =
+                        row?.count ?? row?.cnt ?? row?.total ?? row?.n ?? row?.books ?? row?.book_count ?? "";
+                      if (!name) return null;
+
+                      return (
+                        <li key={`${name}-${i}`}>
+                          <button
+                            type="button"
+                            className="zr-statsdetail-authorbtn"
+                            onClick={() => updateParams({ author: name })}
+                          >
+                            <span className="zr-statsdetail-authorname">{name}</span>
+                            {count !== "" ? (
+                              <span className="zr-statsdetail-authorcount">{count}</span>
+                            ) : null}
+                          </button>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                )}
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="zr-statsdetail-subtitle">
+                <button
+                  type="button"
+                  className="zr-statsdetail-linkbtn"
+                  onClick={() => updateParams({ author: "" })}
+                  title="Back to author ranking"
+                >
+                  ← back
+                </button>
+                <span className="zr-statsdetail-selectedauthor">{author}</span>
+              </div>
+
+              <div className="zr-statsdetail-list">
+                {books.length === 0 && !loading ? (
+                  <div className="zr-statsdetail-empty">No books found for this author.</div>
+                ) : (
+                  <ul>
+                    {books.map((b, i) => (
+                      <li key={getBookId(b, i)} className="zr-statsdetail-bookitem">
+                        <div className="zr-statsdetail-booktitle">{getBookTitle(b)}</div>
+                        {b?.author ? <div className="zr-statsdetail-bookmeta">{b.author}</div> : null}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+
+              <div className="zr-statsdetail-actions">
+                <button type="button" className="zr-statsdetail-morebtn" onClick={loadMore} disabled={loading}>
+                  Load more
+                </button>
+              </div>
+            </>
+          )}
+        </>
+      ) : (
+        <>
+          <div className="zr-statsdetail-controls">
+            <label className="zr-statsdetail-yearlabel">
+              Year{" "}
+              <input
+                type="number"
+                value={year}
+                onChange={(e) => updateParams({ year: e.target.value }, { replace: true })}
+                className="zr-statsdetail-yearinput"
+              />
+            </label>
+          </div>
+
+          <div className="zr-statsdetail-list">
+            {books.length === 0 && !loading ? (
+              <div className="zr-statsdetail-empty">No books for {year}.</div>
+            ) : (
+              <ul>
+                {books.map((b, i) => (
+                  <li key={getBookId(b, i)} className="zr-statsdetail-bookitem">
+                    <div className="zr-statsdetail-booktitle">{getBookTitle(b)}</div>
+                    {b?.author ? <div className="zr-statsdetail-bookmeta">{b.author}</div> : null}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+
+          <div className="zr-statsdetail-actions">
+            <button type="button" className="zr-statsdetail-morebtn" onClick={loadMore} disabled={loading}>
+              Load more
+            </button>
+          </div>
+        </>
+      )}
     </div>
   );
 }

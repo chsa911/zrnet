@@ -6,6 +6,7 @@
     "frontend"
   ],
   "devDependencies": {
+    "@babel/code-frame": "^7.29.0",
     "concurrently": "^9.2.1"
   },
   "scripts": {
@@ -16,5 +17,5 @@
   "dependencies": {
     "cookie-parser": "^1.4.7",
     "dotenv": "^17.2.3"
-     }
+  }
 }

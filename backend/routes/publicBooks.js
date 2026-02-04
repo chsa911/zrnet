@@ -16,15 +16,6 @@ const clampInt = (x, def, min, max) => {
   return Math.max(min, Math.min(max, n));
 };
 
-function yearRange(year) {
-  const y = clampInt(year, new Date().getFullYear(), 1970, 2100);
-  return {
-    year: y,
-    start: `${y}-01-01`,
-    end: `${y + 1}-01-01`,
-  };
-}
-
 function normStr(v) {
   if (v === undefined || v === null) return null;
   const s = String(v).trim();
@@ -34,14 +25,16 @@ function normStr(v) {
 /**
  * GET /api/public/books
  * Query:
- *  - bucket: top|finished|abandoned|registered (default registered)
+ *  - bucket: stock|top|finished|abandoned|registered (default registered)
  *  - author: substring filter
  *  - title: substring filter
- *  - q: free text across title/author/publisher/barcode
+ *  - q: free text across title/author/publisher/barcode/isbn
+ *  - year: optional (filters finished/abandoned/top by that year)
  *  - limit (default 50, max 200)
- *  - page or offset (pagination)
- *  - year (optional, filters bucket dates)
- *  - meta=1 (returns {items,total,...})
+ *  - offset (default 0)
+ *
+ * Returns array of rows: [{ author, title, ... }]
+ * (kept compatible with the existing public frontend)
  */
 router.get("/", async (req, res) => {
   try {
@@ -49,15 +42,8 @@ router.get("/", async (req, res) => {
 
     const bucket = String(req.query.bucket || "registered").toLowerCase();
     const limit = clampInt(req.query.limit, 50, 1, 200);
-    const meta = String(req.query.meta || "").trim() === "1";
-
-    const page = clampInt(req.query.page, 1, 1, 100000);
-    const offsetRaw = req.query.offset;
-    const offset =
-      offsetRaw != null ? clampInt(offsetRaw, 0, 0, 200000) : (page - 1) * limit;
-
-    const yearQ = normStr(req.query.year);
-    const yr = yearQ ? yearRange(yearQ) : null;
+    const offset = clampInt(req.query.offset, 0, 0, 100000);
+    const year = req.query.year ? clampInt(req.query.year, new Date().getFullYear(), 1970, 2100) : null;
 
     const author = normStr(req.query.author);
     const title = normStr(req.query.title);
@@ -66,44 +52,58 @@ router.get("/", async (req, res) => {
     const where = [];
     const params = [];
 
+    // Bucket filters + sorting
     let orderBy = "b.registered_at DESC";
 
     if (bucket === "top") {
       where.push("b.top_book = true");
       orderBy = "b.top_book_set_at DESC NULLS LAST, b.registered_at DESC";
 
-      if (yr) {
-        params.push(yr.start, yr.end);
-        where.push(`b.top_book_set_at >= $${params.length - 1}::timestamptz`);
+      if (year) {
+        const start = `${year}-01-01`;
+        const end = `${year + 1}-01-01`;
+        params.push(start);
+        where.push(`b.top_book_set_at >= $${params.length}::timestamptz`);
+        params.push(end);
         where.push(`b.top_book_set_at <  $${params.length}::timestamptz`);
       }
     } else if (bucket === "finished") {
       where.push("b.reading_status = 'finished'");
       orderBy = "b.reading_status_updated_at DESC NULLS LAST, b.registered_at DESC";
 
-      if (yr) {
-        params.push(yr.start, yr.end);
-        where.push(`b.reading_status_updated_at >= $${params.length - 1}::timestamptz`);
+      if (year) {
+        const start = `${year}-01-01`;
+        const end = `${year + 1}-01-01`;
+        params.push(start);
+        where.push(`b.reading_status_updated_at >= $${params.length}::timestamptz`);
+        params.push(end);
         where.push(`b.reading_status_updated_at <  $${params.length}::timestamptz`);
       }
     } else if (bucket === "abandoned") {
       where.push("b.reading_status = 'abandoned'");
       orderBy = "b.reading_status_updated_at DESC NULLS LAST, b.registered_at DESC";
 
-      if (yr) {
-        params.push(yr.start, yr.end);
-        where.push(`b.reading_status_updated_at >= $${params.length - 1}::timestamptz`);
+      if (year) {
+        const start = `${year}-01-01`;
+        const end = `${year + 1}-01-01`;
+        params.push(start);
+        where.push(`b.reading_status_updated_at >= $${params.length}::timestamptz`);
+        params.push(end);
         where.push(`b.reading_status_updated_at <  $${params.length}::timestamptz`);
       }
+    } else if (bucket === "stock") {
+      // "in stock" = has at least one non-empty barcode
+      where.push(`
+        EXISTS (
+          SELECT 1 FROM public.book_barcodes bb2
+          WHERE bb2.book_id = b.id AND bb2.barcode IS NOT NULL AND bb2.barcode <> ''
+        )
+      `);
+      orderBy = "b.registered_at DESC";
+      // year is ignored for stock
     } else {
       // registered
       orderBy = "b.registered_at DESC";
-
-      if (yr) {
-        params.push(yr.start, yr.end);
-        where.push(`b.registered_at >= $${params.length - 1}::timestamptz`);
-        where.push(`b.registered_at <  $${params.length}::timestamptz`);
-      }
     }
 
     if (author) {
@@ -134,7 +134,8 @@ router.get("/", async (req, res) => {
 
     const whereSql = where.length ? `WHERE ${where.join(" AND ")}` : "";
 
-    const listSql = `
+    const { rows } = await pool.query(
+      `
       SELECT
         b.id,
         COALESCE(b.author_display, b.author) AS author,
@@ -144,6 +145,8 @@ router.get("/", async (req, res) => {
         b.reading_status_updated_at,
         b.top_book,
         b.top_book_set_at,
+        b.isbn10,
+        b.isbn13,
         bb.barcode
       FROM public.books b
       LEFT JOIN LATERAL (
@@ -153,32 +156,11 @@ router.get("/", async (req, res) => {
       ORDER BY ${orderBy}
       LIMIT $${params.length + 1}
       OFFSET $${params.length + 2}
-    `;
+      `,
+      [...params, limit, offset]
+    );
 
-    const { rows } = await pool.query(listSql, [...params, limit, offset]);
-
-    if (!meta) return res.json(rows);
-
-    const countSql = `
-      SELECT count(*)::int AS total
-      FROM public.books b
-      LEFT JOIN LATERAL (
-        SELECT barcode FROM public.book_barcodes bb WHERE bb.book_id = b.id LIMIT 1
-      ) bb ON true
-      ${whereSql}
-    `;
-
-    const totalRes = await pool.query(countSql, params);
-    const total = totalRes.rows?.[0]?.total ?? 0;
-
-    return res.json({
-      bucket,
-      year: yr?.year ?? null,
-      limit,
-      offset,
-      total,
-      items: rows,
-    });
+    return res.json(rows);
   } catch (err) {
     console.error("GET /api/public/books error", err);
     return res.status(500).json({ error: "internal_error" });
@@ -186,10 +168,44 @@ router.get("/", async (req, res) => {
 });
 
 /**
+ * GET /api/public/books/stock-authors?limit=80
+ * Returns: [{ author, count }]
+ */
+router.get("/stock-authors", async (req, res) => {
+  try {
+    const pool = getPool(req);
+    const limit = clampInt(req.query.limit, 80, 1, 200);
+
+    const { rows } = await pool.query(
+      `
+      SELECT
+        COALESCE(b.author_display, b.author) AS author,
+        COUNT(*)::int AS count
+      FROM public.books b
+      WHERE
+        COALESCE(b.author_display, b.author) IS NOT NULL
+        AND COALESCE(b.author_display, b.author) <> ''
+        AND EXISTS (
+          SELECT 1 FROM public.book_barcodes bb
+          WHERE bb.book_id = b.id AND bb.barcode IS NOT NULL AND bb.barcode <> ''
+        )
+      GROUP BY 1
+      ORDER BY count DESC, author ASC
+      LIMIT $1
+      `,
+      [limit]
+    );
+
+    return res.json(rows);
+  } catch (err) {
+    console.error("GET /api/public/books/stock-authors error", err);
+    return res.status(500).json({ error: "internal_error" });
+  }
+});
+
+/**
  * GET /api/public/books/stats?year=2026
- *
- * in_stock = DISTINCT book_id in public.barcode_assignments with freed_at IS NULL  (your DB says: 2932)
- * finished = books finished in year AND has at least one freed assignment in history (freed_at IS NOT NULL)
+ * Returns: { books_with_barcode, finished, abandoned, top }
  */
 router.get("/stats", async (req, res) => {
   try {
@@ -202,59 +218,35 @@ router.get("/stats", async (req, res) => {
     const { rows } = await pool.query(
       `
       SELECT
-        -- Im Bestand (2932)
         (
-          SELECT COUNT(DISTINCT ba.book_id)::int
-          FROM public.barcode_assignments ba
-          WHERE ba.freed_at IS NULL
-        ) AS in_stock,
+          SELECT COUNT(DISTINCT bb.book_id)::int
+          FROM public.book_barcodes bb
+          WHERE bb.barcode IS NOT NULL AND bb.barcode <> ''
+        ) AS books_with_barcode,
 
-        -- Fertig (should be 14 for your definition)
-        (
-          SELECT COUNT(*)::int
-          FROM public.books b
+        count(*) FILTER (
           WHERE b.reading_status = 'finished'
             AND b.reading_status_updated_at >= $1::timestamptz
             AND b.reading_status_updated_at <  $2::timestamptz
-            AND EXISTS (
-              SELECT 1
-              FROM public.barcode_assignments bah
-              WHERE bah.book_id = b.id
-                AND bah.freed_at IS NOT NULL
-            )
-        ) AS finished,
+        )::int AS finished,
 
-        -- Abgebrochen
-        (
-          SELECT COUNT(*)::int
-          FROM public.books b
+        count(*) FILTER (
           WHERE b.reading_status = 'abandoned'
             AND b.reading_status_updated_at >= $1::timestamptz
             AND b.reading_status_updated_at <  $2::timestamptz
-        ) AS abandoned,
+        )::int AS abandoned,
 
-        -- Top
-        (
-          SELECT COUNT(*)::int
-          FROM public.books b
+        count(*) FILTER (
           WHERE b.top_book = true
             AND b.top_book_set_at >= $1::timestamptz
             AND b.top_book_set_at <  $2::timestamptz
-        ) AS top
+        )::int AS top
+      FROM public.books b
       `,
       [start, end]
     );
 
-    const row = rows[0] || { in_stock: 0, finished: 0, abandoned: 0, top: 0 };
-
-    // Return aliases so your frontend can "pick" safely
-    return res.json({
-      in_stock: row.in_stock,
-      instock: row.in_stock,
-      finished: row.finished,
-      abandoned: row.abandoned,
-      top: row.top,
-    });
+    return res.json(rows[0] || { books_with_barcode: 0, finished: 0, abandoned: 0, top: 0 });
   } catch (err) {
     console.error("GET /api/public/books/stats error", err);
     return res.status(500).json({ error: "internal_error" });
