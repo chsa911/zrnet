@@ -55,7 +55,8 @@ const TRANSLATIONS = {
     li5_link_bookdeckel: "BookDeckel",
     note_html:
       'Everything is based on a database which is connected to my physical bookshelf. <br/>More about how and why I did this is explained in <a href="/ueber_mich.html">About me</a>.',
-  },
+  nav_impressum: "Imprint",
+    },
 
   de: {
     // header
@@ -109,7 +110,8 @@ const TRANSLATIONS = {
     li5_link_bookdeckel: "BookDeckel",
     note_html:
       'Alles basiert auf einer Datenbank, die mit meinem physischen Bücherregal verbunden ist. <br/>Mehr darüber erkläre ich in <a href="/ueber_mich.html">Über mich</a>.',
-  },
+  nav_impressum: "Impressum",
+    },
 };
 
 function interpolate(template, vars) {

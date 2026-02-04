@@ -123,6 +123,7 @@ export default function Header({ year = 2026 }) {
     { to: "/newsletter.html", key: "nav_newsletter" },
     { to: "/merchandise.html", key: "nav_shop" },
     { to: "/faq.html", key: "nav_faq" },
+  { to: "/impressum.html", key: "nav_impressum" },
   ];
 
   return (
