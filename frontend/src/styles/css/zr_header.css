@@ -305,4 +305,19 @@
   .zr-stats-bar .zr-stat-seg:last-child {
     border-bottom: none;
   }
+/* Make stat tiles clickable without changing layout */
+.zr-stat-link {
+  text-decoration: none;
+  color: inherit;
+  cursor: pointer;
+}
+
+.zr-stat-link:hover {
+  background: rgba(0, 0, 0, 0.04);
+}
+
+.zr-stat-link:focus-visible {
+  outline: 2px solid rgba(0, 0, 0, 0.35);
+  outline-offset: -2px;
+}
 }

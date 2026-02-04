@@ -1,3 +1,4 @@
+// frontend/src/components/Header.jsx
 import React, { useEffect, useState } from "react";
 import { Link, NavLink, useLocation } from "react-router-dom";
 import "../styles/css/zr_header.css";
@@ -27,6 +28,10 @@ export default function Header({ year = 2026 }) {
   const [note, setNote] = useState(t("stats_loading"));
   const [error, setError] = useState("");
 
+  // ✅ only change: make stat segments clickable
+  const statsHref = (type) => `/stats/${type}?year=${encodeURIComponent(year)}`;
+  const statLinkStyle = { textDecoration: "none", color: "inherit" };
+
   // Load icon sets once (optional)
   useEffect(() => {
     const ensureLink = (href) => {
@@ -49,7 +54,6 @@ export default function Header({ year = 2026 }) {
     if (!showStats) return;
     if (!note && !error) return;
 
-    // simple refresh for common values
     if (!error) {
       if (note.includes("live") || note.includes("DB")) setNote(t("stats_live_db"));
       else setNote(t("stats_loading"));
@@ -123,7 +127,7 @@ export default function Header({ year = 2026 }) {
     { to: "/newsletter.html", key: "nav_newsletter" },
     { to: "/merchandise.html", key: "nav_shop" },
     { to: "/faq.html", key: "nav_faq" },
-  { to: "/impressum.html", key: "nav_impressum" },
+    { to: "/impressum.html", key: "nav_impressum" },
   ];
 
   return (
@@ -131,7 +135,14 @@ export default function Header({ year = 2026 }) {
       <div className="zr-top">
         <div className="zr-brand">
           <Link className="zr-logo" to="/">
-            <img src="/assets/images/allgemein/logo.jpeg" alt="Zenreader logo" width="48" height="48" decoding="async" loading="eager" />
+            <img
+              src="/assets/images/allgemein/logo.jpeg"
+              alt="Zenreader logo"
+              width="48"
+              height="48"
+              decoding="async"
+              loading="eager"
+            />
           </Link>
         </div>
 
@@ -157,13 +168,28 @@ export default function Header({ year = 2026 }) {
           <a className="zr-btn alt-b" href="https://admin.zenreader.net/">
             {t("nav_login")}
           </a>
-          <a className="zr-btn zr-youtube" href="https://www.youtube.com/@zenreader2026" target="_blank" rel="noreferrer">
+          <a
+            className="zr-btn zr-youtube"
+            href="https://www.youtube.com/@zenreader2026"
+            target="_blank"
+            rel="noreferrer"
+          >
             {t("nav_youtube")}
           </a>
-          <a className="zr-btn zr-tiktok" href="https://www.tiktok.com/@zenreader26" target="_blank" rel="noreferrer">
+          <a
+            className="zr-btn zr-tiktok"
+            href="https://www.tiktok.com/@zenreader26"
+            target="_blank"
+            rel="noreferrer"
+          >
             {t("nav_tiktok")}
           </a>
-          <a className="zr-btn alt-a zr-instagram" href="https://www.instagram.com/zenreader26/" target="_blank" rel="noreferrer">
+          <a
+            className="zr-btn alt-a zr-instagram"
+            href="https://www.instagram.com/zenreader26/"
+            target="_blank"
+            rel="noreferrer"
+          >
             {t("nav_instagram")}
           </a>
         </nav>
@@ -201,22 +227,25 @@ export default function Header({ year = 2026 }) {
             </div>
 
             <div className="zr-stats-bar" role="group" aria-label="Stats">
-              <div className="zr-stat-seg">
+              <Link to={statsHref("stock")} className="zr-stat-seg zr-stat-link" style={statLinkStyle}>
                 <div className="zr-stat-label">{t("stats_in_stock")}</div>
                 <div className="zr-stat-value">{stats.instock}</div>
-              </div>
-              <div className="zr-stat-seg">
+              </Link>
+
+              <Link to={statsHref("finished")} className="zr-stat-seg zr-stat-link" style={statLinkStyle}>
                 <div className="zr-stat-label">{t("stats_finished")}</div>
                 <div className="zr-stat-value">{stats.finished}</div>
-              </div>
-              <div className="zr-stat-seg">
+              </Link>
+
+              <Link to={statsHref("abandoned")} className="zr-stat-seg zr-stat-link" style={statLinkStyle}>
                 <div className="zr-stat-label">{t("stats_abandoned")}</div>
                 <div className="zr-stat-value">{stats.abandoned}</div>
-              </div>
-              <div className="zr-stat-seg">
+              </Link>
+
+              <Link to={statsHref("top")} className="zr-stat-seg zr-stat-link" style={statLinkStyle}>
                 <div className="zr-stat-label">{t("stats_top")}</div>
                 <div className="zr-stat-value">{stats.top}</div>
-              </div>
+              </Link>
             </div>
 
             {error ? <div className="zr-stats-error">{error}</div> : null}

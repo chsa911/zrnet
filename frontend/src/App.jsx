@@ -1,6 +1,6 @@
 import React from "react";
 import { Routes, Route, Navigate } from "react-router-dom";
-
+import StatsDetailPage from "./pages/StatsDetailPage";
 import Layout from "./components/Layout";
 import Home from "./pages/Home";
 import AnalyticsPage from "./pages/AnalyticsPage";
@@ -32,7 +32,7 @@ export default function App() {
         {/* hide old public admin pages if any */}
         <Route path="register" element={<Navigate to="/" replace />} />
         <Route path="update" element={<Navigate to="/" replace />} />
-
+<Route path="stats/:type" element={<StatsDetailPage />} />
         {/* legacy html routes like /ueber_mich.html, /impressum.html ... */}
         <Route path=":page.html" element={<LegacyHtmlPage />} />
 
