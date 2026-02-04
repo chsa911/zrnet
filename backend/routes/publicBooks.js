@@ -39,9 +39,9 @@ function normStr(v) {
  *  - title: substring filter
  *  - q: free text across title/author/publisher/barcode
  *  - limit (default 50, max 200)
- *
- * Returns array of rows: [{ author, title, ... }]
- * (kept compatible with the existing public frontend)
+ *  - page or offset (pagination)
+ *  - year (optional, filters bucket dates)
+ *  - meta=1 (returns {items,total,...})
  */
 router.get("/", async (req, res) => {
   try {
@@ -51,12 +51,11 @@ router.get("/", async (req, res) => {
     const limit = clampInt(req.query.limit, 50, 1, 200);
     const meta = String(req.query.meta || "").trim() === "1";
 
-    // pagination: either offset directly or (page-1)*limit
     const page = clampInt(req.query.page, 1, 1, 100000);
     const offsetRaw = req.query.offset;
-    const offset = offsetRaw != null ? clampInt(offsetRaw, 0, 0, 200000) : (page - 1) * limit;
+    const offset =
+      offsetRaw != null ? clampInt(offsetRaw, 0, 0, 200000) : (page - 1) * limit;
 
-    // year filter (makes list match the header counts)
     const yearQ = normStr(req.query.year);
     const yr = yearQ ? yearRange(yearQ) : null;
 
@@ -67,8 +66,8 @@ router.get("/", async (req, res) => {
     const where = [];
     const params = [];
 
-    // Bucket filters + sorting
     let orderBy = "b.registered_at DESC";
+
     if (bucket === "top") {
       where.push("b.top_book = true");
       orderBy = "b.top_book_set_at DESC NULLS LAST, b.registered_at DESC";
@@ -135,8 +134,7 @@ router.get("/", async (req, res) => {
 
     const whereSql = where.length ? `WHERE ${where.join(" AND ")}` : "";
 
-    const listSql =
-      `
+    const listSql = `
       SELECT
         b.id,
         COALESCE(b.author_display, b.author) AS author,
@@ -155,22 +153,21 @@ router.get("/", async (req, res) => {
       ORDER BY ${orderBy}
       LIMIT $${params.length + 1}
       OFFSET $${params.length + 2}
-      `;
+    `;
 
     const { rows } = await pool.query(listSql, [...params, limit, offset]);
 
     if (!meta) return res.json(rows);
 
-    // total count for pagination UI
-    const countSql =
-      `
+    const countSql = `
       SELECT count(*)::int AS total
       FROM public.books b
       LEFT JOIN LATERAL (
         SELECT barcode FROM public.book_barcodes bb WHERE bb.book_id = b.id LIMIT 1
       ) bb ON true
       ${whereSql}
-      `;
+    `;
+
     const totalRes = await pool.query(countSql, params);
     const total = totalRes.rows?.[0]?.total ?? 0;
 
@@ -190,7 +187,9 @@ router.get("/", async (req, res) => {
 
 /**
  * GET /api/public/books/stats?year=2026
- * Returns: { finished, abandoned, top }
+ *
+ * in_stock = DISTINCT book_id in public.barcode_assignments with freed_at IS NULL  (your DB says: 2932)
+ * finished = books finished in year AND has at least one freed assignment in history (freed_at IS NOT NULL)
  */
 router.get("/stats", async (req, res) => {
   try {
@@ -203,52 +202,55 @@ router.get("/stats", async (req, res) => {
     const { rows } = await pool.query(
       `
       SELECT
-        /* "Im Bestand" / stock: books registered in the given year */
-        count(*) FILTER (
-          WHERE b.registered_at >= $1::timestamptz
-            AND b.registered_at <  $2::timestamptz
-        )::int AS registered,
+        -- Im Bestand (2932)
+        (
+          SELECT COUNT(DISTINCT ba.book_id)::int
+          FROM public.barcode_assignments ba
+          WHERE ba.freed_at IS NULL
+        ) AS in_stock,
 
-        /* books that have at least one barcode (kept for backward compatibility with older UIs) */
-        count(*) FILTER (
-          WHERE b.registered_at >= $1::timestamptz
-            AND b.registered_at <  $2::timestamptz
-            AND EXISTS (
-              SELECT 1 FROM public.book_barcodes bb WHERE bb.book_id = b.id
-            )
-        )::int AS books_with_barcode,
-
-        count(*) FILTER (
+        -- Fertig (should be 14 for your definition)
+        (
+          SELECT COUNT(*)::int
+          FROM public.books b
           WHERE b.reading_status = 'finished'
             AND b.reading_status_updated_at >= $1::timestamptz
             AND b.reading_status_updated_at <  $2::timestamptz
-        )::int AS finished,
+            AND EXISTS (
+              SELECT 1
+              FROM public.barcode_assignments bah
+              WHERE bah.book_id = b.id
+                AND bah.freed_at IS NOT NULL
+            )
+        ) AS finished,
 
-        count(*) FILTER (
+        -- Abgebrochen
+        (
+          SELECT COUNT(*)::int
+          FROM public.books b
           WHERE b.reading_status = 'abandoned'
             AND b.reading_status_updated_at >= $1::timestamptz
             AND b.reading_status_updated_at <  $2::timestamptz
-        )::int AS abandoned,
+        ) AS abandoned,
 
-        count(*) FILTER (
+        -- Top
+        (
+          SELECT COUNT(*)::int
+          FROM public.books b
           WHERE b.top_book = true
             AND b.top_book_set_at >= $1::timestamptz
             AND b.top_book_set_at <  $2::timestamptz
-        )::int AS top
-      FROM public.books b
+        ) AS top
       `,
       [start, end]
     );
 
-    const row = rows[0] || { registered: 0, books_with_barcode: 0, finished: 0, abandoned: 0, top: 0 };
+    const row = rows[0] || { in_stock: 0, finished: 0, abandoned: 0, top: 0 };
 
-    // Return a couple of aliases so different frontends can "pick" whatever they expect.
+    // Return aliases so your frontend can "pick" safely
     return res.json({
-      year,
-      registered: row.registered,
-      books_with_barcode: row.books_with_barcode,
-      in_stock: row.books_with_barcode,
-      instock: row.books_with_barcode,
+      in_stock: row.in_stock,
+      instock: row.in_stock,
       finished: row.finished,
       abandoned: row.abandoned,
       top: row.top,
