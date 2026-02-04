@@ -21,20 +21,24 @@ export default function StatsDetailPage() {
   const selectedAuthor = sp.get("author") || "";
 
   const cfg = useMemo(() => {
-    const map = {
+    return {
       stock: { title: t("stats_in_stock"), subtitle: "Most owned authors (in stock)" },
-      finished: { title: t("stats_finished") },
-      abandoned: { title: t("stats_abandoned") },
-      top: { title: t("stats_top") },
-    };
-    return map[type] || null;
+      finished: { title: t("stats_finished"), bucket: "finished", dateField: "reading_status_updated_at" },
+      abandoned: { title: t("stats_abandoned"), bucket: "abandoned", dateField: "reading_status_updated_at" },
+      top: { title: t("stats_top"), bucket: "top", dateField: "top_book_set_at" },
+    }[type] || null;
   }, [type, t]);
 
   const stockBaseUrl = `/stats/stock?year=${encodeURIComponent(year)}`;
 
+  // Stock state
   const [authorQuery, setAuthorQuery] = useState("");
   const [authors, setAuthors] = useState([]);
+  const [topN, setTopN] = useState(10);
+
+  // Common list state
   const [books, setBooks] = useState([]);
+
   const [loadingAuthors, setLoadingAuthors] = useState(false);
   const [loadingBooks, setLoadingBooks] = useState(false);
   const [err, setErr] = useState("");
@@ -53,7 +57,7 @@ export default function StatsDetailPage() {
     setSp(next, { replace: false });
   };
 
-  // STOCK: load author ranking
+  // --- STOCK: authors ranking ---
   useEffect(() => {
     if (type !== "stock") return;
 
@@ -64,7 +68,7 @@ export default function StatsDetailPage() {
     listStockAuthors({ limit: 200, signal: ac.signal })
       .then((rows) => setAuthors(Array.isArray(rows) ? rows : []))
       .catch((e) => {
-        if (isAbortError(e) || ac.signal.aborted) return; // ignore abort
+        if (isAbortError(e) || ac.signal.aborted) return;
         setErr(e?.message || String(e));
       })
       .finally(() => {
@@ -74,7 +78,7 @@ export default function StatsDetailPage() {
     return () => ac.abort();
   }, [type]);
 
-  // STOCK: load books for selected author
+  // --- STOCK: titles for selected author (titles only) ---
   useEffect(() => {
     if (type !== "stock") return;
 
@@ -97,7 +101,7 @@ export default function StatsDetailPage() {
     })
       .then((res) => setBooks(res.items || []))
       .catch((e) => {
-        if (isAbortError(e) || ac.signal.aborted) return; // ignore abort
+        if (isAbortError(e) || ac.signal.aborted) return;
         setErr(e?.message || String(e));
       })
       .finally(() => {
@@ -106,6 +110,56 @@ export default function StatsDetailPage() {
 
     return () => ac.abort();
   }, [type, selectedAuthor, year]);
+
+  // --- FINISHED / ABANDONED / TOP: newest-first list for the year ---
+  useEffect(() => {
+    if (!cfg || type === "stock") return;
+
+    const ac = new AbortController();
+    setErr("");
+    setBooks([]);
+    setLoadingBooks(true);
+
+    listPublicBooks({
+      bucket: cfg.bucket,
+      year,
+      limit: 2000,
+      offset: 0,
+      signal: ac.signal,
+    })
+      .then((res) => {
+        const items = Array.isArray(res.items) ? res.items : [];
+
+        // Ensure year filtering (in case backend ignores year)
+        const start = new Date(Date.UTC(year, 0, 1));
+        const end = new Date(Date.UTC(year + 1, 0, 1));
+        const filtered = items.filter((b) => {
+          const s = b?.[cfg.dateField];
+          if (!s) return false;
+          const d = new Date(s);
+          if (Number.isNaN(d.getTime())) return false;
+          return d >= start && d < end;
+        });
+
+        // Newest first
+        filtered.sort((a, b) => {
+          const da = new Date(a?.[cfg.dateField] || 0).getTime();
+          const db = new Date(b?.[cfg.dateField] || 0).getTime();
+          return db - da;
+        });
+
+        setBooks(filtered);
+      })
+      .catch((e) => {
+        if (isAbortError(e) || ac.signal.aborted) return;
+        setErr(e?.message || String(e));
+      })
+      .finally(() => {
+        if (!ac.signal.aborted) setLoadingBooks(false);
+      });
+
+    return () => ac.abort();
+  }, [cfg, type, year]);
 
   if (!cfg) {
     return (
@@ -116,15 +170,13 @@ export default function StatsDetailPage() {
     );
   }
 
+  // Filter authors + Top N for stock list
   const filteredAuthors = useMemo(() => {
     const q = authorQuery.trim().toLowerCase();
-    if (!q) return authors;
-    return authors.filter((a) => String(a.author || "").toLowerCase().includes(q));
-  }, [authors, authorQuery]);
+    const base = !q ? authors : authors.filter((a) => String(a.author || "").toLowerCase().includes(q));
+    return q ? base : base.slice(0, topN);
+  }, [authors, authorQuery, topN]);
 
-  // ✅ This fixes your complaint:
-  // If you’re inside an author, the top-left “back” goes to author list,
-  // NOT home.
   const backLabel = selectedAuthor ? "← Back to authors" : `← ${t("nav_home")}`;
   const backHref = selectedAuthor ? stockBaseUrl : "/";
 
@@ -141,21 +193,17 @@ export default function StatsDetailPage() {
         </div>
       </div>
 
-      {/* ✅ Breadcrumbs: Home goes home, In stock goes back to author list */}
+      {/* Breadcrumb */}
       <div className="zr-statsdetail-breadcrumb">
         <Link to="/" className="zr-crumb-link">{t("nav_home")}</Link>
         <span className="zr-crumb-sep">›</span>
 
-        {type === "stock" ? (
-          selectedAuthor ? (
-            <>
-              <Link to={stockBaseUrl} className="zr-crumb-link">{cfg.title}</Link>
-              <span className="zr-crumb-sep">›</span>
-              <span className="zr-crumb strong">{selectedAuthor}</span>
-            </>
-          ) : (
-            <span className="zr-crumb strong">{cfg.title}</span>
-          )
+        {type === "stock" && selectedAuthor ? (
+          <>
+            <Link to={stockBaseUrl} className="zr-crumb-link">{cfg.title}</Link>
+            <span className="zr-crumb-sep">›</span>
+            <span className="zr-crumb strong">{selectedAuthor}</span>
+          </>
         ) : (
           <span className="zr-crumb strong">{cfg.title}</span>
         )}
@@ -163,6 +211,7 @@ export default function StatsDetailPage() {
 
       {err ? <div className="zr-statsdetail-error">{err}</div> : null}
 
+      {/* STOCK */}
       {type === "stock" ? (
         <>
           {!selectedAuthor ? (
@@ -176,7 +225,22 @@ export default function StatsDetailPage() {
                   onChange={(e) => setAuthorQuery(e.target.value)}
                   placeholder="Filter authors…"
                 />
-                <div className="zr-statsdetail-meta">{filteredAuthors.length} authors</div>
+
+                <select
+                  className="zr-topn-select"
+                  value={topN}
+                  onChange={(e) => setTopN(Number(e.target.value))}
+                  aria-label="Top authors"
+                  title="Top authors"
+                >
+                  <option value={10}>Top 10</option>
+                  <option value={50}>Top 50</option>
+                  <option value={200}>Top 200</option>
+                </select>
+
+                <div className="zr-statsdetail-meta">
+                  {authorQuery.trim() ? `${filteredAuthors.length} matches` : `${topN} authors`}
+                </div>
               </div>
 
               <div className="zr-author-list">
@@ -200,6 +264,7 @@ export default function StatsDetailPage() {
             <>
               <div className="zr-statsdetail-subtitle">
                 Titles by <b>{selectedAuthor}</b>
+                <span style={{ opacity: 0.7, marginLeft: 8 }}>({books.length})</span>
                 <button className="zr-statsdetail-btn" onClick={onClearAuthor} type="button">
                   Back to authors
                 </button>
@@ -207,7 +272,7 @@ export default function StatsDetailPage() {
 
               {loadingBooks ? <div className="zr-statsdetail-loading">loading…</div> : null}
 
-              {/* titles only */}
+              {/* ✅ titles only */}
               <ul className="zr-books-list">
                 {books.map((b) => {
                   const title = b.title || "—";
@@ -233,7 +298,42 @@ export default function StatsDetailPage() {
           )}
         </>
       ) : (
-        <div className="zr-statsdetail-subtitle">(Next: we can apply the same UI to finished/abandoned/top.)</div>
+        /* FINISHED / ABANDONED / TOP */
+        <>
+          <div className="zr-statsdetail-subtitle">
+            {cfg.title} {year} <span style={{ opacity: 0.7 }}>({books.length})</span>
+          </div>
+
+          {loadingBooks ? <div className="zr-statsdetail-loading">loading…</div> : null}
+
+          {/* ✅ author + title, newest-first */}
+          <ul className="zr-books-list">
+            {books.map((b) => {
+              const author = b.author || "—";
+              const title = b.title || "—";
+              const url =
+                typeof b.purchase_url === "string" && b.purchase_url.trim()
+                  ? b.purchase_url.trim()
+                  : "";
+
+              return (
+                <li key={b.id} className="zr-books-item">
+                  {url ? (
+                    <>
+                      <a href={url} target="_blank" rel="noreferrer">{author}</a>
+                      <span className="zr-sep">—</span>
+                      <a href={url} target="_blank" rel="noreferrer">{title}</a>
+                    </>
+                  ) : (
+                    <span>
+                      <b>{author}</b> <span className="zr-sep">—</span> {title}
+                    </span>
+                  )}
+                </li>
+              );
+            })}
+          </ul>
+        </>
       )}
     </div>
   );

@@ -1,6 +1,7 @@
 // AnalyticsPage.jsx
 import React, { useEffect, useState } from "react";
-import { useI18n } from "../context/I18nContext"; // <-- adjust this path to your project
+import { useI18n } from "../context/I18nContext";
+import { listPublicBooks } from "../api/books";
 
 export default function AnalyticsPage() {
   const { t } = useI18n();
@@ -18,11 +19,12 @@ export default function AnalyticsPage() {
 
   const debouncedQ = useDebouncedValue(q, 250);
 
+  // Buckets supported by the public API (/api/public/books)
   const bucketOptions = [
+    { key: "stock", labelKey: "analytics_bucket_stock" },
     { key: "finished", labelKey: "analytics_bucket_finished" },
-    { key: "top", labelKey: "analytics_bucket_top" },
-    { key: "registered", labelKey: "analytics_bucket_registered" },
     { key: "abandoned", labelKey: "analytics_bucket_abandoned" },
+    { key: "top", labelKey: "analytics_bucket_top" },
   ];
 
   const setBucketAndReset = (next) => {
@@ -32,32 +34,34 @@ export default function AnalyticsPage() {
   };
 
   useEffect(() => {
+    let alive = true;
     (async () => {
       setLoadingSearch(true);
       setSearchErr("");
       try {
-        const params = new URLSearchParams({
+        const res = await listPublicBooks({
           bucket,
-          page: String(page),
-          limit: String(limit),
+          year: 2026,
+          q: debouncedQ.trim() ? debouncedQ.trim() : undefined,
+          limit,
+          page,
         });
-        if (debouncedQ.trim()) params.set("q", debouncedQ.trim());
-
-        const r = await fetch(`/api/public/books/search?${params.toString()}`, {
-          headers: { Accept: "application/json" },
-        });
-        if (!r.ok) throw new Error(`HTTP ${r.status}`);
-        const j = await r.json();
-        setItems(j.items || []);
-        setTotal(j.total || 0);
+        if (!alive) return;
+        setItems(res.items || []);
+        setTotal(res.total || 0);
       } catch (e) {
+        if (!alive) return;
         setItems([]);
         setTotal(0);
         setSearchErr(e?.message || String(e));
       } finally {
+        if (!alive) return;
         setLoadingSearch(false);
       }
     })();
+    return () => {
+      alive = false;
+    };
   }, [bucket, debouncedQ, page, limit]);
 
   const pages = Math.max(1, Math.ceil(total / limit));

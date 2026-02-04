@@ -55,7 +55,20 @@ const TRANSLATIONS = {
     li5_link_bookdeckel: "BookDeckel",
     note_html:
       'Everything is based on a database which is connected to my physical bookshelf. <br/>More about how and why I did this is explained in <a href="/ueber_mich.html">About me</a>.',
-  nav_impressum: "Imprint",
+
+    nav_impressum: "Imprint",
+
+    // reading diary / analytics
+    analytics_title: "Reading diary",
+    analytics_bucket_stock: "In stock",
+    analytics_bucket_finished: "Finished",
+    analytics_bucket_top: "Top",
+    analytics_bucket_abandoned: "Abandoned",
+    analytics_search_placeholder: "Search titles or authors…",
+    analytics_searching: "Searching…",
+    analytics_results: "{count} results",
+    analytics_no_results: "No results",
+    analytics_page: "Page {page} / {pages}",
     },
 
   de: {
@@ -110,7 +123,20 @@ const TRANSLATIONS = {
     li5_link_bookdeckel: "BookDeckel",
     note_html:
       'Alles basiert auf einer Datenbank, die mit meinem physischen Bücherregal verbunden ist. <br/>Mehr darüber erkläre ich in <a href="/ueber_mich.html">Über mich</a>.',
-  nav_impressum: "Impressum",
+
+    nav_impressum: "Impressum",
+
+    // Lesetagebuch / Analytics
+    analytics_title: "Lesetagebuch",
+    analytics_bucket_stock: "Im Bestand",
+    analytics_bucket_finished: "Fertig",
+    analytics_bucket_top: "Top",
+    analytics_bucket_abandoned: "Abgebrochen",
+    analytics_search_placeholder: "Titel oder Autoren suchen…",
+    analytics_searching: "Suche…",
+    analytics_results: "{count} Ergebnisse",
+    analytics_no_results: "Keine Ergebnisse",
+    analytics_page: "Seite {page} / {pages}",
     },
 };
 
