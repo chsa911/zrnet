@@ -13,6 +13,23 @@ function pick(obj, keys) {
   return null;
 }
 
+function unwrapStatsPayload(data) {
+  // supports common shapes: {stats:{...}}, {data:{...}}, {result:{...}}, {payload:{...}}
+  return data?.stats ?? data?.data ?? data?.result ?? data?.payload ?? data;
+}
+
+function toNumberOrNull(v) {
+  if (v === null || v === undefined) return null;
+  if (typeof v === "number") return Number.isFinite(v) ? v : null;
+  if (typeof v === "string") {
+    const s = v.trim();
+    if (!s) return null;
+    const n = Number(s);
+    return Number.isFinite(n) ? n : null;
+  }
+  return null;
+}
+
 export default function Header({ year = 2026 }) {
   const { pathname } = useLocation();
   const showStats = pathname === "/";
@@ -72,14 +89,30 @@ export default function Header({ year = 2026 }) {
       setNote(t("stats_loading"));
 
       try {
-        const resp = await fetch(`/api/public/books/stats?year=${encodeURIComponent(year)}`, {
+        // cache-bust in dev so you always see the real payload
+        const url = `/api/public/books/stats?year=${encodeURIComponent(year)}&_=${Date.now()}`;
+
+        const resp = await fetch(url, {
           headers: { Accept: "application/json" },
           signal: ac.signal,
+          cache: "no-store",
         });
-        if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-        const data = await resp.json();
 
-        const instock = pick(data, [
+        if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+
+        // If your backend/proxy ever returns HTML accidentally, fail with a useful message
+        const ct = resp.headers.get("content-type") || "";
+        if (!ct.includes("application/json")) {
+          const text = await resp.text();
+          throw new Error(
+            `Expected JSON but got "${ct || "unknown"}". First bytes: ${JSON.stringify(text.slice(0, 140))}`
+          );
+        }
+
+        const raw = await resp.json();
+        const data = unwrapStatsPayload(raw);
+
+        const instockVal = pick(data, [
           "books_with_barcode",
           "booksWithBarcode",
           "barcodeCount",
@@ -87,17 +120,43 @@ export default function Header({ year = 2026 }) {
           "in_stock",
           "inStock",
           "instock",
+          "stock",
+          "stockCount",
         ]);
 
-        const abandoned = pick(data, ["abandoned", "abandoned_count", "abandonedCount"]);
-        const top = pick(data, ["top", "top_count", "topCount"]);
+        const abandonedVal = pick(data, [
+          "abandoned",
+          "abandoned_count",
+          "abandonedCount",
+          "abandonedBooks",
+          "abandoned_books",
+        ]);
 
-        let finished = pick(data, ["finished_books", "finishedBooks", "finishedBookCount", "finished_book_count"]);
-        const finishedRaw = pick(data, ["finished", "finished_count", "finishedCount"]);
-        if (finished == null && finishedRaw != null) {
-          const n = Number(finishedRaw);
-          finished = Number.isFinite(n) && n <= 600 ? n : null;
-        }
+        const topVal = pick(data, ["top", "top_count", "topCount", "topBooks", "top_books"]);
+
+        const finishedVal = pick(data, [
+          // your old keys
+          "finished_books",
+          "finishedBooks",
+          "finishedBookCount",
+          "finished_book_count",
+          // common keys
+          "finished",
+          "finished_count",
+          "finishedCount",
+          // if backend changed wording
+          "completed",
+          "completed_count",
+          "completedCount",
+          "done",
+          "done_count",
+          "doneCount",
+        ]);
+
+        const instock = toNumberOrNull(instockVal);
+        const abandoned = toNumberOrNull(abandonedVal);
+        const top = toNumberOrNull(topVal);
+        const finished = toNumberOrNull(finishedVal);
 
         setStats({
           instock: instock == null ? "—" : String(instock),
@@ -168,20 +227,10 @@ export default function Header({ year = 2026 }) {
           <a className="zr-btn alt-b" href="https://admin.zenreader.net/">
             {t("nav_login")}
           </a>
-          <a
-            className="zr-btn zr-youtube"
-            href="https://www.youtube.com/@zenreader2026"
-            target="_blank"
-            rel="noreferrer"
-          >
+          <a className="zr-btn zr-youtube" href="https://www.youtube.com/@zenreader2026" target="_blank" rel="noreferrer">
             {t("nav_youtube")}
           </a>
-          <a
-            className="zr-btn zr-tiktok"
-            href="https://www.tiktok.com/@zenreader26"
-            target="_blank"
-            rel="noreferrer"
-          >
+          <a className="zr-btn zr-tiktok" href="https://www.tiktok.com/@zenreader26" target="_blank" rel="noreferrer">
             {t("nav_tiktok")}
           </a>
           <a

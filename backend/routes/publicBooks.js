@@ -228,6 +228,13 @@ router.get("/stats", async (req, res) => {
           WHERE b.reading_status = 'finished'
             AND b.reading_status_updated_at >= $1::timestamptz
             AND b.reading_status_updated_at <  $2::timestamptz
+            AND EXISTS (
+              SELECT 1
+              FROM public.barcode_assignments ba
+              WHERE ba.book_id = b.id
+                AND ba.freed_at >= $1::timestamptz
+                AND ba.freed_at <  $2::timestamptz
+            )
         )::int AS finished,
 
         count(*) FILTER (
