@@ -130,7 +130,7 @@ export default function Header({ year = 2026 }) {
       <div className="zr-top">
         <div className="zr-brand">
           <Link className="zr-logo" to="/">
-            <img src="/assets/images/allgemein/logo.jpeg" alt="Zenreader logo" />
+            <img src="/assets/images/allgemein/logo.jpeg" alt="Zenreader logo" width="48" height="48" decoding="async" loading="eager" />
           </Link>
         </div>
 

@@ -1,62 +1,184 @@
+// AnalyticsPage.jsx
 import React, { useEffect, useState } from "react";
+import { useI18n } from "../context/I18nContext"; // <-- adjust this path to your project
 
 export default function AnalyticsPage() {
-  const year = new Date().getFullYear();
-  const [data, setData] = useState(null);
-  const [err, setErr] = useState("");
+  const { t } = useI18n();
+
+  // search UI state
+  const [bucket, setBucket] = useState("finished");
+  const [q, setQ] = useState("");
+  const [page, setPage] = useState(1);
+  const [limit, setLimit] = useState(10);
+
+  const [items, setItems] = useState([]);
+  const [total, setTotal] = useState(0);
+  const [searchErr, setSearchErr] = useState("");
+  const [loadingSearch, setLoadingSearch] = useState(false);
+
+  const debouncedQ = useDebouncedValue(q, 250);
+
+  const bucketOptions = [
+    { key: "finished", labelKey: "analytics_bucket_finished" },
+    { key: "top", labelKey: "analytics_bucket_top" },
+    { key: "registered", labelKey: "analytics_bucket_registered" },
+    { key: "abandoned", labelKey: "analytics_bucket_abandoned" },
+  ];
+
+  const setBucketAndReset = (next) => {
+    setBucket(next);
+    setPage(1);
+    // setQ(""); // optional: clear search when switching buckets
+  };
 
   useEffect(() => {
     (async () => {
-      setErr("");
+      setLoadingSearch(true);
+      setSearchErr("");
       try {
-        const r = await fetch(`/api/public/books/stats?year=${year}`, {
+        const params = new URLSearchParams({
+          bucket,
+          page: String(page),
+          limit: String(limit),
+        });
+        if (debouncedQ.trim()) params.set("q", debouncedQ.trim());
+
+        const r = await fetch(`/api/public/books/search?${params.toString()}`, {
           headers: { Accept: "application/json" },
         });
         if (!r.ok) throw new Error(`HTTP ${r.status}`);
-        setData(await r.json());
+        const j = await r.json();
+        setItems(j.items || []);
+        setTotal(j.total || 0);
       } catch (e) {
-        setErr(e.message || String(e));
+        setItems([]);
+        setTotal(0);
+        setSearchErr(e?.message || String(e));
+      } finally {
+        setLoadingSearch(false);
       }
     })();
-  }, [year]);
+  }, [bucket, debouncedQ, page, limit]);
+
+  const pages = Math.max(1, Math.ceil(total / limit));
 
   return (
     <div style={{ background: "mintcream", borderRadius: 12, padding: 16 }}>
-      <h2 style={{ fontFamily: "Arial, sans-serif" }}>Analytics {year}</h2>
+      <h2 style={{ fontFamily: "Arial, sans-serif", marginTop: 0 }}>
+        {t("analytics_title")}
+      </h2>
 
-      {err ? (
-        <div style={{ color: "#b00020", fontFamily: "Arial, sans-serif" }}>
-          Could not load stats: {err}
-        </div>
-      ) : null}
+      <div
+        style={{
+          background: "rgba(255,255,255,0.65)",
+          borderRadius: 12,
+          padding: 12,
+        }}
+      >
+        {/* Controls */}
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+            {bucketOptions.map((b) => {
+              const active = bucket === b.key;
+              return (
+                <button
+                  key={b.key}
+                  type="button"
+                  onClick={() => setBucketAndReset(b.key)}
+                  style={{
+                    padding: "6px 10px",
+                    borderRadius: 10,
+                    border: "1px solid rgba(0,0,0,0.18)",
+                    background: active ? "rgba(0,0,0,0.10)" : "white",
+                    fontWeight: active ? 700 : 500,
+                    cursor: "pointer",
+                  }}
+                >
+                  {t(b.labelKey)}
+                </button>
+              );
+            })}
+          </div>
 
-      {!data ? (
-        <div style={{ fontFamily: "Arial, sans-serif" }}>Loading…</div>
-      ) : (
-        <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
-          <Card label="Finished" value={data.finished ?? 0} />
-          <Card label="Abandoned" value={data.abandoned ?? 0} />
-          <Card label="Top" value={data.top ?? 0} />
+          <input
+            value={q}
+            onChange={(e) => {
+              setQ(e.target.value);
+              setPage(1);
+            }}
+            placeholder={t("analytics_search_placeholder")}
+            style={{ minWidth: 280 }}
+          />
+
+          <select
+            value={String(limit)}
+            onChange={(e) => {
+              setLimit(Number(e.target.value));
+              setPage(1);
+            }}
+          >
+            <option value="10">10</option>
+            <option value="20">20</option>
+            <option value="50">50</option>
+          </select>
+
+          <div style={{ marginLeft: "auto", fontSize: 12, opacity: 0.8 }}>
+            {loadingSearch
+              ? t("analytics_searching")
+              : t("analytics_results", { count: total })}
+          </div>
         </div>
-      )}
+
+        {searchErr ? <div style={{ color: "#b00020", marginTop: 8 }}>{searchErr}</div> : null}
+
+        {/* Results */}
+        <div style={{ marginTop: 10 }}>
+          {items.map((b) => (
+            <div
+              key={b.id}
+              style={{
+                padding: "10px 0",
+                borderBottom: "1px solid rgba(0,0,0,0.08)",
+              }}
+            >
+              <div style={{ fontWeight: 800 }}>
+                {b.title || "—"}
+                <span style={{ fontWeight: 500, opacity: 0.7 }}> — {b.author || "—"}</span>
+              </div>
+            </div>
+          ))}
+
+          {!loadingSearch && items.length === 0 ? (
+            <div style={{ padding: 12, opacity: 0.8 }}>{t("analytics_no_results")}</div>
+          ) : null}
+        </div>
+
+        {/* Pagination */}
+        <div style={{ display: "flex", gap: 8, alignItems: "center", marginTop: 10 }}>
+          <button type="button" disabled={page <= 1} onClick={() => setPage(1)}>
+            ⏮
+          </button>
+          <button type="button" disabled={page <= 1} onClick={() => setPage((p) => p - 1)}>
+            ◀
+          </button>
+          <div style={{ fontSize: 13 }}>{t("analytics_page", { page, pages })}</div>
+          <button type="button" disabled={page >= pages} onClick={() => setPage((p) => p + 1)}>
+            ▶
+          </button>
+          <button type="button" disabled={page >= pages} onClick={() => setPage(pages)}>
+            ⏭
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
 
-function Card({ label, value }) {
-  return (
-    <div
-      style={{
-        flex: 1,
-        minWidth: 180,
-        border: "2px solid white",
-        borderRadius: 14,
-        padding: "12px 14px",
-        background: "rgba(255,255,255,0.65)",
-      }}
-    >
-      <div style={{ fontSize: 12, color: "#333" }}>{label}</div>
-      <div style={{ fontSize: 30, fontWeight: 700, lineHeight: 1.1 }}>{value}</div>
-    </div>
-  );
+function useDebouncedValue(value, ms) {
+  const [v, setV] = useState(value);
+  useEffect(() => {
+    const t = setTimeout(() => setV(value), ms);
+    return () => clearTimeout(t);
+  }, [value, ms]);
+  return v;
 }

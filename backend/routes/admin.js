@@ -9,14 +9,24 @@ function cmToMm(v) {
   return Math.round(n * 10);
 }
 
+// pos: d (down), l (left/exact heights), o (oben/high)
+function posToBand(pos) {
+  if (pos === "l") return "special";
+  if (pos === "d") return "low";
+  return "high"; // pos === "o"
+}
+
+/**
+ * Pick size rule by width/height.
+ * IMPORTANT: do NOT restrict to eq_heights here; eq_heights is used only to decide pos/band.
+ */
 async function pickSizeRule(pool, widthMm, heightMm) {
   const r = await pool.query(
     `
-    SELECT id, name
+    SELECT id, name, min_height, eq_heights
     FROM public.size_rules
     WHERE $1 BETWEEN min_width AND max_width
       AND $2 >= min_height
-      AND ($2 = ANY(eq_heights))
     ORDER BY (max_width - min_width) ASC, min_width ASC
     LIMIT 1
     `,
@@ -25,9 +35,27 @@ async function pickSizeRule(pool, widthMm, heightMm) {
   return r.rows[0] || null;
 }
 
-async function pickBarcode(pool, sizeRuleId) {
-  // Inventory uses sizegroup from the CSV; your size_rules ids are 2..21.
-  // We assume sizegroup == size_rules.id.
+/**
+ * Decide pos from height and rule:
+ *  - l if height is exactly in eq_heights (default 205/210/215)
+ *  - d if height <= min_height
+ *  - o otherwise
+ */
+function computePos(rule, heightMm) {
+  const eq = Array.isArray(rule.eq_heights) && rule.eq_heights.length
+    ? rule.eq_heights
+    : [205, 210, 215];
+
+  if (eq.includes(heightMm)) return "l";
+  if (heightMm <= Number(rule.min_height)) return "d";
+  return "o";
+}
+
+/**
+ * Pick lowest-ranked AVAILABLE barcode from inventory for (sizegroup, band).
+ * sizegroup is assumed to equal size_rules.id (your ids are 2..21, matching your CSV).
+ */
+async function pickBarcode(pool, sizegroup, band) {
   const r = await pool.query(
     `
     SELECT barcode, rank_in_inventory
@@ -35,10 +63,11 @@ async function pickBarcode(pool, sizeRuleId) {
     WHERE status = 'AVAILABLE'
       AND rank_in_inventory IS NOT NULL
       AND sizegroup = $1
+      AND band = $2
     ORDER BY rank_in_inventory
     LIMIT 1
     `,
-    [sizeRuleId]
+    [sizegroup, band]
   );
   return r.rows[0] || null;
 }
@@ -83,12 +112,17 @@ router.post("/register", async (req, res) => {
     });
   }
 
-  const picked = await pickBarcode(pool, sizeRule.id);
+  const pos = computePos(sizeRule, heightMm);
+  const band = posToBand(pos);
+
+  const picked = await pickBarcode(pool, sizeRule.id, band);
   if (!picked) {
     return res.status(400).json({
-      error: "No available barcode for this sizegroup",
+      error: "No available barcode for this sizegroup/band",
       size_rule_id: sizeRule.id,
       size_rule_name: sizeRule.name,
+      band,
+      pos
     });
   }
 
@@ -143,7 +177,9 @@ router.post("/register", async (req, res) => {
       book_id: bookId,
       barcode: picked.barcode,
       rank: picked.rank_in_inventory,
-      size_rule: sizeRule,
+      size_rule: { id: sizeRule.id, name: sizeRule.name },
+      band,
+      pos,
       width_mm: widthMm,
       height_mm: heightMm,
     });

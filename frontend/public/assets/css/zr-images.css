@@ -1,0 +1,32 @@
+/* Legacy pages image polish (applies inside the iframe pages under /assets/*.html) */
+
+/* Stop aspect-ratio distortion from hard-coded height attributes */
+img {
+  height: auto !important;
+}
+
+/* Nice default for content photos (most pages wrap images in a centered div) */
+div[style*="text-align: center"] img,
+img.center,
+img.rounded,
+img.mx-center-block,
+img.mx-center-block,
+img.mx-center,
+img.mx-auto {
+  display: block;
+  margin: 12px auto;
+  width: min(100%, 760px) !important;
+  max-width: 100% !important;
+  border-radius: 18px;
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.10);
+}
+
+/* If an image is explicitly meant to be small/inline, add class="zr-inline" */
+img.zr-inline {
+  display: inline-block;
+  margin: 0;
+  max-width: none !important;
+  border-radius: 10px;
+  box-shadow: none;
+}

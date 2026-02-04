@@ -16,6 +16,15 @@ const clampInt = (x, def, min, max) => {
   return Math.max(min, Math.min(max, n));
 };
 
+function yearRange(year) {
+  const y = clampInt(year, new Date().getFullYear(), 1970, 2100);
+  return {
+    year: y,
+    start: `${y}-01-01`,
+    end: `${y + 1}-01-01`,
+  };
+}
+
 function normStr(v) {
   if (v === undefined || v === null) return null;
   const s = String(v).trim();
@@ -40,6 +49,16 @@ router.get("/", async (req, res) => {
 
     const bucket = String(req.query.bucket || "registered").toLowerCase();
     const limit = clampInt(req.query.limit, 50, 1, 200);
+    const meta = String(req.query.meta || "").trim() === "1";
+
+    // pagination: either offset directly or (page-1)*limit
+    const page = clampInt(req.query.page, 1, 1, 100000);
+    const offsetRaw = req.query.offset;
+    const offset = offsetRaw != null ? clampInt(offsetRaw, 0, 0, 200000) : (page - 1) * limit;
+
+    // year filter (makes list match the header counts)
+    const yearQ = normStr(req.query.year);
+    const yr = yearQ ? yearRange(yearQ) : null;
 
     const author = normStr(req.query.author);
     const title = normStr(req.query.title);
@@ -53,15 +72,39 @@ router.get("/", async (req, res) => {
     if (bucket === "top") {
       where.push("b.top_book = true");
       orderBy = "b.top_book_set_at DESC NULLS LAST, b.registered_at DESC";
+
+      if (yr) {
+        params.push(yr.start, yr.end);
+        where.push(`b.top_book_set_at >= $${params.length - 1}::timestamptz`);
+        where.push(`b.top_book_set_at <  $${params.length}::timestamptz`);
+      }
     } else if (bucket === "finished") {
       where.push("b.reading_status = 'finished'");
       orderBy = "b.reading_status_updated_at DESC NULLS LAST, b.registered_at DESC";
+
+      if (yr) {
+        params.push(yr.start, yr.end);
+        where.push(`b.reading_status_updated_at >= $${params.length - 1}::timestamptz`);
+        where.push(`b.reading_status_updated_at <  $${params.length}::timestamptz`);
+      }
     } else if (bucket === "abandoned") {
       where.push("b.reading_status = 'abandoned'");
       orderBy = "b.reading_status_updated_at DESC NULLS LAST, b.registered_at DESC";
+
+      if (yr) {
+        params.push(yr.start, yr.end);
+        where.push(`b.reading_status_updated_at >= $${params.length - 1}::timestamptz`);
+        where.push(`b.reading_status_updated_at <  $${params.length}::timestamptz`);
+      }
     } else {
       // registered
       orderBy = "b.registered_at DESC";
+
+      if (yr) {
+        params.push(yr.start, yr.end);
+        where.push(`b.registered_at >= $${params.length - 1}::timestamptz`);
+        where.push(`b.registered_at <  $${params.length}::timestamptz`);
+      }
     }
 
     if (author) {
@@ -92,7 +135,7 @@ router.get("/", async (req, res) => {
 
     const whereSql = where.length ? `WHERE ${where.join(" AND ")}` : "";
 
-    const { rows } = await pool.query(
+    const listSql =
       `
       SELECT
         b.id,
@@ -111,11 +154,34 @@ router.get("/", async (req, res) => {
       ${whereSql}
       ORDER BY ${orderBy}
       LIMIT $${params.length + 1}
-      `,
-      [...params, limit]
-    );
+      OFFSET $${params.length + 2}
+      `;
 
-    return res.json(rows);
+    const { rows } = await pool.query(listSql, [...params, limit, offset]);
+
+    if (!meta) return res.json(rows);
+
+    // total count for pagination UI
+    const countSql =
+      `
+      SELECT count(*)::int AS total
+      FROM public.books b
+      LEFT JOIN LATERAL (
+        SELECT barcode FROM public.book_barcodes bb WHERE bb.book_id = b.id LIMIT 1
+      ) bb ON true
+      ${whereSql}
+      `;
+    const totalRes = await pool.query(countSql, params);
+    const total = totalRes.rows?.[0]?.total ?? 0;
+
+    return res.json({
+      bucket,
+      year: yr?.year ?? null,
+      limit,
+      offset,
+      total,
+      items: rows,
+    });
   } catch (err) {
     console.error("GET /api/public/books error", err);
     return res.status(500).json({ error: "internal_error" });
@@ -137,6 +203,21 @@ router.get("/stats", async (req, res) => {
     const { rows } = await pool.query(
       `
       SELECT
+        /* "Im Bestand" / stock: books registered in the given year */
+        count(*) FILTER (
+          WHERE b.registered_at >= $1::timestamptz
+            AND b.registered_at <  $2::timestamptz
+        )::int AS registered,
+
+        /* books that have at least one barcode (kept for backward compatibility with older UIs) */
+        count(*) FILTER (
+          WHERE b.registered_at >= $1::timestamptz
+            AND b.registered_at <  $2::timestamptz
+            AND EXISTS (
+              SELECT 1 FROM public.book_barcodes bb WHERE bb.book_id = b.id
+            )
+        )::int AS books_with_barcode,
+
         count(*) FILTER (
           WHERE b.reading_status = 'finished'
             AND b.reading_status_updated_at >= $1::timestamptz
@@ -159,7 +240,19 @@ router.get("/stats", async (req, res) => {
       [start, end]
     );
 
-    return res.json(rows[0] || { finished: 0, abandoned: 0, top: 0 });
+    const row = rows[0] || { registered: 0, books_with_barcode: 0, finished: 0, abandoned: 0, top: 0 };
+
+    // Return a couple of aliases so different frontends can "pick" whatever they expect.
+    return res.json({
+      year,
+      registered: row.registered,
+      books_with_barcode: row.books_with_barcode,
+      in_stock: row.books_with_barcode,
+      instock: row.books_with_barcode,
+      finished: row.finished,
+      abandoned: row.abandoned,
+      top: row.top,
+    });
   } catch (err) {
     console.error("GET /api/public/books/stats error", err);
     return res.status(500).json({ error: "internal_error" });

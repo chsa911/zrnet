@@ -1,4 +1,4 @@
-// backend/routes/api/barcodes/previewBarcode.js  (Postgres version)
+// backend/routes/api/barcodes/previewBarcode.js  (Postgres + barcode_inventory)
 const express = require("express");
 const router = express.Router();
 
@@ -11,19 +11,18 @@ function getPool(req) {
 }
 
 /**
- * Resolve size_rule (color) + position (d/l/o) from width/height using Postgres.
- *
- * Requires size_rules columns:
- *   name (color like 'gk','ak',...)
- *   min_width, max_width (mm)
- *   min_height = height threshold T (mm)
- *   eq_heights int[] (mm)
+ * Resolve size_rule (color) + pos (d/l/o) from width/height using Postgres.
+ * We keep your existing logic:
+ *  - l if height is exactly one of eq_heights (default 205/210/215)
+ *  - d if height <= min_height
+ *  - o otherwise
  */
 async function resolveRuleAndPos(pool, widthCm, heightCm) {
   const wMm = cmToMm(widthCm);
   const hMm = cmToMm(heightCm);
   if (!Number.isFinite(wMm) || !Number.isFinite(hMm) || wMm <= 0 || hMm <= 0) return null;
 
+  // pick size rule based on width (same as your current logic)
   const { rows } = await pool.query(
     `
     SELECT id, name, min_height, eq_heights
@@ -35,10 +34,11 @@ async function resolveRuleAndPos(pool, widthCm, heightCm) {
     `,
     [wMm]
   );
+
   const r = rows[0];
   if (!r) return null;
 
-  const eq = Array.isArray(r.eq_heights) ? r.eq_heights : [205, 210, 215];
+  const eq = Array.isArray(r.eq_heights) && r.eq_heights.length ? r.eq_heights : [205, 210, 215];
 
   let pos = "o";
   if (eq.includes(hMm)) pos = "l";
@@ -48,14 +48,26 @@ async function resolveRuleAndPos(pool, widthCm, heightCm) {
   return { sizeRuleId: r.id, color: r.name, pos };
 }
 
+// map pos -> inventory band values
+function posToBand(pos) {
+  if (pos === "l") return "special";
+  if (pos === "d") return "low";
+  return "high"; // pos === "o"
+}
+
 /**
  * GET /api/barcodes/preview-barcode?width=...&height=...
  * Also accepts: ?BBreite=...&BHoehe=...
  *
  * Returns:
- * { series: "<series>", candidate: "<code>|null", availableCount: <number> }
- *
- * series is the PREFIX like "dgk" / "lak" / "ouk" (pos + color)
+ * {
+ *   sizegroup: <number>,
+ *   color: "<rule name>",
+ *   pos: "d|l|o",
+ *   band: "low|special|high",
+ *   candidate: "<barcode>|null",
+ *   availableCount: <number>
+ * }
  */
 router.get("/preview-barcode", async (req, res) => {
   try {
@@ -70,47 +82,48 @@ router.get("/preview-barcode", async (req, res) => {
     const rule = await resolveRuleAndPos(pool, w, h);
     if (!rule) return res.status(422).json({ error: "no_series_for_size" });
 
-    const series = `${rule.pos}${rule.color}`; // e.g. dgk
+    const band = posToBand(rule.pos);
+    const sizegroup = rule.sizeRuleId;
 
-    // No barcode_numbers table in your schema.
-    // Pick a candidate by numeric suffix (e.g. dgk001, dgk002, ...) when present.
+    // ✅ NEW: pick from barcode_inventory by rank (never mix)
     const pick = await pool.query(
       `
-      SELECT b.code
-      FROM public.barcodes b
-      WHERE b.status = 'AVAILABLE'
-        AND b.size_rule_id = $1
-        AND b.code LIKE ($2 || '%')
-        AND NOT EXISTS (
-          SELECT 1 FROM public.book_barcodes bb WHERE bb.barcode = b.code
-        )
-      ORDER BY
-        NULLIF(regexp_replace(b.code, '.*?(\\d+)$', '\\1'), b.code)::int NULLS LAST,
-        b.code
+      SELECT bi.barcode
+      FROM public.barcode_inventory bi
+      WHERE bi.status = 'AVAILABLE'
+        AND bi.rank_in_inventory IS NOT NULL
+        AND bi.sizegroup = $1
+        AND bi.band = $2
+      ORDER BY bi.rank_in_inventory
       LIMIT 1
       `,
-      [rule.sizeRuleId, series]
+      [sizegroup, band]
     );
 
-    const candidate = pick.rows[0]?.code ?? null;
+    const candidate = pick.rows[0]?.barcode ?? null;
 
     const countRes = await pool.query(
       `
       SELECT count(*)::int AS available
-      FROM public.barcodes b
-      WHERE b.status = 'AVAILABLE'
-        AND b.size_rule_id = $1
-        AND b.code LIKE ($2 || '%')
-        AND NOT EXISTS (
-          SELECT 1 FROM public.book_barcodes bb WHERE bb.barcode = b.code
-        )
+      FROM public.barcode_inventory bi
+      WHERE bi.status = 'AVAILABLE'
+        AND bi.rank_in_inventory IS NOT NULL
+        AND bi.sizegroup = $1
+        AND bi.band = $2
       `,
-      [rule.sizeRuleId, series]
+      [sizegroup, band]
     );
 
     const availableCount = countRes.rows[0]?.available ?? 0;
 
-    return res.json({ series, candidate, availableCount });
+    return res.json({
+      sizegroup,
+      color: rule.color,
+      pos: rule.pos,
+      band,
+      candidate,
+      availableCount,
+    });
   } catch (err) {
     console.error("api/barcodes/preview-barcode error", err);
     return res.status(500).json({ error: "internal_error" });
