@@ -1,7 +1,166 @@
-/* placeholder - styles can be added later */
-.zr-statsdetail {}
-.zr-statsdetail-top {}
-.zr-statsdetail-title {}
-.zr-statsdetail-year {}
-.zr-statsdetail-error { white-space: pre-wrap; }
-.zr-statsdetail-loading {}
+.zr-statsdetail {
+  max-width: 1000px;
+  margin: 0 auto;
+  padding: 18px 18px 40px;
+  font-family: Arial, sans-serif;
+}
+
+.zr-statsdetail-top {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.zr-statsdetail-back {
+  text-decoration: none;
+  color: inherit;
+  opacity: 0.8;
+}
+.zr-statsdetail-back:hover {
+  text-decoration: underline;
+}
+
+.zr-statsdetail-title {
+  font-size: 22px;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.zr-statsdetail-year {
+  padding: 2px 10px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.35);
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.zr-statsdetail-breadcrumb {
+  margin: 8px 0 12px;
+  opacity: 0.85;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.zr-crumb.strong { font-weight: 800; }
+.zr-crumb-sep { opacity: 0.6; }
+
+.zr-statsdetail-subtitle {
+  margin: 8px 0 12px;
+  font-weight: 800;
+  font-size: 16px;
+}
+
+.zr-statsdetail-controls {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 8px 0 14px;
+}
+
+.zr-statsdetail-search {
+  flex: 1;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(0,0,0,0.2);
+  background: rgba(255,255,255,0.55);
+}
+
+.zr-statsdetail-meta {
+  font-weight: 700;
+  opacity: 0.8;
+  white-space: nowrap;
+}
+
+.zr-statsdetail-btn {
+  margin-left: 12px;
+  padding: 8px 10px;
+  border-radius: 12px;
+  border: 1px solid rgba(0,0,0,0.2);
+  background: rgba(255,255,255,0.55);
+  cursor: pointer;
+}
+
+.zr-statsdetail-error {
+  color: #7a0b0b;
+  font-weight: 700;
+  margin: 8px 0;
+}
+
+.zr-statsdetail-loading {
+  opacity: 0.8;
+  margin-top: 10px;
+}
+
+/* Authors list (no bullets, looks like a dashboard list) */
+.zr-author-list {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 10px;
+}
+
+.zr-author-row {
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  border: 1px solid rgba(0,0,0,0.10);
+  background: rgba(255,255,255,0.55);
+  cursor: pointer;
+  font: inherit;
+  text-align: left;
+}
+
+.zr-author-row:hover {
+  background: rgba(255,255,255,0.72);
+}
+
+.zr-author-name {
+  font-weight: 800;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.zr-author-count {
+  min-width: 44px;
+  text-align: right;
+  font-weight: 900;
+  opacity: 0.85;
+}
+
+/* Books list */
+.zr-books-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 10px;
+}
+
+.zr-books-item {
+  padding: 12px 14px;
+  border-radius: 14px;
+  border: 1px solid rgba(0,0,0,0.10);
+  background: rgba(255,255,255,0.55);
+}
+
+.zr-books-item a {
+  color: inherit;
+  font-weight: 800;
+  text-decoration: none;
+}
+.zr-books-item a:hover { text-decoration: underline; }
+
+.zr-sep {
+  margin: 0 8px;
+  opacity: 0.6;
+}
