@@ -5,18 +5,26 @@ const API = import.meta.env.VITE_API_BASE_URL || "http://localhost:4000/api";
 export default function AdminPage() {
   const [checking, setChecking] = useState(true);
   const [loggedIn, setLoggedIn] = useState(false);
+
   const [msg, setMsg] = useState("");
 
   const [password, setPassword] = useState("");
 
-  const [widthCm, setWidthCm] = useState("12.0");
-  const [heightCm, setHeightCm] = useState("21.0"); // must match eq_heights: 20.5 / 21.0 / 21.5
-  const [pages, setPages] = useState("279");
+  const [widthCm, setWidthCm] = useState("");
+  const [heightCm, setHeightCm] = useState("");
+  const [pages, setPages] = useState("");
+
   const [title, setTitle] = useState("");
   const [author, setAuthor] = useState("");
   const [publisher, setPublisher] = useState("");
+
+  // live preview barcode
+  const [previewBarcode, setPreviewBarcode] = useState("");
+  const [previewErr, setPreviewErr] = useState("");
+
+  // register result (full JSON)
   const [result, setResult] = useState(null);
-const [generatedBarcode, setGeneratedBarcode] = useState("");
+
   // check session on load
   useEffect(() => {
     (async () => {
@@ -30,6 +38,47 @@ const [generatedBarcode, setGeneratedBarcode] = useState("");
       }
     })();
   }, []);
+
+  // live barcode preview (only when logged in)
+  useEffect(() => {
+    if (!loggedIn) {
+      setPreviewBarcode("");
+      setPreviewErr("");
+      return;
+    }
+
+    const w = Number(String(widthCm).replace(",", "."));
+    const h = Number(String(heightCm).replace(",", "."));
+
+    if (!Number.isFinite(w) || !Number.isFinite(h)) {
+      setPreviewBarcode("");
+      setPreviewErr("");
+      return;
+    }
+
+    const t = setTimeout(async () => {
+      try {
+        setPreviewErr("");
+        const res = await fetch(
+          `${API}/barcodes/preview-barcode?width=${encodeURIComponent(w)}&height=${encodeURIComponent(h)}`,
+          { credentials: "include" }
+        );
+        const data = await res.json().catch(() => ({}));
+
+        if (res.ok) {
+          setPreviewBarcode(data?.candidate || "");
+        } else {
+          setPreviewBarcode("");
+          setPreviewErr(data?.error || `HTTP_${res.status}`);
+        }
+      } catch {
+        setPreviewBarcode("");
+        setPreviewErr("preview_failed");
+      }
+    }, 200);
+
+    return () => clearTimeout(t);
+  }, [loggedIn, widthCm, heightCm]);
 
   async function login(e) {
     e.preventDefault();
@@ -52,7 +101,7 @@ const [generatedBarcode, setGeneratedBarcode] = useState("");
       setMsg("Login failed.");
     }
   }
- 
+
   async function logout() {
     setMsg("");
     setResult(null);
@@ -79,9 +128,7 @@ const [generatedBarcode, setGeneratedBarcode] = useState("");
       author,
       publisher,
     };
-if (res.ok) {
-  setGeneratedBarcode(data?.barcode || "");
-}
+
     const res = await fetch(`${API}/admin/register`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -94,125 +141,112 @@ if (res.ok) {
 
     if (res.ok) {
       setMsg(`Registered. Barcode: ${data.barcode} (rank ${data.rank})`);
-      // optional: keep title/author/publisher, reset dims/pages
-      setWidthCm("12.0");
-      setHeightCm("21.0");
-      setPages("279");
     } else {
       setMsg(data?.error ? `Register failed: ${data.error}` : `Register failed: HTTP ${res.status}`);
     }
   }
 
   return (
-    <div style={{ padding: 24, fontFamily: "Arial, sans-serif", maxWidth: 700 }}>
-      <h1 style={{ fontSize: 42, marginBottom: 16 }}>Admin</h1>
+    <div style={{ padding: 24, fontFamily: "Arial, sans-serif", maxWidth: 900 }}>
+      <h1 style={{ fontSize: 48, marginBottom: 12 }}>Admin</h1>
+      {msg && <p>{msg}</p>}
 
       {checking ? (
         <p>Checking login…</p>
       ) : !loggedIn ? (
-        <>
-          <p style={{ marginBottom: 12 }}>Login required.</p>
-          <form onSubmit={login} style={{ display: "grid", gap: 10, maxWidth: 360 }}>
-            <label>
-              Admin password
-              <input
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                style={{ width: "100%", padding: 8, marginTop: 6 }}
-                placeholder="ADMIN_PASSWORD"
-              />
-            </label>
-            <button type="submit" style={{ padding: 10 }}>
-              Login
-            </button>
-          </form>
-        </>
+        <form onSubmit={login} style={{ display: "grid", gap: 10, maxWidth: 360 }}>
+          <label>
+            Admin password
+            <input
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              style={{ width: "100%", padding: 8, marginTop: 6 }}
+              placeholder="ADMIN_PASSWORD"
+            />
+          </label>
+          <button type="submit" style={{ padding: 10 }}>Login</button>
+        </form>
       ) : (
         <>
           <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 12 }}>
             <strong>Logged in</strong>
-            <button onClick={logout} style={{ padding: "8px 10px" }}>
-              Logout
-            </button>
+            <button onClick={logout} style={{ padding: "8px 10px" }}>Logout</button>
           </div>
 
-          <h2 style={{ fontSize: 28, marginTop: 20 }}>Register Book</h2>
-          <p style={{ opacity: 0.75, marginTop: 6 }}>
-            Note: height must match the allowed set (eq_heights). In your DB these are 20.5 / 21.0 / 21.5 cm.
-          </p>
+          <h2 style={{ fontSize: 34, margin: "18px 0 10px" }}>Register Book</h2>
 
-          <form onSubmit={registerBook} style={{ display: "grid", gap: 10, maxWidth: 420, marginTop: 12 }}>
-          <div style={{ display: "flex", gap: 12 }}>
-  <div style={{ display: "flex", gap: 12, alignItems: "flex-end", flexWrap: "wrap" }}>
-  <div style={{ display: "flex", gap: 12, alignItems: "flex-end", flexWrap: "wrap" }}>
-  <label style={{ flex: "0 0 50px" }}>
-    Width (cm)
-    <input
-      value={widthCm}
-      onChange={(e) => setWidthCm(e.target.value)}
-      inputMode="decimal"
-      maxLength={4}
-      style={{ width: "50%", padding: 8, marginTop: 6 }}
-    />
-  </label>
+          {/* compact row */}
+          <div style={{ display: "flex", gap: 16, alignItems: "flex-end", flexWrap: "wrap" }}>
+            <label style={{ flex: "0 0 150px" }}>
+              Width (cm)
+              <input
+                value={widthCm}
+                onChange={(e) => setWidthCm(e.target.value)}
+                inputMode="decimal"
+                maxLength={4}
+                style={{ width: "100%", padding: 8, marginTop: 6 }}
+              />
+            </label>
 
-  <label style={{ flex: "0 0 50px" }}>
-    Height (cm)
-    <input
-      value={heightCm}
-      onChange={(e) => setHeightCm(e.target.value)}
-      inputMode="decimal"
-      maxLength={4}
-      style={{ width: "50%", padding: 8, marginTop: 6 }}
-    />
-  </label>
+            <label style={{ flex: "0 0 150px" }}>
+              Height (cm)
+              <input
+                value={heightCm}
+                onChange={(e) => setHeightCm(e.target.value)}
+                inputMode="decimal"
+                maxLength={4}
+                style={{ width: "100%", padding: 8, marginTop: 6 }}
+              />
+            </label>
 
-  <label style={{ flex: "0 0 50px" }}>
-    Pages
-    <input
-      value={pages}
-      onChange={(e) => setPages(e.target.value)}
-      inputMode="numeric"
-      maxLength={4}
-      style={{ width: "50%", padding: 8, marginTop: 6 }}
-    />
-  </label>
-<label style={{ flex: "0 0 160px" }}>
-  Barcode
-  <input
-    value={generatedBarcode}
-    readOnly
-    style={{ width: "50%", padding: 8, marginTop: 6, background: "#f5f5f5" }}
-  />
-</label>
-</div>
-</div>
-</div>
-            
+            <label style={{ flex: "0 0 150px" }}>
+              Pages
+              <input
+                value={pages}
+                onChange={(e) => setPages(e.target.value)}
+                inputMode="numeric"
+                maxLength={4}
+                style={{ width: "100%", padding: 8, marginTop: 6 }}
+              />
+            </label>
+
+            <label style={{ flex: "0 0 170px" }}>
+              Barcode (preview)
+              <input
+                value={previewBarcode}
+                readOnly
+                style={{ width: "100%", padding: 8, marginTop: 6, background: "#f5f5f5" }}
+                placeholder="—"
+              />
+            </label>
+          </div>
+
+          {previewErr && (
+            <div style={{ marginTop: 8, fontSize: 12, color: "#a00" }}>
+              Preview error: {previewErr}
+            </div>
+          )}
+          <label>
+              Author
+              <input value={author} onChange={(e) => setAuthor(e.target.value)} style={{ width: "100%", padding: 8, marginTop: 6 }} />
+            </label>
+          <form onSubmit={registerBook} style={{ display: "grid", gap: 10, maxWidth: 520, marginTop: 14 }}>
             <label>
               Title
               <input value={title} onChange={(e) => setTitle(e.target.value)} style={{ width: "100%", padding: 8, marginTop: 6 }} />
             </label>
-
-            <label>
-              Author
-              <input value={author} onChange={(e) => setAuthor(e.target.value)} style={{ width: "100%", padding: 8, marginTop: 6 }} />
-            </label>
-
             <label>
               Publisher
               <input value={publisher} onChange={(e) => setPublisher(e.target.value)} style={{ width: "100%", padding: 8, marginTop: 6 }} />
             </label>
 
             <button type="submit" style={{ padding: 10 }}>
-              Create + Assign lowest-ranked barcode
+              Create + Assign
             </button>
           </form>
         </>
       )}
-
-      {msg && <p style={{ marginTop: 16 }}>{msg}</p>}
 
       {result && (
         <pre style={{ marginTop: 16, background: "#111", color: "#0f0", padding: 12, overflow: "auto" }}>
@@ -220,10 +254,9 @@ if (res.ok) {
         </pre>
       )}
 
-      <hr style={{ margin: "24px 0" }} />
-      <p style={{ opacity: 0.6 }}>
+      <div style={{ marginTop: 20, opacity: 0.6 }}>
         API: <code>{API}</code>
-      </p>
+      </div>
     </div>
   );
 }
