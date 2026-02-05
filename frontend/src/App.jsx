@@ -6,7 +6,7 @@ import Home from "./pages/Home";
 import AnalyticsPage from "./pages/AnalyticsPage";
 import LegacyHtmlPage from "./pages/LegacyHtmlPage";
 import AdminPage from "./pages/AdminPage";
-
+import MostReadAuthorsPage from "./pages/MostReadAuthorsPage";
 function NotFound() {
   return (
     <div style={{ padding: 24, fontFamily: "Arial, sans-serif" }}>
@@ -28,7 +28,9 @@ export default function App() {
         {/* admin (no link in header; only direct URL) */}
         <Route path="admin" element={<AdminPage />} />
         <Route path="admin.html" element={<Navigate to="/admin" replace />} />
-
+       <Route path="autoren_meistgelesen.html" element={<MostReadAuthorsPage />} />
+<Route path="autoren_meistgelesen.html" element={<MostReadAuthorsPage />} />
+<Route path="autoren_meist_gelesen.html" element={<MostReadAuthorsPage />} /> 
         {/* hide old public admin pages if any */}
         <Route path="register" element={<Navigate to="/" replace />} />
         <Route path="update" element={<Navigate to="/" replace />} />

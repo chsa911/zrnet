@@ -711,10 +711,71 @@ async function updateBook(req, res) {
     return res.status(500).json({ error: "internal_error" });
   }
 }
+// --------------------------------- drop ---------------------------------
+
+async function dropBook(req, res) {
+  try {
+    const pool = getPool(req);
+    const id = String(req.params.id || "").trim();
+    if (!UUID_RE.test(id)) return res.status(400).json({ error: "invalid_id" });
+
+    const client = await pool.connect();
+    try {
+      await client.query("BEGIN");
+
+      // 1) Free active barcode assignments (your schema uses barcode_assignments)
+      await client.query(
+        `
+        UPDATE public.barcode_assignments
+        SET freed_at = now()
+        WHERE book_id = $1::uuid
+          AND freed_at IS NULL
+        `,
+        [id]
+      );
+
+      // 2) Remove legacy mapping (your codebase also uses book_barcodes)
+      await client.query(
+        `DELETE FROM public.book_barcodes WHERE book_id = $1::uuid`,
+        [id]
+      );
+
+      // 3) Delete the book itself
+      const del = await client.query(
+        `DELETE FROM public.books WHERE id = $1::uuid RETURNING id`,
+        [id]
+      );
+
+      await client.query("COMMIT");
+
+      if (!del.rowCount) return res.status(404).json({ error: "not_found" });
+      return res.status(204).send();
+    } catch (e) {
+      try { await client.query("ROLLBACK"); } catch {}
+
+      // FK conflict (book referenced by other tables)
+      if (String(e?.code) === "23503") {
+        return res.status(409).json({
+          error: "conflict_foreign_key",
+          detail: "Book is referenced by other records; cannot delete.",
+        });
+      }
+
+      console.error("dropBook error", e);
+      return res.status(500).json({ error: "delete_failed", detail: String(e?.message || e) });
+    } finally {
+      client.release();
+    }
+  } catch (err) {
+    console.error("dropBook error", err);
+    return res.status(500).json({ error: "internal_error" });
+  }
+}
 
 module.exports = {
   listBooks,
   autocomplete,
   registerBook,
   updateBook,
+  dropBook, // ✅ wichtig
 };

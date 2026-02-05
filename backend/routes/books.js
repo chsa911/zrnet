@@ -7,6 +7,7 @@ const {
   autocomplete,
   registerBook,
   updateBook,
+  dropBook, // ✅ add this
 } = require("../controllers/booksPgController");
 
 // List + search
@@ -21,5 +22,8 @@ router.post("/", registerBook);
 
 // Patch
 router.patch("/:id", updateBook);
+
+// ✅ Drop / delete
+router.delete("/:id", dropBook);
 
 module.exports = router;

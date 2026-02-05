@@ -207,3 +207,8 @@ export async function listStockAuthors({ limit = 80, signal } = {}) {
   const qs = toQuery({ limit });
   return http(`/public/books/stock-authors?${qs}`, { signal });
 }
+
+export async function listMostReadAuthors({ limit = 200, signal } = {}) {
+  const qs = toQuery({ limit });
+  return http(`/public/books/most-read-authors?${qs}`, { signal });
+}
