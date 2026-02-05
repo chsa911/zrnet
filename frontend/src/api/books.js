@@ -211,4 +211,4 @@ export async function listStockAuthors({ limit = 80, signal } = {}) {
 export async function listMostReadAuthors({ limit = 200, signal } = {}) {
   const qs = toQuery({ limit });
   return http(`/public/books/most-read-authors?${qs}`, { signal });
-}
+} 

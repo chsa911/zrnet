@@ -16,7 +16,7 @@ export default function AdminPage() {
   const [author, setAuthor] = useState("");
   const [publisher, setPublisher] = useState("");
   const [result, setResult] = useState(null);
-
+const [generatedBarcode, setGeneratedBarcode] = useState("");
   // check session on load
   useEffect(() => {
     (async () => {
@@ -52,7 +52,7 @@ export default function AdminPage() {
       setMsg("Login failed.");
     }
   }
-
+ 
   async function logout() {
     setMsg("");
     setResult(null);
@@ -79,7 +79,9 @@ export default function AdminPage() {
       author,
       publisher,
     };
-
+if (res.ok) {
+  setGeneratedBarcode(data?.barcode || "");
+}
     const res = await fetch(`${API}/admin/register`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -141,21 +143,53 @@ export default function AdminPage() {
           </p>
 
           <form onSubmit={registerBook} style={{ display: "grid", gap: 10, maxWidth: 420, marginTop: 12 }}>
-            <label>
-              Width (cm)
-              <input value={widthCm} onChange={(e) => setWidthCm(e.target.value)} style={{ width: "100%", padding: 8, marginTop: 6 }} />
-            </label>
+          <div style={{ display: "flex", gap: 12 }}>
+  <div style={{ display: "flex", gap: 12, alignItems: "flex-end", flexWrap: "wrap" }}>
+  <div style={{ display: "flex", gap: 12, alignItems: "flex-end", flexWrap: "wrap" }}>
+  <label style={{ flex: "0 0 50px" }}>
+    Width (cm)
+    <input
+      value={widthCm}
+      onChange={(e) => setWidthCm(e.target.value)}
+      inputMode="decimal"
+      maxLength={4}
+      style={{ width: "50%", padding: 8, marginTop: 6 }}
+    />
+  </label>
 
-            <label>
-              Height (cm)
-              <input value={heightCm} onChange={(e) => setHeightCm(e.target.value)} style={{ width: "100%", padding: 8, marginTop: 6 }} />
-            </label>
+  <label style={{ flex: "0 0 50px" }}>
+    Height (cm)
+    <input
+      value={heightCm}
+      onChange={(e) => setHeightCm(e.target.value)}
+      inputMode="decimal"
+      maxLength={4}
+      style={{ width: "50%", padding: 8, marginTop: 6 }}
+    />
+  </label>
 
-            <label>
-              Pages
-              <input value={pages} onChange={(e) => setPages(e.target.value)} style={{ width: "100%", padding: 8, marginTop: 6 }} />
-            </label>
-
+  <label style={{ flex: "0 0 50px" }}>
+    Pages
+    <input
+      value={pages}
+      onChange={(e) => setPages(e.target.value)}
+      inputMode="numeric"
+      maxLength={4}
+      style={{ width: "50%", padding: 8, marginTop: 6 }}
+    />
+  </label>
+<label style={{ flex: "0 0 160px" }}>
+  Barcode
+  <input
+    value={generatedBarcode}
+    readOnly
+    style={{ width: "50%", padding: 8, marginTop: 6, background: "#f5f5f5" }}
+  />
+</label>
+</div>
+</div>
+</div>
+            
             <label>
               Title
               <input value={title} onChange={(e) => setTitle(e.target.value)} style={{ width: "100%", padding: 8, marginTop: 6 }} />

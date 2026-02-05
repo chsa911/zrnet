@@ -88,9 +88,9 @@ process.on("SIGTERM", () => shutdown("SIGTERM"));
       }
     }
 
-    server = app.listen(PORT, () => {
-      console.log(`🚀 API listening on http://localhost:${PORT}`);
-    });
+  server = app.listen(PORT, "0.0.0.0", () => {
+  console.log(`🚀 API listening on http://0.0.0.0:${PORT}`);
+});
   } catch (err) {
     console.error("❌ Postgres connection error:", err);
     try {
