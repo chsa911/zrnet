@@ -17,6 +17,7 @@
     "cleanup:test:run": "DRY_RUN=false node ./scripts/cleanupTestData.js"
   },
   "dependencies": {
+    "cookie-parser": "^1.4.7",
     "cors": "^2.8.5",
     "dotenv": "^16.6.1",
     "express": "^4.21.2",
