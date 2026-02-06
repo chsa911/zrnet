@@ -280,7 +280,7 @@ export default function Header({ year = 2026 }) {
                 <div className="zr-stat-label">{t("stats_in_stock")}</div>
                 <div className="zr-stat-value">{stats.instock}</div>
               </Link>
-
+    
               <Link to={statsHref("finished")} className="zr-stat-seg zr-stat-link" style={statLinkStyle}>
                 <div className="zr-stat-label">{t("stats_finished")}</div>
                 <div className="zr-stat-value">{stats.finished}</div>
@@ -303,4 +303,4 @@ export default function Header({ year = 2026 }) {
       ) : null}
     </div>
   );
-}
+} 
