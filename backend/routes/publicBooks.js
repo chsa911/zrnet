@@ -124,7 +124,11 @@ router.get("/", async (req, res) => {
 
 /**
  * GET /api/public/books/stats?year=2026
- * Returns: { finished, abandoned, top }
+ * Returns: { in_stock, instock, finished, abandoned, top }
+ *
+ * - in_stock: number of distinct books with an active assignment (freed_at IS NULL)
+ * - finished: counts finished books by LAST freed_at event in the requested year
+ *   (stable vs. reading_status_updated_at being touched by imports/sync)
  */
 router.get("/stats", async (req, res) => {
   try {
@@ -136,12 +140,29 @@ router.get("/stats", async (req, res) => {
 
     const { rows } = await pool.query(
       `
+      WITH last_free AS (
+        SELECT DISTINCT ON (ba.book_id)
+          ba.book_id,
+          ba.freed_at
+        FROM public.barcode_assignments ba
+        WHERE ba.freed_at IS NOT NULL
+        ORDER BY ba.book_id, ba.freed_at DESC
+      )
       SELECT
-        count(*) FILTER (
-          WHERE b.reading_status = 'finished'
-            AND b.reading_status_updated_at >= $1::timestamptz
-            AND b.reading_status_updated_at <  $2::timestamptz
-        )::int AS finished,
+        -- In stock = currently assigned (not freed)
+        (SELECT COUNT(DISTINCT ba2.book_id)::int
+         FROM public.barcode_assignments ba2
+         WHERE ba2.freed_at IS NULL
+        ) AS in_stock,
+
+        -- Finished in year = last freed_at in that year, for books that are finished
+        (SELECT COUNT(*)::int
+         FROM last_free lf
+         JOIN public.books b2 ON b2.id = lf.book_id
+         WHERE b2.reading_status = 'finished'
+           AND lf.freed_at >= $1::timestamptz
+           AND lf.freed_at <  $2::timestamptz
+        ) AS finished,
 
         count(*) FILTER (
           WHERE b.reading_status = 'abandoned'
@@ -159,7 +180,9 @@ router.get("/stats", async (req, res) => {
       [start, end]
     );
 
-    return res.json(rows[0] || { finished: 0, abandoned: 0, top: 0 });
+    const out = rows[0] || { in_stock: 0, finished: 0, abandoned: 0, top: 0 };
+    out.instock = out.in_stock; // keep frontend compatibility
+    return res.json(out);
   } catch (err) {
     console.error("GET /api/public/books/stats error", err);
     return res.status(500).json({ error: "internal_error" });
@@ -231,7 +254,6 @@ router.get("/author-counts", async (req, res) => {
   }
 });
 
-
 /**
  * GET /api/public/books/most-read-authors
  * Query:
@@ -276,6 +298,5 @@ router.get("/most-read-authors", async (req, res) => {
     return res.status(500).json({ error: "internal_error" });
   }
 });
-
 
 module.exports = router;
