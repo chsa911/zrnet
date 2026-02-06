@@ -55,10 +55,12 @@ router.get("/", async (req, res) => {
       orderBy = "b.top_book_set_at DESC NULLS LAST, b.registered_at DESC";
     } else if (bucket === "finished") {
       where.push("b.reading_status = 'finished'");
-      orderBy = "b.reading_status_updated_at DESC NULLS LAST, b.registered_at DESC";
+      orderBy =
+        "b.reading_status_updated_at DESC NULLS LAST, b.registered_at DESC";
     } else if (bucket === "abandoned") {
       where.push("b.reading_status = 'abandoned'");
-      orderBy = "b.reading_status_updated_at DESC NULLS LAST, b.registered_at DESC";
+      orderBy =
+        "b.reading_status_updated_at DESC NULLS LAST, b.registered_at DESC";
     } else {
       // registered
       orderBy = "b.registered_at DESC";
@@ -70,7 +72,9 @@ router.get("/", async (req, res) => {
     }
     if (title) {
       params.push(`%${title}%`);
-      where.push(`COALESCE(b.full_title, b.title_keyword) ILIKE $${params.length}`);
+      where.push(
+        `COALESCE(b.full_title, b.title_keyword) ILIKE $${params.length}`
+      );
     }
     if (q) {
       params.push(`%${q}%`);
@@ -250,6 +254,40 @@ router.get("/author-counts", async (req, res) => {
     return res.json(rows);
   } catch (err) {
     console.error("GET /api/public/books/author-counts error", err);
+    return res.status(500).json({ error: "internal_error" });
+  }
+});
+
+/**
+ * GET /api/public/books/stock-authors?limit=80
+ * Returns: [{ author, count }]
+ * "in stock" = active assignment (freed_at IS NULL)
+ */
+router.get("/stock-authors", async (req, res) => {
+  try {
+    const pool = getPool(req);
+    const limit = clampInt(req.query.limit, 80, 1, 200);
+
+    const { rows } = await pool.query(
+      `
+      SELECT
+        COALESCE(b.author_display, b.author) AS author,
+        COUNT(DISTINCT ba.book_id)::int AS count
+      FROM public.barcode_assignments ba
+      JOIN public.books b ON b.id = ba.book_id
+      WHERE ba.freed_at IS NULL
+        AND COALESCE(b.author_display, b.author) IS NOT NULL
+        AND BTRIM(COALESCE(b.author_display, b.author)) <> ''
+      GROUP BY 1
+      ORDER BY count DESC, author ASC
+      LIMIT $1
+      `,
+      [limit]
+    );
+
+    return res.json(rows);
+  } catch (err) {
+    console.error("GET /api/public/books/stock-authors error", err);
     return res.status(500).json({ error: "internal_error" });
   }
 });
