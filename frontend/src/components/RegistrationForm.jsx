@@ -30,6 +30,12 @@ export default function RegistrationForm({ onRegistered }) {
     BVerlag: "",
     BSeiten: "",
     BTop: false,
+
+    // --- NEW: classification (optional) ---
+    isFiction: "", // '', 'true', 'false'
+    genre: "",
+    subGenre: "",
+    themes: "",
   });
 
   const [suggestedMark, setSuggestedMark] = useState(null);
@@ -73,8 +79,8 @@ export default function RegistrationForm({ onRegistered }) {
 
         setPreviewBusy(true);
         setPreviewError("");
-  const { candidate } = await previewBarcode(w, h);
-  const first = candidate ?? null;
+        const { candidate } = await previewBarcode(w, h);
+        const first = candidate ?? null;
         if (!cancelled) {
           setSuggestedMark(first);
           // Only prefill barcode if the user hasn't typed anything
@@ -133,6 +139,16 @@ export default function RegistrationForm({ onRegistered }) {
         BK1P: form.BK1P !== "" ? Number(form.BK1P) : null,
         BK2P: form.BK2P !== "" ? Number(form.BK2P) : null,
         BSeiten: Number(form.BSeiten || 0),
+
+        // --- NEW: normalize optional classification to backend expectations ---
+        isFiction:
+          form.isFiction === ""
+            ? null
+            : form.isFiction === "true",
+
+        genre: form.genre?.trim() || null,
+        subGenre: form.subGenre?.trim() || null,
+        themes: form.themes?.trim() || null,
       };
 
       // If the user left barcode blank, fall back to suggested
@@ -160,6 +176,11 @@ export default function RegistrationForm({ onRegistered }) {
         BVerlag: "",
         BSeiten: "",
         BTop: false,
+
+        isFiction: "",
+        genre: "",
+        subGenre: "",
+        themes: "",
       });
       setSuggestedMark(null);
       setBarcode("");
@@ -292,6 +313,59 @@ export default function RegistrationForm({ onRegistered }) {
             className="border p-2 rounded"
           />
         </label>
+
+        {/* --- NEW: Genre Area / Classification --- */}
+        <div className="md:col-span-2 mt-2 border rounded p-3 space-y-2">
+          <div className="font-semibold">Genre / Klassifikation (optional)</div>
+
+          <div className="grid gap-2 md:grid-cols-2">
+            <label className="flex flex-col gap-1">
+              <span>Typ</span>
+              <select
+                value={form.isFiction}
+                onChange={setField("isFiction")}
+                className="border p-2 rounded"
+              >
+                <option value="">Keine Angabe</option>
+                <option value="true">Fiction</option>
+                <option value="false">Non-Fiction</option>
+              </select>
+            </label>
+
+            <label className="flex flex-col gap-1">
+              <span>Genre</span>
+              <input
+                value={form.genre}
+                onChange={setField("genre")}
+                className="border p-2 rounded"
+                placeholder="z. B. Krimi"
+              />
+            </label>
+
+            <label className="flex flex-col gap-1">
+              <span>Untergenre</span>
+              <input
+                value={form.subGenre}
+                onChange={setField("subGenre")}
+                className="border p-2 rounded"
+                placeholder="z. B. Thriller"
+              />
+            </label>
+
+            <label className="flex flex-col gap-1">
+              <span>Themen (Tags)</span>
+              <input
+                value={form.themes}
+                onChange={setField("themes")}
+                className="border p-2 rounded"
+                placeholder="z. B. Bergsteigen, Alpen"
+              />
+              <small className="text-gray-600">
+                Kommagetrennt, z. B. <i>Bergsteigen, Alpen</i>
+              </small>
+            </label>
+          </div>
+        </div>
 
         {/* Optional 2./3. Stichwort */}
         <label className="flex flex-col gap-1">

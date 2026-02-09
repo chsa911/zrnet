@@ -1,36 +1,25 @@
 /* frontend/src/index.css */
 
-/* Make the SPA fill the page */
-html, body, #root {
-  height: 100%;
-}
+html, body, #root { height: 100%; }
 
-/* Global typography similar to your old HTML */
-:root {
+:root{
   font-family: Arial, sans-serif;
   font-size: 16px;
   line-height: 1.625;
   color: #101013;
-  background: #95d4cf;
 }
 
-body {
+body{
   margin: 0;
-  background: #95d4cf;
+  background: #ffffff;
   color: #101013;
 }
 
 /* Links */
-a {
-  color: #00d37c;
+a{
+  color: #007a57;
   text-decoration: none;
 }
-a:hover {
-  text-decoration: underline;
-}
+a:hover{ text-decoration: underline; }
 
-/* Optional: keep images from stretching oddly */
-img {
-  max-width: 100%;
-  height: auto;
-}
+img{ max-width: 100%; height: auto; }

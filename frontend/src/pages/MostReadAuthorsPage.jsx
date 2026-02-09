@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
 import { listMostReadAuthors } from "../api/books";
-import "./MostReadAuthorsPage.css";
+import { useI18n } from "../context/I18nContext";
 
 // hardcoded favorites (from your old HTML screenshot)
 const FAVORITES = [
@@ -38,6 +38,8 @@ function buyUrl(author, title) {
 }
 
 export default function MostReadAuthorsPage() {
+  const { t } = useI18n();
+
   const [rows, setRows] = useState([]);
   const [err, setErr] = useState("");
   const [loading, setLoading] = useState(false);
@@ -52,10 +54,14 @@ export default function MostReadAuthorsPage() {
     setErr("");
 
     listMostReadAuthors({ limit: 200, signal: ac.signal })
-      .then((data) => setRows(Array.isArray(data) ? data : []))
+      .then((data) => {
+        if (ac.signal.aborted) return;
+        setRows(Array.isArray(data) ? data : []);
+      })
       .catch((e) => {
         if (ac.signal.aborted) return;
         setErr(e?.message || String(e));
+        setRows([]);
       })
       .finally(() => {
         if (!ac.signal.aborted) setLoading(false);
@@ -64,55 +70,72 @@ export default function MostReadAuthorsPage() {
     return () => ac.abort();
   }, []);
 
+  const title = t("mra_title");
+  const lede = t("mra_lede");
+  const thAuthor = t("mra_th_author");
+  const thRead = t("mra_th_read");
+  const thStock = t("mra_th_stock");
+  const thFav = t("mra_th_fav");
+  const emptyText = t("mra_empty");
+
   return (
-    <div className="mra">
-      <h1 className="mra-title">Authors that I have read most plus their best titles</h1>
+    <section className="zr-section" aria-busy={loading ? "true" : "false"}>
+      <h1>{title}</h1>
+      <p className="zr-lede">{lede}</p>
 
-      {err ? <div className="mra-error">{err}</div> : null}
-      {loading ? <div className="mra-loading">loading…</div> : null}
+      <div className="zr-card">
+        {err ? <div className="zr-alert zr-alert--error">{err}</div> : null}
+        {loading ? <div className="zr-alert">{t("mra_loading")}</div> : null}
 
-      <div className="mra-wrap">
-        <table className="mra-table">
-          <thead>
-            <tr>
-              <th>Author</th>
-              <th className="mra-num">Books read (number)</th>
-              <th className="mra-num">Books in stock (number)</th>
-              <th>Favorite title</th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((r) => {
-              const author = r.author || "—";
-              const booksRead = r.books_read ?? 0;
-              const booksInStock = r.books_in_stock ?? 0;
+        <div style={{ overflow: "auto" }}>
+          <table className="zr-table">
+            <thead>
+              <tr>
+                <th>{thAuthor}</th>
+                <th style={{ textAlign: "right" }}>{thRead}</th>
+                <th style={{ textAlign: "right" }}>{thStock}</th>
+                <th>{thFav}</th>
+              </tr>
+            </thead>
 
-              const fav = favFor(author) || r.best_title || "";
-              const url = fav ? buyUrl(author, fav) : "";
+            <tbody>
+              {rows.map((r) => {
+                const author = r.author || "—";
+                const booksRead = r.books_read ?? 0;
+                const booksInStock = r.books_in_stock ?? 0;
 
-              return (
-                <tr key={author}>
-                  <td>{author}</td>
-                  <td className="mra-num">{booksRead}</td>
-                  <td className="mra-num">{booksInStock}</td>
-                  <td>
-                    {fav ? (
-                      <a href={url} target="_blank" rel="noreferrer">{fav}</a>
-                    ) : (
-                      "—"
-                    )}
+                const fav = favFor(author) || r.best_title || "";
+                const url = fav ? buyUrl(author, fav) : "";
+
+                return (
+                  <tr key={author}>
+                    <td>{author}</td>
+                    <td style={{ textAlign: "right" }}>{booksRead}</td>
+                    <td style={{ textAlign: "right" }}>{booksInStock}</td>
+                    <td>
+                      {fav ? (
+                        <a href={url} target="_blank" rel="noreferrer noopener">
+                          {fav}
+                        </a>
+                      ) : (
+                        "—"
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
+
+              {!loading && rows.length === 0 ? (
+                <tr>
+                  <td colSpan={4} style={{ opacity: 0.75 }}>
+                    {emptyText}
                   </td>
                 </tr>
-              );
-            })}
-            {!loading && rows.length === 0 ? (
-              <tr>
-                <td colSpan={4} className="mra-empty">No data.</td>
-              </tr>
-            ) : null}
-          </tbody>
-        </table>
+              ) : null}
+            </tbody>
+          </table>
+        </div>
       </div>
-    </div>
+    </section>
   );
 }

@@ -1,12 +1,13 @@
 import React from "react";
 import { Outlet } from "react-router-dom";
-import Header from "./Header";
+import TopBar from "./TopBar";
 
 export default function Layout() {
   return (
-    <div className="min-h-screen flex flex-col" style={{ backgroundColor: "#95d4cf" }}>
-      <Header />
-      <main className="flex-1">
+    <div>
+      <TopBar />
+      <div className="zr-greybar" aria-hidden="true" />
+      <main className="zr-main">
         <Outlet />
       </main>
     </div>

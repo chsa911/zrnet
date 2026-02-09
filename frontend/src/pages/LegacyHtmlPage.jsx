@@ -6,15 +6,8 @@ export default function LegacyHtmlPage() {
   const src = `/assets/${page}.html`;
 
   return (
-    <iframe
-      title={page}
-      src={src}
-      style={{
-        width: "100%",
-        height: "calc(100vh - 120px)",
-        border: "0",
-        background: "transparent",
-      }}
-    />
+    <section className="zr-section">
+      <iframe title={page} src={src} className="zr-legacyFrame" />
+    </section>
   );
 }

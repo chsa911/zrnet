@@ -1,0 +1,318 @@
+/*
+  ZenReader UI (shared layout + components)
+  --------------------------------------------------
+  Makes all pages match the updated Home layout.
+*/
+
+:root{
+  --zr-text:#111111;
+  --zr-muted:rgba(0,0,0,0.70);
+  --zr-border:rgba(0,0,0,0.10);
+  --zr-greybar:#E9E9E9;
+
+  --zr-accent:#00C27A;
+  --zr-accentHover:#00A868;
+}
+
+/* ----- layout ----- */
+
+.zr-greybar{
+  height: 18px;
+  background: var(--zr-greybar);
+}
+
+.zr-main{
+  max-width: 1120px;
+  margin: 0 auto;
+  padding: 28px 16px 70px;
+  color: var(--zr-text);
+}
+
+.zr-section{ margin-top: 42px; }
+.zr-section:first-child{ margin-top: 0; }
+
+.zr-section h1{
+  margin: 0 0 10px;
+  font-weight: 950;
+  letter-spacing: -0.03em;
+  font-size: clamp(28px, 3.6vw, 46px);
+  line-height: 1.06;
+}
+
+.zr-section h2{
+  margin: 0 0 10px;
+  font-size: 22px;
+  font-weight: 950;
+  letter-spacing: -0.02em;
+}
+
+.zr-lede{ margin: 0 0 12px; color: var(--zr-muted); line-height: 1.65; }
+
+/* ----- buttons ----- */
+
+.zr-btn2{
+  text-decoration:none;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  padding: 11px 16px;
+  border-radius: 999px;
+  font-weight: 900;
+  border: 1px solid transparent;
+  font-size: 14px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.zr-btn2--primary{
+  background: var(--zr-accent);
+  color: #0b1a12;
+  border-color: rgba(0,0,0,0.06);
+}
+.zr-btn2--primary:hover{ background: var(--zr-accentHover); }
+
+.zr-btn2--ghost{
+  background: transparent;
+  border-color: rgba(0,0,0,0.20);
+  color: var(--zr-text);
+}
+.zr-btn2--ghost:hover{ background: rgba(0,0,0,0.03); }
+
+.zr-btn2--sm{
+  padding: 8px 12px;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.zr-btn2[disabled]{
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* ----- inputs ----- */
+
+.zr-input, .zr-select{
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(0,0,0,0.20);
+  background: #fff;
+  font: inherit;
+}
+
+.zr-input{ min-width: 260px; }
+.zr-select{ min-width: 110px; }
+
+/* ----- cards / toolbars / alerts ----- */
+
+.zr-card{
+  border: 1px solid var(--zr-border);
+  border-radius: 16px;
+  padding: 14px;
+  background: #fff;
+}
+
+.zr-toolbar{
+  display:flex;
+  gap: 10px;
+  flex-wrap:wrap;
+  align-items:center;
+}
+
+.zr-toolbar__grow{ margin-left: auto; }
+
+.zr-alert{
+  margin-top: 10px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid var(--zr-border);
+  background: rgba(0,0,0,0.02);
+}
+
+.zr-alert--error{
+  border-color: rgba(176,0,32,0.35);
+  background: rgba(176,0,32,0.06);
+  color: #7a0b0b;
+  font-weight: 700;
+}
+
+/* ----- home hero (kept so Home.jsx looks identical) ----- */
+
+.zr-hero{
+  display:grid;
+  grid-template-columns: 1.1fr 0.9fr;
+  gap: 26px;
+  align-items:start;
+}
+
+.zr-hero__text h1{
+  margin: 0 0 10px;
+  font-weight: 950;
+  letter-spacing: -0.03em;
+  font-size: clamp(28px, 3.6vw, 46px);
+  line-height: 1.06;
+}
+
+.zr-hero__text p{
+  margin: 0 0 14px;
+  font-size: 18px;
+  line-height: 1.65;
+  color: var(--zr-muted);
+  max-width: 70ch;
+}
+
+.zr-hero__ctas{
+  display:flex;
+  gap: 10px;
+  flex-wrap:wrap;
+  margin-bottom: 14px;
+}
+
+.zr-bullets{
+  margin: 0;
+  padding-left: 18px;
+  color: rgba(0,0,0,0.75);
+}
+.zr-bullets li{ margin: 8px 0; line-height: 1.6; }
+
+.zr-hero__media{
+  display:flex;
+  flex-direction:column;
+  gap: 12px;
+}
+.zr-heroImg{
+  width: 100%;
+  border-radius: 18px;
+  border: 1px solid rgba(0,0,0,0.10);
+  box-shadow: 0 14px 36px rgba(0,0,0,0.12);
+  object-fit: cover;
+  background: #fff;
+}
+
+.zr-proof{
+  border: 1px solid var(--zr-border);
+  border-radius: 16px;
+  padding: 14px;
+  background: #fff;
+}
+.zr-proof__title{ font-weight: 900; margin-bottom: 10px; }
+.zr-proof__row{
+  display:flex;
+  justify-content:space-between;
+  padding: 8px 0;
+  border-top: 1px solid rgba(0,0,0,0.06);
+  font-size: 14px;
+}
+.zr-proof__row:first-of-type{ border-top: none; }
+.zr-proof__note{
+  margin-top: 10px;
+  font-size: 12px;
+  opacity: 0.7;
+}
+
+/* ----- lists / steps ----- */
+
+.zr-steps{
+  margin: 0;
+  padding-left: 18px;
+  color: rgba(0,0,0,0.78);
+}
+.zr-steps li{ margin: 8px 0; line-height: 1.7; }
+
+.zr-startbox{
+  display:grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+}
+.zr-startbox__step{
+  border: 1px solid var(--zr-border);
+  border-radius: 14px;
+  padding: 14px;
+  font-weight: 700;
+  background:#fff;
+}
+.zr-startbox__step strong{
+  display:inline-flex;
+  width: 24px;
+  height: 24px;
+  border-radius: 999px;
+  align-items:center;
+  justify-content:center;
+  margin-right: 8px;
+  background: rgba(0,0,0,0.06);
+}
+
+/* ----- tables (MostReadAuthors etc.) ----- */
+
+.zr-table{
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  border: 1px solid var(--zr-border);
+  border-radius: 14px;
+  overflow: hidden;
+  background: #fff;
+}
+
+.zr-table th, .zr-table td{
+  padding: 12px 12px;
+  text-align: left;
+  border-bottom: 1px solid rgba(0,0,0,0.06);
+  vertical-align: top;
+}
+
+.zr-table thead th{
+  background: rgba(0,0,0,0.03);
+  font-weight: 900;
+  font-size: 13px;
+  letter-spacing: -0.01em;
+}
+
+.zr-table tbody tr:last-child td{ border-bottom: none; }
+
+/* ----- legacy html (iframe pages) ----- */
+
+.zr-legacyFrame{
+  width: 100%;
+  min-height: 72vh;
+  border: 0;
+  background: transparent;
+}
+
+/* ----- responsive ----- */
+
+@media (max-width: 920px){
+  .zr-hero{ grid-template-columns: 1fr; }
+  .zr-startbox{ grid-template-columns: 1fr; }
+  .zr-input{ min-width: 180px; }
+}
+
+.zr-results{
+  margin-top: 12px;
+  border-top: 1px solid rgba(0,0,0,0.06);
+}
+
+.zr-resultRow{
+  padding: 10px 0;
+  border-bottom: 1px solid rgba(0,0,0,0.06);
+}
+
+.zr-resultTitle{
+  font-weight: 900;
+}
+
+.zr-resultMeta{
+  font-weight: 500;
+  opacity: 0.70;
+}
+
+.zr-empty{
+  padding: 12px 0;
+  opacity: 0.75;
+}
+
+.zr-legacyFrame{
+  width: 100%;
+  min-height: 72vh;
+  border: 0;
+  background: transparent;
+}

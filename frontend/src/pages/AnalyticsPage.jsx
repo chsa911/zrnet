@@ -1,4 +1,3 @@
-// AnalyticsPage.jsx
 import React, { useEffect, useState } from "react";
 import { useI18n } from "../context/I18nContext";
 import { listPublicBooks } from "../api/books";
@@ -30,14 +29,15 @@ export default function AnalyticsPage() {
   const setBucketAndReset = (next) => {
     setBucket(next);
     setPage(1);
-    // setQ(""); // optional: clear search when switching buckets
   };
 
   useEffect(() => {
     let alive = true;
+
     (async () => {
       setLoadingSearch(true);
       setSearchErr("");
+
       try {
         const res = await listPublicBooks({
           bucket,
@@ -46,6 +46,7 @@ export default function AnalyticsPage() {
           limit,
           page,
         });
+
         if (!alive) return;
         setItems(res.items || []);
         setTotal(res.total || 0);
@@ -59,6 +60,7 @@ export default function AnalyticsPage() {
         setLoadingSearch(false);
       }
     })();
+
     return () => {
       alive = false;
     };
@@ -67,21 +69,18 @@ export default function AnalyticsPage() {
   const pages = Math.max(1, Math.ceil(total / limit));
 
   return (
-    <div style={{ background: "mintcream", borderRadius: 12, padding: 16 }}>
-      <h2 style={{ fontFamily: "Arial, sans-serif", marginTop: 0 }}>
-        {t("analytics_title")}
-      </h2>
+    <section className="zr-section">
+      <h1>{t("analytics_title")}</h1>
+      <p className="zr-lede">
+        {loadingSearch
+          ? t("analytics_searching")
+          : t("analytics_results", { count: total })}
+      </p>
 
-      <div
-        style={{
-          background: "rgba(255,255,255,0.65)",
-          borderRadius: 12,
-          padding: 12,
-        }}
-      >
+      <div className="zr-card">
         {/* Controls */}
-        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+        <div className="zr-toolbar">
+          <div className="zr-toolbar">
             {bucketOptions.map((b) => {
               const active = bucket === b.key;
               return (
@@ -89,14 +88,12 @@ export default function AnalyticsPage() {
                   key={b.key}
                   type="button"
                   onClick={() => setBucketAndReset(b.key)}
-                  style={{
-                    padding: "6px 10px",
-                    borderRadius: 10,
-                    border: "1px solid rgba(0,0,0,0.18)",
-                    background: active ? "rgba(0,0,0,0.10)" : "white",
-                    fontWeight: active ? 700 : 500,
-                    cursor: "pointer",
-                  }}
+                  className={[
+                    "zr-btn2",
+                    "zr-btn2--sm",
+                    active ? "zr-btn2--primary" : "zr-btn2--ghost",
+                  ].join(" ")}
+                  aria-pressed={active}
                 >
                   {t(b.labelKey)}
                 </button>
@@ -105,76 +102,94 @@ export default function AnalyticsPage() {
           </div>
 
           <input
+            className="zr-input"
             value={q}
             onChange={(e) => {
               setQ(e.target.value);
               setPage(1);
             }}
             placeholder={t("analytics_search_placeholder")}
-            style={{ minWidth: 280 }}
           />
 
           <select
+            className="zr-select"
             value={String(limit)}
             onChange={(e) => {
               setLimit(Number(e.target.value));
               setPage(1);
             }}
+            aria-label="Limit"
           >
             <option value="10">10</option>
             <option value="20">20</option>
             <option value="50">50</option>
           </select>
 
-          <div style={{ marginLeft: "auto", fontSize: 12, opacity: 0.8 }}>
-            {loadingSearch
-              ? t("analytics_searching")
-              : t("analytics_results", { count: total })}
+          <div className="zr-toolbar__grow" />
+
+          <div style={{ fontSize: 12, opacity: 0.75 }}>
+            {t("analytics_page", { page, pages })}
           </div>
         </div>
 
-        {searchErr ? <div style={{ color: "#b00020", marginTop: 8 }}>{searchErr}</div> : null}
+        {searchErr ? <div className="zr-alert zr-alert--error">{searchErr}</div> : null}
 
         {/* Results */}
-        <div style={{ marginTop: 10 }}>
+        <div className="zr-results">
           {items.map((b) => (
-            <div
-              key={b.id}
-              style={{
-                padding: "10px 0",
-                borderBottom: "1px solid rgba(0,0,0,0.08)",
-              }}
-            >
-              <div style={{ fontWeight: 800 }}>
+            <div key={b.id} className="zr-resultRow">
+              <div className="zr-resultTitle">
                 {b.title || "—"}
-                <span style={{ fontWeight: 500, opacity: 0.7 }}> — {b.author || "—"}</span>
+                <span className="zr-resultMeta"> — {b.author || "—"}</span>
               </div>
             </div>
           ))}
 
           {!loadingSearch && items.length === 0 ? (
-            <div style={{ padding: 12, opacity: 0.8 }}>{t("analytics_no_results")}</div>
+            <div className="zr-empty">{t("analytics_no_results")}</div>
           ) : null}
         </div>
 
         {/* Pagination */}
-        <div style={{ display: "flex", gap: 8, alignItems: "center", marginTop: 10 }}>
-          <button type="button" disabled={page <= 1} onClick={() => setPage(1)}>
+        <div className="zr-toolbar" style={{ marginTop: 10 }}>
+          <button
+            className="zr-btn2 zr-btn2--ghost zr-btn2--sm"
+            type="button"
+            disabled={page <= 1}
+            onClick={() => setPage(1)}
+          >
             ⏮
           </button>
-          <button type="button" disabled={page <= 1} onClick={() => setPage((p) => p - 1)}>
+          <button
+            className="zr-btn2 zr-btn2--ghost zr-btn2--sm"
+            type="button"
+            disabled={page <= 1}
+            onClick={() => setPage((p) => p - 1)}
+          >
             ◀
           </button>
-          <div style={{ fontSize: 13 }}>{t("analytics_page", { page, pages })}</div>
-          <button type="button" disabled={page >= pages} onClick={() => setPage((p) => p + 1)}>
+
+          <div className="zr-toolbar__grow" />
+
+          <button
+            className="zr-btn2 zr-btn2--ghost zr-btn2--sm"
+            type="button"
+            disabled={page >= pages}
+            onClick={() => setPage((p) => p + 1)}
+          >
             ▶
           </button>
-          <button type="button" disabled={page >= pages} onClick={() => setPage(pages)}>
+          <button
+            className="zr-btn2 zr-btn2--ghost zr-btn2--sm"
+            type="button"
+            disabled={page >= pages}
+            onClick={() => setPage(pages)}
+          >
             ⏭
           </button>
         </div>
       </div>
-    </div>
+    </section>
   );
 }
 
