@@ -21,15 +21,37 @@ export default function StatsDetailPage() {
   const selectedAuthor = sp.get("author") || "";
 
   const cfg = useMemo(() => {
-    return {
-      stock: { title: t("stats_in_stock"), subtitle: "Most owned authors (in stock)" },
-      finished: { title: t("stats_finished"), bucket: "finished", dateField: "reading_status_updated_at" },
-      abandoned: { title: t("stats_abandoned"), bucket: "abandoned", dateField: "reading_status_updated_at" },
-      top: { title: t("stats_top"), bucket: "top", dateField: "top_book_set_at" },
-    }[type] || null;
+    return (
+      {
+        stock: { title: t("stats_in_stock"), subtitle: "Most owned authors (in stock)" },
+        finished: {
+          title: t("stats_finished"),
+          bucket: "finished",
+          dateField: "reading_status_updated_at",
+        },
+        abandoned: {
+          title: t("stats_abandoned"),
+          bucket: "abandoned",
+          dateField: "reading_status_updated_at",
+        },
+        top: { title: t("stats_top"), bucket: "top", dateField: "top_book_set_at" },
+      }[type] || null
+    );
   }, [type, t]);
 
   const stockBaseUrl = `/stats/stock?year=${encodeURIComponent(year)}`;
+  const finishedUrl = `/stats/finished?year=${encodeURIComponent(year)}`;
+  const topUrl = `/stats/top?year=${encodeURIComponent(year)}`;
+
+  // Tabs (only the ones you asked for)
+  const tabs = useMemo(
+    () => [
+      { key: "stock", label: t("stats_in_stock"), to: stockBaseUrl },
+      { key: "finished", label: t("stats_finished"), to: finishedUrl },
+      { key: "top", label: t("stats_top"), to: topUrl },
+    ],
+    [t, stockBaseUrl, finishedUrl, topUrl]
+  );
 
   // Stock state
   const [authorQuery, setAuthorQuery] = useState("");
@@ -173,7 +195,9 @@ export default function StatsDetailPage() {
   // Filter authors + Top N for stock list
   const filteredAuthors = useMemo(() => {
     const q = authorQuery.trim().toLowerCase();
-    const base = !q ? authors : authors.filter((a) => String(a.author || "").toLowerCase().includes(q));
+    const base = !q
+      ? authors
+      : authors.filter((a) => String(a.author || "").toLowerCase().includes(q));
     return q ? base : base.slice(0, topN);
   }, [authors, authorQuery, topN]);
 
@@ -195,12 +219,16 @@ export default function StatsDetailPage() {
 
       {/* Breadcrumb */}
       <div className="zr-statsdetail-breadcrumb">
-        <Link to="/" className="zr-crumb-link">{t("nav_home")}</Link>
+        <Link to="/" className="zr-crumb-link">
+          {t("nav_home")}
+        </Link>
         <span className="zr-crumb-sep">›</span>
 
         {type === "stock" && selectedAuthor ? (
           <>
-            <Link to={stockBaseUrl} className="zr-crumb-link">{cfg.title}</Link>
+            <Link to={stockBaseUrl} className="zr-crumb-link">
+              {cfg.title}
+            </Link>
             <span className="zr-crumb-sep">›</span>
             <span className="zr-crumb strong">{selectedAuthor}</span>
           </>
@@ -208,6 +236,24 @@ export default function StatsDetailPage() {
           <span className="zr-crumb strong">{cfg.title}</span>
         )}
       </div>
+
+      {/* Tabs */}
+      <nav className="zr-statsdetail-tabs" aria-label="Stats sections">
+        {tabs.map((tab) => {
+          const active = tab.key === type;
+          return (
+            <Link
+              key={tab.key}
+              to={tab.to}
+              className={`zr-statsdetail-tab ${active ? "is-active" : ""}`}
+              aria-current={active ? "page" : undefined}
+              title={tab.label}
+            >
+              {tab.label}
+            </Link>
+          );
+        })}
+      </nav>
 
       {err ? <div className="zr-statsdetail-error">{err}</div> : null}
 
@@ -239,7 +285,9 @@ export default function StatsDetailPage() {
                 </select>
 
                 <div className="zr-statsdetail-meta">
-                  {authorQuery.trim() ? `${filteredAuthors.length} matches` : `${topN} authors`}
+                  {authorQuery.trim()
+                    ? `${filteredAuthors.length} matches`
+                    : `${topN} authors`}
                 </div>
               </div>
 
@@ -258,21 +306,31 @@ export default function StatsDetailPage() {
                 ))}
               </div>
 
-              {loadingAuthors ? <div className="zr-statsdetail-loading">loading…</div> : null}
+              {loadingAuthors ? (
+                <div className="zr-statsdetail-loading">loading…</div>
+              ) : null}
             </>
           ) : (
             <>
               <div className="zr-statsdetail-subtitle">
                 Titles by <b>{selectedAuthor}</b>
-                <span style={{ opacity: 0.7, marginLeft: 8 }}>({books.length})</span>
-                <button className="zr-statsdetail-btn" onClick={onClearAuthor} type="button">
+                <span style={{ opacity: 0.7, marginLeft: 8 }}>
+                  ({books.length})
+                </span>
+                <button
+                  className="zr-statsdetail-btn"
+                  onClick={onClearAuthor}
+                  type="button"
+                >
                   Back to authors
                 </button>
               </div>
 
-              {loadingBooks ? <div className="zr-statsdetail-loading">loading…</div> : null}
+              {loadingBooks ? (
+                <div className="zr-statsdetail-loading">loading…</div>
+              ) : null}
 
-              {/* ✅ titles only */}
+              {/* titles only */}
               <ul className="zr-books-list">
                 {books.map((b) => {
                   const title = b.title || "—";
@@ -301,12 +359,15 @@ export default function StatsDetailPage() {
         /* FINISHED / ABANDONED / TOP */
         <>
           <div className="zr-statsdetail-subtitle">
-            {cfg.title} {year} <span style={{ opacity: 0.7 }}>({books.length})</span>
+            {cfg.title} {year}{" "}
+            <span style={{ opacity: 0.7 }}>({books.length})</span>
           </div>
 
-          {loadingBooks ? <div className="zr-statsdetail-loading">loading…</div> : null}
+          {loadingBooks ? (
+            <div className="zr-statsdetail-loading">loading…</div>
+          ) : null}
 
-          {/* ✅ author + title, newest-first */}
+          {/* author + title, newest-first */}
           <ul className="zr-books-list">
             {books.map((b) => {
               const author = b.author || "—";
@@ -320,9 +381,13 @@ export default function StatsDetailPage() {
                 <li key={b.id} className="zr-books-item">
                   {url ? (
                     <>
-                      <a href={url} target="_blank" rel="noreferrer">{author}</a>
+                      <a href={url} target="_blank" rel="noreferrer">
+                        {author}
+                      </a>
                       <span className="zr-sep">—</span>
-                      <a href={url} target="_blank" rel="noreferrer">{title}</a>
+                      <a href={url} target="_blank" rel="noreferrer">
+                        {title}
+                      </a>
                     </>
                   ) : (
                     <span>

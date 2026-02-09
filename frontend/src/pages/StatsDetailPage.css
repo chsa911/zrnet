@@ -171,3 +171,38 @@
   margin: 0 8px;
   opacity: 0.6;
 }
+/* --- Tabs (Stock / Finished / Top) --- */
+.zr-statsdetail-tabs{
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin: 10px 0 14px;
+}
+
+.zr-statsdetail-tab{
+  text-decoration: none;
+  color: inherit;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px 12px;
+  border-radius: 999px;
+  border: 1px solid rgba(0,0,0,0.20);
+  font-weight: 800;
+  font-size: 13px;
+  background: transparent;
+}
+
+.zr-statsdetail-tab:hover{
+  background: rgba(0,0,0,0.03);
+}
+
+.zr-statsdetail-tab.is-active{
+  background: rgba(0,0,0,0.06);
+  border-color: rgba(0,0,0,0.35);
+}
+
+.zr-statsdetail-tab:focus-visible{
+  outline: 2px solid rgba(0,0,0,0.35);
+  outline-offset: 2px;
+}

@@ -315,4 +315,25 @@
   min-height: 72vh;
   border: 0;
   background: transparent;
+}           
+/* --- clickable Live Stats --- */
+.zr-proof__titleLink,
+.zr-proof__rowLink{
+  color: inherit;
+  text-decoration: none;
+}
+
+.zr-proof__rowLink{
+  cursor: pointer;
+}
+
+.zr-proof__rowLink:hover{
+  background: rgba(0,0,0,0.03);
+}
+
+.zr-proof__rowLink:focus-visible,
+.zr-proof__titleLink:focus-visible{
+  outline: 2px solid rgba(0,0,0,0.35);
+  outline-offset: 2px;
+  border-radius: 10px;
 }

@@ -26,7 +26,7 @@ export default function TopBar() {
               <Link to="/kontaktformular.html">Contact</Link>
               <Link to="/login">Login</Link>
               <Link to="/impressum.html">Imprint</Link>
-
+              <Link to="/bookthemes">Book themes</Link>
               {/* Optional extras (if these routes exist in your project) */}
               <Link to="/ausruestung.html">Equipment</Link>
               <Link to="/beschaffung.html">Getting books</Link>

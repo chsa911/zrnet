@@ -1,11 +1,22 @@
-import React, { useEffect, useState } from "react";
+// frontend/src/pages/AdminPage.jsx
+import React, { useEffect, useMemo, useState } from "react";
+import { Link, useLocation, useNavigate } from "react-router-dom";
+import { getApiRoot } from "../api/apiRoot";
 
-const API = import.meta.env.VITE_API_BASE_URL || "http://localhost:4000/api";
+const API = getApiRoot();
 
 export default function AdminPage() {
+  const navigate = useNavigate();
+  const location = useLocation();
+
+  const nextPath = useMemo(() => {
+    const sp = new URLSearchParams(location.search || "");
+    const next = sp.get("next");
+    return next && next.startsWith("/") ? next : null;
+  }, [location.search]);
+
   const [checking, setChecking] = useState(true);
   const [loggedIn, setLoggedIn] = useState(false);
-
   const [msg, setMsg] = useState("");
 
   const [password, setPassword] = useState("");
@@ -29,7 +40,10 @@ export default function AdminPage() {
   useEffect(() => {
     (async () => {
       try {
-        const res = await fetch(`${API}/admin/me`, { credentials: "include" });
+        const res = await fetch(`${API}/admin/me`, {
+          credentials: "include",
+          cache: "no-store",
+        });
         setLoggedIn(res.ok);
       } catch {
         setLoggedIn(false);
@@ -61,7 +75,7 @@ export default function AdminPage() {
         setPreviewErr("");
         const res = await fetch(
           `${API}/barcodes/preview-barcode?width=${encodeURIComponent(w)}&height=${encodeURIComponent(h)}`,
-          { credentials: "include" }
+          { credentials: "include", cache: "no-store" }
         );
         const data = await res.json().catch(() => ({}));
 
@@ -96,6 +110,9 @@ export default function AdminPage() {
       setLoggedIn(true);
       setMsg("Logged in.");
       setPassword("");
+
+      // ✅ redirect to requested page if provided
+      if (nextPath) navigate(nextPath, { replace: true });
     } else {
       setLoggedIn(false);
       setMsg("Login failed.");
@@ -165,80 +182,111 @@ export default function AdminPage() {
               placeholder="ADMIN_PASSWORD"
             />
           </label>
-          <button type="submit" style={{ padding: 10 }}>Login</button>
+          <button type="submit" style={{ padding: 10 }}>
+            Login
+          </button>
         </form>
       ) : (
         <>
           <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 12 }}>
             <strong>Logged in</strong>
-            <button onClick={logout} style={{ padding: "8px 10px" }}>Logout</button>
+            <button onClick={logout} style={{ padding: "8px 10px" }}>
+              Logout
+            </button>
+          </div>
+
+          <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 16 }}>
+            <Link to="/register" className="zr-btn2 zr-btn2--ghost zr-btn2--sm">
+              Register
+            </Link>
+            <Link to="/update" className="zr-btn2 zr-btn2--ghost zr-btn2--sm">
+              Search/Update
+            </Link>
+            <Link to="/sync-issues" className="zr-btn2 zr-btn2--ghost zr-btn2--sm">
+              Sync Issues
+            </Link>
           </div>
 
           <h2 style={{ fontSize: 34, margin: "18px 0 10px" }}>Register Book</h2>
 
-          {/* compact row */}
-          <div style={{ display: "flex", gap: 16, alignItems: "flex-end", flexWrap: "wrap" }}>
-            <label style={{ flex: "0 0 150px" }}>
-              Width (cm)
-              <input
-                value={widthCm}
-                onChange={(e) => setWidthCm(e.target.value)}
-                inputMode="decimal"
-                maxLength={4}
-                style={{ width: "100%", padding: 8, marginTop: 6 }}
-              />
-            </label>
+          <form onSubmit={registerBook} style={{ display: "grid", gap: 10, maxWidth: 520 }}>
+            {/* compact row */}
+            <div style={{ display: "flex", alignItems: "flex-end", gap: 12, flexWrap: "wrap" }}>
+              <label style={{ flex: "0 0 150px" }}>
+                Width (cm)
+                <input
+                  value={widthCm}
+                  onChange={(e) => setWidthCm(e.target.value)}
+                  inputMode="decimal"
+                  maxLength={6}
+                  style={{ width: "100%", padding: 8, marginTop: 6 }}
+                />
+              </label>
 
-            <label style={{ flex: "0 0 150px" }}>
-              Height (cm)
-              <input
-                value={heightCm}
-                onChange={(e) => setHeightCm(e.target.value)}
-                inputMode="decimal"
-                maxLength={4}
-                style={{ width: "100%", padding: 8, marginTop: 6 }}
-              />
-            </label>
+              <label style={{ flex: "0 0 150px" }}>
+                Height (cm)
+                <input
+                  value={heightCm}
+                  onChange={(e) => setHeightCm(e.target.value)}
+                  inputMode="decimal"
+                  maxLength={6}
+                  style={{ width: "100%", padding: 8, marginTop: 6 }}
+                />
+              </label>
 
-            <label style={{ flex: "0 0 150px" }}>
-              Pages
-              <input
-                value={pages}
-                onChange={(e) => setPages(e.target.value)}
-                inputMode="numeric"
-                maxLength={4}
-                style={{ width: "100%", padding: 8, marginTop: 6 }}
-              />
-            </label>
+              <label style={{ flex: "0 0 150px" }}>
+                Pages
+                <input
+                  value={pages}
+                  onChange={(e) => setPages(e.target.value)}
+                  inputMode="numeric"
+                  maxLength={6}
+                  style={{ width: "100%", padding: 8, marginTop: 6 }}
+                />
+              </label>
 
-            <label style={{ flex: "0 0 170px" }}>
-              Barcode (preview)
-              <input
-                value={previewBarcode}
-                readOnly
-                style={{ width: "100%", padding: 8, marginTop: 6, background: "#f5f5f5" }}
-                placeholder="—"
-              />
-            </label>
-          </div>
-
-          {previewErr && (
-            <div style={{ marginTop: 8, fontSize: 12, color: "#a00" }}>
-              Preview error: {previewErr}
+              <label style={{ flex: "0 0 170px" }}>
+                Barcode (preview)
+                <input
+                  value={previewBarcode}
+                  readOnly
+                  style={{ width: "100%", padding: 8, marginTop: 6, background: "#f5f5f5" }}
+                  placeholder="—"
+                />
+              </label>
             </div>
-          )}
-          <label>
-              Author
-              <input value={author} onChange={(e) => setAuthor(e.target.value)} style={{ width: "100%", padding: 8, marginTop: 6 }} />
-            </label>
-          <form onSubmit={registerBook} style={{ display: "grid", gap: 10, maxWidth: 520, marginTop: 14 }}>
+
+            {previewErr && (
+              <div style={{ marginTop: 4, fontSize: 12, color: "#a00" }}>
+                Preview error: {previewErr}
+              </div>
+            )}
+
             <label>
               Title
-              <input value={title} onChange={(e) => setTitle(e.target.value)} style={{ width: "100%", padding: 8, marginTop: 6 }} />
+              <input
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                style={{ width: "100%", padding: 8, marginTop: 6 }}
+              />
             </label>
+
+            <label>
+              Author
+              <input
+                value={author}
+                onChange={(e) => setAuthor(e.target.value)}
+                style={{ width: "100%", padding: 8, marginTop: 6 }}
+              />
+            </label>
+
             <label>
               Publisher
-              <input value={publisher} onChange={(e) => setPublisher(e.target.value)} style={{ width: "100%", padding: 8, marginTop: 6 }} />
+              <input
+                value={publisher}
+                onChange={(e) => setPublisher(e.target.value)}
+                style={{ width: "100%", padding: 8, marginTop: 6 }}
+              />
             </label>
 
             <button type="submit" style={{ padding: 10 }}>

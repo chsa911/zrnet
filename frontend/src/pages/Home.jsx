@@ -4,6 +4,8 @@ import { useI18n } from "../context/I18nContext";
 export default function Home() {
   const { t } = useI18n();
 
+  const year = 2026;
+
   return (
     <>
       <section className="zr-hero">
@@ -36,20 +38,28 @@ export default function Home() {
           />
 
           <div className="zr-proof">
-            <div className="zr-proof__title">{t("home_stats_title")}</div>
+            {/* Title (clickable -> stock authors) */}
+            <Link className="zr-proof__title zr-proof__titleLink" to={`/stats/stock?year=${year}`}>
+              {t("home_stats_title")}
+            </Link>
 
-            <div className="zr-proof__row">
+            {/* In Stock -> most represented authors in store */}
+            <Link className="zr-proof__row zr-proof__rowLink" to={`/stats/stock?year=${year}`}>
               <span>{t("home_stats_in_stock")}</span>
               <strong>2933</strong>
-            </div>
-            <div className="zr-proof__row">
+            </Link>
+
+            {/* Finished (2026) -> finished books in 2026 */}
+            <Link className="zr-proof__row zr-proof__rowLink" to={`/stats/finished?year=${year}`}>
               <span>{t("home_stats_finished_2026")}</span>
               <strong>15</strong>
-            </div>
-            <div className="zr-proof__row">
+            </Link>
+
+            {/* Top (2026) -> top books in 2026 */}
+            <Link className="zr-proof__row zr-proof__rowLink" to={`/stats/top?year=${year}`}>
               <span>{t("home_stats_top")}</span>
               <strong>11</strong>
-            </div>
+            </Link>
 
             <div className="zr-proof__note">{t("home_stats_note")}</div>
           </div>
