@@ -1,6 +1,7 @@
 {
   "lang_label": "Language",
   "search_placeholder": "Search books or authors…",
+
   "nav_about": "About me",
   "nav_home": "Home",
   "nav_readingdiary": "Reading diary",
@@ -9,9 +10,12 @@
   "nav_shop": "Shop",
   "nav_faq": "FAQ",
   "nav_login": "Login",
+
   "nav_youtube": "YouTube",
   "nav_tiktok": "TikTok",
   "nav_instagram": "Instagram",
+  "nav_impressum": "Imprint",
+
   "stats_books_in": "Books in",
   "stats_loading": "loading…",
   "stats_finished": "Finished",
@@ -20,32 +24,39 @@
   "stats_in_stock": "In stock",
   "stats_live_db": "live from DB",
   "stats_error": "Could not load stats: {error}",
+
   "intro_quote": "“I don’t need a lot… all I need is a top-book.”",
   "intro_lead": "This saying best explains my time consuming book procurement, administration and reading process and my disruptive reading technique which enables me to read every free minute and to select only pageturners out of a big variety of books. A dream!!",
   "intro_explore": "Explore",
+
   "li1_prefix": "My",
   "li1_link": "reading technique",
   "li1_img_alt": "Reading technique",
+
   "li2_prefix1": "My",
   "li2_link_equipment": "equipment",
   "li2_suffix1": "and",
   "li2_mid": "my recently found treasures",
   "li2_img1_alt": "Book shelf",
   "li2_img2_alt": "Treasure chest",
+
   "li3_prefix": "My",
   "li3_link_authors": "most read authors",
   "li3_suffix": "and many more",
   "li3_img_alt": "Authors",
+
   "li4_prefix": "My",
   "li4_link_sources": "sources",
   "li4_mid": "and my",
   "li4_link_books": "procurement process",
+
   "li5_prefix": "My",
   "li5_link_podcast": "podcast",
   "li5_mid": "and my interview with",
   "li5_link_bookdeckel": "BookDeckel",
+
   "note_html": "Everything is based on a database which is connected to my physical bookshelf. <br/>More about how and why I did this is explained in <a href=\"/ueber_mich.html\">About me</a>.",
-  "nav_impressum": "Imprint",
+
   "analytics_title": "Reading diary",
   "analytics_bucket_stock": "In stock",
   "analytics_bucket_finished": "Finished",
@@ -57,7 +68,6 @@
   "analytics_no_results": "No results",
   "analytics_page": "Page {page} / {pages}",
 
-
   "mra_title": "Most read authors + best titles",
   "mra_lede": "Authors I’ve read most, plus a favorite title (linked to Amazon search).",
   "mra_th_author": "Author",
@@ -65,5 +75,39 @@
   "mra_th_stock": "Books in stock",
   "mra_th_fav": "Favorite title",
   "mra_loading": "Loading…",
-  "mra_empty": "No data."
+  "mra_empty": "No data.",
+
+  "register_title": "Register a book",
+  "register_lede": "Add a book to your shelf database.",
+
+  "home_hero_title": "Turn waiting time into reading time.",
+  "home_hero_lede": "ZenReader is a paperbook-based method to support a calm readingexperience. Pocket sections, real-life minutes, visible progress. No smartphone reading. No e-reader. Just pages.",
+  "home_cta_start": "Start in 3 minutes",
+  "home_cta_technique": "See the technique",
+
+  "home_bullet_1": "Always with you: pocket sections, not a heavy book.",
+  "home_bullet_2": "Read in real life: station, queue, checkout.",
+  "home_bullet_3": "Done pages → recycling (progress remains visible).",
+  "home_bullet_4": "Read what you love—drop what you don’t.",
+
+  "home_img_alt_pocket": "Pocket pages",
+
+  "home_stats_title": "Live stats",
+  "home_stats_in_stock": "In stock",
+  "home_stats_finished_2026": "Finished (2026)",
+  "home_stats_top": "Top",
+  "home_stats_note": "Connected to shelf + database.",
+
+  "home_how_title": "How it works",
+  "home_how_1": "Pick a paperback you want to read.",
+  "home_how_2": "Split it into pocket sections (20–40 pages).",
+  "home_how_3": "Carry one section and read top-to-bottom.",
+  "home_how_4": "Use micro-moments (waiting time becomes reading time).",
+  "home_how_5": "Done pages → recycling (you always know where you stopped).",
+
+  "home_start_title": "Start today",
+  "home_start_lede": "Choose one book you actually want. Make one small section. Read every waiting minute today.",
+  "home_start_step_1": "Choose a paperback.",
+  "home_start_step_2": "Make one pocket section.",
+  "home_start_step_3": "Carry it today."
 }
