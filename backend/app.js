@@ -65,7 +65,12 @@ app.get("/api/health", async (req, res, next) => {
     next(e);
   }
 });
-
+app.get("/api/themes", async (req, res) => {
+  res.json([
+    { id: 1, name: "History", slug: "history" },
+    { id: 2, name: "Adventure", slug: "adventure" },
+  ]);
+});
 // ✅ optional: make /api and /api/ not look “broken”
 app.get(["/api", "/api/"], (req, res) => {
   res.json({
