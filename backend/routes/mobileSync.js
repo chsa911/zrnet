@@ -1,5 +1,6 @@
   const express = require("express");
 const router = express.Router();
+const { adminAuthRequired } = require("../middleware/adminAuth");
 
 function getPool(req) {
   const pool = req.app.get("pgPool");
@@ -27,6 +28,12 @@ function parseTs(v) {
   const d = new Date(v);
   if (Number.isNaN(d.getTime())) return null;
   return d.toISOString();
+}
+
+function clampInt(v, { min = 1, max = 200, def = 50 } = {}) {
+  const n = Number(v);
+  if (!Number.isFinite(n)) return def;
+  return Math.max(min, Math.min(max, Math.trunc(n)));
 }
 
 // ---- schema bootstrap (safe to run repeatedly) ----
@@ -456,5 +463,145 @@ router.post("/sync", async (req, res) => {
     client.release();
   }
 });
+
+/* -------------------------------------------------------------------------- */
+/* Admin helper endpoints (cookie-authenticated)                               */
+/*                                                                            */
+// These are intentionally mounted under /api/mobile for backward compatibility
+// with older admin UIs that called /api/mobile/needs-review.
+// They are protected by the same admin_auth cookie as /api/admin/*.
+/* -------------------------------------------------------------------------- */
+
+// GET /api/mobile/needs-review?issue_status=open|resolved|discarded|all&page=1&limit=50&q=...
+async function listNeedsReview(req, res) {
+  const pool = req.app.get("pgPool");
+  if (!pool) return res.status(500).json({ error: "pgPool missing" });
+
+  const page = clampInt(req.query.page, { min: 1, max: 100000, def: 1 });
+  const limit = clampInt(req.query.limit, { min: 1, max: 200, def: 50 });
+  const offset = (page - 1) * limit;
+  const issueStatus = String(req.query.issue_status || "open").trim().toLowerCase();
+  const q = String(req.query.q || "").trim();
+
+  try {
+    const where = [];
+    const params = [];
+    let i = 1;
+
+    where.push("r.status = 'needs_review'");
+
+    if (issueStatus && issueStatus !== "all") {
+      where.push(`COALESCE(LOWER(i.status), 'open') = $${i}`);
+      params.push(issueStatus);
+      i += 1;
+    }
+
+    if (q) {
+      where.push(
+        `(
+          r.barcode ILIKE $${i}
+          OR i.reason ILIKE $${i}
+          OR i.client_change_id ILIKE $${i}
+        )`
+      );
+      params.push(`%${q}%`);
+      i += 1;
+    }
+
+    const whereSql = where.length ? `WHERE ${where.join(" AND ")}` : "";
+
+    const countRes = await pool.query(
+      `
+      SELECT count(*)::int AS total
+      FROM mobile_sync.receipts r
+      LEFT JOIN mobile_sync.issues i ON i.id = r.issue_id
+      ${whereSql}
+      `,
+      params
+    );
+
+    const itemsRes = await pool.query(
+      `
+      SELECT
+        r.id AS receipt_id,
+        r.client_change_id,
+        r.received_at,
+        r.barcode,
+        r.pages,
+        r.reading_status,
+        r.reading_status_updated_at,
+        r.top_book,
+        r.topbook_set_at,
+        r.issue_id,
+        r.payload AS receipt_payload,
+
+        i.status AS issue_status,
+        i.reason,
+        i.candidate_book_ids,
+        i.details,
+        i.note,
+        i.created_at AS issue_created_at,
+        i.payload AS issue_payload
+      FROM mobile_sync.receipts r
+      LEFT JOIN mobile_sync.issues i ON i.id = r.issue_id
+      ${whereSql}
+      ORDER BY r.received_at DESC
+      LIMIT $${i} OFFSET $${i + 1}
+      `,
+      [...params, limit, offset]
+    );
+
+    return res.json({
+      items: itemsRes.rows,
+      total: countRes.rows[0]?.total ?? 0,
+      page,
+      limit,
+    });
+  } catch (e) {
+    const msg = String(e?.message || e);
+    if (/mobile_sync\./i.test(msg) && /(does not exist|undefined table|relation)/i.test(msg)) {
+      return res.json({ items: [], total: 0, page, limit });
+    }
+    return res.status(500).json({ error: "needs_review_failed", detail: msg });
+  }
+}
+
+router.get(["/needs-review", "/needs_review"], adminAuthRequired, listNeedsReview);
+
+// POST /api/mobile/needs-review/:issueId/resolve  { status?: "resolved"|"discarded", note?: string }
+async function resolveNeedsReview(req, res) {
+  const pool = req.app.get("pgPool");
+  if (!pool) return res.status(500).json({ error: "pgPool missing" });
+
+  const issueId = String(req.params.issueId || "").trim();
+  if (!issueId) return res.status(400).json({ error: "issue_id_required" });
+
+  const statusRaw = String(req.body?.status || "resolved").trim().toLowerCase();
+  const status = statusRaw === "discarded" ? "discarded" : "resolved";
+  const note = req.body?.note ? String(req.body.note) : null;
+
+  try {
+    const r = await pool.query(
+      `
+      UPDATE mobile_sync.issues
+      SET
+        status = $2,
+        note = COALESCE($3, note),
+        resolved_at = now(),
+        resolved_by = 'admin'
+      WHERE id = $1::uuid
+      RETURNING id, status, resolved_at, note
+      `,
+      [issueId, status, note]
+    );
+
+    if (r.rowCount !== 1) return res.status(404).json({ error: "issue_not_found" });
+    return res.json({ ok: true, issue: r.rows[0] });
+  } catch (e) {
+    return res.status(500).json({ error: "issue_update_failed", detail: String(e?.message || e) });
+  }
+}
+
+router.post(["/needs-review/:issueId/resolve", "/needs_review/:issueId/resolve"], adminAuthRequired, resolveNeedsReview);
 
 module.exports = router;

@@ -12,7 +12,7 @@ app.use(morgan("dev"));
 app.use(express.json());
 app.use(cookieParser());
 app.use(express.urlencoded({ extended: true }));
-app.use("/api/themes", require("./routes/themes"));
+
 /**
  * CORS with credentials:
  * - Reads allowed origins from CORS_ORIGIN (comma-separated)
@@ -78,8 +78,6 @@ app.get(["/api", "/api/"], (req, res) => {
       "/api/barcodes",
       "/api/public/books",
       "/api/mobile",
-   
-       "/api/themes",
     ],
   });
 });
@@ -90,6 +88,7 @@ app.use("/api/barcodes", require("./routes/api/barcodes/previewBarcode"));
 app.use("/api/books", require("./routes/books"));
 app.use("/api/bmarks", require("./routes/bmarks"));
 app.use("/api/mobile", require("./routes/mobileSync"));
+app.use("/api/mobile-sync", require("./routes/mobileSync"));
 app.use("/api/public/books", require("./routes/publicBooks"));
 
 /* ---------- static public website ---------- */
@@ -98,6 +97,15 @@ app.use(express.static(publicDir));
 
 app.get("/", (req, res) => {
   res.sendFile(path.join(publicDir, "index.html"));
+});
+
+// ✅ SPA fallback for client-side routes (e.g. /admin/register, /admin/needs-review)
+// Only serve index.html for browser navigations (Accept: text/html) and non-API paths.
+app.get(/^\/(?!api\/).*/, (req, res, next) => {
+  if (req.method !== "GET") return next();
+  const accept = String(req.headers.accept || "");
+  if (!accept.includes("text/html")) return next();
+  return res.sendFile(path.join(publicDir, "index.html"));
 });
 
 /* ---------- error handler ---------- */
