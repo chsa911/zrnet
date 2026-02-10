@@ -10,7 +10,7 @@ import AdminPage from "./pages/AdminPage";
 import RegisterPage from "./pages/RegisterPage";
 import SearchUpdatePage from "./pages/SearchUpdatePage";
 import SyncIssuePage from "./pages/SyncIssuePage";
-
+import BookThemesPage from "./pages/BookThemesPage";
 import StatsDetailPage from "./pages/StatsDetailPage";
 import MostReadAuthorsPage from "./pages/MostReadAuthorsPage";
 
@@ -28,7 +28,8 @@ export default function App() {
     <Routes>
       <Route element={<Layout />}>
         <Route index element={<Home />} />
-
+<Route path="bookthemes" element={<BookThemesPage />} />
+<Route path="bookthemes.html" element={<Navigate to="/bookthemes" replace />} />
         {/* analytics */}
         <Route path="analytics/*" element={<AnalyticsPage />} />
 
