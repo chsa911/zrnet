@@ -77,7 +77,17 @@ function toQuery(params = {}) {
    ========================= */
 
 function buildListQS(params = {}) {
-  const { page = 1, limit = 20, sortBy = "BEind", order = "desc", q } = params;
+  const {
+    page = 1,
+    limit = 20,
+    sortBy = "BEind",
+    order = "desc",
+    q,
+    pages,
+    BSeiten,
+    status,
+    reading_status,
+  } = params;
   const base = {
     page,
     limit,
@@ -87,7 +97,22 @@ function buildListQS(params = {}) {
     dir: order === "asc" ? 1 : -1,
   };
   if (q && String(q).trim()) base.q = String(q).trim();
+  // Optional filters supported by backend (ignored if unknown)
+  if (pages !== undefined && pages !== null && pages !== "") base.pages = pages;
+  if (BSeiten !== undefined && BSeiten !== null && BSeiten !== "") base.BSeiten = BSeiten;
+  const st = status ?? reading_status;
+  if (st !== undefined && st !== null && st !== "") base.status = st;
   return toQuery(base);
+}
+
+/** Convenience helper: list books by exact pages (for Sync-Issues candidate dropdown) */
+export async function listBooksByPages(pages, { limit = 200, page = 1 } = {}) {
+  const p = Number(pages);
+  if (!Number.isFinite(p)) return { items: [], total: 0 };
+
+  // Use the same endpoint resolution as listBooks()
+  const res = await listBooks({ page, limit, pages: p, sortBy: "BEind", order: "desc" });
+  return { items: res.items || [], total: res.total || 0 };
 }
 
 async function tryList(pathBase, params) {

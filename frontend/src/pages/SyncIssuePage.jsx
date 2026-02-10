@@ -1,6 +1,7 @@
 // frontend/src/pages/SyncIssuePage.jsx
 import React, { useEffect, useMemo, useState } from "react";
 import { listNeedsReview, resolveMobileIssue } from "../api/mobileSync";
+import { listBooksByPages } from "../api/books";
 import AdminNavRow from "../components/AdminNavRow";
 function fmtTs(ts) {
   if (!ts) return "—";
@@ -84,6 +85,37 @@ function BookPickList({ title, books, selectedId, onSelect, groupName }) {
   );
 }
 
+function normalizeBookForPick(b) {
+  if (!b) return null;
+  const id = b.id ?? b._id ?? null;
+  if (!id) return null;
+
+  const title =
+    b.full_title ||
+    b.title ||
+    [b.BKw, b.BKw1, b.BKw2].filter(Boolean).join(" ").trim() ||
+    "—";
+
+  const author =
+    b.author_display ||
+    [b.author_firstname, b.author_lastname].filter(Boolean).join(" ").trim() ||
+    b.BAutor ||
+    b.author_lastname ||
+    b.author ||
+    "";
+
+  return {
+    id,
+    barcode: b.barcode || b.BMarkb || b.BMark || null,
+    pages: b.pages ?? b.BSeiten ?? null,
+    reading_status: b.reading_status ?? b.status ?? null,
+    top_book: b.top_book ?? b.BTop ?? null,
+    registered_at: b.registered_at ?? b.createdAt ?? b.BEind ?? null,
+    title,
+    author,
+  };
+}
+
 export default function SyncIssuePage() {
   const [q, setQ] = useState({ page: 1, limit: 20 });
   const [loading, setLoading] = useState(false);
@@ -94,6 +126,9 @@ export default function SyncIssuePage() {
   const [picked, setPicked] = useState(() => new Map()); // issueId -> bookId
   const [noteByIssue, setNoteByIssue] = useState(() => new Map());
   const [busy, setBusy] = useState(() => new Set());
+
+  // issueId -> { loading, err, items, total }
+  const [samePagesByIssue, setSamePagesByIssue] = useState(() => new Map());
 
   const canPrev = useMemo(() => q.page > 1, [q.page]);
   const canNext = useMemo(() => q.page < (data.pages || 1), [q.page, data.pages]);
@@ -130,13 +165,43 @@ export default function SyncIssuePage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [q.page, q.limit]);
 
-  function toggleExpanded(issueId) {
+  async function ensureSamePages(issueId, pages) {
+    if (!issueId || pages == null) return;
+    const existing = samePagesByIssue.get(issueId);
+    if (existing?.loading || existing?.items) return;
+
+    setSamePagesByIssue((prev) => {
+      const n = new Map(prev);
+      n.set(issueId, { loading: true, err: "", items: null, total: 0 });
+      return n;
+    });
+
+    try {
+      const res = await listBooksByPages(pages, { limit: 200, page: 1 });
+      const items = (res.items || []).map(normalizeBookForPick).filter(Boolean);
+      setSamePagesByIssue((prev) => {
+        const n = new Map(prev);
+        n.set(issueId, { loading: false, err: "", items, total: res.total || items.length });
+        return n;
+      });
+    } catch (e) {
+      setSamePagesByIssue((prev) => {
+        const n = new Map(prev);
+        n.set(issueId, { loading: false, err: e?.message || "Fehler", items: [], total: 0 });
+        return n;
+      });
+    }
+  }
+
+  function toggleExpanded(issueId, pages) {
+    const willOpen = !expanded.has(issueId);
     setExpanded((prev) => {
       const n = new Set(prev);
       if (n.has(issueId)) n.delete(issueId);
       else n.add(issueId);
       return n;
     });
+    if (willOpen) ensureSamePages(issueId, pages);
   }
 
   async function apply(issue) {
@@ -269,12 +334,7 @@ export default function SyncIssuePage() {
             const isOpen = expanded.has(issueId);
             const isBusy = busy.has(issueId);
             const pages = receipt?.pages ?? null;
-            const samePages = it?.same_pages;
-
-            const samePagesTitle =
-              pages != null
-                ? `Bücher mit ${pages} Seiten (zeige ${samePages?.items?.length || 0} von ${samePages?.total || 0})`
-                : "Bücher mit gleicher Seitenzahl";
+            const samePages = samePagesByIssue.get(issueId);
 
             return (
               <div
@@ -287,7 +347,10 @@ export default function SyncIssuePage() {
                   {issue?.reason ? badge(issue.reason) : null}
                   {receipt?.received_at ? badge(`empfangen: ${fmtTs(receipt.received_at)}`) : null}
                   <div style={{ flex: 1 }} />
-                  <button className="zr-btn2 zr-btn2--ghost zr-btn2--sm" onClick={() => toggleExpanded(issueId)}>
+                  <button
+                    className="zr-btn2 zr-btn2--ghost zr-btn2--sm"
+                    onClick={() => toggleExpanded(issueId, pages)}
+                  >
                     {isOpen ? "Details schließen" : "Details öffnen"}
                   </button>
                 </div>
@@ -334,20 +397,44 @@ export default function SyncIssuePage() {
                         />
                       ) : null}
 
-                      {samePages?.items ? (
-                        <BookPickList
-                          title={samePagesTitle}
-                          books={samePages.items}
-                          selectedId={picked.get(issueId) || ""}
-                          groupName={`pick-${issueId}`}
-                          onSelect={(id) =>
-                            setPicked((prev) => {
-                              const n = new Map(prev);
-                              n.set(issueId, id);
-                              return n;
-                            })
-                          }
-                        />
+                      {pages != null ? (
+                        <div style={{ marginTop: 10 }}>
+                          <div style={{ fontWeight: 700, marginBottom: 6 }}>
+                            Bücher mit {pages} Seiten
+                            {samePages?.loading ? " (lade…)" : ""}
+                            {!samePages?.loading && samePages?.items ? ` (${samePages.total || samePages.items.length})` : ""}
+                          </div>
+
+                          {samePages?.err ? (
+                            <div style={{ color: "#a00", fontSize: 12 }}>{samePages.err}</div>
+                          ) : null}
+
+                          {!samePages?.loading && Array.isArray(samePages?.items) ? (
+                            samePages.items.length ? (
+                              <select
+                                className="zr-select"
+                                value={picked.get(issueId) || ""}
+                                onChange={(e) => {
+                                  const id = e.target.value;
+                                  setPicked((prev) => {
+                                    const n = new Map(prev);
+                                    n.set(issueId, id);
+                                    return n;
+                                  });
+                                }}
+                              >
+                                <option value="">Bitte wählen…</option>
+                                {samePages.items.map((b) => (
+                                  <option key={b.id} value={b.id}>
+                                    {(b.barcode || "—") + " · " + (b.title || "—") + (b.author ? " · " + b.author : "")}
+                                  </option>
+                                ))}
+                              </select>
+                            ) : (
+                              <div style={{ opacity: 0.7, fontSize: 12 }}>Keine Treffer.</div>
+                            )
+                          ) : null}
+                        </div>
                       ) : null}
 
                       <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap", marginTop: 6 }}>

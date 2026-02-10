@@ -66,6 +66,15 @@ function computeFullTitle({ kw, pos, kw1, pos1, kw2, pos2 }) {
   return title || null;
 }
 
+function mapReadingStatus(v) {
+  const s = normalizeStr(v);
+  if (!s) return null;
+  const x = s.toLowerCase();
+  if (x === "open" || x === "inprogress" || x === "in-progress") return "in_progress";
+  if (x === "in_progress" || x === "finished" || x === "abandoned") return x;
+  return s;
+}
+
 function rowToApi(row) {
   if (!row) return null;
 
@@ -116,12 +125,13 @@ function rowToApi(row) {
     BEind: row.registered_at ?? row.created_at ?? null,
     createdAt: row.registered_at ?? row.created_at ?? null,
     registered_at: row.registered_at ?? null,
+
     author_display: row.author_display ?? null,
-   // ✅ add these for BookThemesPage
+
+    // ✅ add these for BookThemesPage / candidate dropdown
     full_title: row.full_title ?? null,
     themes: row.themes ?? null,
     purchase_url: row.purchase_url ?? null,
-  
   };
 }
 
@@ -192,34 +202,50 @@ async function resolveRuleAndPos(pool, widthCm, heightCm) {
 
   return { sizeRuleId: r.id, color: r.name, pos };
 }
-async function resolveRuleAndPos(pool, widthCm, heightCm) {
-  const wMm = cmToMm(widthCm);
-  const hMm = cmToMm(heightCm);
-  if (!Number.isFinite(wMm) || !Number.isFinite(hMm) || wMm <= 0 || hMm <= 0) return null;
 
-  // schema has only min_width/min_height -> pick the best matching band by min_width
-  const { rows } = await pool.query(
+/**
+ * Pick best AVAILABLE barcode for given size_rule_id and pos.
+ * Uses barcode_numbers.rank_in_series if present; falls back to lexical code order.
+ */
+async function pickBestBarcode(pool, sizeRuleId, pos) {
+  const p = normalizeStr(pos) ? String(pos).toLowerCase() : null;
+
+  // Prefer rank_in_series via barcode_numbers if available
+  try {
+    const r = await pool.query(
+      `
+      SELECT b.code
+      FROM public.barcodes b
+      JOIN public.barcode_numbers n
+        ON right(b.code, 3) = n.num
+      WHERE b.status = 'AVAILABLE'
+        AND b.size_rule_id = $1
+        AND ($2::text IS NULL OR left(lower(b.code), 1) = $2)
+      ORDER BY n.rank_in_series ASC
+      LIMIT 1
+      `,
+      [sizeRuleId, p]
+    );
+    return r.rows[0]?.code ?? null;
+  } catch {
+    // If barcode_numbers doesn't exist in some env, fallback below
+  }
+
+  const r2 = await pool.query(
     `
-    SELECT id, name, min_height
-    FROM public.size_rules
-    WHERE $1 >= min_width
-    ORDER BY min_width DESC
+    SELECT b.code
+    FROM public.barcodes b
+    WHERE b.status = 'AVAILABLE'
+      AND b.size_rule_id = $1
+      AND ($2::text IS NULL OR left(lower(b.code), 1) = $2)
+    ORDER BY b.code ASC
     LIMIT 1
     `,
-    [wMm]
+    [sizeRuleId, p]
   );
-
-  const r = rows[0];
-  if (!r) return null;
-
-  // your DB doesn't store eq_heights -> keep a small fixed rule
-  const eqHeights = [205, 210, 215]; // mm
-  let pos = "o";
-  if (eqHeights.includes(hMm)) pos = "l";
-  else if (hMm <= Number(r.min_height)) pos = "d";
-
-  return { sizeRuleId: r.id, color: r.name, pos };
+  return r2.rows[0]?.code ?? null;
 }
+
 async function assignBarcodeTx(pool, { bookId, barcode, expectedSizeRuleId, expectedPos }) {
   const chk = await pool.query(
     `SELECT code, status, size_rule_id FROM public.barcodes WHERE lower(code) = lower($1) FOR UPDATE`,
@@ -283,7 +309,7 @@ async function listBooks(req, res) {
     const pool = getPool(req);
 
     const page = clampInt(req.query.page, 1, 1, 500000);
-    const limit = clampInt(req.query.limit, 20, 1, 100);
+    const limit = clampInt(req.query.limit, 20, 1, 500); // ✅ allow bigger result set for dropdown
     const offset = (page - 1) * limit;
 
     const order =
@@ -293,6 +319,7 @@ async function listBooks(req, res) {
     const where = [];
     const params = [];
 
+    // q (freitext)
     const q = normalizeStr(req.query.q);
     if (q) {
       params.push(`%${q}%`);
@@ -311,18 +338,19 @@ async function listBooks(req, res) {
         )`
       );
     }
-function mapReadingStatus(v) {
-  const s = normalizeStr(v);
-  if (!s) return null;
-  const x = s.toLowerCase();
-  if (x === "open" || x === "inprogress" || x === "in-progress") return "in_progress";
-  if (x === "in_progress" || x === "finished" || x === "abandoned") return x;
-  return s;
-}
-const status = mapReadingStatus(req.query.status || req.query.reading_status);
+
+    // ✅ pages exakt (unabhängig von q)
+    const pagesEq = normalizeInt(req.query.pages ?? req.query.BSeiten);
+    if (pagesEq !== null) {
+      params.push(pagesEq);
+      where.push(`b.pages = $${params.length}`);
+    }
+
+    // status filter
+    const status = mapReadingStatus(req.query.status || req.query.reading_status);
     if (status) {
       params.push(status);
-where.push(`b.reading_status = $${params.length}`);
+      where.push(`b.reading_status = $${params.length}`);
     }
 
     const topOnly = normalizeBool(req.query.topOnly ?? req.query.top);
@@ -524,10 +552,7 @@ async function registerBook(req, res) {
 
     // Idempotency (optional): if request_id exists, return the existing book.
     if (requestId && cols.has("request_id")) {
-      const exists = await pool.query(
-        `SELECT id FROM public.books WHERE request_id = $1 LIMIT 1`,
-        [requestId]
-      );
+      const exists = await pool.query(`SELECT id FROM public.books WHERE request_id = $1 LIMIT 1`, [requestId]);
       const id = exists.rows[0]?.id;
       if (id) {
         const existing = await fetchBookWithBarcode(pool, id);
@@ -672,6 +697,7 @@ async function updateBook(req, res) {
       updates.title_keyword2_position !== undefined ||
       updates.title_keyword3 !== undefined ||
       updates.title_keyword3_position !== undefined;
+
     if (titleChanged && cols.has("full_title")) {
       const current = await pool.query(
         `
@@ -716,7 +742,8 @@ async function updateBook(req, res) {
     return res.status(500).json({ error: "internal_error" });
   }
 }
-// --------------------------------- drop ---------------------------------
+
+/* --------------------------------- drop --------------------------------- */
 
 async function dropBook(req, res) {
   try {
@@ -740,23 +767,19 @@ async function dropBook(req, res) {
       );
 
       // 2) Remove legacy mapping (your codebase also uses book_barcodes)
-      await client.query(
-        `DELETE FROM public.book_barcodes WHERE book_id = $1::uuid`,
-        [id]
-      );
+      await client.query(`DELETE FROM public.book_barcodes WHERE book_id = $1::uuid`, [id]);
 
       // 3) Delete the book itself
-      const del = await client.query(
-        `DELETE FROM public.books WHERE id = $1::uuid RETURNING id`,
-        [id]
-      );
+      const del = await client.query(`DELETE FROM public.books WHERE id = $1::uuid RETURNING id`, [id]);
 
       await client.query("COMMIT");
 
       if (!del.rowCount) return res.status(404).json({ error: "not_found" });
       return res.status(204).send();
     } catch (e) {
-      try { await client.query("ROLLBACK"); } catch {}
+      try {
+        await client.query("ROLLBACK");
+      } catch {}
 
       // FK conflict (book referenced by other tables)
       if (String(e?.code) === "23503") {

@@ -20,14 +20,7 @@ function newRequestId() {
 function getBarcodeFromBook(b) {
   if (!b) return "";
   // support common variants
-  return (
-    b.barcode ||
-    b.BMarkb ||
-    b.BMark ||
-    b.code ||
-    b.Barcode ||
-    ""
-  );
+  return b.barcode || b.BMarkb || b.BMark || b.code || b.Barcode || "";
 }
 
 const LOCKED_KEYS = new Set([
@@ -118,6 +111,11 @@ function deepEqual(a, b) {
   }
 }
 
+function normalizeStr(v) {
+  const s = String(v ?? "").trim();
+  return s ? s : "";
+}
+
 /* ---------- shared base form shape (single source of truth) ---------- */
 const DEFAULT_FORM = {
   BBreite: "",
@@ -138,6 +136,11 @@ const DEFAULT_FORM = {
   genre: "",
   subGenre: "",
   themes: "",
+
+  // commerce / identifiers (optional)
+  isbn13_raw: "",
+  purchase_source: "",
+  purchase_url: "",
 };
 
 const BASE_KEYS = new Set(Object.keys(DEFAULT_FORM));
@@ -173,6 +176,70 @@ export default function BookForm({
     BVerlag: [],
   });
 
+  // purchase link enrichment (session-time)
+  const [purchaseBusy, setPurchaseBusy] = useState(false);
+  const [purchaseError, setPurchaseError] = useState("");
+  const [purchaseCandidates, setPurchaseCandidates] = useState([]);
+  const [purchaseBest, setPurchaseBest] = useState(null);
+  const [purchaseLastIsbn, setPurchaseLastIsbn] = useState("");
+
+  function applyPurchaseCandidate(c) {
+    if (!c?.url) return;
+    setForm((f) => ({
+      ...f,
+      purchase_url: c.url,
+      purchase_source: c.provider_code || f.purchase_source,
+    }));
+  }
+
+  async function fetchPurchaseSuggestions() {
+    const raw = normalizeStr(form.isbn13_raw);
+    if (!raw) return;
+
+    setPurchaseBusy(true);
+    setPurchaseError("");
+    try {
+      const res = await fetch(`/api/enrich/isbn?isbn=${encodeURIComponent(raw)}`, {
+        credentials: "include",
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok) throw new Error(data?.error || "enrich_failed");
+
+      const best = data?.purchase?.best || null;
+      const candidates = Array.isArray(data?.purchase?.candidates) ? data.purchase.candidates : [];
+
+      setPurchaseBest(best);
+      setPurchaseCandidates(candidates);
+      setPurchaseLastIsbn(raw);
+
+      // Optional: if user hasn't filled purchase_url yet, just show best as suggestion (do NOT auto-fill)
+      // They can click "Use best" to apply.
+    } catch (err) {
+      setPurchaseBest(null);
+      setPurchaseCandidates([]);
+      setPurchaseError(typeof err === "string" ? err : err?.message || "enrich_failed");
+    } finally {
+      setPurchaseBusy(false);
+    }
+  }
+
+  // Clear stale candidates when ISBN changes
+  useEffect(() => {
+    const raw = normalizeStr(form.isbn13_raw);
+    if (!raw) {
+      setPurchaseBest(null);
+      setPurchaseCandidates([]);
+      setPurchaseError("");
+      setPurchaseLastIsbn("");
+      return;
+    }
+    if (purchaseLastIsbn && raw !== purchaseLastIsbn) {
+      setPurchaseBest(null);
+      setPurchaseCandidates([]);
+      setPurchaseError("");
+    }
+  }, [form.isbn13_raw]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // init form in edit mode
   useEffect(() => {
     if (mode !== "edit") return;
@@ -182,21 +249,25 @@ export default function BookForm({
       ...prev,
       BBreite: b.BBreite ?? "",
       BHoehe: b.BHoehe ?? "",
-      BAutor: b.BAutor ?? "",
-      BKw: b.BKw ?? "",
-      BKP: b.BKP ?? 1,
-      BKw1: b.BKw1 ?? "",
-      BK1P: b.BK1P ?? "",
-      BKw2: b.BKw2 ?? "",
-      BK2P: b.BK2P ?? "",
-      BVerlag: b.BVerlag ?? "",
-      BSeiten: b.BSeiten ?? "",
-      BTop: !!b.BTop,
+      BAutor: b.BAutor ?? b.author ?? "",
+      BKw: b.BKw ?? b.title_keyword ?? "",
+      BKP: b.BKP ?? b.title_keyword_position ?? 1,
+      BKw1: b.BKw1 ?? b.title_keyword2 ?? "",
+      BK1P: b.BK1P ?? b.title_keyword2_position ?? "",
+      BKw2: b.BKw2 ?? b.title_keyword3 ?? "",
+      BK2P: b.BK2P ?? b.title_keyword3_position ?? "",
+      BVerlag: b.BVerlag ?? b.publisher ?? "",
+      BSeiten: b.BSeiten ?? b.pages ?? "",
+      BTop: !!(b.BTop ?? b.top_book),
 
       isFiction: b.isFiction === true ? "true" : b.isFiction === false ? "false" : "",
       genre: b.genre ?? "",
-      subGenre: b.subGenre ?? "",
+      subGenre: b.subGenre ?? b.sub_genre ?? "",
       themes: b.themes ?? "",
+
+      isbn13_raw: b.isbn13_raw ?? b.isbn13 ?? b.isbn10 ?? "",
+      purchase_source: b.purchase_source ?? b.purchaseSource ?? "",
+      purchase_url: b.purchase_url ?? b.purchaseUrl ?? "",
     }));
 
     // unknown fields
@@ -219,6 +290,12 @@ export default function BookForm({
     setSuggestedMark(null);
     setBarcode("");
     setPreviewError("");
+
+    // purchase suggestion UI reset
+    setPurchaseBest(null);
+    setPurchaseCandidates([]);
+    setPurchaseError("");
+    setPurchaseLastIsbn("");
   }, [mode, initialBook, showUnknownFields, excludeUnknownKeys]);
 
   // derive normalized width/height strings (for create preview + number normalization)
@@ -325,6 +402,11 @@ export default function BookForm({
         genre: form.genre?.trim() || null,
         subGenre: form.subGenre?.trim() || null,
         themes: form.themes?.trim() || null,
+
+        // Optional: identifiers / purchase
+        isbn13_raw: form.isbn13_raw?.trim() || null,
+        purchase_source: form.purchase_source?.trim() || null,
+        purchase_url: form.purchase_url?.trim() || null,
       };
 
       // unknown fields (edit)
@@ -355,6 +437,11 @@ export default function BookForm({
         setSuggestedMark(null);
         setBarcode("");
         setPreviewError("");
+
+        setPurchaseBest(null);
+        setPurchaseCandidates([]);
+        setPurchaseError("");
+        setPurchaseLastIsbn("");
       } else {
         // edit mode: never send barcode
         for (const k of Object.keys(payload)) {
@@ -376,7 +463,6 @@ export default function BookForm({
   }
 
   const barcodeDisplay = mode === "edit" ? getBarcodeFromBook(initialBook) : barcode;
-
   const unknownKeys = useMemo(() => Object.keys(extra || {}).sort((a, b) => a.localeCompare(b)), [extra]);
 
   return (
@@ -385,7 +471,8 @@ export default function BookForm({
         {mode === "create" ? "Register Book" : "Edit Book"}
       </h2>
 
-      <div className="grid gap-2 md:grid-cols-2">
+      {/* TOP: width/height + suggestion card right next to them */}
+      <div className="grid gap-2 md:grid-cols-3">
         <label className="flex flex-col gap-1">
           <span>Breite (BBreite)</span>
           <input
@@ -410,7 +497,31 @@ export default function BookForm({
           />
         </label>
 
-        {/* Barcode area */}
+        <div className="border rounded p-3">
+          <div className="text-sm font-semibold">Vorschlag BMark</div>
+          <div className="text-lg font-bold mt-1">{suggestedMark ?? "—"}</div>
+          {mode === "create" ? (
+            <div className="mt-2 flex items-center gap-2 flex-wrap">
+              <button
+                type="button"
+                className="border px-3 py-1 rounded"
+                disabled={!suggestedMark}
+                onClick={() => suggestedMark && setBarcode(suggestedMark)}
+              >
+                Vorschlag übernehmen
+              </button>
+              {previewBusy && <span className="text-gray-500 text-sm">Suche…</span>}
+              {previewError && <span className="text-red-600 text-sm">{previewError}</span>}
+            </div>
+          ) : (
+            <div className="text-sm text-gray-600 mt-2">Nur beim Registrieren.</div>
+          )}
+        </div>
+      </div>
+
+      {/* Rest fields */}
+      <div className="grid gap-2 md:grid-cols-2">
+        {/* Barcode override / display */}
         <label className="flex flex-col gap-1 md:col-span-2">
           <span>
             {mode === "create"
@@ -422,7 +533,6 @@ export default function BookForm({
             value={barcodeDisplay || ""}
             disabled={mode === "edit" && lockBarcode}
             onChange={(e) => {
-              // only meaningful in create mode
               if (mode === "create") setBarcode(e.target.value);
             }}
             className="border p-2 rounded"
@@ -430,13 +540,9 @@ export default function BookForm({
           />
 
           {mode === "create" ? (
-            <>
-              <small className="text-gray-600">
-                Leer lassen, um den vorgeschlagenen freien Barcode zu verwenden.
-              </small>
-              {previewBusy && <small className="text-gray-500">Suche freien Barcode…</small>}
-              {previewError && <small className="text-red-600">{previewError}</small>}
-            </>
+            <small className="text-gray-600">
+              Leer lassen, um den vorgeschlagenen freien Barcode zu verwenden.
+            </small>
           ) : null}
         </label>
 
@@ -513,6 +619,112 @@ export default function BookForm({
             className="border p-2 rounded"
           />
         </label>
+
+        {/* ISBN + Purchase */}
+        <div className="md:col-span-2 mt-2 border rounded p-3 space-y-2">
+          <div className="font-semibold">ISBN &amp; Kauf-Link (optional)</div>
+
+          <div className="grid gap-2 md:grid-cols-2">
+            <label className="flex flex-col gap-1">
+              <span>ISBN (scan/enter)</span>
+              <input
+                value={form.isbn13_raw}
+                onChange={setField("isbn13_raw")}
+                className="border p-2 rounded"
+                placeholder="ISBN-13 oder ISBN-10"
+              />
+              <small className="text-gray-600">
+                Wenn vorhanden: einscannen/eintippen. Backend speichert daraus isbn13/isbn10.
+              </small>
+            </label>
+
+            <div className="flex flex-col gap-2">
+              <div className="flex gap-2 flex-wrap items-center">
+                <button
+                  type="button"
+                  className="border px-3 py-2 rounded"
+                  disabled={purchaseBusy || !normalizeStr(form.isbn13_raw)}
+                  onClick={fetchPurchaseSuggestions}
+                >
+                  {purchaseBusy ? "Hole Links…" : "Kauf-Links holen"}
+                </button>
+
+                {purchaseBest ? (
+                  <button
+                    type="button"
+                    className="border px-3 py-2 rounded"
+                    onClick={() => applyPurchaseCandidate(purchaseBest)}
+                  >
+                    Besten übernehmen
+                  </button>
+                ) : null}
+              </div>
+
+              {purchaseError ? (
+                <div className="text-sm text-red-600">{purchaseError}</div>
+              ) : null}
+
+              {purchaseBest ? (
+                <div className="text-sm text-gray-700">
+                  Vorschlag: <b>{purchaseBest.provider_name || purchaseBest.provider_code}</b>{" "}
+                  <span className="text-gray-500">({purchaseBest.url})</span>
+                </div>
+              ) : (
+                <div className="text-sm text-gray-500">
+                  Optional: Links werden aus <code>purchase_providers</code> Templates erzeugt.
+                </div>
+              )}
+            </div>
+          </div>
+
+          {purchaseCandidates.length > 0 ? (
+            <div className="mt-2">
+              <div className="text-sm font-semibold mb-1">Kandidaten</div>
+              <div className="space-y-2">
+                {purchaseCandidates.slice(0, 8).map((c) => (
+                  <div key={`${c.provider_code}-${c.url}`} className="flex gap-2 items-center">
+                    <div className="min-w-[140px] text-sm">
+                      {c.provider_name || c.provider_code}
+                    </div>
+                    <div className="text-xs text-gray-600 truncate flex-1">{c.url}</div>
+                    <button
+                      type="button"
+                      className="border px-3 py-1 rounded text-sm"
+                      onClick={() => applyPurchaseCandidate(c)}
+                    >
+                      Übernehmen
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : null}
+
+          <div className="grid gap-2 md:grid-cols-2 mt-2">
+            <label className="flex flex-col gap-1">
+              <span>purchase_source</span>
+              <input
+                value={form.purchase_source}
+                onChange={setField("purchase_source")}
+                className="border p-2 rounded"
+                placeholder="z. B. thalia"
+              />
+            </label>
+
+            <label className="flex flex-col gap-1">
+              <span>purchase_url</span>
+              <input
+                value={form.purchase_url}
+                onChange={setField("purchase_url")}
+                className="border p-2 rounded"
+                placeholder="https://…"
+              />
+              <small className="text-gray-600">
+                Leer lassen ist ok — Backend kann bei gültiger ISBN automatisch einen Vorschlag setzen.
+              </small>
+            </label>
+          </div>
+        </div>
 
         {/* Genre / classification */}
         <div className="md:col-span-2 mt-2 border rounded p-3 space-y-2">
@@ -692,12 +904,6 @@ export default function BookForm({
               );
             })}
           </div>
-        </div>
-      ) : null}
-
-      {mode === "create" ? (
-        <div className="text-sm">
-          Vorschlag BMark: <strong>{suggestedMark ?? "—"}</strong>
         </div>
       ) : null}
 
