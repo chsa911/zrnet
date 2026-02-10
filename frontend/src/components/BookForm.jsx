@@ -141,6 +141,9 @@ const DEFAULT_FORM = {
   isbn13_raw: "",
   purchase_source: "",
   purchase_url: "",
+
+  // NEW: original language (optional)
+  original_language: "",
 };
 
 const BASE_KEYS = new Set(Object.keys(DEFAULT_FORM));
@@ -199,25 +202,27 @@ export default function BookForm({
     setPurchaseBusy(true);
     setPurchaseError("");
     try {
-      const res = await fetch(`/api/enrich/isbn?isbn=${encodeURIComponent(raw)}`, {
-        credentials: "include",
-      });
+      const res = await fetch(
+        `/api/enrich/isbn?isbn=${encodeURIComponent(raw)}`,
+        { credentials: "include" }
+      );
       const data = await res.json().catch(() => null);
       if (!res.ok) throw new Error(data?.error || "enrich_failed");
 
       const best = data?.purchase?.best || null;
-      const candidates = Array.isArray(data?.purchase?.candidates) ? data.purchase.candidates : [];
+      const candidates = Array.isArray(data?.purchase?.candidates)
+        ? data.purchase.candidates
+        : [];
 
       setPurchaseBest(best);
       setPurchaseCandidates(candidates);
       setPurchaseLastIsbn(raw);
-
-      // Optional: if user hasn't filled purchase_url yet, just show best as suggestion (do NOT auto-fill)
-      // They can click "Use best" to apply.
     } catch (err) {
       setPurchaseBest(null);
       setPurchaseCandidates([]);
-      setPurchaseError(typeof err === "string" ? err : err?.message || "enrich_failed");
+      setPurchaseError(
+        typeof err === "string" ? err : err?.message || "enrich_failed"
+      );
     } finally {
       setPurchaseBusy(false);
     }
@@ -260,7 +265,8 @@ export default function BookForm({
       BSeiten: b.BSeiten ?? b.pages ?? "",
       BTop: !!(b.BTop ?? b.top_book),
 
-      isFiction: b.isFiction === true ? "true" : b.isFiction === false ? "false" : "",
+      isFiction:
+        b.isFiction === true ? "true" : b.isFiction === false ? "false" : "",
       genre: b.genre ?? "",
       subGenre: b.subGenre ?? b.sub_genre ?? "",
       themes: b.themes ?? "",
@@ -268,6 +274,9 @@ export default function BookForm({
       isbn13_raw: b.isbn13_raw ?? b.isbn13 ?? b.isbn10 ?? "",
       purchase_source: b.purchase_source ?? b.purchaseSource ?? "",
       purchase_url: b.purchase_url ?? b.purchaseUrl ?? "",
+
+      // NEW
+      original_language: b.original_language ?? b.originalLanguage ?? "",
     }));
 
     // unknown fields
@@ -337,7 +346,11 @@ export default function BookForm({
       } catch (err) {
         if (!cancelled) {
           setSuggestedMark(null);
-          setPreviewError(typeof err === "string" ? err : err?.message || "Vorschau fehlgeschlagen");
+          setPreviewError(
+            typeof err === "string"
+              ? err
+              : err?.message || "Vorschau fehlgeschlagen"
+          );
         }
       } finally {
         if (!cancelled) setPreviewBusy(false);
@@ -367,12 +380,14 @@ export default function BookForm({
     return (e) =>
       setForm((f) => ({
         ...f,
-        [name]: e.target.type === "checkbox" ? e.target.checked : e.target.value,
+        [name]:
+          e.target.type === "checkbox" ? e.target.checked : e.target.value,
       }));
   }
 
   function fieldKind(k, originalVal, rawVal) {
-    if (typeof rawVal === "boolean" || typeof originalVal === "boolean") return "boolean";
+    if (typeof rawVal === "boolean" || typeof originalVal === "boolean")
+      return "boolean";
     if (typeof originalVal === "number") return "number";
     if (Array.isArray(originalVal)) return "array";
     if (typeof originalVal === "object" && originalVal !== null) return "object";
@@ -407,6 +422,11 @@ export default function BookForm({
         isbn13_raw: form.isbn13_raw?.trim() || null,
         purchase_source: form.purchase_source?.trim() || null,
         purchase_url: form.purchase_url?.trim() || null,
+
+        // NEW: original language
+        original_language: form.original_language?.trim()
+          ? form.original_language.trim().toLowerCase()
+          : null,
       };
 
       // unknown fields (edit)
@@ -463,7 +483,10 @@ export default function BookForm({
   }
 
   const barcodeDisplay = mode === "edit" ? getBarcodeFromBook(initialBook) : barcode;
-  const unknownKeys = useMemo(() => Object.keys(extra || {}).sort((a, b) => a.localeCompare(b)), [extra]);
+  const unknownKeys = useMemo(
+    () => Object.keys(extra || {}).sort((a, b) => a.localeCompare(b)),
+    [extra]
+  );
 
   return (
     <form className="p-4 border rounded space-y-3" onSubmit={onSubmit}>
@@ -660,9 +683,7 @@ export default function BookForm({
                 ) : null}
               </div>
 
-              {purchaseError ? (
-                <div className="text-sm text-red-600">{purchaseError}</div>
-              ) : null}
+              {purchaseError ? <div className="text-sm text-red-600">{purchaseError}</div> : null}
 
               {purchaseBest ? (
                 <div className="text-sm text-gray-700">
@@ -721,6 +742,25 @@ export default function BookForm({
               />
               <small className="text-gray-600">
                 Leer lassen ist ok — Backend kann bei gültiger ISBN automatisch einen Vorschlag setzen.
+              </small>
+            </label>
+          </div>
+        </div>
+
+        {/* Language */}
+        <div className="md:col-span-2 mt-2 border rounded p-3 space-y-2">
+          <div className="font-semibold">Sprache (optional)</div>
+          <div className="grid gap-2 md:grid-cols-2">
+            <label className="flex flex-col gap-1">
+              <span>Originalsprache</span>
+              <input
+                value={form.original_language}
+                onChange={setField("original_language")}
+                className="border p-2 rounded"
+                placeholder="z. B. en"
+              />
+              <small className="text-gray-600">
+                2-Buchstaben-Code (z. B. de, en). Leer = unbekannt.
               </small>
             </label>
           </div>
@@ -863,41 +903,53 @@ export default function BookForm({
                     <input
                       type="checkbox"
                       checked={!!rawVal}
-                      onChange={(e) => setExtra((p) => ({ ...(p || {}), [k]: e.target.checked }))}
+                      onChange={(e) =>
+                        setExtra((p) => ({ ...(p || {}), [k]: e.target.checked }))
+                      }
                     />
                   ) : kind === "object" ? (
                     <textarea
                       className="border p-2 rounded"
                       style={{ minHeight: 120, fontFamily: "monospace" }}
                       value={String(rawVal ?? "")}
-                      onChange={(e) => setExtra((p) => ({ ...(p || {}), [k]: e.target.value }))}
+                      onChange={(e) =>
+                        setExtra((p) => ({ ...(p || {}), [k]: e.target.value }))
+                      }
                     />
                   ) : kind === "textarea" ? (
                     <textarea
                       className="border p-2 rounded"
                       style={{ minHeight: 90 }}
                       value={String(rawVal ?? "")}
-                      onChange={(e) => setExtra((p) => ({ ...(p || {}), [k]: e.target.value }))}
+                      onChange={(e) =>
+                        setExtra((p) => ({ ...(p || {}), [k]: e.target.value }))
+                      }
                     />
                   ) : kind === "number" ? (
                     <input
                       type="number"
                       className="border p-2 rounded"
                       value={String(rawVal ?? "")}
-                      onChange={(e) => setExtra((p) => ({ ...(p || {}), [k]: e.target.value }))}
+                      onChange={(e) =>
+                        setExtra((p) => ({ ...(p || {}), [k]: e.target.value }))
+                      }
                     />
                   ) : kind === "array" ? (
                     <input
                       className="border p-2 rounded"
                       value={String(rawVal ?? "")}
                       placeholder="Kommagetrennt"
-                      onChange={(e) => setExtra((p) => ({ ...(p || {}), [k]: e.target.value }))}
+                      onChange={(e) =>
+                        setExtra((p) => ({ ...(p || {}), [k]: e.target.value }))
+                      }
                     />
                   ) : (
                     <input
                       className="border p-2 rounded"
                       value={String(rawVal ?? "")}
-                      onChange={(e) => setExtra((p) => ({ ...(p || {}), [k]: e.target.value }))}
+                      onChange={(e) =>
+                        setExtra((p) => ({ ...(p || {}), [k]: e.target.value }))
+                      }
                     />
                   )}
                 </label>
@@ -908,7 +960,11 @@ export default function BookForm({
       ) : null}
 
       <div className="flex gap-2 flex-wrap">
-        <button disabled={busy} type="submit" className="bg-blue-600 text-white px-4 py-2 rounded">
+        <button
+          disabled={busy}
+          type="submit"
+          className="bg-blue-600 text-white px-4 py-2 rounded"
+        >
           {busy ? "Speichern…" : submitLabel}
         </button>
 
