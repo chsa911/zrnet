@@ -551,11 +551,147 @@ async function listNeedsReview(req, res) {
       [...params, limit, offset]
     );
 
+    const items = (itemsRes.rows || []).map((row) => {
+      const rp = row.receipt_payload || {};
+      const ip = row.issue_payload || {};
+
+      const pick = (...vals) => {
+        for (const v of vals) {
+          if (v === undefined || v === null) continue;
+          if (typeof v === "string" && v.trim() === "") continue;
+          return v;
+        }
+        return null;
+      };
+
+      const barcode = pick(
+        row.barcode,
+        ip.barcode,
+        rp.barcode,
+        rp.isbn,
+        ip.isbn,
+        rp?.change?.barcode,
+        ip?.change?.barcode
+      );
+
+      const pages = pick(row.pages, ip.pages, rp.pages);
+
+      const status = pick(
+        row.reading_status,
+        rp.readingStatus,
+        rp.reading_status,
+        ip.readingStatus,
+        ip.reading_status
+      );
+
+      const updated_at = pick(
+        row.reading_status_updated_at,
+        rp.reading_status_updated_at,
+        rp.readingStatusUpdatedAt,
+        rp.readingStatusChangedAt,
+        rp.updated_at,
+        row.received_at,
+        row.issue_created_at
+      );
+
+      // ------------------------------------------------------------------
+      // Response compatibility
+      // Several admin UIs exist in the wild that expect different shapes.
+      // We therefore expose the same information under multiple keys:
+      // - snake_case (DB columns)
+      // - camelCase (JS style)
+      // - nested objects (receipt/issue/entity/incoming)
+      // ------------------------------------------------------------------
+
+      const receipt = {
+        receipt_id: row.receipt_id,
+        receiptId: row.receipt_id,
+        client_change_id: row.client_change_id,
+        clientChangeId: row.client_change_id,
+        received_at: row.received_at,
+        receivedAt: row.received_at,
+        barcode,
+        pages,
+        reading_status: row.reading_status,
+        readingStatus: status,
+        reading_status_updated_at: row.reading_status_updated_at,
+        readingStatusUpdatedAt: updated_at,
+        top_book: row.top_book,
+        topBook: row.top_book,
+        topbook_set_at: row.topbook_set_at,
+        topBookSetAt: row.topbook_set_at,
+        payload: row.receipt_payload,
+      };
+
+      const issue = row.issue_id
+        ? {
+            issue_id: row.issue_id,
+            issueId: row.issue_id,
+            status: row.issue_status || "open",
+            issue_status: row.issue_status || "open",
+            issueStatus: row.issue_status || "open",
+            reason: row.reason || null,
+            candidate_book_ids: row.candidate_book_ids || null,
+            candidateBookIds: row.candidate_book_ids || null,
+            details: row.details || null,
+            note: row.note || null,
+            created_at: row.issue_created_at || null,
+            createdAt: row.issue_created_at || null,
+            payload: row.issue_payload,
+          }
+        : null;
+
+      const incoming = {
+        direction: "Incoming",
+        status,
+        updated_at,
+        updatedAt: updated_at,
+        changed_at: updated_at,
+        changedAt: updated_at,
+      };
+
+      const entity = {
+        barcode,
+        pages,
+      };
+
+      return {
+        ...row,
+        barcode,
+        pages,
+        // Compatibility fields for older admin UIs
+        direction: "Incoming",
+        status,
+        updated_at,
+
+        // extra compatibility aliases
+        receipt,
+        issue,
+        incoming,
+        entity,
+
+        // camelCase top-level aliases
+        receiptId: row.receipt_id,
+        issueId: row.issue_id,
+        clientChangeId: row.client_change_id,
+        receivedAt: row.received_at,
+        readingStatus: status,
+        readingStatusUpdatedAt: updated_at,
+        issueStatus: row.issue_status || "open",
+        issueCreatedAt: row.issue_created_at,
+        candidateBookIds: row.candidate_book_ids,
+      };
+    });
+
+    const total = countRes.rows[0]?.total ?? 0;
+    const pages_total = Math.max(1, Math.ceil((total || 0) / (limit || 1)));
+
     return res.json({
-      items: itemsRes.rows,
-      total: countRes.rows[0]?.total ?? 0,
+      items,
+      total,
       page,
       limit,
+      pages: pages_total,
     });
   } catch (e) {
     const msg = String(e?.message || e);
