@@ -117,6 +117,11 @@ function rowToApi(row) {
     createdAt: row.registered_at ?? row.created_at ?? null,
     registered_at: row.registered_at ?? null,
     author_display: row.author_display ?? null,
+   // ✅ add these for BookThemesPage
+    full_title: row.full_title ?? null,
+    themes: row.themes ?? null,
+    purchase_url: row.purchase_url ?? null,
+  
   };
 }
 

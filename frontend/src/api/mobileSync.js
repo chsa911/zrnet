@@ -1,50 +1,83 @@
-// frontend/src/api/mobileSync.js
-import { getApiRoot } from "./apiRoot";
+import { API_BASE } from "./config";
 
-const API = getApiRoot();
+const BASE = String(API_BASE || "/api").replace(/\/$/, "");
 
-async function fetchJson(path, { method = "GET", body } = {}) {
-  const res = await fetch(`${API}${path}`, {
+async function req(url, { method = "GET", json } = {}) {
+  const res = await fetch(url, {
     method,
-    headers: body ? { "Content-Type": "application/json" } : undefined,
-    body: body ? JSON.stringify(body) : undefined,
     credentials: "include",
-    cache: "no-store",
+    headers: json ? { "Content-Type": "application/json" } : undefined,
+    body: json ? JSON.stringify(json) : undefined,
   });
 
   const text = await res.text();
-  let data = null;
-  try {
-    data = text ? JSON.parse(text) : null;
-  } catch {
-    data = text;
-  }
 
   if (!res.ok) {
-    const msg = (data && (data.error || data.message)) || text || `HTTP ${res.status}`;
-    throw new Error(msg);
+    // backend 404 often returns HTML "Cannot GET ..."
+    if (text.startsWith("<!DOCTYPE") || text.includes("Cannot GET")) {
+      throw new Error(`API endpoint not found: ${url}`);
+    }
+    try {
+      const j = JSON.parse(text);
+      throw new Error(j?.message || j?.error || text || `HTTP ${res.status}`);
+    } catch {
+      throw new Error(text || `HTTP ${res.status}`);
+    }
   }
-  return data;
+
+  try {
+    return text ? JSON.parse(text) : null;
+  } catch {
+    return text;
+  }
 }
 
-export async function listNeedsReview({ page = 1, limit = 20, maxPerPages = 25 } = {}) {
-  const sp = new URLSearchParams();
-  sp.set("page", String(page));
-  sp.set("limit", String(limit));
-  sp.set("max_per_pages", String(maxPerPages));
-  return fetchJson(`/mobile/needs-review?${sp.toString()}`);
+function normalizeList(d) {
+  const items = Array.isArray(d?.items) ? d.items : Array.isArray(d) ? d : [];
+  const total = Number.isFinite(d?.total) ? d.total : items.length;
+  const pages = Number.isFinite(d?.pages) ? d.pages : 1;
+  return { items, total, pages };
 }
 
-export async function resolveMobileIssue(
-  issueId,
-  { action = "apply", bookId, note, overridePages = false } = {}
-) {
-  if (!issueId) throw new Error("missing_issue_id");
-  const body = {
-    action,
-    book_id: bookId || null,
-    note: note || null,
-    override_pages: !!overridePages,
-  };
-  return fetchJson(`/mobile/issues/${encodeURIComponent(issueId)}/resolve`, { method: "POST", body });
+export async function listNeedsReview({ page = 1, limit = 20 } = {}) {
+  const qs = new URLSearchParams({ page: String(page), limit: String(limit) }).toString();
+
+  // Try the most likely endpoints (you only need the first one if backend matches)
+  const urls = [
+    `${BASE}/mobile-sync/needs-review?${qs}`,
+    `${BASE}/mobileSync/needs-review?${qs}`,
+    `${BASE}/mobile-sync/needs_review?${qs}`,
+  ];
+
+  let lastErr;
+  for (const url of urls) {
+    try {
+      const d = await req(url);
+      return normalizeList(d);
+    } catch (e) {
+      lastErr = e;
+    }
+  }
+  throw lastErr || new Error("No mobile-sync endpoint worked");
+}
+
+export async function resolveMobileIssue(issueId, payload = {}) {
+  const id = String(issueId || "").trim();
+  if (!id) throw new Error("Missing issue id");
+
+  const urls = [
+    `${BASE}/mobile-sync/resolve`,
+    `${BASE}/mobileSync/resolve`,
+    `${BASE}/mobile-sync/issues/resolve`,
+  ];
+
+  let lastErr;
+  for (const url of urls) {
+    try {
+      return await req(url, { method: "POST", json: { issueId: id, ...payload } });
+    } catch (e) {
+      lastErr = e;
+    }
+  }
+  throw lastErr || new Error("Resolve failed");
 }

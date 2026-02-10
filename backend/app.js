@@ -12,7 +12,7 @@ app.use(morgan("dev"));
 app.use(express.json());
 app.use(cookieParser());
 app.use(express.urlencoded({ extended: true }));
-
+app.use("/api/themes", require("./routes/themes"));
 /**
  * CORS with credentials:
  * - Reads allowed origins from CORS_ORIGIN (comma-separated)
@@ -78,6 +78,8 @@ app.get(["/api", "/api/"], (req, res) => {
       "/api/barcodes",
       "/api/public/books",
       "/api/mobile",
+   
+       "/api/themes",
     ],
   });
 });

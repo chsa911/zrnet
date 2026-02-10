@@ -1,6 +1,9 @@
+// frontend/src/pages/SearchUpdatePage.jsx
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { listBooks, updateBook } from "../api/books";
 import AdminNavRow from "../components/AdminNavRow";
+import BookForm from "../components/BookForm"; // <-- make sure this exists (shared form used by register + edit)
+
 /* ---------- tolerant field picker ---------- */
 // normalize: lower-case, strip non-alphanum
 const norm = (s) => String(s || "").toLowerCase().replace(/[^a-z0-9]/g, "");
@@ -54,6 +57,8 @@ export default function SearchUpdatePage() {
   const [err, setErr] = useState("");
   const [updating, setUpdating] = useState(() => new Set());
 
+  // editor state (reuses the same form as register)
+  const [editingBook, setEditingBook] = useState(null);
   const debounceRef = useRef(null);
 
   const canPrev = useMemo(() => q.page > 1, [q.page]);
@@ -83,9 +88,6 @@ export default function SearchUpdatePage() {
         const list = Array.isArray(data?.items) ? data.items : Array.isArray(data) ? data : [];
         setItems(list);
         setTotal(Number.isFinite(data?.total) ? data.total : list.length);
-
-        // optional debug
-        // if (list?.length) console.log("[books sample keys]", Object.keys(list[0]));
       } catch (e) {
         if (!cancelled) {
           setItems([]);
@@ -167,9 +169,24 @@ export default function SearchUpdatePage() {
 
   const statusOf = (b) => String(b?.status || "").toLowerCase();
 
+  function openEditor(b) {
+    setEditingBook(b);
+    setTimeout(() => {
+      try {
+        document
+          .getElementById("edit-book-form")
+          ?.scrollIntoView({ behavior: "smooth", block: "start" });
+      } catch {}
+    }, 0);
+  }
+
+  function closeEditor() {
+    setEditingBook(null);
+  }
+
   return (
     <section className="zr-section">
-      <AdminNavRow/>
+      <AdminNavRow />
       <h1>Bücher verwalten</h1>
       <p className="zr-lede">
         Seite <strong>{q.page}</strong> / <strong>{totalPages}</strong> · Pro Seite{" "}
@@ -286,6 +303,7 @@ export default function SearchUpdatePage() {
                   <th>Aktionen</th>
                 </tr>
               </thead>
+
               <tbody>
                 {items.map((b, i) => {
                   const id = idOf(b) || String(i);
@@ -309,15 +327,32 @@ export default function SearchUpdatePage() {
                         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                           <button
                             disabled={isBusy}
+                            onClick={() => openEditor(b)}
+                            className="zr-btn2 zr-btn2--ghost zr-btn2--sm"
+                            type="button"
+                          >
+                            ✎ Bearbeiten
+                          </button>
+
+                          <button
+                            disabled={isBusy}
                             onClick={() => toggleTop(b, !getTop(b))}
                             className="zr-btn2 zr-btn2--ghost zr-btn2--sm"
                             title={getTop(b) ? "Topbook entfernen" : "Als Topbook markieren"}
+                            type="button"
                           >
                             {getTop(b) ? "★ Top entfernen" : "☆ Top setzen"}
                           </button>
 
                           <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
-                            <label style={{ fontSize: 12, display: "inline-flex", gap: 6, alignItems: "center" }}>
+                            <label
+                              style={{
+                                fontSize: 12,
+                                display: "inline-flex",
+                                gap: 6,
+                                alignItems: "center",
+                              }}
+                            >
                               <input
                                 type="radio"
                                 name={`status-${id}`}
@@ -328,7 +363,14 @@ export default function SearchUpdatePage() {
                               Abandoned
                             </label>
 
-                            <label style={{ fontSize: 12, display: "inline-flex", gap: 6, alignItems: "center" }}>
+                            <label
+                              style={{
+                                fontSize: 12,
+                                display: "inline-flex",
+                                gap: 6,
+                                alignItems: "center",
+                              }}
+                            >
                               <input
                                 type="radio"
                                 name={`status-${id}`}
@@ -375,6 +417,30 @@ export default function SearchUpdatePage() {
             Weiter →
           </button>
         </div>
+
+        {/* Editor (shared form, barcode locked) */}
+        {editingBook ? (
+          <div id="edit-book-form" style={{ marginTop: 14 }}>
+            <div className="zr-card">
+              <BookForm
+                mode="edit"
+                bookId={idOf(editingBook)}
+                initialBook={editingBook}
+                lockBarcode={true}
+                showUnknownFields={true}
+                excludeUnknownKeys={["status"]} // keep your status radios as source of truth
+                submitLabel="Speichern"
+                onCancel={closeEditor}
+                onSuccess={({ payload, saved }) => {
+                  const patch = saved && typeof saved === "object" ? saved : payload;
+
+                  patchRow(idOf(editingBook), patch);
+                  setEditingBook((prev) => ({ ...(prev || {}), ...patch }));
+                }}
+              />
+            </div>
+          </div>
+        ) : null}
       </div>
     </section>
   );
