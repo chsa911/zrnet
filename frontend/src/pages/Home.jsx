@@ -17,8 +17,13 @@ export default function Home() {
             <a className="zr-btn2 zr-btn2--primary" href="#start">
               {t("home_cta_start")}
             </a>
+
             <Link className="zr-btn2 zr-btn2--ghost" to="/technik.html">
               {t("home_cta_technique")}
+            </Link>
+
+            <Link className="zr-btn2 zr-btn2--ghost" to="/admin">
+              Admin / Login
             </Link>
           </div>
 

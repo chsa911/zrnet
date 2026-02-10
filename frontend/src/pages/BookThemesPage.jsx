@@ -1,451 +1,244 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
+import { listBooks } from "../api/books";
+import { listThemes } from "../api/themes";
 import "./BookThemesPage.css";
-import { useI18n } from "../context/I18nContext";
 
+const FALLBACK_IMG = "/assets/images/allgemein/buecherschrank_ganz_offen.avif";
 
-const DEFAULT_IMG = "/assets/images/allgemein/buecherschrank_ganz_offen.avif";
-// Edit this list to match your real favorites.
-// Images live in /public so you can reference them like "/assets/...".
-const THEMES = [
-
-{
-    slug: "frauenschicksale",
-    title: "Frauenschicksale",
-    blurb: "Frauenleben zwischen Gesellschaft, Familie, Politik und persönlicher Freiheit.",
-    tags: ["geschichte", "biografie", "gesellschaft"],
-    image: DEFAULT_IMG,
-    books: [{ title: "Titel eintragen…", note: "" }],
-  },
-  {
-    slug: "starke-frauen",
-    title: "Starke Frauen",
-    blurb: "Porträts, Biografien und Geschichten über Mut, Widerstand und Selbstbestimmung.",
-    tags: ["biografie", "gesellschaft", "inspiration"],
-    image: DEFAULT_IMG,
-    books: [{ title: "Titel eintragen…", note: "" }],
-  },
-
-  {
-    slug: "weltkriege",
-    title: "1. & 2. Weltkrieg",
-    blurb: "Ursachen, Fronten, Alltag, Widerstand und langfristige Folgen.",
-    tags: ["geschichte", "krieg", "20-jahrhundert"],
-    image: DEFAULT_IMG,
-    books: [{ title: "Titel eintragen…", note: "" }],
-  },
-  {
-    slug: "diktatoren-totalitarismus",
-    title: "Diktatoren & Totalitarismus",
-    blurb: "Machtmechanismen, Propaganda, Terror – und warum Systeme kippen.",
-    tags: ["politik", "geschichte", "20-jahrhundert"],
-    image: DEFAULT_IMG,
-    books: [{ title: "Titel eintragen…", note: "" }],
-  },
-
-  {
-    slug: "mao",
-    title: "Mao",
-    blurb: "Maoismus, Staatsaufbau, Ideologie und Umbrüche in China.",
-    tags: ["china", "politik", "geschichte"],
-    image: DEFAULT_IMG,
-    books: [{ title: "Titel eintragen…", note: "" }],
-  },
-  {
-    slug: "stalin",
-    title: "Stalin",
-    blurb: "Sowjetunion, Repression, Krieg und die Struktur des Systems.",
-    tags: ["russland", "politik", "geschichte"],
-    image: DEFAULT_IMG,
-    books: [{ title: "Titel eintragen…", note: "" }],
-  },
-  {
-    slug: "china-kulturrevolution",
-    title: "China & Kulturrevolution",
-    blurb: "Kulturrevolution, Umwälzungen, persönliche Schicksale und politische Dynamik.",
-    tags: ["china", "geschichte", "politik"],
-    image: DEFAULT_IMG,
-    books: [{ title: "Titel eintragen…", note: "" }],
-  },
-
-  {
-    slug: "romanows-zaren",
-    title: "Romanows & Zaren",
-    blurb: "Dynastie, Hof, Machtpolitik und der Weg in die Krise.",
-    tags: ["russland", "geschichte", "monarchie"],
-    image: DEFAULT_IMG,
-    books: [{ title: "Titel eintragen…", note: "" }],
-  },
-  {
-    slug: "russische-revolution",
-    title: "Russische Revolution",
-    blurb: "Revolution(en), Umbruch, Bürgerkrieg und die Neuordnung eines Reichs.",
-    tags: ["russland", "geschichte", "politik"],
-    image: DEFAULT_IMG,
-    books: [{ title: "Titel eintragen…", note: "" }],
-  },
-
-  {
-    slug: "mafia",
-    title: "Mafia",
-    blurb: "Clans, Codes, Macht und die Grauzonen zwischen Staat und Unterwelt.",
-    tags: ["crime", "gesellschaft", "zeitgeschichte"],
-    image: DEFAULT_IMG,
-    books: [{ title: "Titel eintragen…", note: "" }],
-  },
-  {
-    slug: "hells-angels",
-    title: "Hells Angels & Rocker",
-    blurb: "Mythos, Milieu, Regeln – zwischen Rebellion und organisierter Struktur.",
-    tags: ["crime", "gesellschaft", "zeitgeschichte"],
-    image: DEFAULT_IMG,
-    books: [{ title: "Titel eintragen…", note: "" }],
-  },
-
-  {
-    slug: "dschingis-khan",
-    title: "Dschingis Khan",
-    blurb: "Aufstieg der Mongolen, Eroberungen und Verwaltung eines Weltreichs.",
-    tags: ["geschichte", "mittelalter", "asien"],
-    image: DEFAULT_IMG,
-    books: [{ title: "Titel eintragen…", note: "" }],
-  },
-  {
-    slug: "marco-polo",
-    title: "Marco Polo & Reisen",
-    blurb: "Entdeckerberichte, Handelsrouten und Weltbilder der Zeit.",
-    tags: ["reise", "geschichte", "handel"],
-    image: DEFAULT_IMG,
-    books: [{ title: "Titel eintragen…", note: "" }],
-  },
-
-  {
-    slug: "geschichte-allgemein",
-    title: "Geschichte (Allgemein)",
-    blurb: "Große Linien, Wendepunkte, Imperien – das große Ganze.",
-    tags: ["geschichte", "überblick"],
-    image: DEFAULT_IMG,
-    books: [{ title: "Titel eintragen…", note: "" }],
-  },
-  {
-    slug: "mittelalter",
-    title: "Mittelalter",
-    blurb: "Herrschaft, Religion, Alltag, Kriege und Kulturen Europas & darüber hinaus.",
-    tags: ["geschichte", "mittelalter"],
-    image: DEFAULT_IMG,
-    books: [{ title: "Titel eintragen…", note: "" }],
-  },
-  {
-    slug: "altes-rom",
-    title: "Altes Rom",
-    blurb: "Republik, Imperium, Politik, Legionen und der römische Alltag.",
-    tags: ["geschichte", "antike", "rom"],
-    image: DEFAULT_IMG,
-    books: [{ title: "Titel eintragen…", note: "" }],
-  },
-  {
-    slug: "altes-griechenland",
-    title: "Altes Griechenland",
-    blurb: "Stadtstaaten, Kriege, Philosophie und die Geburt politischer Ideen.",
-    tags: ["geschichte", "antike", "griechenland"],
-    image: DEFAULT_IMG,
-    books: [{ title: "Titel eintragen…", note: "" }],
-  },
-
-  {
-    slug: "autobiografien",
-    title: "Autobiografien",
-    blurb: "Lebenswege aus erster Hand – ehrlich, kantig, inspirierend.",
-    tags: ["biografie", "memoir"],
-    image: DEFAULT_IMG,
-    books: [{ title: "Titel eintragen…", note: "" }],
-  },
-
-  {
-    slug: "tierwelt",
-    title: "Tierwelt",
-    blurb: "Verhalten, Evolution und überraschende Intelligenz in der Natur.",
-    tags: ["natur", "tiere", "wissenschaft"],
-    image: DEFAULT_IMG,
-    books: [{ title: "Titel eintragen…", note: "" }],
-  },
-  {
-    slug: "natur",
-    title: "Natur",
-    blurb: "Ökosysteme, Landschaften, Wildnis – und was sie mit uns macht.",
-    tags: ["natur", "reise"],
-    image: DEFAULT_IMG,
-    books: [{ title: "Titel eintragen…", note: "" }],
-  },
-  {
-    slug: "amazonas",
-    title: "Amazonas",
-    blurb: "Regenwald, Expeditionen, Artenvielfalt und Konflikte um Lebensräume.",
-    tags: ["natur", "südamerika", "reise"],
-    image: DEFAULT_IMG,
-    books: [{ title: "Titel eintragen…", note: "" }],
-  },
-  {
-    slug: "afrika",
-    title: "Afrika",
-    blurb: "Geschichte, Regionen, Kolonialzeit und moderne Entwicklungen.",
-    tags: ["geschichte", "reise", "kultur"],
-    image: DEFAULT_IMG,
-    books: [{ title: "Titel eintragen…", note: "" }],
-  },
-
-  {
-    slug: "altes-japan",
-    title: "Altes Japan",
-    blurb: "Shogunate, Samurai, Kultur und die lange Linie der Traditionen.",
-    tags: ["japan", "geschichte", "kultur"],
-    image: DEFAULT_IMG,
-    books: [{ title: "Titel eintragen…", note: "" }],
-  },
-
-  {
-    slug: "wall-street-wirtschaft",
-    title: "Wall Street & Wirtschaft",
-    blurb: "Märkte, Krisen, Macht von Geld – und die Geschichten dahinter.",
-    tags: ["wirtschaft", "finanzen", "zeitgeschichte"],
-    image: DEFAULT_IMG,
-    books: [{ title: "Titel eintragen…", note: "" }],
-  },
-  {
-    slug: "gesundheit",
-    title: "Gesundheit",
-    blurb: "Körper, Psyche, Routinen – wissenschaftlich, praktisch und motivierend.",
-    tags: ["gesundheit", "wissenschaft", "alltag"],
-    image: DEFAULT_IMG,
-    books: [{ title: "Titel eintragen…", note: "" }],
-  },
-
-  {
-    slug: "bergsteigen-himalaya",
-    title: "Bergsteigen & Himalaya",
-    blurb: "Extrembedingungen, Entscheidungen am Limit, Expeditionen und Überleben.",
-    tags: ["abenteuer", "reise", "natur"],
-    image: DEFAULT_IMG,
-    books: [{ title: "Titel eintragen…", note: "" }],
-  },
-
-  {
-    slug: "filmfiguren-80er-action",
-    title: "Filmfiguren (Rambo, Beverly Hills Cop)",
-    blurb: "Ikonische Figuren, große Sprüche und 80er-Action / Buddy-Cop-Vibes.",
-    tags: ["film", "popkultur", "action"],
-    image: DEFAULT_IMG,
-    books: [
-      { title: "Rambo (First Blood)", note: "Grenzerfahrung, Trauma, Überleben." },
-      { title: "Beverly Hills Cop (Axel Foley)", note: "Buddy-Cop, Humor, Tempo." },
-    ],
-  },
-];
-
-
-function uniq(arr) {
-  return Array.from(new Set(arr));
+function splitTokens(s) {
+  return String(s || "")
+    .split(",")
+    .map(x => x.trim())
+    .filter(Boolean);
 }
 
 export default function BookThemesPage() {
-  const { t } = useI18n();
+  const [loading, setLoading] = useState(true);
+  const [err, setErr] = useState("");
 
-  const [query, setQuery] = useState("");
-  const [tag, setTag] = useState("all");
-  const [sort, setSort] = useState("fav");
-  const [active, setActive] = useState(null);
+  const [themes, setThemes] = useState([]); // from DB table public.themes
+  const [books, setBooks] = useState([]);   // from /api/books
+  const [activeAbbr, setActiveAbbr] = useState(null);
 
-  const allTags = useMemo(() => {
-    const tags = THEMES.flatMap((x) => x.tags || []);
-    return ["all", ...uniq(tags).sort((a, b) => a.localeCompare(b))];
+  const [q, setQ] = useState("");
+  const [sort, setSort] = useState("order"); // order | count | alpha
+
+  useEffect(() => {
+    let alive = true;
+
+    (async () => {
+      setLoading(true);
+      setErr("");
+
+      try {
+        const [tRes, bRes] = await Promise.all([
+          listThemes(),
+          fetchAllBooks(),
+        ]);
+
+        if (!alive) return;
+
+        const tItems = Array.isArray(tRes) ? tRes : (tRes?.items || tRes?.data || []);
+        const cleanedThemes = (tItems || [])
+          .filter(t => t?.abbr && t?.full_name)
+          .map(t => ({
+            abbr: t.abbr,
+            full_name: t.full_name,
+            image_path: t.image_path || "",
+            description: t.description || "",
+            sort_order: Number.isFinite(Number(t.sort_order)) ? Number(t.sort_order) : 100,
+          }));
+
+        setThemes(cleanedThemes);
+        setBooks(bRes);
+      } catch (e) {
+        if (!alive) return;
+        setErr(e?.message || String(e));
+        setThemes([]);
+        setBooks([]);
+      } finally {
+        if (!alive) return;
+        setLoading(false);
+      }
+    })();
+
+    return () => { alive = false; };
   }, []);
 
-  const filtered = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    let items = THEMES.filter((th) => {
-      if (tag !== "all" && !(th.tags || []).includes(tag)) return false;
-      if (!q) return true;
+  async function fetchAllBooks() {
+    // paginate /api/books
+    const all = [];
+    const LIMIT = 500;
+    let page = 1;
+    let total = Infinity;
 
-      const hay = [
-        th.title,
-        th.blurb,
-        ...(th.tags || []),
-        ...(th.books || []).map((b) => b.title),
-      ]
-        .filter(Boolean)
-        .join(" ")
-        .toLowerCase();
+    while (all.length < total && page < 999) {
+      const res = await listBooks({ page, limit: LIMIT, sortBy: "registered_at", order: "desc" });
+      const items = res?.items || [];
+      total = Number(res?.total ?? total);
+      all.push(...items);
+      if (items.length < LIMIT) break;
+      page += 1;
+    }
+    return all;
+  }
 
-      return hay.includes(q);
+  // build a quick lookup: themeAbbrLower -> books[]
+  const booksByTheme = useMemo(() => {
+    const map = new Map();
+    const norm = (s) => String(s || "").toLowerCase();
+
+    for (const t of themes) map.set(norm(t.abbr), []);
+
+    for (const b of books) {
+      const tokens = splitTokens(b?.themes);
+      if (!tokens.length) continue;
+
+      for (const tok of tokens) {
+        const key = norm(tok);
+        if (map.has(key)) map.get(key).push(b);
+      }
+    }
+    return map;
+  }, [themes, books]);
+
+  const tileModels = useMemo(() => {
+    const query = q.trim().toLowerCase();
+
+    let list = themes.map(t => {
+      const arr = booksByTheme.get(String(t.abbr).toLowerCase()) || [];
+      return {
+        ...t,
+        count: arr.length,
+        top: arr.slice(0, 3),
+      };
     });
 
-    items = [...items].sort((a, b) => {
-      if (sort === "books") return (b.books?.length || 0) - (a.books?.length || 0);
-      if (sort === "alpha") return a.title.localeCompare(b.title);
-      // "fav" keeps curated order in THEMES
-      return 0;
+    if (query) {
+      list = list.filter(t => {
+        const hay = `${t.full_name} ${t.abbr} ${t.description}`.toLowerCase();
+        return hay.includes(query);
+      });
+    }
+
+    list.sort((a, b) => {
+      if (sort === "alpha") return a.full_name.localeCompare(b.full_name);
+      if (sort === "count") return (b.count - a.count) || a.full_name.localeCompare(b.full_name);
+      // default: DB order
+      return (a.sort_order - b.sort_order) || a.full_name.localeCompare(b.full_name);
     });
 
-    return items;
-  }, [query, tag, sort]);
+    return list;
+  }, [themes, booksByTheme, q, sort]);
 
-  const activeTheme = useMemo(
-    () => (active ? THEMES.find((x) => x.slug === active) : null),
-    [active]
-  );
+  const activeTheme = useMemo(() => {
+    if (!activeAbbr) return null;
+    return themes.find(t => t.abbr === activeAbbr) || null;
+  }, [activeAbbr, themes]);
+
+  const activeBooks = useMemo(() => {
+    if (!activeTheme) return [];
+    return booksByTheme.get(String(activeTheme.abbr).toLowerCase()) || [];
+  }, [activeTheme, booksByTheme]);
+
+  if (loading) return <div className="zr-alert">Loading…</div>;
+
+  if (err) {
+    return (
+      <div className="zr-alert zr-alert--error">
+        {err}
+        <div style={{ marginTop: 8, opacity: 0.8 }}>
+          Tip: make sure your API exposes <b>/api/themes</b> and returns JSON.
+        </div>
+      </div>
+    );
+  }
 
   return (
     <>
-      <section className="zr-hero zr-themeHero">
+      <section className="zr-hero">
         <div className="zr-hero__text">
-          <h1>{t("bt_title")}</h1>
-          <p>{t("bt_lede")}</p>
+          <h1>Book themes</h1>
+          <p>Tiles come from DB table <code>public.themes</code>. Books are matched via <code>books.themes</code>.</p>
 
-          <div className="zr-themeTools">
+          <div className="zr-toolbar">
             <input
-              className="zr-input zr-themeSearch"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder={t("bt_search_placeholder")}
-              aria-label={t("bt_search_label")}
+              className="zr-input"
+              placeholder="Search themes…"
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
             />
 
-            <select
-              className="zr-select"
-              value={tag}
-              onChange={(e) => setTag(e.target.value)}
-              aria-label={t("bt_filter_label")}
-            >
-              {allTags.map((x) => (
-                <option key={x} value={x}>
-                  {x === "all" ? t("bt_filter_all") : x}
-                </option>
-              ))}
+            <select className="zr-select" value={sort} onChange={(e) => setSort(e.target.value)}>
+              <option value="order">DB order</option>
+              <option value="count">Most books</option>
+              <option value="alpha">A–Z</option>
             </select>
-
-            <select
-              className="zr-select"
-              value={sort}
-              onChange={(e) => setSort(e.target.value)}
-              aria-label={t("bt_sort_label")}
-            >
-              <option value="fav">{t("bt_sort_fav")}</option>
-              <option value="books">{t("bt_sort_books")}</option>
-              <option value="alpha">{t("bt_sort_alpha")}</option>
-            </select>
-          </div>
-
-          <div className="zr-themeTip">
-            <span className="zr-themeTip__label">{t("bt_tip_label")}</span>
-            <span className="zr-themeTip__text">{t("bt_tip_text")}</span>
-          </div>
-        </div>
-
-        <div className="zr-hero__media">
-          <img
-            className="zr-heroImg"
-            src="/assets/images/allgemein/buecherschrank_ganz_offen.avif"
-            alt={t("bt_hero_img_alt")}
-          />
-
-          <div className="zr-proof">
-            <div className="zr-proof__title">{t("bt_stats_title")}</div>
-            <div className="zr-proof__row">
-              <span>{t("bt_stats_themes")}</span>
-              <strong>{THEMES.length}</strong>
-            </div>
-            <div className="zr-proof__row">
-              <span>{t("bt_stats_shown")}</span>
-              <strong>{filtered.length}</strong>
-            </div>
-            <div className="zr-proof__note">{t("bt_stats_note")}</div>
           </div>
         </div>
       </section>
 
-      <section className="zr-section" aria-label={t("bt_grid_label")}>
-        <div className="zr-themeGrid">
-          {filtered.map((th) => {
-            const isActive = th.slug === active;
-            const top = (th.books || []).slice(0, 3);
-
+      <section className="zr-section">
+        <div className="bt-grid">
+          {tileModels.map(t => {
+            const isActive = activeAbbr === t.abbr;
             return (
               <button
-                key={th.slug}
+                key={t.abbr}
                 type="button"
-                className={`zr-themeCard ${isActive ? "zr-themeCard--active" : ""}`}
-                onClick={() => setActive((cur) => (cur === th.slug ? null : th.slug))}
-                aria-pressed={isActive ? "true" : "false"}
+                className={`bt-tile ${isActive ? "bt-tile--active" : ""}`}
+                onClick={() => setActiveAbbr(isActive ? null : t.abbr)}
               >
-                <img className="zr-themeImg" src={th.image} alt="" />
-                <div className="zr-themeBody">
-                  <div className="zr-themeTitleRow">
-                    <div className="zr-themeTitle">{th.title}</div>
-                    <div className="zr-themeCount">{(th.books || []).length}</div>
+                <img
+                  className="bt-img"
+                  src={t.image_path || FALLBACK_IMG}
+                  alt=""
+                  onError={(e) => { e.currentTarget.src = FALLBACK_IMG; }}
+                />
+                <div className="bt-overlay" />
+                <div className="bt-content">
+                  <div className="bt-top">
+                    <div className="bt-title">{t.full_name}</div>
+                    <div className="bt-count">{t.count}</div>
                   </div>
 
-                  <div className="zr-themeBlurb">{th.blurb}</div>
+                  {t.description ? <div className="bt-sub">{t.description}</div> : null}
 
-                  <div className="zr-themeTags">
-                    {(th.tags || []).slice(0, 4).map((x) => (
-                      <span key={x} className="zr-chip">
-                        {x}
-                      </span>
-                    ))}
-                  </div>
-
-                  <div className="zr-themeMiniList" aria-label={t("bt_top_picks")}>
-                    {top.map((b) => (
-                      <div key={b.title} className="zr-themeMiniItem">
-                        {b.title}
+                  <div className="bt-sub" style={{ opacity: 0.95 }}>
+                    {t.top.map(b => (
+                      <div key={b.id} className="bt-mini" title={b.full_title || ""}>
+                        {b.full_title || "—"}
                       </div>
                     ))}
                   </div>
 
-                  <div className="zr-themeCta">
-                    {isActive ? t("bt_collapse") : t("bt_expand")}
-                  </div>
+                  <div className="bt-cta">{isActive ? "Hide list" : "Show books →"}</div>
                 </div>
               </button>
             );
           })}
         </div>
 
-        {!filtered.length ? (
-          <div className="zr-alert" style={{ marginTop: 12 }}>
-            {t("bt_empty")}
-          </div>
-        ) : null}
-
         {activeTheme ? (
-          <div className="zr-card zr-themeDetail" id="theme-detail">
-            <div className="zr-themeDetail__head">
+          <div className="zr-card bt-detail">
+            <div className="bt-detail__head">
               <div>
-                <div className="zr-themeDetail__title">{activeTheme.title}</div>
-                <div className="zr-themeDetail__blurb">{activeTheme.blurb}</div>
+                <div className="bt-detail__title">{activeTheme.full_name}</div>
+                <div className="bt-detail__meta">{activeBooks.length} books</div>
               </div>
-
-              <button
-                className="zr-btn2 zr-btn2--ghost zr-btn2--sm"
-                onClick={() => setActive(null)}
-                type="button"
-              >
-                {t("bt_close")}
+              <button className="zr-btn2 zr-btn2--ghost zr-btn2--sm" onClick={() => setActiveAbbr(null)} type="button">
+                Close
               </button>
             </div>
 
-            <div className="zr-themeDetail__tags">
-              {(activeTheme.tags || []).map((x) => (
-                <span key={x} className="zr-chip zr-chip--solid">
-                  {x}
-                </span>
-              ))}
-            </div>
-
-            <div className="zr-themeDetail__list">
-              {(activeTheme.books || []).map((b) => (
-                <div key={b.title} className="zr-themeDetail__item">
-                  <div className="zr-themeDetail__itemTitle">{b.title}</div>
-                  {b.note ? <div className="zr-themeDetail__itemNote">{b.note}</div> : null}
+            <div className="bt-detail__list">
+              {activeBooks.map(b => (
+                <div key={b.id} className="bt-detail__item">
+                  <div className="bt-detail__itemTitle">{b.full_title || "—"}</div>
+                  <div className="bt-detail__itemAuthor">{b.author_display || ""}</div>
+                  {b.purchase_url ? (
+                    <a href={b.purchase_url} target="_blank" rel="noreferrer">Details</a>
+                  ) : null}
                 </div>
               ))}
             </div>

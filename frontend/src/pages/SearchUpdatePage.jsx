@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { listBooks, updateBook } from "../api/books";
-
+import AdminNavRow from "../components/AdminNavRow";
 /* ---------- tolerant field picker ---------- */
 // normalize: lower-case, strip non-alphanum
 const norm = (s) => String(s || "").toLowerCase().replace(/[^a-z0-9]/g, "");
@@ -169,6 +169,7 @@ export default function SearchUpdatePage() {
 
   return (
     <section className="zr-section">
+      <AdminNavRow/>
       <h1>Bücher verwalten</h1>
       <p className="zr-lede">
         Seite <strong>{q.page}</strong> / <strong>{totalPages}</strong> · Pro Seite{" "}

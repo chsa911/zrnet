@@ -1,7 +1,7 @@
 // frontend/src/pages/SyncIssuePage.jsx
 import React, { useEffect, useMemo, useState } from "react";
 import { listNeedsReview, resolveMobileIssue } from "../api/mobileSync";
-
+import AdminNavRow from "../components/AdminNavRow";
 function fmtTs(ts) {
   if (!ts) return "—";
   try {
@@ -201,6 +201,7 @@ export default function SyncIssuePage() {
 
   return (
     <section className="zr-section">
+     <AdminNavRow />
       <h1>Sync Issues</h1>
       <p className="zr-lede">
         Mobile-Sync Einträge mit <strong>status=needs_review</strong>.

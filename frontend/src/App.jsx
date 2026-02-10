@@ -1,4 +1,3 @@
-// frontend/src/App.jsx
 import React from "react";
 import { Routes, Route, Navigate } from "react-router-dom";
 
@@ -6,16 +5,14 @@ import Layout from "./components/Layout";
 import Home from "./pages/Home";
 import AnalyticsPage from "./pages/AnalyticsPage";
 import LegacyHtmlPage from "./pages/LegacyHtmlPage";
-import AdminPage from "./pages/AdminPage";
-import MostReadAuthorsPage from "./pages/MostReadAuthorsPage";
-import BookThemesPage from "./pages/BookThemesPage";
-import StatsDetailPage from "./pages/StatsDetailPage";
 
-// protected admin pages
+import AdminPage from "./pages/AdminPage";
 import RegisterPage from "./pages/RegisterPage";
 import SearchUpdatePage from "./pages/SearchUpdatePage";
 import SyncIssuePage from "./pages/SyncIssuePage";
-import RequireAdmin from "./components/RequireAdmin";
+
+import StatsDetailPage from "./pages/StatsDetailPage";
+import MostReadAuthorsPage from "./pages/MostReadAuthorsPage";
 
 function NotFound() {
   return (
@@ -34,57 +31,24 @@ export default function App() {
 
         {/* analytics */}
         <Route path="analytics/*" element={<AnalyticsPage />} />
-        <Route path="bookthemes" element={<BookThemesPage />} />
-        <Route path="bookthemes.html" element={<Navigate to="/bookthemes" replace />} />
 
-        {/* admin login (no link in header; only direct URL) */}
+        {/* admin */}
         <Route path="admin" element={<AdminPage />} />
+        <Route path="admin/register" element={<RegisterPage />} />
+        <Route path="admin/search-update" element={<SearchUpdatePage />} />
+        <Route path="admin/sync-issues" element={<SyncIssuePage />} />
+<Route path="login" element={<Navigate to="/admin" replace />} />
+<Route path="login.html" element={<Navigate to="/admin" replace />} />
+        {/* legacy admin links (optional, but handy) */}
+        <Route path="register" element={<Navigate to="/admin/register" replace />} />
+        <Route path="update" element={<Navigate to="/admin/search-update" replace />} />
         <Route path="admin.html" element={<Navigate to="/admin" replace />} />
 
-        {/* authors */}
-        <Route path="autoren_meistgelesen.html" element={<MostReadAuthorsPage />} />
-        <Route path="autoren_meist_gelesen.html" element={<MostReadAuthorsPage />} />
-
-        {/* protected admin tools */}
-        <Route
-          path="register"
-          element={
-            <RequireAdmin>
-              <RegisterPage />
-            </RequireAdmin>
-          }
-        />
-        <Route
-          path="update"
-          element={
-            <RequireAdmin>
-              <SearchUpdatePage />
-            </RequireAdmin>
-          }
-        />
-        <Route
-          path="sync-issues"
-          element={
-            <RequireAdmin>
-              <SyncIssuePage />
-            </RequireAdmin>
-          }
-        />
-
-        {/* optional alias */}
-        <Route
-          path="search"
-          element={
-            <RequireAdmin>
-              <SearchUpdatePage />
-            </RequireAdmin>
-          }
-        />
-
-        {/* stats */}
         <Route path="stats/:type" element={<StatsDetailPage />} />
 
-        {/* legacy html routes like /ueber_mich.html, /impressum.html ... */}
+        {/* other legacy html routes */}
+        <Route path="autoren_meistgelesen.html" element={<MostReadAuthorsPage />} />
+        <Route path="autoren_meist_gelesen.html" element={<MostReadAuthorsPage />} />
         <Route path=":page.html" element={<LegacyHtmlPage />} />
 
         <Route path="*" element={<NotFound />} />
