@@ -13,6 +13,7 @@ import SyncIssuePage from "./pages/SyncIssuePage";
 import BookThemesPage from "./pages/BookThemesPage";
 import StatsDetailPage from "./pages/StatsDetailPage";
 import MostReadAuthorsPage from "./pages/MostReadAuthorsPage";
+import BookPage from "./pages/BookPage";
 
 function NotFound() {
   return (
@@ -26,25 +27,34 @@ function NotFound() {
 export default function App() {
   return (
     <Routes>
-      <Route element={<Layout />}>
+      {/* ✅ Make the layout route explicit */}
+      <Route path="/" element={<Layout />}>
         <Route index element={<Home />} />
-<Route path="bookthemes" element={<BookThemesPage />} />
-<Route path="bookthemes.html" element={<Navigate to="/bookthemes" replace />} />
+
+        {/* book themes */}
+        <Route path="bookthemes" element={<BookThemesPage />} />
+        <Route path="bookthemes.html" element={<Navigate to="/bookthemes" replace />} />
+
         {/* analytics */}
         <Route path="analytics/*" element={<AnalyticsPage />} />
+
+        {/* book detail */}
+        <Route path="book/:id" element={<BookPage />} />
 
         {/* admin */}
         <Route path="admin" element={<AdminPage />} />
         <Route path="admin/register" element={<RegisterPage />} />
         <Route path="admin/search-update" element={<SearchUpdatePage />} />
         <Route path="admin/sync-issues" element={<SyncIssuePage />} />
-<Route path="login" element={<Navigate to="/admin" replace />} />
-<Route path="login.html" element={<Navigate to="/admin" replace />} />
-        {/* legacy admin links (optional, but handy) */}
+        <Route path="login" element={<Navigate to="/admin" replace />} />
+        <Route path="login.html" element={<Navigate to="/admin" replace />} />
+
+        {/* legacy admin links */}
         <Route path="register" element={<Navigate to="/admin/register" replace />} />
         <Route path="update" element={<Navigate to="/admin/search-update" replace />} />
         <Route path="admin.html" element={<Navigate to="/admin" replace />} />
 
+        {/* stats */}
         <Route path="stats/:type" element={<StatsDetailPage />} />
 
         {/* other legacy html routes */}

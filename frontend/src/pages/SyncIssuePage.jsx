@@ -3,6 +3,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { listNeedsReview, resolveMobileIssue } from "../api/mobileSync";
 import { listBooksByPages } from "../api/books";
 import AdminNavRow from "../components/AdminNavRow";
+
 function fmtTs(ts) {
   if (!ts) return "—";
   try {
@@ -29,60 +30,87 @@ function badge(text) {
   );
 }
 
-function BookPickList({ title, books, selectedId, onSelect, groupName }) {
-  if (!books?.length) {
-    return (
-      <div style={{ marginTop: 10 }}>
-        <div style={{ fontWeight: 700, marginBottom: 6 }}>{title}</div>
-        <div style={{ opacity: 0.7 }}>Keine Treffer.</div>
-      </div>
-    );
-  }
+// ✅ robust: backend liefert issueId / issue_id (nicht issue.id)
+function getIssueId(it) {
   return (
-    <div style={{ marginTop: 10 }}>
-      <div style={{ fontWeight: 700, marginBottom: 6 }}>{title}</div>
-      <div style={{ display: "grid", gap: 8 }}>
-        {books.map((b) => (
-          <label
-            key={b.id}
-            style={{
-              display: "flex",
-              gap: 10,
-              alignItems: "flex-start",
-              padding: 10,
-              borderRadius: 12,
-              border: "1px solid rgba(0,0,0,0.12)",
-              background: selectedId === b.id ? "rgba(0,0,0,0.03)" : "transparent",
-              cursor: "pointer",
-            }}
-          >
-            <input
-              type="radio"
-              name={groupName || `pick-${title}`}
-              checked={selectedId === b.id}
-              onChange={() => onSelect(b.id)}
-              style={{ marginTop: 3 }}
-            />
-            <div style={{ flex: 1 }}>
-              <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
-                <strong>{b.barcode || "(kein Barcode)"}</strong>
-                {b.pages != null ? badge(`${b.pages} Seiten`) : null}
-                {b.reading_status ? badge(b.reading_status) : null}
-                {b.top_book ? badge("Top") : null}
-              </div>
-              <div style={{ marginTop: 4, opacity: 0.9 }}>
-                {b.title || "—"}
-                {b.author ? ` · ${b.author}` : ""}
-              </div>
-              <div style={{ marginTop: 2, fontSize: 12, opacity: 0.65 }}>
-                Registriert: {fmtTs(b.registered_at)}
-              </div>
-            </div>
-          </label>
-        ))}
-      </div>
-    </div>
+    it?.issue?.id ||
+    it?.issue?.issueId ||
+    it?.issue?.issue_id ||
+    it?.issueId ||
+    it?.issue_id ||
+    null
   );
+}
+
+function normalizeUuidArray(v) {
+  if (!v) return [];
+  if (Array.isArray(v)) return v.map(String).filter(Boolean);
+  if (typeof v === "string") {
+    const s = v.trim();
+    if (!s) return [];
+    if (s.startsWith("{") && s.endsWith("}")) {
+      const inner = s.slice(1, -1).trim();
+      if (!inner) return [];
+      return inner
+        .split(",")
+        .map((x) => x.replace(/"/g, "").trim())
+        .filter(Boolean);
+    }
+    try {
+      const j = JSON.parse(s);
+      if (Array.isArray(j)) return j.map(String).filter(Boolean);
+    } catch {}
+    return [s];
+  }
+  return [];
+}
+
+function getIssueReason(it) {
+  return it?.issue?.reason || it?.reason || null;
+}
+
+function getIssueDetails(it) {
+  return it?.issue?.details || it?.details || null;
+}
+
+function getChosenBookId(it) {
+  const d = getIssueDetails(it) || {};
+  return d?.chosen_book_id || d?.chosenBookId || null;
+}
+
+function getExpectedPages(it) {
+  const d = getIssueDetails(it) || {};
+  const v = d?.expected_pages ?? d?.expectedPages;
+  const n = Number(v);
+  return Number.isFinite(n) ? n : null;
+}
+
+function getIncomingPages(it) {
+  const d = getIssueDetails(it) || {};
+  const v = d?.incoming_pages ?? d?.incomingPages;
+  const n = Number(v);
+  if (Number.isFinite(n)) return n;
+  const rp = it?.receipt;
+  const n2 = Number(rp?.pages);
+  return Number.isFinite(n2) ? n2 : null;
+}
+
+function getCandidateBookIds(it) {
+  const issue = it?.issue || {};
+  return normalizeUuidArray(
+    issue?.candidate_book_ids ??
+      issue?.candidateBookIds ??
+      it?.candidate_book_ids ??
+      it?.candidateBookIds
+  );
+}
+
+function getPreferredBookId(it) {
+  const chosen = getChosenBookId(it);
+  if (chosen) return chosen;
+  const ids = getCandidateBookIds(it);
+  if (ids.length === 1) return ids[0];
+  return null;
 }
 
 function normalizeBookForPick(b) {
@@ -129,9 +157,13 @@ export default function SyncIssuePage() {
 
   // issueId -> { loading, err, items, total }
   const [samePagesByIssue, setSamePagesByIssue] = useState(() => new Map());
+  const [expectedPagesByIssue, setExpectedPagesByIssue] = useState(() => new Map());
 
   const canPrev = useMemo(() => q.page > 1, [q.page]);
-  const canNext = useMemo(() => q.page < (data.pages || 1), [q.page, data.pages]);
+  const canNext = useMemo(
+    () => q.page < (data.pages || 1),
+    [q.page, data.pages]
+  );
 
   function setBusyOn(issueId, on) {
     setBusy((prev) => {
@@ -165,7 +197,7 @@ export default function SyncIssuePage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [q.page, q.limit]);
 
-  async function ensureSamePages(issueId, pages) {
+  async function ensureBooksForIncomingPages(issueId, pages) {
     if (!issueId || pages == null) return;
     const existing = samePagesByIssue.get(issueId);
     if (existing?.loading || existing?.items) return;
@@ -181,33 +213,117 @@ export default function SyncIssuePage() {
       const items = (res.items || []).map(normalizeBookForPick).filter(Boolean);
       setSamePagesByIssue((prev) => {
         const n = new Map(prev);
-        n.set(issueId, { loading: false, err: "", items, total: res.total || items.length });
+        n.set(issueId, {
+          loading: false,
+          err: "",
+          items,
+          total: res.total || items.length,
+        });
         return n;
       });
     } catch (e) {
       setSamePagesByIssue((prev) => {
         const n = new Map(prev);
-        n.set(issueId, { loading: false, err: e?.message || "Fehler", items: [], total: 0 });
+        n.set(issueId, {
+          loading: false,
+          err: e?.message || "Fehler",
+          items: [],
+          total: 0,
+        });
         return n;
       });
     }
   }
 
-  function toggleExpanded(issueId, pages) {
+  async function ensureBooksForExpectedPages(issueId, expectedPages) {
+    if (!issueId || expectedPages == null) return;
+    const existing = expectedPagesByIssue.get(issueId);
+    if (existing?.loading || existing?.items) return;
+
+    setExpectedPagesByIssue((prev) => {
+      const n = new Map(prev);
+      n.set(issueId, { loading: true, err: "", items: null, total: 0 });
+      return n;
+    });
+
+    try {
+      const res = await listBooksByPages(expectedPages, { limit: 200, page: 1 });
+      const items = (res.items || []).map(normalizeBookForPick).filter(Boolean);
+      setExpectedPagesByIssue((prev) => {
+        const n = new Map(prev);
+        n.set(issueId, {
+          loading: false,
+          err: "",
+          items,
+          total: res.total || items.length,
+        });
+        return n;
+      });
+    } catch (e) {
+      setExpectedPagesByIssue((prev) => {
+        const n = new Map(prev);
+        n.set(issueId, {
+          loading: false,
+          err: e?.message || "Fehler",
+          items: [],
+          total: 0,
+        });
+        return n;
+      });
+    }
+  }
+
+  // ✅ Prefetch: damit Titel/Autor auch ohne "Details öffnen" erscheinen
+  useEffect(() => {
+    (data.items || []).forEach((it) => {
+      const issueId = getIssueId(it);
+      if (!issueId) return;
+
+      const reason = getIssueReason(it);
+      const incomingPages = getIncomingPages(it);
+      const expectedPages = getExpectedPages(it);
+      const prefId = getPreferredBookId(it);
+
+      if (prefId && !picked.get(issueId)) {
+        setPicked((prev) => {
+          const n = new Map(prev);
+          n.set(issueId, prefId);
+          return n;
+        });
+      }
+
+      if (incomingPages != null) ensureBooksForIncomingPages(issueId, incomingPages);
+      if (reason === "pages_mismatch" && expectedPages != null) {
+        ensureBooksForExpectedPages(issueId, expectedPages);
+      }
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [data.items]);
+
+  function toggleExpanded(issueId, incomingPages, expectedPages) {
     const willOpen = !expanded.has(issueId);
+
     setExpanded((prev) => {
       const n = new Set(prev);
       if (n.has(issueId)) n.delete(issueId);
       else n.add(issueId);
       return n;
     });
-    if (willOpen) ensureSamePages(issueId, pages);
+
+    if (!willOpen) return;
+
+    ensureBooksForIncomingPages(issueId, incomingPages);
+
+    if (expectedPages != null && expectedPages !== incomingPages) {
+      ensureBooksForExpectedPages(issueId, expectedPages);
+    }
   }
 
-  async function apply(issue) {
-    const issueId = issue?.issue?.id;
-    const bookId = picked.get(issueId);
-    if (!issueId) return;
+  async function apply(it, overrideBookId = null) {
+    const issueId = getIssueId(it);
+    const bookId = overrideBookId || picked.get(issueId);
+
+    if (!issueId) return alert("Issue-ID fehlt (Backend Response prüfen)");
     if (!bookId) return alert("Bitte wähle ein Buch aus");
 
     setBusyOn(issueId, true);
@@ -220,9 +336,10 @@ export default function SyncIssuePage() {
 
       setData((prev) => ({
         ...prev,
-        items: prev.items.filter((x) => x?.issue?.id !== issueId),
+        items: prev.items.filter((x) => getIssueId(x) !== issueId),
         total: Math.max(0, (prev.total || 0) - 1),
       }));
+
       setExpanded((prev) => {
         const n = new Set(prev);
         n.delete(issueId);
@@ -235,9 +352,9 @@ export default function SyncIssuePage() {
     }
   }
 
-  async function discard(issue) {
-    const issueId = issue?.issue?.id;
-    if (!issueId) return;
+  async function discard(it) {
+    const issueId = getIssueId(it);
+    if (!issueId) return alert("Issue-ID fehlt (Backend Response prüfen)");
     if (!window.confirm("Issue wirklich verwerfen?")) return;
 
     setBusyOn(issueId, true);
@@ -249,9 +366,10 @@ export default function SyncIssuePage() {
 
       setData((prev) => ({
         ...prev,
-        items: prev.items.filter((x) => x?.issue?.id !== issueId),
+        items: prev.items.filter((x) => getIssueId(x) !== issueId),
         total: Math.max(0, (prev.total || 0) - 1),
       }));
+
       setExpanded((prev) => {
         const n = new Set(prev);
         n.delete(issueId);
@@ -264,9 +382,19 @@ export default function SyncIssuePage() {
     }
   }
 
+  function quickResolve(it) {
+    const issueId = getIssueId(it);
+    const pref = getPreferredBookId(it);
+    if (issueId && pref) return apply(it, pref);
+
+    const incomingPages = getIncomingPages(it);
+    const expectedPages = getExpectedPages(it);
+    toggleExpanded(issueId, incomingPages, expectedPages);
+  }
+
   return (
     <section className="zr-section">
-     <AdminNavRow />
+      <AdminNavRow />
       <h1>Sync Issues</h1>
       <p className="zr-lede">
         Mobile-Sync Einträge mit <strong>status=needs_review</strong>.
@@ -287,7 +415,13 @@ export default function SyncIssuePage() {
               className="zr-select"
               style={{ marginLeft: 8 }}
               value={q.limit}
-              onChange={(e) => setQ((p) => ({ ...p, limit: Number(e.target.value) || 20, page: 1 }))}
+              onChange={(e) =>
+                setQ((p) => ({
+                  ...p,
+                  limit: Number(e.target.value) || 20,
+                  page: 1,
+                }))
+              }
             >
               <option value={10}>10</option>
               <option value={20}>20</option>
@@ -295,11 +429,7 @@ export default function SyncIssuePage() {
             </select>
           </label>
 
-          <button
-            className="zr-btn2 zr-btn2--ghost zr-btn2--sm"
-            onClick={() => refresh()}
-            disabled={loading}
-          >
+          <button className="zr-btn2 zr-btn2--ghost zr-btn2--sm" onClick={() => refresh()} disabled={loading}>
             Aktualisieren
           </button>
 
@@ -328,38 +458,96 @@ export default function SyncIssuePage() {
 
         <div style={{ display: "grid", gap: 12, marginTop: 12 }}>
           {(data.items || []).map((it) => {
-            const issueId = it?.issue?.id;
-            const receipt = it?.receipt;
-            const issue = it?.issue;
+            const issueId = getIssueId(it);
+            const receipt = it?.receipt || it;
             const isOpen = expanded.has(issueId);
             const isBusy = busy.has(issueId);
-            const pages = receipt?.pages ?? null;
+
+            const incomingPages = getIncomingPages(it);
+            const expectedPages = getExpectedPages(it);
+            const reason = getIssueReason(it);
+            const preferredBookId = getPreferredBookId(it);
+
+            const candIds = getCandidateBookIds(it);
+
             const samePages = samePagesByIssue.get(issueId);
+            const expectedList = expectedPagesByIssue.get(issueId);
+
+            const pickedId = picked.get(issueId) || preferredBookId || "";
+
+            const bookFromExpected =
+              pickedId && expectedList?.items?.find((b) => b?.id === pickedId);
+            const bookFromIncoming =
+              pickedId && samePages?.items?.find((b) => b?.id === pickedId);
+
+            const showBook = bookFromExpected || bookFromIncoming || null;
 
             return (
               <div
-                key={receipt?.id || issueId}
+                key={receipt?.receipt_id || receipt?.receiptId || issueId || Math.random()}
                 style={{ border: "1px solid rgba(0,0,0,0.12)", borderRadius: 16, padding: 14 }}
               >
                 <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
                   <strong style={{ fontSize: 16 }}>{receipt?.barcode || "(kein Barcode)"}</strong>
-                  {pages != null ? badge(`${pages} Seiten`) : null}
-                  {issue?.reason ? badge(issue.reason) : null}
-                  {receipt?.received_at ? badge(`empfangen: ${fmtTs(receipt.received_at)}`) : null}
+
+                  {incomingPages != null ? badge(`${incomingPages} Seiten`) : null}
+                  {reason ? badge(reason) : null}
+                  {receipt?.received_at || receipt?.receivedAt
+                    ? badge(`empfangen: ${fmtTs(receipt?.received_at || receipt?.receivedAt)}`)
+                    : null}
+                  {candIds.length ? badge(`Kandidaten: ${candIds.length}`) : null}
+
                   <div style={{ flex: 1 }} />
+
                   <button
                     className="zr-btn2 zr-btn2--ghost zr-btn2--sm"
-                    onClick={() => toggleExpanded(issueId, pages)}
+                    onClick={() => toggleExpanded(issueId, incomingPages, expectedPages)}
                   >
                     {isOpen ? "Details schließen" : "Details öffnen"}
+                  </button>
+
+                  <button className="zr-btn2 zr-btn2--sm" onClick={() => quickResolve(it)} disabled={isBusy}>
+                    Resolve
                   </button>
                 </div>
 
                 <div style={{ marginTop: 8, fontSize: 13, opacity: 0.85 }}>
-                  Incoming: status <strong>{receipt?.reading_status || "—"}</strong> · geändert am{" "}
-                  <strong>{fmtTs(receipt?.reading_status_updated_at)}</strong>
-                  {receipt?.top_book === true ? " · TopBook: true" : receipt?.top_book === false ? " · TopBook: false" : ""}
+                  Incoming: status <strong>{receipt?.reading_status || receipt?.readingStatus || "—"}</strong> · geändert am{" "}
+                  <strong>{fmtTs(receipt?.reading_status_updated_at || receipt?.readingStatusUpdatedAt)}</strong>
+                  {receipt?.top_book === true || receipt?.topBook === true
+                    ? " · TopBook: true"
+                    : receipt?.top_book === false || receipt?.topBook === false
+                    ? " · TopBook: false"
+                    : ""}
                 </div>
+
+                {/* ✅ Title/Author aus DB anzeigen */}
+                {showBook ? (
+                  <div style={{ marginTop: 6, fontSize: 13, opacity: 0.85 }}>
+                    Buch (DB): <strong>{showBook.title || "—"}</strong>
+                    {showBook.author ? ` · ${showBook.author}` : ""}
+                    {showBook.pages != null ? ` · ${showBook.pages} Seiten` : ""}
+                  </div>
+                ) : (
+                  <div style={{ marginTop: 6, fontSize: 13, opacity: 0.65 }}>
+                    Buch (DB): {pickedId ? "lade Daten…" : "kein Kandidat"}
+                  </div>
+                )}
+
+                {reason === "pages_mismatch" && expectedPages != null && incomingPages != null ? (
+                  <div style={{ marginTop: 6, fontSize: 13, opacity: 0.85 }}>
+                    Seiten-Konflikt: Eingabe <strong>{incomingPages}</strong> · DB <strong>{expectedPages}</strong>
+                    {preferredBookId ? (
+                      <>
+                        {" "}
+                        · Kandidat-ID:{" "}
+                        <span style={{ fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace" }}>
+                          {preferredBookId}
+                        </span>
+                      </>
+                    ) : null}
+                  </div>
+                ) : null}
 
                 {isOpen ? (
                   <div style={{ marginTop: 12 }}>
@@ -381,33 +569,44 @@ export default function SyncIssuePage() {
                         />
                       </label>
 
-                      {issue?.candidates?.length ? (
-                        <BookPickList
-                          title={`Kandidaten aus Barcode-Assignments (${issue.candidates.length})`}
-                          books={issue.candidates}
-                          selectedId={picked.get(issueId) || ""}
-                          groupName={`pick-${issueId}`}
-                          onSelect={(id) =>
-                            setPicked((prev) => {
-                              const n = new Map(prev);
-                              n.set(issueId, id);
-                              return n;
-                            })
-                          }
-                        />
+                      {/* Kandidaten (IDs) */}
+                      {candIds.length ? (
+                        <div style={{ marginTop: 6 }}>
+                          <div style={{ fontWeight: 700, marginBottom: 6 }}>Kandidaten</div>
+                          <select
+                            className="zr-select"
+                            value={picked.get(issueId) || preferredBookId || ""}
+                            onChange={(e) => {
+                              const id = e.target.value;
+                              setPicked((prev) => {
+                                const n = new Map(prev);
+                                n.set(issueId, id);
+                                return n;
+                              });
+                            }}
+                          >
+                            <option value="">Bitte wählen…</option>
+                            {candIds.map((id) => (
+                              <option key={id} value={id}>
+                                {id}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
                       ) : null}
 
-                      {pages != null ? (
+                      {/* Bücher mit incoming pages */}
+                      {incomingPages != null ? (
                         <div style={{ marginTop: 10 }}>
                           <div style={{ fontWeight: 700, marginBottom: 6 }}>
-                            Bücher mit {pages} Seiten
+                            Bücher mit {incomingPages} Seiten
                             {samePages?.loading ? " (lade…)" : ""}
-                            {!samePages?.loading && samePages?.items ? ` (${samePages.total || samePages.items.length})` : ""}
+                            {!samePages?.loading && samePages?.items
+                              ? ` (${samePages.total || samePages.items.length})`
+                              : ""}
                           </div>
 
-                          {samePages?.err ? (
-                            <div style={{ color: "#a00", fontSize: 12 }}>{samePages.err}</div>
-                          ) : null}
+                          {samePages?.err ? <div style={{ color: "#a00", fontSize: 12 }}>{samePages.err}</div> : null}
 
                           {!samePages?.loading && Array.isArray(samePages?.items) ? (
                             samePages.items.length ? (
@@ -426,7 +625,54 @@ export default function SyncIssuePage() {
                                 <option value="">Bitte wählen…</option>
                                 {samePages.items.map((b) => (
                                   <option key={b.id} value={b.id}>
-                                    {(b.barcode || "—") + " · " + (b.title || "—") + (b.author ? " · " + b.author : "")}
+                                    {(b.barcode || "—") +
+                                      " · " +
+                                      (b.title || "—") +
+                                      (b.author ? " · " + b.author : "")}
+                                  </option>
+                                ))}
+                              </select>
+                            ) : (
+                              <div style={{ opacity: 0.7, fontSize: 12 }}>Keine Treffer.</div>
+                            )
+                          ) : null}
+                        </div>
+                      ) : null}
+
+                      {/* Bei pages_mismatch zusätzlich DB-expected pages */}
+                      {reason === "pages_mismatch" && expectedPages != null && expectedPages !== incomingPages ? (
+                        <div style={{ marginTop: 10 }}>
+                          <div style={{ fontWeight: 700, marginBottom: 6 }}>
+                            Bücher mit {expectedPages} Seiten (DB)
+                            {expectedList?.loading ? " (lade…)" : ""}
+                            {!expectedList?.loading && expectedList?.items
+                              ? ` (${expectedList.total || expectedList.items.length})`
+                              : ""}
+                          </div>
+
+                          {expectedList?.err ? <div style={{ color: "#a00", fontSize: 12 }}>{expectedList.err}</div> : null}
+
+                          {!expectedList?.loading && Array.isArray(expectedList?.items) ? (
+                            expectedList.items.length ? (
+                              <select
+                                className="zr-select"
+                                value={picked.get(issueId) || ""}
+                                onChange={(e) => {
+                                  const id = e.target.value;
+                                  setPicked((prev) => {
+                                    const n = new Map(prev);
+                                    n.set(issueId, id);
+                                    return n;
+                                  });
+                                }}
+                              >
+                                <option value="">Bitte wählen…</option>
+                                {expectedList.items.map((b) => (
+                                  <option key={b.id} value={b.id}>
+                                    {(b.barcode || "—") +
+                                      " · " +
+                                      (b.title || "—") +
+                                      (b.author ? " · " + b.author : "")}
                                   </option>
                                 ))}
                               </select>

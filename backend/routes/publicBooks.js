@@ -55,12 +55,10 @@ router.get("/", async (req, res) => {
       orderBy = "b.top_book_set_at DESC NULLS LAST, b.registered_at DESC";
     } else if (bucket === "finished") {
       where.push("b.reading_status = 'finished'");
-      orderBy =
-        "b.reading_status_updated_at DESC NULLS LAST, b.registered_at DESC";
+      orderBy = "b.reading_status_updated_at DESC NULLS LAST, b.registered_at DESC";
     } else if (bucket === "abandoned") {
       where.push("b.reading_status = 'abandoned'");
-      orderBy =
-        "b.reading_status_updated_at DESC NULLS LAST, b.registered_at DESC";
+      orderBy = "b.reading_status_updated_at DESC NULLS LAST, b.registered_at DESC";
     } else {
       // registered
       orderBy = "b.registered_at DESC";
@@ -72,9 +70,7 @@ router.get("/", async (req, res) => {
     }
     if (title) {
       params.push(`%${title}%`);
-      where.push(
-        `COALESCE(b.full_title, b.title_keyword) ILIKE $${params.length}`
-      );
+      where.push(`COALESCE(b.full_title, b.title_keyword) ILIKE $${params.length}`);
     }
     if (q) {
       params.push(`%${q}%`);
@@ -153,13 +149,11 @@ router.get("/stats", async (req, res) => {
         ORDER BY ba.book_id, ba.freed_at DESC
       )
       SELECT
-        -- In stock = currently assigned (not freed)
         (SELECT COUNT(DISTINCT ba2.book_id)::int
          FROM public.barcode_assignments ba2
          WHERE ba2.freed_at IS NULL
         ) AS in_stock,
 
-        -- Finished in year = last freed_at in that year, for books that are finished
         (SELECT COUNT(*)::int
          FROM last_free lf
          JOIN public.books b2 ON b2.id = lf.book_id
@@ -214,7 +208,6 @@ router.get("/author-counts", async (req, res) => {
     const where = [];
     const params = [];
 
-    // Bucket filter
     if (bucket === "top") {
       where.push("b.top_book = true");
     } else if (bucket === "abandoned") {
@@ -222,7 +215,6 @@ router.get("/author-counts", async (req, res) => {
     } else if (bucket === "registered") {
       // no filter
     } else {
-      // finished (default)
       where.push("b.reading_status = 'finished'");
     }
 
@@ -231,7 +223,6 @@ router.get("/author-counts", async (req, res) => {
       where.push(`COALESCE(b.author_display, b.author) ILIKE $${params.length}`);
     }
 
-    // ignore empty authors
     where.push("COALESCE(b.author_display, b.author) IS NOT NULL");
     where.push("BTRIM(COALESCE(b.author_display, b.author)) <> ''");
 
@@ -333,6 +324,52 @@ router.get("/most-read-authors", async (req, res) => {
     );
   } catch (err) {
     console.error("GET /api/public/books/most-read-authors error", err);
+    return res.status(500).json({ error: "internal_error" });
+  }
+});
+
+/**
+ * GET /api/public/books/:id  (single book)
+ * IMPORTANT: compare id as text so UUID/int both work.
+ */
+router.get("/:id", async (req, res) => {
+  try {
+    const pool = getPool(req);
+    const id = String(req.params.id || "").trim();
+    if (!id) return res.status(400).json({ error: "missing_id" });
+
+    const { rows } = await pool.query(
+      `
+      SELECT
+        b.id::text AS id,
+        COALESCE(b.author_display, b.author) AS author,
+        COALESCE(b.full_title, b.title_keyword) AS title,
+        b.publisher,
+        b.pages,
+        b,comment,
+        b.reading_status,
+        b.reading_status_updated_at,
+        b.top_book,
+        b.top_book_set_at,
+        b.registered_at,
+        bb.barcode
+      FROM public.books b
+      LEFT JOIN LATERAL (
+        SELECT barcode
+        FROM public.book_barcodes bb
+        WHERE bb.book_id = b.id
+        LIMIT 1
+      ) bb ON true
+      WHERE b.id::text = $1
+      LIMIT 1
+      `,
+      [id]
+    );
+
+    if (!rows[0]) return res.status(404).json({ error: "not_found" });
+    return res.json(rows[0]);
+  } catch (err) {
+    console.error("GET /api/public/books/:id error", err);
     return res.status(500).json({ error: "internal_error" });
   }
 });

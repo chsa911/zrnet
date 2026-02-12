@@ -172,3 +172,218 @@ body:has(.zr-page) .topbar,
 body:has(.zr-page) .nav-bar {
   display: none !important;
 }
+/* ===== Highlights banner (overlay on image) ===== */
+.zr-highlight-banner{
+  position: relative;
+  margin-top: 14px;
+  border-radius: 16px;
+  overflow: hidden;
+  cursor: pointer;
+  border: 1px solid rgba(0,0,0,0.10);
+}
+
+.zr-highlight-banner__img{
+  width: 100%;
+  height: 150px;         /* IMPORTANT: prevents it becoming huge */
+  object-fit: cover;
+  display: block;
+}
+
+.zr-highlight-banner__overlay{
+  position: absolute;
+  inset: 0;
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  gap: 10px;
+  color: white;
+  background: linear-gradient(to top, rgba(0,0,0,0.55), rgba(0,0,0,0.10));
+}
+
+.zr-highlight-banner__badge{
+  align-self: flex-start;
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: rgba(255,255,255,0.16);
+  border: 1px solid rgba(255,255,255,0.22);
+  font-weight: 800;
+  font-size: 12px;
+}
+
+.zr-highlight-banner__lines{
+  font-weight: 700;
+  line-height: 1.25;
+}
+
+.zr-highlight-banner__btn{
+  align-self: flex-start;
+}
+
+/* ===== Drawer ===== */
+.zr-drawer-overlay{
+  position: fixed;
+  inset: 0;
+  z-index: 999;
+  background: rgba(0,0,0,0);
+  pointer-events: none;
+  transition: background 180ms ease;
+}
+
+.zr-drawer-overlay.is-open{
+  background: rgba(0,0,0,0.45);
+  pointer-events: auto;
+}
+
+.zr-drawer{
+  position: fixed;
+  top: 0;
+  right: 0;
+  height: 100%;
+  width: min(420px, 92vw);
+  background: #fff;
+  box-shadow: -20px 0 70px rgba(0,0,0,0.25);
+  transform: translateX(102%);
+  transition: transform 220ms ease;
+  display: flex;
+  flex-direction: column;
+}
+
+.zr-drawer.is-open{
+  transform: translateX(0);
+}
+
+.zr-drawer-header{
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 16px;
+  border-bottom: 1px solid rgba(0,0,0,0.08);
+}
+
+.zr-drawer-title{
+  margin: 0;
+  font-size: 16px;
+  font-weight: 800;
+}
+
+.zr-drawer-x{
+  border: none;
+  background: transparent;
+  font-size: 22px;
+  cursor: pointer;
+  line-height: 1;
+  padding: 4px 8px;
+}
+
+.zr-drawer-body{
+  padding: 14px 16px;
+  flex: 1;
+}
+
+.zr-drawer-actions{
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  padding: 12px 16px 16px;
+  border-top: 1px solid rgba(0,0,0,0.08);
+}
+
+.zr-label{
+  display:block;
+  font-size: 13px;
+  opacity: 0.8;
+  margin-bottom: 8px;
+}
+
+.zr-input{
+  width: 100%;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(0,0,0,0.12);
+  outline: none;
+}
+
+.zr-spacer{ height: 12px; }
+
+/* ===== Split highlight banner ===== */
+.zr-splitHighlight{
+  margin-top: 14px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  border-radius: 16px;
+  overflow: hidden;
+  border: 1px solid rgba(0,0,0,0.10);
+}
+
+.zr-splitHighlight__half{
+  height: 170px;
+  display: block;
+  text-decoration: none;
+  color: inherit;
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: cover;
+  position: relative;
+}
+
+.zr-splitHighlight__half--left{
+  border-right: 1px solid rgba(255,255,255,0.22);
+}
+
+.zr-splitHighlight__overlay{
+  position: absolute;
+  inset: 0;
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  color: #fff;
+}
+
+.zr-splitHighlight__overlay--top{
+  justify-content: flex-start;
+  background: linear-gradient(to bottom, rgba(0,0,0,0.68), rgba(0,0,0,0.12), rgba(0,0,0,0));
+}
+
+.zr-splitHighlight__badge{
+  align-self: flex-start;
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: rgba(255,255,255,0.16);
+  border: 1px solid rgba(255,255,255,0.22);
+  font-weight: 800;
+  font-size: 12px;
+  margin-bottom: 8px;
+}
+
+.zr-splitHighlight__value{
+  font-size: 14px;
+  font-weight: 800;
+  line-height: 1.2;
+  text-shadow: 0 2px 10px rgba(0,0,0,0.35);
+}
+
+.zr-splitHighlight__edit{
+  margin-top: 10px;
+  align-self: flex-start;
+  padding: 8px 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(255,255,255,0.25);
+  background: rgba(0,0,0,0.25);
+  color: white;
+  cursor: pointer;
+}
+
+.zr-hr{
+  border: 0;
+  border-top: 1px solid rgba(0,0,0,0.10);
+  margin: 14px 0;
+}
+
+@media (max-width: 700px){
+  .zr-splitHighlight{ grid-template-columns: 1fr; }
+  .zr-splitHighlight__half--left{
+    border-right: 0;
+    border-bottom: 1px solid rgba(255,255,255,0.20);
+  }
+}

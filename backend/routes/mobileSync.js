@@ -740,4 +740,184 @@ async function resolveNeedsReview(req, res) {
 
 router.post(["/needs-review/:issueId/resolve", "/needs_review/:issueId/resolve"], adminAuthRequired, resolveNeedsReview);
 
+
+// --------------------------------------------------------------------------
+// Backward compatible resolve endpoint used by older admin UIs.
+//
+// POST /api/mobile-sync/issues/resolve
+// Body: { issueId, action: "apply"|"discard"|"resolve", bookId?, note? }
+//
+// - apply: updates the chosen book with the incoming values from the receipt
+//          and marks the receipt as applied (so it disappears from needs_review list).
+// - discard/resolve: only updates issue status (discarded/resolved).
+// --------------------------------------------------------------------------
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const isUuid = (v) => UUID_RE.test(String(v || "").trim());
+
+async function resolveIssueAction(req, res) {
+  const pool = req.app.get("pgPool");
+  if (!pool) return res.status(500).json({ error: "pgPool missing" });
+
+  const issueId = String(req.body?.issueId || req.body?.issue_id || req.body?.id || "").trim();
+  if (!issueId) return res.status(400).json({ error: "issue_id_required" });
+
+  const actionRaw = String(req.body?.action || req.body?.status || "resolve").trim().toLowerCase();
+  const action =
+    actionRaw === "discarded" ? "discard" :
+    actionRaw === "resolved" ? "resolve" :
+    actionRaw;
+
+  const note = req.body?.note != null && String(req.body.note).trim() !== "" ? String(req.body.note) : null;
+  const bookId = String(req.body?.bookId || req.body?.book_id || "").trim();
+
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    await ensureMobileSyncTables(client);
+
+    const rr = await client.query(
+      `
+      SELECT
+        r.id AS receipt_id,
+        r.client_change_id,
+        r.received_at,
+        r.status AS receipt_status,
+        r.barcode,
+        r.pages,
+        r.reading_status,
+        r.reading_status_updated_at,
+        r.top_book,
+        r.topbook_set_at,
+        r.issue_id,
+        r.payload AS receipt_payload,
+
+        i.status AS issue_status,
+        i.reason,
+        i.candidate_book_ids,
+        i.details,
+        i.note AS issue_note,
+        i.created_at AS issue_created_at,
+        i.payload AS issue_payload
+      FROM mobile_sync.receipts r
+      LEFT JOIN mobile_sync.issues i ON i.id = r.issue_id
+      WHERE r.issue_id = $1::uuid OR i.id = $1::uuid
+      ORDER BY r.received_at DESC
+      LIMIT 1
+      `,
+      [issueId]
+    );
+
+    if (rr.rowCount !== 1) {
+      await client.query("ROLLBACK");
+      return res.status(404).json({ error: "issue_not_found" });
+    }
+
+    const row = rr.rows[0];
+
+    if (action === "apply") {
+      if (!isUuid(bookId)) {
+        await client.query("ROLLBACK");
+        return res.status(400).json({ error: "book_id_required" });
+      }
+
+      const parsed = {
+        pages: row.pages === null ? null : Number(row.pages),
+        readingStatus: normStatus(row.reading_status),
+        rsUpdatedAt: parseTs(row.reading_status_updated_at),
+        topBook: (row.top_book === true || row.top_book === false) ? row.top_book : null,
+        topBookSetAt: parseTs(row.topbook_set_at),
+      };
+
+      // 1) Apply the incoming values to the chosen book
+      await updateBookFromMobile(client, bookId, parsed);
+
+      // 2) Best-effort: link barcode to that book so future syncs resolve automatically
+      const barcode = String(row.barcode || "").trim();
+      if (barcode) {
+        try {
+          // free any active assignment of this book
+          await client.query(
+            `UPDATE public.barcode_assignments SET freed_at = now() WHERE book_id = $1::uuid AND freed_at IS NULL`,
+            [bookId]
+          );
+        } catch {}
+
+        try {
+          // free any active assignment of this barcode to a different book
+          await client.query(
+            `UPDATE public.barcode_assignments
+             SET freed_at = now()
+             WHERE lower(barcode) = lower($1)
+               AND freed_at IS NULL
+               AND book_id IS DISTINCT FROM $2::uuid`,
+            [barcode, bookId]
+          );
+        } catch {}
+
+        try {
+          await client.query(
+            `INSERT INTO public.barcode_assignments (barcode, book_id, assigned_at, freed_at)
+             VALUES ($1,$2, now(), NULL)`,
+            [barcode, bookId]
+          );
+        } catch {}
+
+        // keep /api/books barcode field consistent (uses book_barcodes)
+        try {
+          await client.query(`DELETE FROM public.book_barcodes WHERE lower(barcode) = lower($1)`, [barcode]);
+          await client.query(`DELETE FROM public.book_barcodes WHERE book_id = $1::uuid`, [bookId]);
+          await client.query(`INSERT INTO public.book_barcodes (book_id, barcode) VALUES ($1,$2)`, [bookId, barcode]);
+        } catch {}
+      }
+
+      // 3) Mark receipt as applied so it disappears from needs_review list
+      await client.query(
+        `UPDATE mobile_sync.receipts
+         SET status = 'applied', book_id = $2::uuid
+         WHERE issue_id = $1::uuid`,
+        [issueId, bookId]
+      );
+
+      // 4) Mark issue resolved
+      await client.query(
+        `UPDATE mobile_sync.issues
+         SET status = 'resolved',
+             note = COALESCE($2, note),
+             resolved_at = now(),
+             resolved_by = 'admin'
+         WHERE id = $1::uuid`,
+        [issueId, note]
+      );
+
+      await client.query("COMMIT");
+      return res.json({ ok: true, action: "apply", issueId, bookId });
+    }
+
+    // discard / resolve (no apply)
+    const status = action === "discard" ? "discarded" : "resolved";
+
+    const upd = await client.query(
+      `UPDATE mobile_sync.issues
+       SET status = $2,
+           note = COALESCE($3, note),
+           resolved_at = now(),
+           resolved_by = 'admin'
+       WHERE id = $1::uuid
+       RETURNING id, status, resolved_at, note`,
+      [issueId, status, note]
+    );
+
+    await client.query("COMMIT");
+    return res.json({ ok: true, action: status, issue: upd.rows[0] || { id: issueId, status } });
+  } catch (e) {
+    try { await client.query("ROLLBACK"); } catch {}
+    return res.status(500).json({ error: "resolve_failed", detail: String(e?.message || e) });
+  } finally {
+    client.release();
+  }
+}
+
+router.post(["/issues/resolve", "/resolve"], adminAuthRequired, resolveIssueAction);
+
 module.exports = router;

@@ -1,0 +1,138 @@
+.zr-bookpage {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.zr-bookpage__top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.zr-bookpage__noLink {
+  font-size: 13px;
+  opacity: 0.7;
+  font-weight: 800;
+}
+
+.zr-bookpage__grid {
+  display: grid;
+  grid-template-columns: 0.95fr 1.05fr;
+  gap: 14px;
+}
+
+/* Make the cover card size itself nicely */
+.zr-bookpage__coverCard {
+   padding: 16px;            /* optional */
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;  /* don't vertically center */
+}
+
+/* Cover card: let the image define height (works for portrait + landscape) */
+.zr-bookpage__coverCard {
+  padding: 16px;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+}
+
+/* Show the whole cover, no crop, no forced height */
+.zr-bookpage__coverImg {
+  width: 100%;
+  height: auto;         /* ✅ IMPORTANT */
+  object-fit: contain;  /* ok */
+  display: block;
+  max-width: 900px;
+}
+.zr-bookpage__coverEmpty {
+  width: 100%;
+  min-height: 320px;
+  border-radius: 12px;
+  border: 1px dashed rgba(0,0,0,0.18);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  opacity: 0.75;
+  font-weight: 900;
+}
+
+.zr-bookpage__coverHint {
+  font-size: 12px;
+  opacity: 0.8;
+  padding: 0 10px;
+  text-align: center;
+}
+
+.zr-bookpage__card {
+  border: 1px solid rgba(0,0,0,0.10);
+  border-radius: 16px;
+  padding: 14px;
+  background: #fff;
+}
+
+.zr-bookpage__title {
+  margin: 0 0 6px;
+  font-weight: 950;
+  letter-spacing: -0.02em;
+}
+
+.zr-bookpage__author {
+  font-weight: 900;
+  opacity: 0.85;
+  margin-bottom: 12px;
+}
+
+.zr-bookpage__meta {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  font-size: 14px;
+  opacity: 0.92;
+}
+
+.zr-bookpage__meta span {
+  display: inline-block;
+  min-width: 92px;
+  opacity: 0.7;
+  font-weight: 900;
+}
+
+.zr-bookpage__buyBox {
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(0,0,0,0.10);
+}
+
+.zr-bookpage__buyTitle {
+  font-weight: 950;
+  margin-bottom: 6px;
+}
+
+.zr-bookpage__buyText {
+  font-size: 13px;
+  opacity: 0.75;
+  margin-bottom: 10px;
+}
+
+.zr-bookpage__buyLink {
+  display: inline-block;
+  font-weight: 950;
+  text-decoration: none;
+  border: 1px solid rgba(0,0,0,0.12);
+  padding: 10px 12px;
+  border-radius: 12px;
+}
+
+@media (max-width: 920px) {
+  .zr-bookpage__grid {
+    grid-template-columns: 1fr;
+  }
+  .zr-bookpage__coverEmpty {
+    min-height: 240px;
+  }
+}

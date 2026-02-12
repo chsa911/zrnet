@@ -12,6 +12,8 @@ app.use(morgan("dev"));
 app.use(express.json());
 app.use(cookieParser());
 app.use(express.urlencoded({ extended: true }));
+app.use("/api/enrich", require("./routes/enrich"));
+app.use("/api/public/books", require("./routes/publicBooks"));
 
 /**
  * CORS with credentials:
@@ -44,6 +46,45 @@ const corsOptions = makeCorsOptions();
 app.use(cors(corsOptions));
 app.options("*", cors(corsOptions));
 
+// --- home highlights (from DB) ---
+app.get("/api/public/home-highlights", async (req, res) => {
+  try {
+    const pool = req.app.get("pgPool");
+    if (!pool) return res.status(500).json({ error: "pgPool_missing" });
+
+    const { rows } = await pool.query(`
+      SELECT
+        b.home_featured_slot AS slot,
+        b.id::text AS id,
+        COALESCE(b.author_display, b.author) AS author,
+        COALESCE(b.full_title, b.title_keyword) AS title,
+        ('/assets/covers/' || b.id::text || '-home.jpg') AS cover_home,
+('/assets/covers/' || b.id::text || '.jpg')      AS cover_full,
+('/assets/covers/' || b.id::text || '.jpg')      AS cover,
+        b.purchase_url AS buy
+      FROM public.books b
+      WHERE b.home_featured_slot IN ('finished','received')
+    `);
+
+    const out = {
+  
+  finished: { id: "", author: "", title: "", cover_home: "", cover_full: "", cover: "", buy: "" },
+  received: { id: "", author: "", title: "", cover_home: "", cover_full: "", cover: "", buy: "" },
+   updatedAt: new Date().toISOString(),
+    };
+
+    for (const r of rows) {
+      if (r.slot === "finished") out.finished = r;
+      if (r.slot === "received") out.received = r;
+    }
+
+    res.setHeader("Cache-Control", "no-store");
+    return res.json(out);
+  } catch (err) {
+    console.error("GET /api/public/home-highlights error", err);
+    return res.status(500).json({ error: "internal_error" });
+  }
+});
 /* ---------- health ---------- */
 app.get("/health", async (req, res, next) => {
   try {
@@ -82,6 +123,7 @@ app.get(["/api", "/api/"], (req, res) => {
       "/api/bmarks",
       "/api/barcodes",
       "/api/public/books",
+      "/api/public/home-highlights",
       "/api/mobile",
     ],
   });

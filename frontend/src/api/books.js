@@ -237,3 +237,8 @@ export async function listMostReadAuthors({ limit = 200, signal } = {}) {
   const qs = toQuery({ limit });
   return http(`/public/books/most-read-authors?${qs}`, { signal });
 } 
+// Fetch a single public book by id
+export async function getPublicBook(id, { signal } = {}) {
+  if (!id) throw new Error("Missing book id");
+  return http(`/public/books/${encodeURIComponent(id)}`, { signal });
+}
