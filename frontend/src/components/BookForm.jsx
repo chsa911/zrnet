@@ -153,6 +153,11 @@ export default function BookForm({
   bookId = null, // required for edit
   initialBook = null, // book object for edit
   lockBarcode = true,
+
+  // NEW: allow creating wishlist/in_stock placeholders (no barcode)
+  assignBarcode = true, // create only: if false, no preview + no barcode field used
+  createReadingStatus = "in_progress", // create only: 'in_progress' | 'wishlist' | 'in_stock'
+
   showUnknownFields = false, // in edit: show fields not in DEFAULT_FORM
   excludeUnknownKeys = ["status"], // avoid duplicating your status UI
   submitLabel = "Speichern",
@@ -275,7 +280,6 @@ export default function BookForm({
       purchase_source: b.purchase_source ?? b.purchaseSource ?? "",
       purchase_url: b.purchase_url ?? b.purchaseUrl ?? "",
 
-      // NEW
       original_language: b.original_language ?? b.originalLanguage ?? "",
     }));
 
@@ -317,9 +321,17 @@ export default function BookForm({
     [form.BHoehe]
   );
 
-  // Live preview barcode ONLY in create mode
+  const requireDimensions = mode !== "create" ? true : !!assignBarcode;
+
+  // Live preview barcode ONLY in create mode AND only if assignBarcode
   useEffect(() => {
     if (mode !== "create") return;
+    if (!assignBarcode) {
+      setSuggestedMark(null);
+      setBarcode("");
+      setPreviewError("");
+      return;
+    }
 
     if (!normW || !normH) {
       setSuggestedMark(null);
@@ -360,7 +372,7 @@ export default function BookForm({
     return () => {
       cancelled = true;
     };
-  }, [mode, normW, normH]);
+  }, [mode, normW, normH, assignBarcode]);
 
   async function handleAutocomplete(field, value) {
     setForm((f) => ({ ...f, [field]: value }));
@@ -403,27 +415,25 @@ export default function BookForm({
     setBusy(true);
 
     try {
-      // base normalization (same as your RegistrationForm)
+      // base normalization
       const payload = {
         ...form,
-        BBreite: Number(normW),
-        BHoehe: Number(normH),
+        BBreite: normW ? Number(normW) : null,
+        BHoehe: normH ? Number(normH) : null,
         BKP: Number(form.BKP || 0),
         BK1P: form.BK1P !== "" ? Number(form.BK1P) : null,
         BK2P: form.BK2P !== "" ? Number(form.BK2P) : null,
-        BSeiten: Number(form.BSeiten || 0),
+        BSeiten: form.BSeiten !== "" ? Number(form.BSeiten || 0) : null,
 
         isFiction: form.isFiction === "" ? null : form.isFiction === "true",
         genre: form.genre?.trim() || null,
         subGenre: form.subGenre?.trim() || null,
         themes: form.themes?.trim() || null,
 
-        // Optional: identifiers / purchase
         isbn13_raw: form.isbn13_raw?.trim() || null,
         purchase_source: form.purchase_source?.trim() || null,
         purchase_url: form.purchase_url?.trim() || null,
 
-        // NEW: original language
         original_language: form.original_language?.trim()
           ? form.original_language.trim().toLowerCase()
           : null,
@@ -435,16 +445,31 @@ export default function BookForm({
           if (isLockedKey(k)) continue;
           const originalVal = initialBook[k];
           const nextVal = parseFromRaw(originalVal, extra[k]);
-
-          // only send if changed (reduces accidental overwrites)
           if (!deepEqual(originalVal, nextVal)) payload[k] = nextVal;
         }
       }
 
+      // validate dims when needed
+      if (mode === "create" && assignBarcode) {
+        if (!normW || !normH) throw new Error("Bitte Breite und Höhe angeben");
+        const w = Number(normW);
+        const h = Number(normH);
+        if (!Number.isFinite(w) || !Number.isFinite(h))
+          throw new Error("Breite/Höhe ungültig");
+      }
+
       if (mode === "create") {
-        // barcode only in create
-        const chosen = (barcode || suggestedMark || "").trim();
-        if (chosen) payload.barcode = chosen;
+        // status passed to backend (wishlist / in_progress / in_stock)
+        payload.reading_status = createReadingStatus;
+        payload.status = createReadingStatus;
+
+        // barcode only if we are assigning one
+        if (assignBarcode) {
+          const chosen = (barcode || suggestedMark || "").trim();
+          if (chosen) payload.barcode = chosen;
+        } else {
+          delete payload.barcode;
+        }
 
         payload.requestId = newRequestId();
 
@@ -476,13 +501,17 @@ export default function BookForm({
         onSuccess?.({ mode, payload, saved });
       }
     } catch (err) {
-      alert(typeof err === "string" ? err : err?.message || "Fehler beim Speichern");
+      alert(
+        typeof err === "string" ? err : err?.message || "Fehler beim Speichern"
+      );
     } finally {
       setBusy(false);
     }
   }
 
-  const barcodeDisplay = mode === "edit" ? getBarcodeFromBook(initialBook) : barcode;
+  const barcodeDisplay =
+    mode === "edit" ? getBarcodeFromBook(initialBook) : barcode;
+
   const unknownKeys = useMemo(
     () => Object.keys(extra || {}).sort((a, b) => a.localeCompare(b)),
     [extra]
@@ -500,7 +529,7 @@ export default function BookForm({
           <span>Breite (BBreite)</span>
           <input
             type="number"
-            required
+            required={requireDimensions}
             value={form.BBreite}
             onChange={setField("BBreite")}
             className="border p-2 rounded"
@@ -512,7 +541,7 @@ export default function BookForm({
           <span>Höhe (BHoehe)</span>
           <input
             type="number"
-            required
+            required={requireDimensions}
             value={form.BHoehe}
             onChange={setField("BHoehe")}
             className="border p-2 rounded"
@@ -522,20 +551,33 @@ export default function BookForm({
 
         <div className="border rounded p-3">
           <div className="text-sm font-semibold">Vorschlag BMark</div>
-          <div className="text-lg font-bold mt-1">{suggestedMark ?? "—"}</div>
+          <div className="text-lg font-bold mt-1">
+            {assignBarcode ? suggestedMark ?? "—" : "—"}
+          </div>
+
           {mode === "create" ? (
-            <div className="mt-2 flex items-center gap-2 flex-wrap">
-              <button
-                type="button"
-                className="border px-3 py-1 rounded"
-                disabled={!suggestedMark}
-                onClick={() => suggestedMark && setBarcode(suggestedMark)}
-              >
-                Vorschlag übernehmen
-              </button>
-              {previewBusy && <span className="text-gray-500 text-sm">Suche…</span>}
-              {previewError && <span className="text-red-600 text-sm">{previewError}</span>}
-            </div>
+            assignBarcode ? (
+              <div className="mt-2 flex items-center gap-2 flex-wrap">
+                <button
+                  type="button"
+                  className="border px-3 py-1 rounded"
+                  disabled={!suggestedMark}
+                  onClick={() => suggestedMark && setBarcode(suggestedMark)}
+                >
+                  Vorschlag übernehmen
+                </button>
+                {previewBusy && (
+                  <span className="text-gray-500 text-sm">Suche…</span>
+                )}
+                {previewError && (
+                  <span className="text-red-600 text-sm">{previewError}</span>
+                )}
+              </div>
+            ) : (
+              <div className="text-sm text-gray-600 mt-2">
+                Wishlist/In-Stock: Kein Barcode.
+              </div>
+            )
           ) : (
             <div className="text-sm text-gray-600 mt-2">Nur beim Registrieren.</div>
           )}
@@ -548,21 +590,29 @@ export default function BookForm({
         <label className="flex flex-col gap-1 md:col-span-2">
           <span>
             {mode === "create"
-              ? "BMark (optional – überschreibt Vorschlag)"
+              ? assignBarcode
+                ? "BMark (optional – überschreibt Vorschlag)"
+                : "BMark (deaktiviert für Wishlist/In-Stock)"
               : "Barcode (gesperrt)"}
           </span>
 
           <input
-            value={barcodeDisplay || ""}
-            disabled={mode === "edit" && lockBarcode}
+            value={assignBarcode ? barcodeDisplay || "" : ""}
+            disabled={mode === "edit" ? lockBarcode : !assignBarcode}
             onChange={(e) => {
-              if (mode === "create") setBarcode(e.target.value);
+              if (mode === "create" && assignBarcode) setBarcode(e.target.value);
             }}
             className="border p-2 rounded"
-            placeholder={suggestedMark ? `z.B. ${suggestedMark}` : "z.B. eik202"}
+            placeholder={
+              assignBarcode
+                ? suggestedMark
+                  ? `z.B. ${suggestedMark}`
+                  : "z.B. eik202"
+                : "—"
+            }
           />
 
-          {mode === "create" ? (
+          {mode === "create" && assignBarcode ? (
             <small className="text-gray-600">
               Leer lassen, um den vorgeschlagenen freien Barcode zu verwenden.
             </small>
@@ -683,11 +733,14 @@ export default function BookForm({
                 ) : null}
               </div>
 
-              {purchaseError ? <div className="text-sm text-red-600">{purchaseError}</div> : null}
+              {purchaseError ? (
+                <div className="text-sm text-red-600">{purchaseError}</div>
+              ) : null}
 
               {purchaseBest ? (
                 <div className="text-sm text-gray-700">
-                  Vorschlag: <b>{purchaseBest.provider_name || purchaseBest.provider_code}</b>{" "}
+                  Vorschlag:{" "}
+                  <b>{purchaseBest.provider_name || purchaseBest.provider_code}</b>{" "}
                   <span className="text-gray-500">({purchaseBest.url})</span>
                 </div>
               ) : (
@@ -703,11 +756,16 @@ export default function BookForm({
               <div className="text-sm font-semibold mb-1">Kandidaten</div>
               <div className="space-y-2">
                 {purchaseCandidates.slice(0, 8).map((c) => (
-                  <div key={`${c.provider_code}-${c.url}`} className="flex gap-2 items-center">
+                  <div
+                    key={`${c.provider_code}-${c.url}`}
+                    className="flex gap-2 items-center"
+                  >
                     <div className="min-w-[140px] text-sm">
                       {c.provider_name || c.provider_code}
                     </div>
-                    <div className="text-xs text-gray-600 truncate flex-1">{c.url}</div>
+                    <div className="text-xs text-gray-600 truncate flex-1">
+                      {c.url}
+                    </div>
                     <button
                       type="button"
                       className="border px-3 py-1 rounded text-sm"
@@ -741,7 +799,8 @@ export default function BookForm({
                 placeholder="https://…"
               />
               <small className="text-gray-600">
-                Leer lassen ist ok — Backend kann bei gültiger ISBN automatisch einen Vorschlag setzen.
+                Leer lassen ist ok — Backend kann bei gültiger ISBN automatisch
+                einen Vorschlag setzen.
               </small>
             </label>
           </div>
@@ -879,13 +938,20 @@ export default function BookForm({
         </label>
 
         <label className="flex items-center gap-2 mt-1 md:col-span-2">
-          <input type="checkbox" checked={form.BTop} onChange={setField("BTop")} />
+          <input
+            type="checkbox"
+            checked={form.BTop}
+            onChange={setField("BTop")}
+          />
           <span>Top-Titel (BTop)</span>
         </label>
       </div>
 
       {/* Unknown fields (edit-only, optional) */}
-      {mode === "edit" && showUnknownFields && initialBook && unknownKeys.length > 0 ? (
+      {mode === "edit" &&
+      showUnknownFields &&
+      initialBook &&
+      unknownKeys.length > 0 ? (
         <div className="border rounded p-3 space-y-2">
           <div className="font-semibold">Weitere Felder (optional)</div>
 
@@ -904,7 +970,10 @@ export default function BookForm({
                       type="checkbox"
                       checked={!!rawVal}
                       onChange={(e) =>
-                        setExtra((p) => ({ ...(p || {}), [k]: e.target.checked }))
+                        setExtra((p) => ({
+                          ...(p || {}),
+                          [k]: e.target.checked,
+                        }))
                       }
                     />
                   ) : kind === "object" ? (

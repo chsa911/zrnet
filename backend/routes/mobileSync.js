@@ -36,6 +36,23 @@ function clampInt(v, { min = 1, max = 200, def = 50 } = {}) {
   return Math.max(min, Math.min(max, Math.trunc(n)));
 }
 
+// ---- sync tolerances ----
+const PAGE_TOLERANCE = Number(process.env.PAGE_TOLERANCE ?? 10);
+
+function pagesDiff(a, b) {
+  if (a === null || a === undefined || b === null || b === undefined) return null;
+  const na = Number(a);
+  const nb = Number(b);
+  if (!Number.isFinite(na) || !Number.isFinite(nb)) return null;
+  return Math.abs(na - nb);
+}
+
+function pagesWithinTolerance(a, b, tol = PAGE_TOLERANCE) {
+  const d = pagesDiff(a, b);
+  return d !== null && d <= tol;
+}
+
+
 // ---- schema bootstrap (safe to run repeatedly) ----
 let ensured = false;
 
@@ -249,7 +266,7 @@ async function updateBookFromMobile(client, bookId, parsed) {
  * Disambiguation rules:
  * - If multiple active barcode_assignments exist:
  *   - If pages is missing => ISSUE (barcode_ambiguous_missing_pages)
- *   - Else choose the ONLY book whose books.pages == incoming.pages.
+ *   - Else choose the ONLY book whose books.pages is within ±PAGE_TOLERANCE (default 10) of incoming.pages.
  *     - If exactly one match => apply to that book
  *     - Otherwise => ISSUE (barcode_ambiguous_pages_no_unique_match)
  */
@@ -371,7 +388,7 @@ router.post("/sync", async (req, res) => {
         }
 
         const pagesMap = await fetchCandidatePages(candidates);
-        const matches = candidates.filter(id => pagesMap.get(id) !== null && pagesMap.get(id) === pages);
+        const matches = candidates.filter(id => pagesMap.get(id) !== null && pagesWithinTolerance(pagesMap.get(id), pages));
 
         if (matches.length === 1) {
           chosenBookId = matches[0];
@@ -415,7 +432,8 @@ router.post("/sync", async (req, res) => {
       const existingPages = book.rows[0].pages === null ? null : Number(book.rows[0].pages);
 
       // 3) pages mismatch check
-      if (pages !== null && existingPages !== null && pages !== existingPages) {
+      if (pages !== null && existingPages !== null && !pagesWithinTolerance(pages, existingPages)) {
+        const diff = pagesDiff(pages, existingPages);
         await writeIssueAndReceipt(
           client,
           c,
@@ -424,7 +442,9 @@ router.post("/sync", async (req, res) => {
           {
             chosen_book_id: chosenBookId,
             expected_pages: existingPages,
-            incoming_pages: pages
+            incoming_pages: pages,
+            diff,
+            tolerance: PAGE_TOLERANCE
           },
           candidates.length > 1 ? candidates : [chosenBookId]
         );
