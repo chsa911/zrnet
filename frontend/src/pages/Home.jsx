@@ -113,8 +113,8 @@
                         <div className="zr-splitHighlight__overlay zr-splitHighlight__overlay--top">
                           <div className="zr-splitHighlight__badge">Top Finished</div>
                           <div className="zr-splitHighlight__value">
-                            <strong>{finished.author || "—"}</strong>
-                            <div>{finished.title || "—"}</div>
+                            <strong>{finished.authorNameDisplay || "—"}</strong>
+                            <div>{finished.titleDisplay || "—"}</div>
                           </div>
                         </div>
                       </Link>
@@ -131,8 +131,8 @@
                         <div className="zr-splitHighlight__overlay zr-splitHighlight__overlay--top">
                           <div className="zr-splitHighlight__badge">Top Received</div>
                           <div className="zr-splitHighlight__value">
-                            <strong>{received.author || "—"}</strong>
-                            <div>{received.title || "—"}</div>
+                            <strong>{received.authorNameDisplay || "—"}</strong>
+                            <div>{received.titleDisplay || "—"}</div>
                           </div>
                         </div>
                       </Link>

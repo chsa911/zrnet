@@ -975,76 +975,79 @@
     try {
       // Source of truth: open assignments only (freed_at IS NULL)
       // Use newest assigned_at per barcode
-      const sql = `
-        WITH cand AS (
-          SELECT
-            ba.barcode,
-            ba.book_id,
-            ba.assigned_at,
+      
+const sql = `
+  WITH cand AS (
+    SELECT
+      ba.barcode,
+      ba.book_id,
+      ba.assigned_at,
+      ba.freed_at,
 
-            COALESCE(
-              NULLIF(b.title_display,''),
-              NULLIF(b.title_en,''),
-              NULLIF(b.title_keyword,''),
-              NULLIF(b.title_keyword2,''),
-              NULLIF(b.title_keyword3,'')
-            ) AS title_display,
+      COALESCE(
+        NULLIF(b.title_display,''),
+        NULLIF(b.title_en,''),
+        NULLIF(b.title_keyword,'')
+      ) AS title_display,
 
-            COALESCE(
-  NULLIF(b.author_display,''),
-  NULLIF(a.name_display,''),
-  NULLIF(a.full_name,''),
-  NULLIF(trim(concat_ws(' ', a.first_name, a.last_name)), ''),
-  NULLIF(a.name,''),
-  NULLIF(b.author,'')
-) AS author_display,
-            b.pages,
+      a.name_display AS author_display,
 
-            ROW_NUMBER() OVER (
-              PARTITION BY lower(ba.barcode)
-              ORDER BY ba.assigned_at DESC NULLS LAST
-            ) AS rn
-          FROM public.barcode_assignments ba
-          LEFT JOIN public.books b ON b.id = ba.book_id
-          LEFT JOIN public.authors a ON a.id = b.author_id
-          WHERE ba.freed_at IS NULL
-        AND (
-    lower(ba.barcode) = lower($1)
-    OR lower(ba.barcode) LIKE lower($2)
-    OR ba.barcode ILIKE $3
-    ${rx ? "OR ba.barcode ~* $4" : ""}
+      b.pages,
+
+      ROW_NUMBER() OVER (
+        PARTITION BY lower(ba.barcode)
+        ORDER BY ba.assigned_at DESC NULLS LAST
+      ) AS rn
+    FROM public.barcode_assignments ba
+    LEFT JOIN public.books b ON b.id = ba.book_id
+    LEFT JOIN public.authors a ON a.id = b.author_id
+    WHERE (
+      lower(ba.barcode) = lower($1)
+      OR lower(ba.barcode) LIKE lower($2)
+      OR ba.barcode ILIKE $3
+      ${rx ? "OR ba.barcode ~* $4" : ""}
+    )
   )
-        )
-        SELECT barcode, book_id, assigned_at, title_display, author_display, pages
-        FROM cand
-        WHERE rn = 1
-        ORDER BY
-          CASE
-            WHEN lower(barcode) = lower($1) THEN 0
-            WHEN lower(barcode) LIKE lower($2) THEN 1
-            ELSE 2
-          END,
-          barcode
-        LIMIT $${rx ? 5 : 4}
-      `;
+  SELECT barcode, book_id, assigned_at, freed_at, title_display, author_display, pages
+  FROM cand
+  WHERE rn = 1
+  ORDER BY
+    CASE
+      WHEN lower(barcode) = lower($1) THEN 0
+      WHEN lower(barcode) LIKE lower($2) THEN 1
+      ELSE 2
+    END,
+    CASE WHEN freed_at IS NULL THEN 0 ELSE 1 END,
+    assigned_at DESC NULLS LAST,
+    barcode
+  LIMIT $${rx ? 5 : 4}
+`;
 
-      const args = rx ? [q, likePrefix, like, rx, limit] : [q, likePrefix, like, limit];
+const args = rx ? [q, likePrefix, like, rx, limit] : [q, likePrefix, like, limit];
       const { rows } = await pool.query(sql, args);
 
-      const items = rows.map((r) => ({
-        barcode: r.barcode,
-        assigned_at: r.assigned_at,
-        book: r.book_id
-          ? {
-              id: r.book_id,
-              title_display: r.title_display || null,
-              author_display: r.author_display || null,
-              pages: r.pages ?? null,
-            }
-          : null,
-      }));
+      
+const items = rows.map((r) => ({
+  barcode: r.barcode,
+  assigned_at: r.assigned_at,
+  assignedAt: r.assigned_at,
+  freed_at: r.freed_at,
+  freedAt: r.freed_at,
+  is_open: r.freed_at == null,
+  isOpen: r.freed_at == null,
+  book: r.book_id
+    ? {
+        id: r.book_id,
+        title_display: r.title_display || null,
+        titleDisplay: r.title_display || null,
+        author_display: r.author_display || null,
+        authorDisplay: r.author_display || null,
+        pages: r.pages ?? null,
+      }
+    : null,
+}));
 
-      return res.json({ items });
+return res.json({ items });
     } catch (e) {
       return res.status(500).json({ error: "barcode_search_failed", detail: String(e?.message || e) });
     }

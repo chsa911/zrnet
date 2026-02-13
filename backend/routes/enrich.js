@@ -103,8 +103,8 @@ async function metaFromDb(pool, { isbn13, isbn10 }) {
   return {
     source: "db",
     book_id: b.id,
-    title: b.full_title || null,
-    author_display: b.author_display || b.author || null,
+    title: b.title_display || null,
+    author_display: a.name_display_display || a.name_display || null,
     publisher: b.publisher || null,
   };
 }

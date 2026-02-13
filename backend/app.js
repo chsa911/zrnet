@@ -46,7 +46,6 @@ const corsOptions = makeCorsOptions();
 app.use(cors(corsOptions));
 app.options("*", cors(corsOptions));
 
-// --- home highlights (from DB) ---
 app.get("/api/public/home-highlights", async (req, res) => {
   try {
     const pool = req.app.get("pgPool");
@@ -56,33 +55,52 @@ app.get("/api/public/home-highlights", async (req, res) => {
       SELECT
         b.home_featured_slot AS slot,
         b.id::text AS id,
-        COALESCE(b.author_display, b.author) AS author,
-        COALESCE(b.full_title, b.title_keyword) AS title,
+        a.name_display AS author_name_display,
+        COALESCE(NULLIF(b.title_display, ''), NULLIF(b.title_keyword, '')) AS title_display,
         ('/assets/covers/' || b.id::text || '-home.jpg') AS cover_home,
-('/assets/covers/' || b.id::text || '.jpg')      AS cover_full,
-('/assets/covers/' || b.id::text || '.jpg')      AS cover,
+        ('/assets/covers/' || b.id::text || '.jpg')      AS cover_full,
+        ('/assets/covers/' || b.id::text || '.jpg')      AS cover,
         b.purchase_url AS buy
       FROM public.books b
+      LEFT JOIN public.authors a ON a.id = b.author_id
       WHERE b.home_featured_slot IN ('finished','received')
     `);
 
+    const empty = {
+      id: "",
+      authorNameDisplay: "",
+      titleDisplay: "",
+      cover_home: "",
+      cover_full: "",
+      cover: "",
+      buy: "",
+    };
+
     const out = {
-  
-  finished: { id: "", author: "", title: "", cover_home: "", cover_full: "", cover: "", buy: "" },
-  received: { id: "", author: "", title: "", cover_home: "", cover_full: "", cover: "", buy: "" },
-   updatedAt: new Date().toISOString(),
+      finished: { ...empty },
+      received: { ...empty },
+      updatedAt: new Date().toISOString(),
     };
 
     for (const r of rows) {
-      if (r.slot === "finished") out.finished = r;
-      if (r.slot === "received") out.received = r;
+      const mapped = {
+        id: r.id,
+        authorNameDisplay: r.author_name_display || null,
+        titleDisplay: r.title_display || null,
+        cover_home: r.cover_home,
+        cover_full: r.cover_full,
+        cover: r.cover,
+        buy: r.buy,
+      };
+      if (r.slot === "finished") out.finished = mapped;
+      if (r.slot === "received") out.received = mapped;
     }
 
     res.setHeader("Cache-Control", "no-store");
-    return res.json(out);
+    res.json(out);
   } catch (err) {
     console.error("GET /api/public/home-highlights error", err);
-    return res.status(500).json({ error: "internal_error" });
+    res.status(500).json({ error: "internal_error" });
   }
 });
 /* ---------- health ---------- */

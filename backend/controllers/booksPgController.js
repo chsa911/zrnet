@@ -297,7 +297,7 @@ function mapSort(sortByRaw) {
   const map = {
     BEind: "b.registered_at",
     createdAt: "b.registered_at",
-    BAutor: "b.author",
+    BAutor: "a.name_display",
     BVerlag: "b.publisher",
     BKw: "b.title_keyword",
   };
@@ -326,8 +326,8 @@ async function listBooks(req, res) {
       const p = `$${params.length}`;
       where.push(
         `(
-          b.full_title ILIKE ${p} OR
-          b.author ILIKE ${p} OR
+          b.title_display ILIKE ${p} OR
+          a.name_display ILIKE ${p} OR
           b.publisher ILIKE ${p} OR
           b.title_keyword ILIKE ${p} OR
           b.title_keyword2 ILIKE ${p} OR

@@ -22,17 +22,12 @@ function normStr(v) {
   return s ? s : null;
 }
 
+// single sources of truth for public display
+const AUTHOR_EXPR = "a.name_display";
+const TITLE_EXPR = "COALESCE(NULLIF(b.title_display,''), NULLIF(b.title_keyword,''))";
+
 /**
  * GET /api/public/books
- * Query:
- *  - bucket: top|finished|abandoned|registered (default registered)
- *  - author: substring filter
- *  - title: substring filter
- *  - q: free text across title/author/publisher/barcode
- *  - limit (default 50, max 200)
- *
- * Returns array of rows: [{ author, title, ... }]
- * (kept compatible with the existing public frontend)
  */
 router.get("/", async (req, res) => {
   try {
@@ -48,7 +43,6 @@ router.get("/", async (req, res) => {
     const where = [];
     const params = [];
 
-    // Bucket filters + sorting
     let orderBy = "b.registered_at DESC";
     if (bucket === "top") {
       where.push("b.top_book = true");
@@ -59,26 +53,23 @@ router.get("/", async (req, res) => {
     } else if (bucket === "abandoned") {
       where.push("b.reading_status = 'abandoned'");
       orderBy = "b.reading_status_updated_at DESC NULLS LAST, b.registered_at DESC";
-    } else {
-      // registered
-      orderBy = "b.registered_at DESC";
     }
 
     if (author) {
       params.push(`%${author}%`);
-      where.push(`COALESCE(b.author_display, b.author) ILIKE $${params.length}`);
+      where.push(`${AUTHOR_EXPR} ILIKE $${params.length}`);
     }
     if (title) {
       params.push(`%${title}%`);
-      where.push(`COALESCE(b.full_title, b.title_keyword) ILIKE $${params.length}`);
+      where.push(`${TITLE_EXPR} ILIKE $${params.length}`);
     }
     if (q) {
       params.push(`%${q}%`);
       const p = `$${params.length}`;
       where.push(
         `(
-          COALESCE(b.full_title, b.title_keyword) ILIKE ${p} OR
-          COALESCE(b.author_display, b.author) ILIKE ${p} OR
+          ${TITLE_EXPR} ILIKE ${p} OR
+          ${AUTHOR_EXPR} ILIKE ${p} OR
           b.publisher ILIKE ${p} OR
           b.title_keyword ILIKE ${p} OR
           b.title_keyword2 ILIKE ${p} OR
@@ -95,9 +86,9 @@ router.get("/", async (req, res) => {
     const { rows } = await pool.query(
       `
       SELECT
-        b.id,
-        COALESCE(b.author_display, b.author) AS author,
-        COALESCE(b.full_title, b.title_keyword) AS title,
+        b.id::text AS id,
+        ${AUTHOR_EXPR} AS author_name_display,
+        ${TITLE_EXPR}  AS book_title_display,
         b.registered_at,
         b.reading_status,
         b.reading_status_updated_at,
@@ -105,6 +96,7 @@ router.get("/", async (req, res) => {
         b.top_book_set_at,
         bb.barcode
       FROM public.books b
+      LEFT JOIN public.authors a ON a.id = b.author_id
       LEFT JOIN LATERAL (
         SELECT barcode FROM public.book_barcodes bb WHERE bb.book_id = b.id LIMIT 1
       ) bb ON true
@@ -115,7 +107,26 @@ router.get("/", async (req, res) => {
       [...params, limit]
     );
 
-    return res.json(rows);
+    return res.json(
+      (rows || []).map((r) => ({
+        id: r.id,
+
+        // new names
+        authorNameDisplay: r.author_name_display || "",
+        bookTitleDisplay: r.book_title_display || "",
+
+        // legacy names (keep for now)
+        author: r.author_name_display || "",
+        title: r.book_title_display || "",
+
+        registered_at: r.registered_at,
+        reading_status: r.reading_status,
+        reading_status_updated_at: r.reading_status_updated_at,
+        top_book: r.top_book,
+        top_book_set_at: r.top_book_set_at,
+        barcode: r.barcode,
+      }))
+    );
   } catch (err) {
     console.error("GET /api/public/books error", err);
     return res.status(500).json({ error: "internal_error" });
@@ -124,11 +135,6 @@ router.get("/", async (req, res) => {
 
 /**
  * GET /api/public/books/stats?year=2026
- * Returns: { in_stock, instock, finished, abandoned, top }
- *
- * - in_stock: number of distinct books with an active assignment (freed_at IS NULL)
- * - finished: counts finished books by LAST freed_at event in the requested year
- *   (stable vs. reading_status_updated_at being touched by imports/sync)
  */
 router.get("/stats", async (req, res) => {
   try {
@@ -179,7 +185,7 @@ router.get("/stats", async (req, res) => {
     );
 
     const out = rows[0] || { in_stock: 0, finished: 0, abandoned: 0, top: 0 };
-    out.instock = out.in_stock; // keep frontend compatibility
+    out.instock = out.in_stock; // compatibility
     return res.json(out);
   } catch (err) {
     console.error("GET /api/public/books/stats error", err);
@@ -189,13 +195,6 @@ router.get("/stats", async (req, res) => {
 
 /**
  * GET /api/public/books/author-counts
- * Query:
- *  - bucket: top|finished|abandoned|registered (default finished)
- *  - author: substring filter (optional)
- *  - limit: max number of authors to return (default 50, max 500)
- *
- * Returns: [{ author: string, count: number }]
- * Sorted by count desc.
  */
 router.get("/author-counts", async (req, res) => {
   try {
@@ -208,32 +207,29 @@ router.get("/author-counts", async (req, res) => {
     const where = [];
     const params = [];
 
-    if (bucket === "top") {
-      where.push("b.top_book = true");
-    } else if (bucket === "abandoned") {
-      where.push("b.reading_status = 'abandoned'");
-    } else if (bucket === "registered") {
+    if (bucket === "top") where.push("b.top_book = true");
+    else if (bucket === "abandoned") where.push("b.reading_status = 'abandoned'");
+    else if (bucket === "registered") {
       // no filter
-    } else {
-      where.push("b.reading_status = 'finished'");
-    }
+    } else where.push("b.reading_status = 'finished'");
 
     if (author) {
       params.push(`%${author}%`);
-      where.push(`COALESCE(b.author_display, b.author) ILIKE $${params.length}`);
+      where.push(`${AUTHOR_EXPR} ILIKE $${params.length}`);
     }
 
-    where.push("COALESCE(b.author_display, b.author) IS NOT NULL");
-    where.push("BTRIM(COALESCE(b.author_display, b.author)) <> ''");
+    where.push(`${AUTHOR_EXPR} IS NOT NULL`);
+    where.push(`BTRIM(${AUTHOR_EXPR}) <> ''`);
 
     const whereSql = where.length ? `WHERE ${where.join(" AND ")}` : "";
 
     const { rows } = await pool.query(
       `
       SELECT
-        COALESCE(b.author_display, b.author) AS author,
+        ${AUTHOR_EXPR} AS author,
         COUNT(*)::int AS count
       FROM public.books b
+      LEFT JOIN public.authors a ON a.id = b.author_id
       ${whereSql}
       GROUP BY 1
       ORDER BY count DESC, author ASC
@@ -251,8 +247,6 @@ router.get("/author-counts", async (req, res) => {
 
 /**
  * GET /api/public/books/stock-authors?limit=80
- * Returns: [{ author, count }]
- * "in stock" = active assignment (freed_at IS NULL)
  */
 router.get("/stock-authors", async (req, res) => {
   try {
@@ -262,13 +256,14 @@ router.get("/stock-authors", async (req, res) => {
     const { rows } = await pool.query(
       `
       SELECT
-        COALESCE(b.author_display, b.author) AS author,
+        ${AUTHOR_EXPR} AS author,
         COUNT(DISTINCT ba.book_id)::int AS count
       FROM public.barcode_assignments ba
       JOIN public.books b ON b.id = ba.book_id
+      LEFT JOIN public.authors a ON a.id = b.author_id
       WHERE ba.freed_at IS NULL
-        AND COALESCE(b.author_display, b.author) IS NOT NULL
-        AND BTRIM(COALESCE(b.author_display, b.author)) <> ''
+        AND ${AUTHOR_EXPR} IS NOT NULL
+        AND BTRIM(${AUTHOR_EXPR}) <> ''
       GROUP BY 1
       ORDER BY count DESC, author ASC
       LIMIT $1
@@ -285,32 +280,29 @@ router.get("/stock-authors", async (req, res) => {
 
 /**
  * GET /api/public/books/most-read-authors
- * Query:
- *  - limit (default 50, max 500)
- *
- * Returns rows like:
- *  { author, books_read, booksRead, books_in_stock, booksInStock, count }
  */
 router.get("/most-read-authors", async (req, res) => {
   try {
     const pool = getPool(req);
     const limit = clampInt(req.query.limit, 50, 1, 500);
 
-    const sql = [
-      "SELECT",
-      "  COALESCE(b.author_display, b.author) AS author,",
-      "  COUNT(*) FILTER (WHERE b.reading_status = 'finished')::int AS books_read,",
-      "  COUNT(*)::int AS books_in_stock",
-      "FROM public.books b",
-      "WHERE COALESCE(b.author_display, b.author) IS NOT NULL",
-      "  AND BTRIM(COALESCE(b.author_display, b.author)) <> ''",
-      "GROUP BY 1",
-      "HAVING COUNT(*) FILTER (WHERE b.reading_status = 'finished') > 0",
-      "ORDER BY books_read DESC, books_in_stock DESC, author ASC",
-      "LIMIT $1",
-    ].join("\n");
-
-    const { rows } = await pool.query(sql, [limit]);
+    const { rows } = await pool.query(
+      `
+      SELECT
+        ${AUTHOR_EXPR} AS author,
+        COUNT(*) FILTER (WHERE b.reading_status = 'finished')::int AS books_read,
+        COUNT(*)::int AS books_in_stock
+      FROM public.books b
+      LEFT JOIN public.authors a ON a.id = b.author_id
+      WHERE ${AUTHOR_EXPR} IS NOT NULL
+        AND BTRIM(${AUTHOR_EXPR}) <> ''
+      GROUP BY 1
+      HAVING COUNT(*) FILTER (WHERE b.reading_status = 'finished') > 0
+      ORDER BY books_read DESC, books_in_stock DESC, author ASC
+      LIMIT $1
+      `,
+      [limit]
+    );
 
     return res.json(
       (rows || []).map((r) => ({
@@ -329,8 +321,7 @@ router.get("/most-read-authors", async (req, res) => {
 });
 
 /**
- * GET /api/public/books/:id  (single book)
- * IMPORTANT: compare id as text so UUID/int both work.
+ * GET /api/public/books/:id
  */
 router.get("/:id", async (req, res) => {
   try {
@@ -342,11 +333,12 @@ router.get("/:id", async (req, res) => {
       `
       SELECT
         b.id::text AS id,
-        COALESCE(b.author_display, b.author) AS author,
-        COALESCE(b.full_title, b.title_keyword) AS title,
+        ${AUTHOR_EXPR} AS author_name_display,
+        ${TITLE_EXPR}  AS book_title_display,
         b.publisher,
         b.pages,
-        b,comment,
+        b.comment,
+        b.purchase_url,
         b.reading_status,
         b.reading_status_updated_at,
         b.top_book,
@@ -354,6 +346,7 @@ router.get("/:id", async (req, res) => {
         b.registered_at,
         bb.barcode
       FROM public.books b
+      LEFT JOIN public.authors a ON a.id = b.author_id
       LEFT JOIN LATERAL (
         SELECT barcode
         FROM public.book_barcodes bb
@@ -367,7 +360,30 @@ router.get("/:id", async (req, res) => {
     );
 
     if (!rows[0]) return res.status(404).json({ error: "not_found" });
-    return res.json(rows[0]);
+
+    const r = rows[0];
+    return res.json({
+      id: r.id,
+
+      // new names
+      authorNameDisplay: r.author_name_display || "",
+      bookTitleDisplay: r.book_title_display || "",
+
+      // legacy names (keep for now)
+      author: r.author_name_display || "",
+      title: r.book_title_display || "",
+
+      publisher: r.publisher,
+      pages: r.pages,
+      comment: r.comment,
+      purchase_url: r.purchase_url,
+      reading_status: r.reading_status,
+      reading_status_updated_at: r.reading_status_updated_at,
+      top_book: r.top_book,
+      top_book_set_at: r.top_book_set_at,
+      registered_at: r.registered_at,
+      barcode: r.barcode,
+    });
   } catch (err) {
     console.error("GET /api/public/books/:id error", err);
     return res.status(500).json({ error: "internal_error" });

@@ -84,7 +84,12 @@ function getIncomingPages(it) {
 }
 function getCandidateBookIds(it) {
   const issue = it?.issue || {};
-  return normalizeUuidArray(issue?.candidate_book_ids ?? issue?.candidateBookIds ?? it?.candidate_book_ids ?? it?.candidateBookIds);
+  return normalizeUuidArray(
+    issue?.candidate_book_ids ??
+      issue?.candidateBookIds ??
+      it?.candidate_book_ids ??
+      it?.candidateBookIds
+  );
 }
 function getPreferredBookId(it) {
   const chosen = getChosenBookId(it);
@@ -100,15 +105,12 @@ function normalizeBookForPick(b) {
   if (!id) return null;
 
   const title =
-    b.full_title || b.title || [b.BKw, b.BKw1, b.BKw2].filter(Boolean).join(" ").trim() || "—";
+    b.title_display ||
+    b.title ||
+    [b.BKw, b.BKw1, b.BKw2].filter(Boolean).join(" ").trim() ||
+    "—";
 
-  const author =
-    b.author_display ||
-    [b.author_firstname, b.author_lastname].filter(Boolean).join(" ").trim() ||
-    b.BAutor ||
-    b.author_lastname ||
-    b.author ||
-    "";
+  const author = b.authorNameDisplay || b.author_display || b.author || b.BAutor || "";
 
   return {
     id,
@@ -136,46 +138,13 @@ export default function SyncIssuePage() {
   const [samePagesByIssue, setSamePagesByIssue] = useState(() => new Map());
   const [expectedPagesByIssue, setExpectedPagesByIssue] = useState(() => new Map());
 
-  // ✅ NEW: barcode search state
+  // barcode search state
   const [barcodeQueryByIssue, setBarcodeQueryByIssue] = useState(() => new Map());
   const [barcodeHitsByIssue, setBarcodeHitsByIssue] = useState(() => new Map()); // issueId -> {loading, err, items}
   const [overrideBarcodeByIssue, setOverrideBarcodeByIssue] = useState(() => new Map()); // issueId -> barcode
-// ✅ debounce timers per issueId (avoid spamming the API)
-const barcodeDebounceRef = useRef(new Map());
 
-function scheduleBarcodeSearch(issueId, value) {
-  const v = String(value || "").trim();
-
-  // optional: don't search for very short input
-  if (v.length < 2) {
-    // clear pending timer
-    const t = barcodeDebounceRef.current.get(issueId);
-    if (t) clearTimeout(t);
-    barcodeDebounceRef.current.delete(issueId);
-
-    // optionally clear shown results
-    setBarcodeHitsByIssue((prev) => {
-      const n = new Map(prev);
-      n.delete(issueId);
-      return n;
-    });
-    return;
-  }
-
-  // clear previous timer
-  const old = barcodeDebounceRef.current.get(issueId);
-  if (old) clearTimeout(old);
-
-  // schedule new
-  const timer = setTimeout(() => {
-    runBarcodeSearch(issueId, v);
-    barcodeDebounceRef.current.delete(issueId);
-  }, 300);
-
-  barcodeDebounceRef.current.set(issueId, timer);
-}
-  const canPrev = useMemo(() => q.page > 1, [q.page]);
-  const canNext = useMemo(() => q.page < (data.pages || 1), [q.page, data.pages]);
+  // debounce timers per issueId
+  const barcodeDebounceRef = useRef(new Map());
 
   function setBusyOn(issueId, on) {
     setBusy((prev) => {
@@ -185,6 +154,9 @@ function scheduleBarcodeSearch(issueId, value) {
       return n;
     });
   }
+
+  const canPrev = useMemo(() => q.page > 1, [q.page]);
+  const canNext = useMemo(() => q.page < (data.pages || 1), [q.page, data.pages]);
 
   async function refresh() {
     setLoading(true);
@@ -208,12 +180,41 @@ function scheduleBarcodeSearch(issueId, value) {
     refresh();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [q.page, q.limit]);
-useEffect(() => {
-  return () => {
-    for (const t of barcodeDebounceRef.current.values()) clearTimeout(t);
-    barcodeDebounceRef.current.clear();
-  };
-}, []);
+
+  useEffect(() => {
+    return () => {
+      for (const t of barcodeDebounceRef.current.values()) clearTimeout(t);
+      barcodeDebounceRef.current.clear();
+    };
+  }, []);
+
+  function scheduleBarcodeSearch(issueId, value) {
+    const v = String(value || "").trim();
+
+    if (v.length < 2) {
+      const t = barcodeDebounceRef.current.get(issueId);
+      if (t) clearTimeout(t);
+      barcodeDebounceRef.current.delete(issueId);
+
+      setBarcodeHitsByIssue((prev) => {
+        const n = new Map(prev);
+        n.delete(issueId);
+        return n;
+      });
+      return;
+    }
+
+    const old = barcodeDebounceRef.current.get(issueId);
+    if (old) clearTimeout(old);
+
+    const timer = setTimeout(() => {
+      runBarcodeSearch(issueId, v);
+      barcodeDebounceRef.current.delete(issueId);
+    }, 300);
+
+    barcodeDebounceRef.current.set(issueId, timer);
+  }
+
   async function ensureBooksForIncomingPages(issueId, pages) {
     if (!issueId || pages == null) return;
     const existing = samePagesByIssue.get(issueId);
@@ -270,7 +271,6 @@ useEffect(() => {
     }
   }
 
-  // ✅ NEW: barcode search runner
   async function runBarcodeSearch(issueId, query) {
     const qq = String(query || "").trim();
     if (!issueId || !qq) return;
@@ -283,8 +283,7 @@ useEffect(() => {
 
     try {
       const r = await searchBarcodes({ q: qq, mode: "similar", limit: 40 });
-      const items = Array.isArray(r?.items) ? r.items : (r && r.barcode ? [r] : []);
-      
+      const items = Array.isArray(r?.items) ? r.items : [];
       setBarcodeHitsByIssue((prev) => {
         const n = new Map(prev);
         n.set(issueId, { loading: false, err: "", items });
@@ -299,7 +298,7 @@ useEffect(() => {
     }
   }
 
-  // Prefetch (keeps your behavior)
+  // Prefetch
   useEffect(() => {
     (data.items || []).forEach((it) => {
       const issueId = getIssueId(it);
@@ -319,7 +318,8 @@ useEffect(() => {
       }
 
       if (incomingPages != null) ensureBooksForIncomingPages(issueId, incomingPages);
-      if (reason === "pages_mismatch" && expectedPages != null) ensureBooksForExpectedPages(issueId, expectedPages);
+      if (reason === "pages_mismatch" && expectedPages != null)
+        ensureBooksForExpectedPages(issueId, expectedPages);
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [data.items]);
@@ -337,9 +337,9 @@ useEffect(() => {
     if (!willOpen) return;
 
     ensureBooksForIncomingPages(issueId, incomingPages);
-    if (expectedPages != null && expectedPages !== incomingPages) ensureBooksForExpectedPages(issueId, expectedPages);
+    if (expectedPages != null && expectedPages !== incomingPages)
+      ensureBooksForExpectedPages(issueId, expectedPages);
 
-    // ✅ NEW: prefill barcode search
     const bq = String(barcode || "").trim();
     if (bq) {
       setBarcodeQueryByIssue((prev) => {
@@ -394,7 +394,10 @@ useEffect(() => {
 
     setBusyOn(issueId, true);
     try {
-      await resolveMobileIssue(issueId, { action: "discard", note: noteByIssue.get(issueId) || null });
+      await resolveMobileIssue(issueId, {
+        action: "discard",
+        note: noteByIssue.get(issueId) || null,
+      });
 
       setData((prev) => ({
         ...prev,
@@ -448,7 +451,13 @@ useEffect(() => {
               className="zr-select"
               style={{ marginLeft: 8 }}
               value={q.limit}
-              onChange={(e) => setQ((p) => ({ ...p, limit: Number(e.target.value) || 20, page: 1 }))}
+              onChange={(e) =>
+                setQ((p) => ({
+                  ...p,
+                  limit: Number(e.target.value) || 20,
+                  page: 1,
+                }))
+              }
             >
               <option value={10}>10</option>
               <option value={20}>20</option>
@@ -456,7 +465,11 @@ useEffect(() => {
             </select>
           </label>
 
-          <button className="zr-btn2 zr-btn2--ghost zr-btn2--sm" onClick={() => refresh()} disabled={loading}>
+          <button
+            className="zr-btn2 zr-btn2--ghost zr-btn2--sm"
+            onClick={() => refresh()}
+            disabled={loading}
+          >
             Aktualisieren
           </button>
 
@@ -513,6 +526,41 @@ useEffect(() => {
 
             const canApply = !isBusy && !!pickedId;
 
+            // candidate label helper (NO "a" variable)
+            const candidateLabelForId = (id) => {
+              if (!id) return "—";
+              const fromIncoming2 = samePages?.items?.find((b) => String(b.id) === String(id)) || null;
+              const fromExpected2 = expectedList?.items?.find((b) => String(b.id) === String(id)) || null;
+
+              const fromHits2 =
+                bcHits?.items?.find((x) => String(x?.book?.id) === String(id)) || null;
+
+              const hitBook = fromHits2?.book || null;
+
+              const title =
+                fromIncoming2?.title ||
+                fromExpected2?.title ||
+                hitBook?.title_display ||
+                hitBook?.title ||
+                "—";
+
+              const author =
+                fromIncoming2?.author ||
+                fromExpected2?.author ||
+                hitBook?.author_display ||
+                hitBook?.author ||
+                "—";
+
+              const barcode = fromIncoming2?.barcode || fromHits2?.barcode || "—";
+              const pages = (fromIncoming2?.pages ?? hitBook?.pages) != null ? `${(fromIncoming2?.pages ?? hitBook?.pages)} S.` : "— S.";
+
+              // If we have nothing but title/author as "—", fallback to UUID
+              const hasDetails = title !== "—" || author !== "—" || barcode !== "—";
+              if (!hasDetails) return id;
+
+              return `${barcode} · ${title} · ${author} · ${pages}`;
+            };
+
             return (
               <div
                 key={receipt?.receipt_id || receipt?.receiptId || issueId || Math.random()}
@@ -531,7 +579,9 @@ useEffect(() => {
 
                   <button
                     className="zr-btn2 zr-btn2--ghost zr-btn2--sm"
-                    onClick={() => toggleExpanded(issueId, incomingPages, expectedPages, receipt?.barcode)}
+                    onClick={() =>
+                      toggleExpanded(issueId, incomingPages, expectedPages, receipt?.barcode)
+                    }
                   >
                     {isOpen ? "Details schließen" : "Details öffnen"}
                   </button>
@@ -542,7 +592,8 @@ useEffect(() => {
                 </div>
 
                 <div style={{ marginTop: 8, fontSize: 13, opacity: 0.85 }}>
-                  Incoming: status <strong>{receipt?.reading_status || receipt?.readingStatus || "—"}</strong> · geändert am{" "}
+                  Incoming: status{" "}
+                  <strong>{receipt?.reading_status || receipt?.readingStatus || "—"}</strong> · geändert am{" "}
                   <strong>{fmtTs(receipt?.reading_status_updated_at || receipt?.readingStatusUpdatedAt)}</strong>
                 </div>
 
@@ -578,9 +629,11 @@ useEffect(() => {
                         />
                       </label>
 
-                      {/* ✅ NEW: Barcode-Suche */}
+                      {/* Barcode Search */}
                       <div style={{ marginTop: 6 }}>
-                        <div style={{ fontWeight: 700, marginBottom: 6 }}>Barcode-Suche (gleichscheinende)</div>
+                        <div style={{ fontWeight: 700, marginBottom: 6 }}>
+                          Barcode-Suche (gleichscheinende)
+                        </div>
 
                         <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
                           <input
@@ -604,10 +657,14 @@ useEffect(() => {
                           >
                             Suchen
                           </button>
-                          {bcHits?.loading ? <span style={{ fontSize: 12, opacity: 0.7 }}>lade…</span> : null}
+                          {bcHits?.loading ? (
+                            <span style={{ fontSize: 12, opacity: 0.7 }}>lade…</span>
+                          ) : null}
                         </div>
 
-                        {bcHits?.err ? <div style={{ color: "#a00", fontSize: 12, marginTop: 6 }}>{bcHits.err}</div> : null}
+                        {bcHits?.err ? (
+                          <div style={{ color: "#a00", fontSize: 12, marginTop: 6 }}>{bcHits.err}</div>
+                        ) : null}
 
                         {Array.isArray(bcHits?.items) && bcHits.items.length ? (
                           <div style={{ marginTop: 8, display: "grid", gap: 6 }}>
@@ -624,7 +681,6 @@ useEffect(() => {
                                   return n;
                                 });
 
-                                // If that barcode is assigned to a book, auto-select it
                                 const hit = bcHits.items.find((x) => x?.barcode === v);
                                 const bid = hit?.book?.id;
                                 if (bid) {
@@ -637,16 +693,16 @@ useEffect(() => {
                               }}
                             >
                               <option value="">(Barcode aus Receipt verwenden)</option>
-                             {bcHits.items.map((x) => {
- const t = x.book?.title_display ?? x.book?.title ?? "—";
-const a = x.book?.author_display ?? x.book?.author ?? "—";
- const p = x.book?.pages != null ? `${x.book.pages} S.` : "— S.";
-  return (
-    <option key={x.barcode} value={x.barcode}>
-      {`${x.barcode} · ${t} · ${a} · ${p}`}
-    </option>
-  );
-})}
+                              {bcHits.items.map((x) => {
+                                const t = x.book?.title_display ?? x.book?.title ?? "—";
+                                const a = x.book?.author_display ?? x.book?.author ?? "—";
+                                const p = x.book?.pages != null ? `${x.book.pages} S.` : "— S.";
+                                return (
+                                  <option key={x.barcode} value={x.barcode}>
+                                    {`${x.barcode} · ${t} · ${a} · ${p}`}
+                                  </option>
+                                );
+                              })}
                             </select>
 
                             <div style={{ fontSize: 12, opacity: 0.75 }}>
@@ -660,18 +716,19 @@ const a = x.book?.author_display ?? x.book?.author ?? "—";
                         )}
                       </div>
 
-                      {/* Kandidaten (IDs) */}
+                      {/* Kandidaten */}
                       {candIds.length ? (
                         <div style={{ marginTop: 6 }}>
                           <div style={{ fontWeight: 700, marginBottom: 6 }}>Kandidaten</div>
                           <select
                             className="zr-select"
-                            value={picked.get(issueId) || preferredBookId || ""}
+                            value={pickedId}
                             onChange={(e) => {
                               const id = e.target.value;
                               setPicked((prev) => {
                                 const n = new Map(prev);
-                                n.set(issueId, id);
+                                if (!id) n.delete(issueId);
+                                else n.set(issueId, id);
                                 return n;
                               });
                             }}
@@ -679,7 +736,7 @@ const a = x.book?.author_display ?? x.book?.author ?? "—";
                             <option value="">Bitte wählen…</option>
                             {candIds.map((id) => (
                               <option key={id} value={id}>
-                                {id}
+                                {candidateLabelForId(id)}
                               </option>
                             ))}
                           </select>
@@ -692,10 +749,14 @@ const a = x.book?.author_display ?? x.book?.author ?? "—";
                           <div style={{ fontWeight: 700, marginBottom: 6 }}>
                             Bücher mit {incomingPages} Seiten
                             {samePages?.loading ? " (lade…)" : ""}
-                            {!samePages?.loading && samePages?.items ? ` (${samePages.total || samePages.items.length})` : ""}
+                            {!samePages?.loading && samePages?.items
+                              ? ` (${samePages.total || samePages.items.length})`
+                              : ""}
                           </div>
 
-                          {samePages?.err ? <div style={{ color: "#a00", fontSize: 12 }}>{samePages.err}</div> : null}
+                          {samePages?.err ? (
+                            <div style={{ color: "#a00", fontSize: 12 }}>{samePages.err}</div>
+                          ) : null}
 
                           {!samePages?.loading && Array.isArray(samePages?.items) ? (
                             samePages.items.length ? (
@@ -706,7 +767,8 @@ const a = x.book?.author_display ?? x.book?.author ?? "—";
                                   const id = e.target.value;
                                   setPicked((prev) => {
                                     const n = new Map(prev);
-                                    n.set(issueId, id);
+                                    if (!id) n.delete(issueId);
+                                    else n.set(issueId, id);
                                     return n;
                                   });
                                 }}
@@ -714,7 +776,10 @@ const a = x.book?.author_display ?? x.book?.author ?? "—";
                                 <option value="">Bitte wählen…</option>
                                 {samePages.items.map((b) => (
                                   <option key={b.id} value={b.id}>
-                                    {(b.barcode || "—") + " · " + (b.title || "—") + (b.author ? " · " + b.author : "")}
+                                    {(b.barcode || "—") +
+                                      " · " +
+                                      (b.title || "—") +
+                                      (b.author ? " · " + b.author : "")}
                                   </option>
                                 ))}
                               </select>
@@ -726,7 +791,9 @@ const a = x.book?.author_display ?? x.book?.author ?? "—";
                       ) : null}
 
                       {/* Bei pages_mismatch zusätzlich DB-expected pages */}
-                      {reason === "pages_mismatch" && expectedPages != null && expectedPages !== incomingPages ? (
+                      {reason === "pages_mismatch" &&
+                      expectedPages != null &&
+                      expectedPages !== incomingPages ? (
                         <div style={{ marginTop: 10 }}>
                           <div style={{ fontWeight: 700, marginBottom: 6 }}>
                             Bücher mit {expectedPages} Seiten (DB)
@@ -736,7 +803,9 @@ const a = x.book?.author_display ?? x.book?.author ?? "—";
                               : ""}
                           </div>
 
-                          {expectedList?.err ? <div style={{ color: "#a00", fontSize: 12 }}>{expectedList.err}</div> : null}
+                          {expectedList?.err ? (
+                            <div style={{ color: "#a00", fontSize: 12 }}>{expectedList.err}</div>
+                          ) : null}
 
                           {!expectedList?.loading && Array.isArray(expectedList?.items) ? (
                             expectedList.items.length ? (
@@ -747,7 +816,8 @@ const a = x.book?.author_display ?? x.book?.author ?? "—";
                                   const id = e.target.value;
                                   setPicked((prev) => {
                                     const n = new Map(prev);
-                                    n.set(issueId, id);
+                                    if (!id) n.delete(issueId);
+                                    else n.set(issueId, id);
                                     return n;
                                   });
                                 }}
@@ -755,7 +825,10 @@ const a = x.book?.author_display ?? x.book?.author ?? "—";
                                 <option value="">Bitte wählen…</option>
                                 {expectedList.items.map((b) => (
                                   <option key={b.id} value={b.id}>
-                                    {(b.barcode || "—") + " · " + (b.title || "—") + (b.author ? " · " + b.author : "")}
+                                    {(b.barcode || "—") +
+                                      " · " +
+                                      (b.title || "—") +
+                                      (b.author ? " · " + b.author : "")}
                                   </option>
                                 ))}
                               </select>

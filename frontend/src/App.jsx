@@ -10,6 +10,7 @@ import AdminPage from "./pages/AdminPage";
 import RegisterPage from "./pages/RegisterPage";
 import SearchUpdatePage from "./pages/SearchUpdatePage";
 import SyncIssuePage from "./pages/SyncIssuePage";
+import BarcodeDashboardPage from "./pages/BarcodeDashboardPage";
 import BookThemesPage from "./pages/BookThemesPage";
 import StatsDetailPage from "./pages/StatsDetailPage";
 import MostReadAuthorsPage from "./pages/MostReadAuthorsPage";
@@ -46,6 +47,7 @@ export default function App() {
         <Route path="admin/register" element={<RegisterPage />} />
         <Route path="admin/search-update" element={<SearchUpdatePage />} />
         <Route path="admin/sync-issues" element={<SyncIssuePage />} />
+        <Route path="admin/barcodes" element={<BarcodeDashboardPage />} />
         <Route path="login" element={<Navigate to="/admin" replace />} />
         <Route path="login.html" element={<Navigate to="/admin" replace />} />
 

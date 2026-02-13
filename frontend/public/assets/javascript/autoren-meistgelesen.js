@@ -102,7 +102,7 @@ function render(entries) {
       .sort((a, b) => {
         const dc = (b.count || 0) - (a.count || 0);
         if (dc) return dc;
-        return String(a.author).localeCompare(String(b.author));
+        return String(a.author).localeCompare(String(a.name_display));
       });
 
     render(merged);

@@ -51,6 +51,22 @@ export default function AdminNavRow({ style }) {
       >
         ⚠️ Sync Issues
       </Link>
+
+      <Link
+        to="/admin/barcodes"
+        className="zr-btn2 zr-btn2--ghost"
+        style={baseBtn(pathname === "/admin/barcodes")}
+      >
+        🏷️ Barcodes
+      </Link>
+
+      <Link
+        to="/admin/barcodes"
+        className="zr-btn2 zr-btn2--ghost"
+        style={baseBtn(pathname === "/admin/barcodes")}
+      >
+        🏷️ Barcodes
+      </Link>
     </div>
   );
 }   

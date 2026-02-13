@@ -370,7 +370,7 @@ export default function StatsDetailPage() {
           {/* author + title, newest-first */}
           <ul className="zr-books-list">
             {books.map((b) => {
-              const author = b.author || "—";
+              const author = a.name_display || "—";
               const title = b.title || "—";
               const url =
                 typeof b.purchase_url === "string" && b.purchase_url.trim()

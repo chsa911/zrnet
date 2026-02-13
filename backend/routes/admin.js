@@ -16,6 +16,12 @@ function posToBand(pos) {
   return "high"; // pos === "o"
 }
 
+function clampInt(v, { min = 1, max = 200, def = 50 } = {}) {
+  const n = Number(v);
+  if (!Number.isFinite(n)) return def;
+  return Math.max(min, Math.min(max, Math.trunc(n)));
+}
+
 /**
  * Pick size rule by width/height.
  * IMPORTANT: do NOT restrict to eq_heights here; eq_heights is used only to decide pos/band.
@@ -82,6 +88,138 @@ router.use(adminAuthRequired);
 // simple auth check for frontend guards
 router.get("/me", (_req, res) => {
   res.json({ ok: true });
+});
+
+/* -------------------- barcode dashboard -------------------- */
+
+// GET /api/admin/barcodes/summary
+// Returns counts for dashboard cards.
+router.get("/barcodes/summary", async (req, res) => {
+  const pool = req.app.get("pgPool");
+  if (!pool) return res.status(500).json({ error: "pgPool missing" });
+
+  try {
+    const inv = await pool.query(
+      `
+      SELECT
+        count(*)::int AS total,
+        sum(CASE WHEN status::text = 'AVAILABLE' THEN 1 ELSE 0 END)::int AS available,
+        sum(CASE WHEN status::text = 'ASSIGNED'  THEN 1 ELSE 0 END)::int AS assigned,
+        sum(CASE WHEN status::text NOT IN ('AVAILABLE','ASSIGNED') THEN 1 ELSE 0 END)::int AS other
+      FROM public.barcode_inventory
+      `
+    );
+
+    const open = await pool.query(
+      `
+      SELECT count(*)::int AS open_assigned
+      FROM public.barcode_assignments
+      WHERE freed_at IS NULL
+      `
+    );
+
+    // Optional consistency checks (helpful when debugging sync triggers)
+    const mismatch = await pool.query(
+      `
+      WITH open_ba AS (
+        SELECT DISTINCT lower(barcode) AS bc
+        FROM public.barcode_assignments
+        WHERE freed_at IS NULL
+      )
+      SELECT
+        sum(CASE WHEN bi.status::text = 'ASSIGNED' AND ob.bc IS NULL THEN 1 ELSE 0 END)::int AS assigned_without_open,
+        sum(CASE WHEN bi.status::text <> 'ASSIGNED' AND ob.bc IS NOT NULL THEN 1 ELSE 0 END)::int AS open_without_assigned
+      FROM public.barcode_inventory bi
+      LEFT JOIN open_ba ob ON ob.bc = lower(bi.barcode)
+      `
+    );
+
+    return res.json({
+      ...inv.rows[0],
+      open_assigned: open.rows[0]?.open_assigned ?? 0,
+      mismatch: mismatch.rows[0] || { assigned_without_open: 0, open_without_assigned: 0 },
+    });
+  } catch (e) {
+    return res
+      .status(500)
+      .json({ error: "barcode_summary_failed", detail: String(e?.message || e) });
+  }
+});
+
+// GET /api/admin/barcodes
+// Query: status=AVAILABLE|ASSIGNED|... , q=<search>, page=<n>, limit=<n>
+router.get("/barcodes", async (req, res) => {
+  const pool = req.app.get("pgPool");
+  if (!pool) return res.status(500).json({ error: "pgPool missing" });
+
+  const statusRaw = String(req.query?.status || "").trim();
+  const status = statusRaw ? statusRaw.toUpperCase() : null;
+
+  const qRaw = String(req.query?.q || "").trim();
+  const q = qRaw ? qRaw : null;
+
+  const page = clampInt(req.query?.page, { min: 1, max: 100000, def: 1 });
+  const limit = clampInt(req.query?.limit, { min: 1, max: 500, def: 50 });
+  const offset = (page - 1) * limit;
+
+  try {
+    const countRes = await pool.query(
+      `
+      SELECT count(*)::int AS total
+      FROM public.barcode_inventory bi
+      WHERE ($1::text IS NULL OR bi.status::text = $1)
+        AND ($2::text IS NULL OR bi.barcode ILIKE '%' || $2 || '%')
+      `,
+      [status, q]
+    );
+    const totalItems = countRes.rows[0]?.total ?? 0;
+    const pages = Math.max(1, Math.ceil(totalItems / limit));
+
+    const listRes = await pool.query(
+      `
+      SELECT
+        bi.barcode,
+        bi.status::text AS status,
+        bi.sizegroup,
+        bi.band,
+        bi.rank_in_inventory,
+        bi.prefix,
+        bi.updated_at,
+        ba.book_id,
+        ba.assigned_at,
+        COALESCE(b.full_title, b.title_keyword, b.title_en) AS book_title,
+        COALESCE(b.author_display, b.author) AS book_author,
+        b.reading_status AS book_reading_status
+      FROM public.barcode_inventory bi
+      LEFT JOIN LATERAL (
+        SELECT book_id, assigned_at
+        FROM public.barcode_assignments
+        WHERE freed_at IS NULL
+          AND lower(barcode) = lower(bi.barcode)
+        ORDER BY assigned_at DESC
+        LIMIT 1
+      ) ba ON true
+      LEFT JOIN public.books b ON b.id = ba.book_id
+      WHERE ($1::text IS NULL OR bi.status::text = $1)
+        AND ($2::text IS NULL OR bi.barcode ILIKE '%' || $2 || '%')
+      ORDER BY bi.barcode ASC
+      LIMIT $3 OFFSET $4
+      `,
+      [status, q, limit, offset]
+    );
+
+    return res.json({
+      items: listRes.rows || [],
+      page,
+      limit,
+      totalItems,
+      pages,
+    });
+  } catch (e) {
+    return res
+      .status(500)
+      .json({ error: "barcode_list_failed", detail: String(e?.message || e) });
+  }
 });
 
 router.post("/register", async (req, res) => {
@@ -192,12 +330,6 @@ router.post("/register", async (req, res) => {
 });
 
 /* -------------------- needs_review (mobile app) -------------------- */
-
-function clampInt(v, { min = 1, max = 200, def = 50 } = {}) {
-  const n = Number(v);
-  if (!Number.isFinite(n)) return def;
-  return Math.max(min, Math.min(max, Math.trunc(n)));
-}
 
 /**
  * List items that were written by the mobile app with status = needs_review.

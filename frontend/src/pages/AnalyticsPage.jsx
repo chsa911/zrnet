@@ -140,7 +140,7 @@ export default function AnalyticsPage() {
             <div key={b.id} className="zr-resultRow">
               <div className="zr-resultTitle">
                 {b.title || "—"}
-                <span className="zr-resultMeta"> — {b.author || "—"}</span>
+                <span className="zr-resultMeta"> — {a.name_display || "—"}</span>
               </div>
             </div>
           ))}

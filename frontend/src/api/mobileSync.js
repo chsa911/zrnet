@@ -93,10 +93,17 @@ export async function searchBarcodes({ q, mode = "similar", limit = 25 } = {}) {
   }).toString();
 
   // ✅ only the real mounted routes
-  const urls = [
-    `${BASE}/mobile-sync/barcodes/search?${qs}`,
-    `${BASE}/mobile-sync/barcodes?${qs}`,
-  ];
+  
+const urls = [
+  `${BASE}/mobile-sync/barcodes/search?${qs}`,
+  `${BASE}/mobile-sync/barcodes?${qs}`,
+
+  // legacy mounts (fallback)
+  `${BASE}/mobile/barcodes/search?${qs}`,
+  `${BASE}/mobile/barcodes?${qs}`,
+  `${BASE}/mobileSync/barcodes/search?${qs}`,
+  `${BASE}/mobileSync/barcodes?${qs}`,
+];
 
   let lastErr;
   for (const url of urls) {
