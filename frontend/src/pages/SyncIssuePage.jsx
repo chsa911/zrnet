@@ -1,6 +1,5 @@
-// frontend/src/pages/SyncIssuePage.jsx
-import React, { useEffect, useMemo, useState } from "react";
-import { listNeedsReview, resolveMobileIssue } from "../api/mobileSync";
+import React, { useEffect, useMemo, useRef, useState } from "react";
+import { listNeedsReview, resolveMobileIssue, searchBarcodes } from "../api/mobileSync";
 import { listBooksByPages } from "../api/books";
 import AdminNavRow from "../components/AdminNavRow";
 
@@ -30,16 +29,9 @@ function badge(text) {
   );
 }
 
-// ✅ robust: backend liefert issueId / issue_id (nicht issue.id)
+// robust issue id
 function getIssueId(it) {
-  return (
-    it?.issue?.id ||
-    it?.issue?.issueId ||
-    it?.issue?.issue_id ||
-    it?.issueId ||
-    it?.issue_id ||
-    null
-  );
+  return it?.issue?.id || it?.issue?.issueId || it?.issue?.issue_id || it?.issueId || it?.issue_id || null;
 }
 
 function normalizeUuidArray(v) {
@@ -68,23 +60,19 @@ function normalizeUuidArray(v) {
 function getIssueReason(it) {
   return it?.issue?.reason || it?.reason || null;
 }
-
 function getIssueDetails(it) {
   return it?.issue?.details || it?.details || null;
 }
-
 function getChosenBookId(it) {
   const d = getIssueDetails(it) || {};
   return d?.chosen_book_id || d?.chosenBookId || null;
 }
-
 function getExpectedPages(it) {
   const d = getIssueDetails(it) || {};
   const v = d?.expected_pages ?? d?.expectedPages;
   const n = Number(v);
   return Number.isFinite(n) ? n : null;
 }
-
 function getIncomingPages(it) {
   const d = getIssueDetails(it) || {};
   const v = d?.incoming_pages ?? d?.incomingPages;
@@ -94,17 +82,10 @@ function getIncomingPages(it) {
   const n2 = Number(rp?.pages);
   return Number.isFinite(n2) ? n2 : null;
 }
-
 function getCandidateBookIds(it) {
   const issue = it?.issue || {};
-  return normalizeUuidArray(
-    issue?.candidate_book_ids ??
-      issue?.candidateBookIds ??
-      it?.candidate_book_ids ??
-      it?.candidateBookIds
-  );
+  return normalizeUuidArray(issue?.candidate_book_ids ?? issue?.candidateBookIds ?? it?.candidate_book_ids ?? it?.candidateBookIds);
 }
-
 function getPreferredBookId(it) {
   const chosen = getChosenBookId(it);
   if (chosen) return chosen;
@@ -119,10 +100,7 @@ function normalizeBookForPick(b) {
   if (!id) return null;
 
   const title =
-    b.full_title ||
-    b.title ||
-    [b.BKw, b.BKw1, b.BKw2].filter(Boolean).join(" ").trim() ||
-    "—";
+    b.full_title || b.title || [b.BKw, b.BKw1, b.BKw2].filter(Boolean).join(" ").trim() || "—";
 
   const author =
     b.author_display ||
@@ -155,15 +133,49 @@ export default function SyncIssuePage() {
   const [noteByIssue, setNoteByIssue] = useState(() => new Map());
   const [busy, setBusy] = useState(() => new Set());
 
-  // issueId -> { loading, err, items, total }
   const [samePagesByIssue, setSamePagesByIssue] = useState(() => new Map());
   const [expectedPagesByIssue, setExpectedPagesByIssue] = useState(() => new Map());
 
+  // ✅ NEW: barcode search state
+  const [barcodeQueryByIssue, setBarcodeQueryByIssue] = useState(() => new Map());
+  const [barcodeHitsByIssue, setBarcodeHitsByIssue] = useState(() => new Map()); // issueId -> {loading, err, items}
+  const [overrideBarcodeByIssue, setOverrideBarcodeByIssue] = useState(() => new Map()); // issueId -> barcode
+// ✅ debounce timers per issueId (avoid spamming the API)
+const barcodeDebounceRef = useRef(new Map());
+
+function scheduleBarcodeSearch(issueId, value) {
+  const v = String(value || "").trim();
+
+  // optional: don't search for very short input
+  if (v.length < 2) {
+    // clear pending timer
+    const t = barcodeDebounceRef.current.get(issueId);
+    if (t) clearTimeout(t);
+    barcodeDebounceRef.current.delete(issueId);
+
+    // optionally clear shown results
+    setBarcodeHitsByIssue((prev) => {
+      const n = new Map(prev);
+      n.delete(issueId);
+      return n;
+    });
+    return;
+  }
+
+  // clear previous timer
+  const old = barcodeDebounceRef.current.get(issueId);
+  if (old) clearTimeout(old);
+
+  // schedule new
+  const timer = setTimeout(() => {
+    runBarcodeSearch(issueId, v);
+    barcodeDebounceRef.current.delete(issueId);
+  }, 300);
+
+  barcodeDebounceRef.current.set(issueId, timer);
+}
   const canPrev = useMemo(() => q.page > 1, [q.page]);
-  const canNext = useMemo(
-    () => q.page < (data.pages || 1),
-    [q.page, data.pages]
-  );
+  const canNext = useMemo(() => q.page < (data.pages || 1), [q.page, data.pages]);
 
   function setBusyOn(issueId, on) {
     setBusy((prev) => {
@@ -196,7 +208,12 @@ export default function SyncIssuePage() {
     refresh();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [q.page, q.limit]);
-
+useEffect(() => {
+  return () => {
+    for (const t of barcodeDebounceRef.current.values()) clearTimeout(t);
+    barcodeDebounceRef.current.clear();
+  };
+}, []);
   async function ensureBooksForIncomingPages(issueId, pages) {
     if (!issueId || pages == null) return;
     const existing = samePagesByIssue.get(issueId);
@@ -213,23 +230,13 @@ export default function SyncIssuePage() {
       const items = (res.items || []).map(normalizeBookForPick).filter(Boolean);
       setSamePagesByIssue((prev) => {
         const n = new Map(prev);
-        n.set(issueId, {
-          loading: false,
-          err: "",
-          items,
-          total: res.total || items.length,
-        });
+        n.set(issueId, { loading: false, err: "", items, total: res.total || items.length });
         return n;
       });
     } catch (e) {
       setSamePagesByIssue((prev) => {
         const n = new Map(prev);
-        n.set(issueId, {
-          loading: false,
-          err: e?.message || "Fehler",
-          items: [],
-          total: 0,
-        });
+        n.set(issueId, { loading: false, err: e?.message || "Fehler", items: [], total: 0 });
         return n;
       });
     }
@@ -251,29 +258,48 @@ export default function SyncIssuePage() {
       const items = (res.items || []).map(normalizeBookForPick).filter(Boolean);
       setExpectedPagesByIssue((prev) => {
         const n = new Map(prev);
-        n.set(issueId, {
-          loading: false,
-          err: "",
-          items,
-          total: res.total || items.length,
-        });
+        n.set(issueId, { loading: false, err: "", items, total: res.total || items.length });
         return n;
       });
     } catch (e) {
       setExpectedPagesByIssue((prev) => {
         const n = new Map(prev);
-        n.set(issueId, {
-          loading: false,
-          err: e?.message || "Fehler",
-          items: [],
-          total: 0,
-        });
+        n.set(issueId, { loading: false, err: e?.message || "Fehler", items: [], total: 0 });
         return n;
       });
     }
   }
 
-  // ✅ Prefetch: damit Titel/Autor auch ohne "Details öffnen" erscheinen
+  // ✅ NEW: barcode search runner
+  async function runBarcodeSearch(issueId, query) {
+    const qq = String(query || "").trim();
+    if (!issueId || !qq) return;
+
+    setBarcodeHitsByIssue((prev) => {
+      const n = new Map(prev);
+      n.set(issueId, { loading: true, err: "", items: [] });
+      return n;
+    });
+
+    try {
+      const r = await searchBarcodes({ q: qq, mode: "similar", limit: 40 });
+      const items = Array.isArray(r?.items) ? r.items : (r && r.barcode ? [r] : []);
+      
+      setBarcodeHitsByIssue((prev) => {
+        const n = new Map(prev);
+        n.set(issueId, { loading: false, err: "", items });
+        return n;
+      });
+    } catch (e) {
+      setBarcodeHitsByIssue((prev) => {
+        const n = new Map(prev);
+        n.set(issueId, { loading: false, err: e?.message || "Fehler", items: [] });
+        return n;
+      });
+    }
+  }
+
+  // Prefetch (keeps your behavior)
   useEffect(() => {
     (data.items || []).forEach((it) => {
       const issueId = getIssueId(it);
@@ -293,14 +319,12 @@ export default function SyncIssuePage() {
       }
 
       if (incomingPages != null) ensureBooksForIncomingPages(issueId, incomingPages);
-      if (reason === "pages_mismatch" && expectedPages != null) {
-        ensureBooksForExpectedPages(issueId, expectedPages);
-      }
+      if (reason === "pages_mismatch" && expectedPages != null) ensureBooksForExpectedPages(issueId, expectedPages);
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [data.items]);
 
-  function toggleExpanded(issueId, incomingPages, expectedPages) {
+  function toggleExpanded(issueId, incomingPages, expectedPages, barcode) {
     const willOpen = !expanded.has(issueId);
 
     setExpanded((prev) => {
@@ -313,9 +337,17 @@ export default function SyncIssuePage() {
     if (!willOpen) return;
 
     ensureBooksForIncomingPages(issueId, incomingPages);
+    if (expectedPages != null && expectedPages !== incomingPages) ensureBooksForExpectedPages(issueId, expectedPages);
 
-    if (expectedPages != null && expectedPages !== incomingPages) {
-      ensureBooksForExpectedPages(issueId, expectedPages);
+    // ✅ NEW: prefill barcode search
+    const bq = String(barcode || "").trim();
+    if (bq) {
+      setBarcodeQueryByIssue((prev) => {
+        const n = new Map(prev);
+        if (!n.get(issueId)) n.set(issueId, bq);
+        return n;
+      });
+      runBarcodeSearch(issueId, bq);
     }
   }
 
@@ -326,12 +358,15 @@ export default function SyncIssuePage() {
     if (!issueId) return alert("Issue-ID fehlt (Backend Response prüfen)");
     if (!bookId) return alert("Bitte wähle ein Buch aus");
 
+    const overrideBarcode = overrideBarcodeByIssue.get(issueId) || null;
+
     setBusyOn(issueId, true);
     try {
       await resolveMobileIssue(issueId, {
         action: "apply",
         bookId,
         note: noteByIssue.get(issueId) || null,
+        ...(overrideBarcode ? { overrideBarcode } : {}),
       });
 
       setData((prev) => ({
@@ -359,10 +394,7 @@ export default function SyncIssuePage() {
 
     setBusyOn(issueId, true);
     try {
-      await resolveMobileIssue(issueId, {
-        action: "discard",
-        note: noteByIssue.get(issueId) || null,
-      });
+      await resolveMobileIssue(issueId, { action: "discard", note: noteByIssue.get(issueId) || null });
 
       setData((prev) => ({
         ...prev,
@@ -389,7 +421,8 @@ export default function SyncIssuePage() {
 
     const incomingPages = getIncomingPages(it);
     const expectedPages = getExpectedPages(it);
-    toggleExpanded(issueId, incomingPages, expectedPages);
+    const receipt = it?.receipt || it;
+    toggleExpanded(issueId, incomingPages, expectedPages, receipt?.barcode);
   }
 
   return (
@@ -415,13 +448,7 @@ export default function SyncIssuePage() {
               className="zr-select"
               style={{ marginLeft: 8 }}
               value={q.limit}
-              onChange={(e) =>
-                setQ((p) => ({
-                  ...p,
-                  limit: Number(e.target.value) || 20,
-                  page: 1,
-                }))
-              }
+              onChange={(e) => setQ((p) => ({ ...p, limit: Number(e.target.value) || 20, page: 1 }))}
             >
               <option value={10}>10</option>
               <option value={20}>20</option>
@@ -475,12 +502,16 @@ export default function SyncIssuePage() {
 
             const pickedId = picked.get(issueId) || preferredBookId || "";
 
-            const bookFromExpected =
-              pickedId && expectedList?.items?.find((b) => b?.id === pickedId);
-            const bookFromIncoming =
-              pickedId && samePages?.items?.find((b) => b?.id === pickedId);
-
+            const bookFromExpected = pickedId && expectedList?.items?.find((b) => b?.id === pickedId);
+            const bookFromIncoming = pickedId && samePages?.items?.find((b) => b?.id === pickedId);
             const showBook = bookFromExpected || bookFromIncoming || null;
+
+            const bcQuery = barcodeQueryByIssue.get(issueId) || "";
+            const bcHits = barcodeHitsByIssue.get(issueId);
+            const overrideBarcode = overrideBarcodeByIssue.get(issueId) || "";
+            const effectiveBarcodeToFree = String(overrideBarcode || receipt?.barcode || "").trim();
+
+            const canApply = !isBusy && !!pickedId;
 
             return (
               <div
@@ -489,7 +520,6 @@ export default function SyncIssuePage() {
               >
                 <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
                   <strong style={{ fontSize: 16 }}>{receipt?.barcode || "(kein Barcode)"}</strong>
-
                   {incomingPages != null ? badge(`${incomingPages} Seiten`) : null}
                   {reason ? badge(reason) : null}
                   {receipt?.received_at || receipt?.receivedAt
@@ -501,7 +531,7 @@ export default function SyncIssuePage() {
 
                   <button
                     className="zr-btn2 zr-btn2--ghost zr-btn2--sm"
-                    onClick={() => toggleExpanded(issueId, incomingPages, expectedPages)}
+                    onClick={() => toggleExpanded(issueId, incomingPages, expectedPages, receipt?.barcode)}
                   >
                     {isOpen ? "Details schließen" : "Details öffnen"}
                   </button>
@@ -514,14 +544,8 @@ export default function SyncIssuePage() {
                 <div style={{ marginTop: 8, fontSize: 13, opacity: 0.85 }}>
                   Incoming: status <strong>{receipt?.reading_status || receipt?.readingStatus || "—"}</strong> · geändert am{" "}
                   <strong>{fmtTs(receipt?.reading_status_updated_at || receipt?.readingStatusUpdatedAt)}</strong>
-                  {receipt?.top_book === true || receipt?.topBook === true
-                    ? " · TopBook: true"
-                    : receipt?.top_book === false || receipt?.topBook === false
-                    ? " · TopBook: false"
-                    : ""}
                 </div>
 
-                {/* ✅ Title/Author aus DB anzeigen */}
                 {showBook ? (
                   <div style={{ marginTop: 6, fontSize: 13, opacity: 0.85 }}>
                     Buch (DB): <strong>{showBook.title || "—"}</strong>
@@ -533,21 +557,6 @@ export default function SyncIssuePage() {
                     Buch (DB): {pickedId ? "lade Daten…" : "kein Kandidat"}
                   </div>
                 )}
-
-                {reason === "pages_mismatch" && expectedPages != null && incomingPages != null ? (
-                  <div style={{ marginTop: 6, fontSize: 13, opacity: 0.85 }}>
-                    Seiten-Konflikt: Eingabe <strong>{incomingPages}</strong> · DB <strong>{expectedPages}</strong>
-                    {preferredBookId ? (
-                      <>
-                        {" "}
-                        · Kandidat-ID:{" "}
-                        <span style={{ fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace" }}>
-                          {preferredBookId}
-                        </span>
-                      </>
-                    ) : null}
-                  </div>
-                ) : null}
 
                 {isOpen ? (
                   <div style={{ marginTop: 12 }}>
@@ -568,6 +577,88 @@ export default function SyncIssuePage() {
                           placeholder="z.B. richtiger Datensatz gewählt …"
                         />
                       </label>
+
+                      {/* ✅ NEW: Barcode-Suche */}
+                      <div style={{ marginTop: 6 }}>
+                        <div style={{ fontWeight: 700, marginBottom: 6 }}>Barcode-Suche (gleichscheinende)</div>
+
+                        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+                          <input
+                            className="zr-input"
+                            style={{ minWidth: 220 }}
+                            placeholder="z.B. dyk021"
+                            value={bcQuery}
+                            onChange={(e) => {
+                              const v = e.target.value;
+                              setBarcodeQueryByIssue((prev) => {
+                                const n = new Map(prev);
+                                n.set(issueId, v);
+                                return n;
+                              });
+                              scheduleBarcodeSearch(issueId, v);
+                            }}
+                          />
+                          <button
+                            className="zr-btn2 zr-btn2--ghost zr-btn2--sm"
+                            onClick={() => runBarcodeSearch(issueId, bcQuery)}
+                          >
+                            Suchen
+                          </button>
+                          {bcHits?.loading ? <span style={{ fontSize: 12, opacity: 0.7 }}>lade…</span> : null}
+                        </div>
+
+                        {bcHits?.err ? <div style={{ color: "#a00", fontSize: 12, marginTop: 6 }}>{bcHits.err}</div> : null}
+
+                        {Array.isArray(bcHits?.items) && bcHits.items.length ? (
+                          <div style={{ marginTop: 8, display: "grid", gap: 6 }}>
+                            <select
+                              className="zr-select"
+                              value={overrideBarcode}
+                              onChange={(e) => {
+                                const v = e.target.value;
+
+                                setOverrideBarcodeByIssue((prev) => {
+                                  const n = new Map(prev);
+                                  if (!v) n.delete(issueId);
+                                  else n.set(issueId, v);
+                                  return n;
+                                });
+
+                                // If that barcode is assigned to a book, auto-select it
+                                const hit = bcHits.items.find((x) => x?.barcode === v);
+                                const bid = hit?.book?.id;
+                                if (bid) {
+                                  setPicked((prev) => {
+                                    const n = new Map(prev);
+                                    n.set(issueId, String(bid));
+                                    return n;
+                                  });
+                                }
+                              }}
+                            >
+                              <option value="">(Barcode aus Receipt verwenden)</option>
+                             {bcHits.items.map((x) => {
+ const t = x.book?.title_display ?? x.book?.title ?? "—";
+const a = x.book?.author_display ?? x.book?.author ?? "—";
+ const p = x.book?.pages != null ? `${x.book.pages} S.` : "— S.";
+  return (
+    <option key={x.barcode} value={x.barcode}>
+      {`${x.barcode} · ${t} · ${a} · ${p}`}
+    </option>
+  );
+})}
+                            </select>
+
+                            <div style={{ fontSize: 12, opacity: 0.75 }}>
+                              Freigegeben wird: <strong>{effectiveBarcodeToFree || "—"}</strong>
+                            </div>
+                          </div>
+                        ) : (
+                          <div style={{ marginTop: 8, fontSize: 12, opacity: 0.7 }}>
+                            {bcHits?.loading ? "" : "Keine Treffer – Tipp: nur den Anfang (z.B. dyk) suchen."}
+                          </div>
+                        )}
+                      </div>
 
                       {/* Kandidaten (IDs) */}
                       {candIds.length ? (
@@ -601,9 +692,7 @@ export default function SyncIssuePage() {
                           <div style={{ fontWeight: 700, marginBottom: 6 }}>
                             Bücher mit {incomingPages} Seiten
                             {samePages?.loading ? " (lade…)" : ""}
-                            {!samePages?.loading && samePages?.items
-                              ? ` (${samePages.total || samePages.items.length})`
-                              : ""}
+                            {!samePages?.loading && samePages?.items ? ` (${samePages.total || samePages.items.length})` : ""}
                           </div>
 
                           {samePages?.err ? <div style={{ color: "#a00", fontSize: 12 }}>{samePages.err}</div> : null}
@@ -625,10 +714,7 @@ export default function SyncIssuePage() {
                                 <option value="">Bitte wählen…</option>
                                 {samePages.items.map((b) => (
                                   <option key={b.id} value={b.id}>
-                                    {(b.barcode || "—") +
-                                      " · " +
-                                      (b.title || "—") +
-                                      (b.author ? " · " + b.author : "")}
+                                    {(b.barcode || "—") + " · " + (b.title || "—") + (b.author ? " · " + b.author : "")}
                                   </option>
                                 ))}
                               </select>
@@ -669,10 +755,7 @@ export default function SyncIssuePage() {
                                 <option value="">Bitte wählen…</option>
                                 {expectedList.items.map((b) => (
                                   <option key={b.id} value={b.id}>
-                                    {(b.barcode || "—") +
-                                      " · " +
-                                      (b.title || "—") +
-                                      (b.author ? " · " + b.author : "")}
+                                    {(b.barcode || "—") + " · " + (b.title || "—") + (b.author ? " · " + b.author : "")}
                                   </option>
                                 ))}
                               </select>
@@ -684,12 +767,15 @@ export default function SyncIssuePage() {
                       ) : null}
 
                       <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap", marginTop: 6 }}>
-                        <button className="zr-btn2 zr-btn2--sm" onClick={() => apply(it)} disabled={isBusy}>
+                        <button className="zr-btn2 zr-btn2--sm" onClick={() => apply(it)} disabled={!canApply}>
                           Anwenden
                         </button>
                         <button className="zr-btn2 zr-btn2--ghost zr-btn2--sm" onClick={() => discard(it)} disabled={isBusy}>
                           Verwerfen
                         </button>
+                        {!pickedId ? (
+                          <span style={{ fontSize: 12, opacity: 0.7 }}>Bitte zuerst Buch auswählen.</span>
+                        ) : null}
                         {isBusy ? <span style={{ fontSize: 12, opacity: 0.7 }}>…</span> : null}
                       </div>
                     </div>

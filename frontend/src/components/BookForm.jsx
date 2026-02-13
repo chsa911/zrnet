@@ -326,6 +326,7 @@ export default function BookForm({
   // Live preview barcode ONLY in create mode AND only if assignBarcode
   useEffect(() => {
     if (mode !== "create") return;
+
     if (!assignBarcode) {
       setSuggestedMark(null);
       setBarcode("");
@@ -445,6 +446,8 @@ export default function BookForm({
           if (isLockedKey(k)) continue;
           const originalVal = initialBook[k];
           const nextVal = parseFromRaw(originalVal, extra[k]);
+
+          // only send if changed
           if (!deepEqual(originalVal, nextVal)) payload[k] = nextVal;
         }
       }
@@ -459,7 +462,7 @@ export default function BookForm({
       }
 
       if (mode === "create") {
-        // status passed to backend (wishlist / in_progress / in_stock)
+        // status passed to backend
         payload.reading_status = createReadingStatus;
         payload.status = createReadingStatus;
 
@@ -502,7 +505,9 @@ export default function BookForm({
       }
     } catch (err) {
       alert(
-        typeof err === "string" ? err : err?.message || "Fehler beim Speichern"
+        typeof err === "string"
+          ? err
+          : err?.message || "Fehler beim Speichern"
       );
     } finally {
       setBusy(false);
@@ -707,7 +712,8 @@ export default function BookForm({
                 placeholder="ISBN-13 oder ISBN-10"
               />
               <small className="text-gray-600">
-                Wenn vorhanden: einscannen/eintippen. Backend speichert daraus isbn13/isbn10.
+                Wenn vorhanden: einscannen/eintippen. Backend speichert daraus
+                isbn13/isbn10.
               </small>
             </label>
 
@@ -745,7 +751,8 @@ export default function BookForm({
                 </div>
               ) : (
                 <div className="text-sm text-gray-500">
-                  Optional: Links werden aus <code>purchase_providers</code> Templates erzeugt.
+                  Optional: Links werden aus <code>purchase_providers</code>{" "}
+                  Templates erzeugt.
                 </div>
               )}
             </div>

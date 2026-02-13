@@ -13,7 +13,6 @@ async function req(url, { method = "GET", json } = {}) {
   const text = await res.text();
 
   if (!res.ok) {
-    // backend 404 often returns HTML "Cannot GET ..."
     if (text.startsWith("<!DOCTYPE") || text.includes("Cannot GET")) {
       throw new Error(`API endpoint not found: ${url}`);
     }
@@ -39,10 +38,11 @@ function normalizeList(d) {
   return { items, total, pages };
 }
 
-export async function listNeedsReview({ page = 1, limit = 20 } = {}) {
-  const qs = new URLSearchParams({ page: String(page), limit: String(limit) }).toString();
+export async function listNeedsReview({ page = 1, limit = 20, q } = {}) {
+  const params = { page: String(page), limit: String(limit) };
+  if (q) params.q = String(q);
+  const qs = new URLSearchParams(params).toString();
 
-  // Try the most likely endpoints (you only need the first one if backend matches)
   const urls = [
     `${BASE}/mobile-sync/needs-review?${qs}`,
     `${BASE}/mobileSync/needs-review?${qs}`,
@@ -80,4 +80,33 @@ export async function resolveMobileIssue(issueId, payload = {}) {
     }
   }
   throw lastErr || new Error("Resolve failed");
+}
+
+export async function searchBarcodes({ q, mode = "similar", limit = 25 } = {}) {
+  const query = String(q || "").trim();
+  if (!query) return { items: [] };
+
+  const qs = new URLSearchParams({
+    q: query,
+    mode: String(mode || "similar"),
+    limit: String(limit || 25),
+  }).toString();
+
+  // ✅ only the real mounted routes
+  const urls = [
+    `${BASE}/mobile-sync/barcodes/search?${qs}`,
+    `${BASE}/mobile-sync/barcodes?${qs}`,
+  ];
+
+  let lastErr;
+  for (const url of urls) {
+    try {
+      const d = await req(url);
+      const items = Array.isArray(d?.items) ? d.items : Array.isArray(d) ? d : [];
+      return { items };
+    } catch (e) {
+      lastErr = e;
+    }
+  }
+  throw lastErr || new Error("Barcode search failed");
 }
