@@ -1,0 +1,19 @@
+bookswiper.com, www.bookswiper.com {
+  redir https://pagesinline.com{uri} permanent
+}
+
+zenreader.net, www.zenreader.net {
+  redir https://pagesinline.com{uri} permanent
+}
+
+pagesinline.com, www.pagesinline.com {
+  encode gzip zstd
+
+  handle /api/* {
+    reverse_proxy api:4000
+  }
+
+  handle {
+    reverse_proxy web:80
+  }
+}

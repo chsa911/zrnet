@@ -196,7 +196,7 @@ export default function Header({ year = 2026 }) {
           <Link className="zr-logo" to="/">
             <img
               src="/assets/images/allgemein/logo.jpeg"
-              alt="Zenreader logo"
+              alt="PagesInLine logo"
               width="48"
               height="48"
               decoding="async"
