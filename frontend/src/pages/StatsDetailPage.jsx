@@ -370,7 +370,21 @@ export default function StatsDetailPage() {
           {/* author + title, newest-first */}
           <ul className="zr-books-list">
             {books.map((b) => {
-              const author = a.name_display || "—";
+              const author = (() => {
+  const arr = Array.isArray(b?.authors) ? b.authors : [];
+  const names = arr
+    .map((x) => x?.name_display_display || x?.name_display || x?.name || x?.full_name)
+    .filter(Boolean);
+  if (names.length) return names.join(", ");
+
+  return (
+    b?.author_display ||
+    b?.author ||
+    b?.BAutor ||
+    b?.author_name ||
+    "—"
+  );
+})();
               const title = b.title || "—";
               const url =
                 typeof b.purchase_url === "string" && b.purchase_url.trim()
