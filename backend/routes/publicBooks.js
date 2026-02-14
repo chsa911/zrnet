@@ -337,7 +337,7 @@ router.get("/:id", async (req, res) => {
         ${TITLE_EXPR}  AS book_title_display,
         b.publisher,
         b.pages,
-        b.comment,
+        b.comment,  
         b.purchase_url,
         b.reading_status,
         b.reading_status_updated_at,

@@ -300,7 +300,7 @@ export default function BookThemesPage() {
               {activeBooks.map((b) => (
                 <div key={b.id} className="bt-detail__item">
                   <div className="bt-detail__itemTitle">{b.title_display || "—"}</div>
-                  <div className="bt-detail__itemAuthor">{a.name_display_display || a.name_display || ""}</div>
+                  <div className="bt-detail__itemAuthor">{a.name_display || a.name_display || ""}</div>
                   {b.purchase_url ? (
                     <a href={b.purchase_url} target="_blank" rel="noreferrer">
                       Details
