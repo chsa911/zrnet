@@ -55,5 +55,9 @@
   "analytics_searching": "Searching…",
   "analytics_results": "{count} results",
   "analytics_no_results": "No results",
-  "analytics_page": "Page {page} / {pages}"
+  "analytics_page": "Page {page} / {pages}",
+  "footer_links_label": "Links do rodapé",
+  "footer_social_label": "Links sociais",
+  "footer_disclaimer_label": "Aviso:",
+  "footer_disclaimer_text": "Links externos (por ex., YouTube, TikTok, Instagram) levam a plataformas de terceiros. Não nos responsabilizamos pelo conteúdo. Valem as políticas de privacidade e os termos dessas plataformas."
 }

@@ -26,6 +26,47 @@ function normStr(v) {
 const AUTHOR_EXPR = "a.name_display";
 const TITLE_EXPR = "COALESCE(NULLIF(b.title_display,''), NULLIF(b.title_keyword,''))";
 
+
+// purchase providers (optional) — compute best link from isbn + templates
+function applyTemplate(tpl, { isbn13, isbn10, bookId }) {
+  let url = String(tpl || "");
+  url = url.replace(/\{isbn13\}/g, isbn13 || "");
+  url = url.replace(/\{isbn10\}/g, isbn10 || "");
+  url = url.replace(/\{isbn\}/g, isbn13 || isbn10 || "");
+  url = url.replace(/\{book_id\}/g, bookId || "");
+  return url;
+}
+
+async function buildPurchaseLinks(pool, { isbn13, isbn10, bookId }) {
+  const isbnAny = (isbn13 || isbn10 || "").trim();
+  if (!isbnAny) return { best: null, candidates: [] };
+
+  const { rows } = await pool.query(
+    `
+    SELECT id, code, name, url_template, priority
+    FROM public.purchase_providers
+    WHERE is_active=true AND kind='buy'
+    ORDER BY priority ASC, id ASC
+    `
+  );
+
+  const candidates = (rows || [])
+    .map((p) => {
+      const url = applyTemplate(p.url_template, { isbn13, isbn10, bookId });
+      return {
+        provider_id: p.id,
+        provider_code: p.code,
+        provider_name: p.name,
+        priority: p.priority,
+        url,
+      };
+    })
+    // skip broken templates (still contains placeholders) or empty urls
+    .filter((c) => c.url && !c.url.includes("{isbn") && !c.url.includes("{book_"));
+
+  return { best: candidates[0] || null, candidates };
+}
+
 /**
  * GET /api/public/books
  */
@@ -337,8 +378,11 @@ router.get("/:id", async (req, res) => {
         ${TITLE_EXPR}  AS book_title_display,
         b.publisher,
         b.pages,
-        b.comment,  
+        b.comment,
+        b.purchase_source,
         b.purchase_url,
+        b.isbn13,
+        b.isbn10,
         b.reading_status,
         b.reading_status_updated_at,
         b.top_book,
@@ -362,6 +406,29 @@ router.get("/:id", async (req, res) => {
     if (!rows[0]) return res.status(404).json({ error: "not_found" });
 
     const r = rows[0];
+
+    // Purchase link resolution
+    // 1) manual link on books.purchase_url
+    // 2) otherwise: best provider template (purchase_providers) using isbn
+    let purchase = { best: null, candidates: [] };
+    try {
+      purchase = await buildPurchaseLinks(pool, {
+        isbn13: r.isbn13,
+        isbn10: r.isbn10,
+        bookId: r.id,
+      });
+    } catch (e) {
+      // If purchase_providers doesn't exist / isn't configured, keep it silent for public endpoints
+      console.warn('purchase_providers not available or query failed:', e?.message || e);
+    }
+
+    const manualUrl = normStr(r.purchase_url) || '';
+    const bestUrl = normStr(purchase?.best?.url) || '';
+    const finalUrl = manualUrl || bestUrl;
+
+    const bestVendor = purchase?.best?.provider_name || purchase?.best?.provider_code || '';
+    const finalVendor = manualUrl ? (normStr(r.purchase_source) || 'manual') : bestVendor;
+
     return res.json({
       id: r.id,
 
@@ -376,7 +443,18 @@ router.get("/:id", async (req, res) => {
       publisher: r.publisher,
       pages: r.pages,
       comment: r.comment,
+      purchase_source: r.purchase_source || null,
       purchase_url: r.purchase_url,
+      purchase_url_best: bestUrl || null,
+      purchase_vendor_best: bestVendor || null,
+      purchase_url_final: finalUrl || null,
+      purchase_vendor_final: finalVendor || null,
+      purchase_links: (purchase?.candidates || []).map((c) => ({
+        code: c.provider_code,
+        name: c.provider_name,
+        url: c.url,
+        priority: c.priority,
+      })),
       reading_status: r.reading_status,
       reading_status_updated_at: r.reading_status_updated_at,
       top_book: r.top_book,

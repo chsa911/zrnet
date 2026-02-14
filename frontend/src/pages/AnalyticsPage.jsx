@@ -136,14 +136,28 @@ export default function AnalyticsPage() {
 
         {/* Results */}
         <div className="zr-results">
-          {items.map((b) => (
-            <div key={b.id} className="zr-resultRow">
-              <div className="zr-resultTitle">
-                {b.title || "—"}
-                <span className="zr-resultMeta"> — {a.name_display || "—"}</span>
+          {items.map((b) => {
+            const arr = Array.isArray(b?.authors) ? b.authors : [];
+            const authorName =
+              arr
+                .map((x) => x?.name_display_display || x?.name_display || x?.name || x?.full_name)
+                .filter(Boolean)
+                .join(", ") ||
+              b?.author_display ||
+              b?.author ||
+              b?.BAutor ||
+              b?.author_name ||
+              "—";
+
+            return (
+              <div key={b.id} className="zr-resultRow">
+                <div className="zr-resultTitle">
+                  {b.title || "—"}
+                  <span className="zr-resultMeta"> — {authorName}</span>
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
 
           {!loadingSearch && items.length === 0 ? (
             <div className="zr-empty">{t("analytics_no_results")}</div>

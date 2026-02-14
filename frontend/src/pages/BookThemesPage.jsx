@@ -297,17 +297,31 @@ export default function BookThemesPage() {
             </div>
 
             <div className="bt-detail__list">
-              {activeBooks.map((b) => (
-                <div key={b.id} className="bt-detail__item">
-                  <div className="bt-detail__itemTitle">{b.title_display || "—"}</div>
-                  <div className="bt-detail__itemAuthor">{a.name_display || a.name_display || ""}</div>
-                  {b.purchase_url ? (
-                    <a href={b.purchase_url} target="_blank" rel="noreferrer">
-                      Details
-                    </a>
-                  ) : null}
-                </div>
-              ))}
+              {activeBooks.map((b) => {
+                const arr = Array.isArray(b?.authors) ? b.authors : [];
+                const authorName =
+                  arr
+                    .map((x) => x?.name_display_display || x?.name_display || x?.name || x?.full_name)
+                    .filter(Boolean)
+                    .join(", ") ||
+                  b?.author_display ||
+                  b?.author ||
+                  b?.BAutor ||
+                  b?.author_name ||
+                  "";
+
+                return (
+                  <div key={b.id} className="bt-detail__item">
+                    <div className="bt-detail__itemTitle">{b.title_display || "—"}</div>
+                    <div className="bt-detail__itemAuthor">{authorName}</div>
+                    {b.purchase_url ? (
+                      <a href={b.purchase_url} target="_blank" rel="noreferrer">
+                        Details
+                      </a>
+                    ) : null}
+                  </div>
+                );
+              })}
               {activeBooks.length === 0 ? <div className="zr-alert">No matching books.</div> : null}
             </div>
           </div>

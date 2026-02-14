@@ -58,12 +58,12 @@ export default function TopBar() {
               }}
             >
               <Link to="/ueber_mich.html">About</Link>
-              <Link to="/newsletter.html">Newsletter</Link>
-              <Link to="/merchandise.html">Shop</Link>
-              <Link to="/kontaktformular.html">Contact</Link>
+             {/* <Link to="/newsletter.html">Newsletter</Link>
+             // <Link to="/merchandise.html">Shop</Link>
+             // <Link to="/kontaktformular.html">Contact</Link>*/}
               <Link to="/login">Login</Link>
               <Link to="/impressum.html">Imprint</Link>
-              <Link to="/bookthemes">Book themes</Link>
+            {/*  <Link to="/bookthemes">Book themes</Link> */}
               <Link to="/ausruestung.html">Equipment</Link>
               <Link to="/beschaffung.html">Getting books</Link>
               <Link to="/autoren_meistgelesen.html">Top authors</Link>
