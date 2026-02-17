@@ -56,9 +56,7 @@
                         {t("home_cta_technique")}
                       </Link>
 
-                      <Link className="zr-btn2 zr-btn2--ghost" to="/admin">
-                        Admin / Login
-                      </Link>
+                      {/** Admin / Login moved to Topbar → More **/}
                     </div>
 
                     <ul className="zr-bullets">

@@ -71,8 +71,8 @@ function mapReadingStatus(v) {
   if (!s) return null;
   const x = s.toLowerCase();
   if (x === "open" || x === "inprogress" || x === "in-progress") return "in_progress";
-  if (x === "in_progress" || x === "finished" || x === "abandoned") return x;
-  return s;
+  if (x === "in_progress" || x === "finished" || x === "abandoned" || x === "in_stock") return x;
+  return x;
 }
 
 function rowToApi(row) {
@@ -128,10 +128,11 @@ function rowToApi(row) {
 
     author_display: row.author_display ?? null,
 
-    // ✅ add these for BookThemesPage / candidate dropdown
+    // used by BookThemesPage / candidate dropdown
     full_title: row.full_title ?? null,
     themes: row.themes ?? null,
     purchase_url: row.purchase_url ?? null,
+    purchase_source: row.purchase_source ?? null,
   };
 }
 
@@ -275,14 +276,41 @@ async function assignBarcodeTx(pool, { bookId, barcode, expectedSizeRuleId, expe
   await pool.query(`INSERT INTO public.book_barcodes (book_id, barcode) VALUES ($1,$2)`, [bookId, barcode]);
 }
 
+/**
+ * Fetch book with a "best effort" barcode:
+ * 1) open barcode_assignments (freed_at is null)
+ * 2) latest barcode_assignments (so finished books remain searchable by last barcode)
+ * 3) legacy book_barcodes fallback
+ */
 async function fetchBookWithBarcode(pool, bookId) {
   const { rows } = await pool.query(
     `
-    SELECT b.*, bb.barcode
+    SELECT
+      b.*,
+      COALESCE(bao.barcode, bah.barcode, bb.barcode) AS barcode
     FROM public.books b
+
+    LEFT JOIN LATERAL (
+      SELECT ba.barcode
+      FROM public.barcode_assignments ba
+      WHERE ba.book_id = b.id
+        AND ba.freed_at IS NULL
+      ORDER BY ba.assigned_at DESC
+      LIMIT 1
+    ) bao ON true
+
+    LEFT JOIN LATERAL (
+      SELECT ba.barcode
+      FROM public.barcode_assignments ba
+      WHERE ba.book_id = b.id
+      ORDER BY ba.assigned_at DESC
+      LIMIT 1
+    ) bah ON true
+
     LEFT JOIN LATERAL (
       SELECT barcode FROM public.book_barcodes bb WHERE bb.book_id = b.id LIMIT 1
     ) bb ON true
+
     WHERE b.id = $1
     `,
     [bookId]
@@ -292,29 +320,26 @@ async function fetchBookWithBarcode(pool, bookId) {
 
 /* --------------------------------- list ----------------------------------- */
 
-function mapSort(sortByRaw) {
-  const sortBy = String(sortByRaw || "").trim();
-  const map = {
-    BEind: "b.registered_at",
-    createdAt: "b.registered_at",
-    BAutor: "a.name_display",
-    BVerlag: "b.publisher",
-    BKw: "b.title_keyword",
-  };
-  return map[sortBy] || "b.registered_at";
-}
-
 async function listBooks(req, res) {
   try {
     const pool = getPool(req);
 
     const page = clampInt(req.query.page, 1, 1, 500000);
-    const limit = clampInt(req.query.limit, 20, 1, 500); // ✅ allow bigger result set for dropdown
+    const limit = clampInt(req.query.limit, 20, 1, 500);
     const offset = (page - 1) * limit;
 
     const order =
       String(req.query.order || req.query.sortDir || "desc").toLowerCase() === "asc" ? "ASC" : "DESC";
-    const sortCol = mapSort(req.query.sortBy || req.query.sort);
+
+    const sortBy = String(req.query.sortBy || req.query.sort || "").trim();
+    const sortMap = {
+      BEind: "b.registered_at",
+      createdAt: "b.registered_at",
+      BAutor: "b.author_display",
+      BVerlag: "b.publisher",
+      BKw: "b.title_keyword",
+    };
+    const sortCol = sortMap[sortBy] || "b.registered_at";
 
     const where = [];
     const params = [];
@@ -327,19 +352,27 @@ async function listBooks(req, res) {
       where.push(
         `(
           b.title_display ILIKE ${p} OR
-          a.name_display ILIKE ${p} OR
+          b.author_display ILIKE ${p} OR
+          b.author ILIKE ${p} OR
           b.publisher ILIKE ${p} OR
           b.title_keyword ILIKE ${p} OR
           b.title_keyword2 ILIKE ${p} OR
           b.title_keyword3 ILIKE ${p} OR
           b.isbn10 ILIKE ${p} OR
           b.isbn13 ILIKE ${p} OR
-          bb.barcode ILIKE ${p}
+          COALESCE(bao.barcode, bah.barcode, bb.barcode) ILIKE ${p} OR
+          EXISTS (
+            SELECT 1
+            FROM public.barcode_assignments bax
+            WHERE bax.book_id = b.id
+              AND bax.barcode ILIKE ${p}
+            LIMIT 1
+          )
         )`
       );
     }
 
-    // ✅ pages exakt (unabhängig von q)
+    // pages exakt (unabhängig von q)
     const pagesEq = normalizeInt(req.query.pages ?? req.query.BSeiten);
     if (pagesEq !== null) {
       params.push(pagesEq);
@@ -354,26 +387,48 @@ async function listBooks(req, res) {
     }
 
     const topOnly = normalizeBool(req.query.topOnly ?? req.query.top);
-    if (topOnly === true) {
-      where.push(`b.top_book = true`);
-    }
+    if (topOnly === true) where.push(`b.top_book = true`);
 
     const since = normalizeStr(req.query.since);
     if (since) {
-      // Accept YYYY-MM-DD; let PG cast
       params.push(since);
       where.push(`b.registered_at >= $${params.length}::date`);
     }
 
     const whereSql = where.length ? `WHERE ${where.join(" AND ")}` : "";
 
+    const fromSql = `
+      FROM public.books b
+
+      LEFT JOIN LATERAL (
+        SELECT ba.barcode
+        FROM public.barcode_assignments ba
+        WHERE ba.book_id = b.id
+          AND ba.freed_at IS NULL
+        ORDER BY ba.assigned_at DESC
+        LIMIT 1
+      ) bao ON true
+
+      LEFT JOIN LATERAL (
+        SELECT ba.barcode
+        FROM public.barcode_assignments ba
+        WHERE ba.book_id = b.id
+        ORDER BY ba.assigned_at DESC
+        LIMIT 1
+      ) bah ON true
+
+      LEFT JOIN LATERAL (
+        SELECT barcode
+        FROM public.book_barcodes bb
+        WHERE bb.book_id = b.id
+        LIMIT 1
+      ) bb ON true
+    `;
+
     const countRes = await pool.query(
       `
       SELECT count(*)::int AS total
-      FROM public.books b
-      LEFT JOIN LATERAL (
-        SELECT barcode FROM public.book_barcodes bb WHERE bb.book_id = b.id LIMIT 1
-      ) bb ON true
+      ${fromSql}
       ${whereSql}
       `,
       params
@@ -382,11 +437,10 @@ async function listBooks(req, res) {
 
     const listRes = await pool.query(
       `
-      SELECT b.*, bb.barcode
-      FROM public.books b
-      LEFT JOIN LATERAL (
-        SELECT barcode FROM public.book_barcodes bb WHERE bb.book_id = b.id LIMIT 1
-      ) bb ON true
+      SELECT
+        b.*,
+        COALESCE(bao.barcode, bah.barcode, bb.barcode) AS barcode
+      ${fromSql}
       ${whereSql}
       ORDER BY ${sortCol} ${order} NULLS LAST
       LIMIT $${params.length + 1} OFFSET $${params.length + 2}
@@ -530,7 +584,7 @@ async function registerBook(req, res) {
     height: Number.isFinite(hMm) ? hMm : null,
     top_book: normalizeBool(body.BTop ?? body.top_book) ?? false,
 
-    reading_status: normalizeStr(body.status ?? body.reading_status) ?? "in_progress",
+    reading_status: mapReadingStatus(body.status ?? body.reading_status) ?? "in_progress",
     registered_at: new Date().toISOString(),
 
     // helpful denormalizations if your schema includes them
@@ -635,6 +689,7 @@ async function updateBook(req, res) {
 
     const patch = req.body || {};
     const cols = await getColumns(pool, "books");
+    const nowIso = new Date().toISOString();
 
     const updates = {
       author: normalizeStr(patch.BAutor ?? patch.author_lastname ?? patch.author),
@@ -664,10 +719,19 @@ async function updateBook(req, res) {
           ? normalizeInt(patch.BK2P ?? patch.title_keyword3_position)
           : undefined,
 
-      pages: patch.BSeiten !== undefined || patch.pages !== undefined ? normalizeInt(patch.BSeiten ?? patch.pages) : undefined,
+      pages:
+        patch.BSeiten !== undefined || patch.pages !== undefined ? normalizeInt(patch.BSeiten ?? patch.pages) : undefined,
 
-      top_book: patch.BTop !== undefined || patch.top_book !== undefined ? normalizeBool(patch.BTop ?? patch.top_book) : undefined,
-      reading_status: normalizeStr(patch.status ?? patch.reading_status) ?? undefined,
+      // topbook + timestamps enforced below
+      top_book:
+        patch.BTop !== undefined || patch.top_book !== undefined ? normalizeBool(patch.BTop ?? patch.top_book) : undefined,
+
+      // reading_status + timestamps enforced below
+      reading_status: undefined,
+
+      // allow editing purchase link from UI
+      purchase_url: normalizeStr(patch.purchase_url ?? patch.purchaseUrl ?? patch.purchase_link ?? patch.purchaseLink),
+      purchase_source: normalizeStr(patch.purchase_source ?? patch.purchaseSource),
     };
 
     // width/height updates
@@ -678,6 +742,28 @@ async function updateBook(req, res) {
     if (patch.BHoehe !== undefined || patch.height !== undefined) {
       const h = toNum(patch.BHoehe ?? patch.height);
       updates.height = Number.isFinite(h) ? cmToMm(h) : null;
+    }
+
+    // --- enforce reading_status + required timestamp (DB constraint) ---
+    if (patch.status !== undefined || patch.reading_status !== undefined) {
+      const st = mapReadingStatus(patch.status ?? patch.reading_status);
+      updates.reading_status = st;
+
+      if (cols.has("reading_status_updated_at")) {
+        if (st === "finished" || st === "abandoned") updates.reading_status_updated_at = nowIso;
+        else updates.reading_status_updated_at = null;
+      }
+    }
+
+    // --- enforce top_book timestamp for UI toggle ---
+    if (patch.BTop !== undefined || patch.top_book !== undefined) {
+      const top = normalizeBool(patch.BTop ?? patch.top_book);
+      updates.top_book = top;
+
+      if (cols.has("top_book_set_at")) {
+        if (top === true) updates.top_book_set_at = nowIso;
+        else if (top === false) updates.top_book_set_at = null;
+      }
     }
 
     // Recompute author_display/full_title if schema supports it.
@@ -805,5 +891,5 @@ module.exports = {
   autocomplete,
   registerBook,
   updateBook,
-  dropBook, // ✅ wichtig
+  dropBook,
 };

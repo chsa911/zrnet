@@ -259,7 +259,7 @@ export default function BookForm({
       ...prev,
       BBreite: b.BBreite ?? "",
       BHoehe: b.BHoehe ?? "",
-      BAutor: b.BAutor ?? a.name_display ?? "",
+      BAutor: b.BAutor ?? b.author_lastname ?? b.author ?? b.Autor ?? "",
       BKw: b.BKw ?? b.title_keyword ?? "",
       BKP: b.BKP ?? b.title_keyword_position ?? 1,
       BKw1: b.BKw1 ?? b.title_keyword2 ?? "",

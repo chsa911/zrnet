@@ -1,9 +1,11 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
+import { Link } from "react-router-dom";
 import { useI18n } from "../context/I18nContext";
 import { listPublicBooks } from "../api/books";
 
 export default function AnalyticsPage() {
   const { t } = useI18n();
+  const year = 2026;
 
   // search UI state
   const [bucket, setBucket] = useState("finished");
@@ -19,17 +21,25 @@ export default function AnalyticsPage() {
   const debouncedQ = useDebouncedValue(q, 250);
 
   // Buckets supported by the public API (/api/public/books)
+  // NOTE: "stock" is intentionally removed from the diary filter.
+  // The “In stock” pill now links to the dedicated stats page (most-owned authors in stock).
   const bucketOptions = [
-    { key: "stock", labelKey: "analytics_bucket_stock" },
     { key: "finished", labelKey: "analytics_bucket_finished" },
     { key: "abandoned", labelKey: "analytics_bucket_abandoned" },
     { key: "top", labelKey: "analytics_bucket_top" },
   ];
 
+  const bucketKeys = useMemo(() => new Set(["finished", "abandoned", "top"]), []);
+
   const setBucketAndReset = (next) => {
     setBucket(next);
     setPage(1);
   };
+
+  // Safety: if an old state somehow lands on an unsupported bucket (e.g. "stock"), reset.
+  useEffect(() => {
+    if (!bucketKeys.has(bucket)) setBucket("finished");
+  }, [bucket, bucketKeys]);
 
   useEffect(() => {
     let alive = true;
@@ -41,7 +51,7 @@ export default function AnalyticsPage() {
       try {
         const res = await listPublicBooks({
           bucket,
-          year: 2026,
+          year,
           q: debouncedQ.trim() ? debouncedQ.trim() : undefined,
           limit,
           page,
@@ -67,6 +77,22 @@ export default function AnalyticsPage() {
   }, [bucket, debouncedQ, page, limit]);
 
   const pages = Math.max(1, Math.ceil(total / limit));
+
+  const authorFromBook = (b) => {
+    const arr = Array.isArray(b?.authors) ? b.authors : [];
+    const names = arr
+      .map((x) => x?.name_display_display || x?.name_display || x?.name || x?.full_name)
+      .filter(Boolean);
+    if (names.length) return names.join(", ");
+
+    return (
+      b?.author_display ||
+      b?.author ||
+      b?.BAutor ||
+      b?.author_name ||
+      "—"
+    );
+  };
 
   return (
     <section className="zr-section">
@@ -99,6 +125,15 @@ export default function AnalyticsPage() {
                 </button>
               );
             })}
+
+            {/* "In stock" lives on the stats page (most-owned authors in stock) */}
+            <Link
+              to={`/stats/stock?year=${encodeURIComponent(year)}`}
+              className={["zr-btn2", "zr-btn2--sm", "zr-btn2--ghost"].join(" ")}
+              title="Most owned authors (new in stock)"
+            >
+              {t("analytics_bucket_stock")}
+            </Link>
           </div>
 
           <input
@@ -136,28 +171,18 @@ export default function AnalyticsPage() {
 
         {/* Results */}
         <div className="zr-results">
-          {items.map((b) => {
-            const arr = Array.isArray(b?.authors) ? b.authors : [];
-            const authorName =
-              arr
-                .map((x) => x?.name_display_display || x?.name_display || x?.name || x?.full_name)
-                .filter(Boolean)
-                .join(", ") ||
-              b?.author_display ||
-              b?.author ||
-              b?.BAutor ||
-              b?.author_name ||
-              "—";
-
-            return (
-              <div key={b.id} className="zr-resultRow">
-                <div className="zr-resultTitle">
-                  {b.title || "—"}
-                  <span className="zr-resultMeta"> — {authorName}</span>
-                </div>
+          {items.map((b) => (
+            <div key={b.id} className="zr-resultRow">
+              <div className="zr-resultTitle">
+                {b?.id ? (
+                  <Link to={`/book/${encodeURIComponent(b.id)}`}>{b.title || "—"}</Link>
+                ) : (
+                  <span>{b.title || "—"}</span>
+                )}
+                <span className="zr-resultMeta"> — {authorFromBook(b)}</span>
               </div>
-            );
-          })}
+            </div>
+          ))}
 
           {!loadingSearch && items.length === 0 ? (
             <div className="zr-empty">{t("analytics_no_results")}</div>

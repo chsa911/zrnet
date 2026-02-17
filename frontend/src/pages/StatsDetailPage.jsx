@@ -23,7 +23,7 @@ export default function StatsDetailPage() {
   const cfg = useMemo(() => {
     return (
       {
-        stock: { title: t("stats_in_stock"), subtitle: "Most owned authors (in stock)" },
+        stock: { title: t("stats_in_stock"), subtitle: "Most owned authors (new in stock)" },
         finished: {
           title: t("stats_finished"),
           bucket: "finished",
@@ -371,19 +371,20 @@ export default function StatsDetailPage() {
           <ul className="zr-books-list">
             {books.map((b) => {
               const author = (() => {
-                const arr = Array.isArray(b?.authors) ? b.authors : [];
-                const names = arr
-                  .map((x) => x?.name_display_display || x?.name_display || x?.name || x?.full_name)
-                  .filter(Boolean);
-                if (names.length) return names.join(", ");
-                return (
-                  b?.author_display ||
-                  b?.author ||
-                  b?.BAutor ||
-                  b?.author_name ||
-                  "—"
-                );
-              })();
+  const arr = Array.isArray(b?.authors) ? b.authors : [];
+  const names = arr
+    .map((x) => x?.name_display_display || x?.name_display || x?.name || x?.full_name)
+    .filter(Boolean);
+  if (names.length) return names.join(", ");
+
+  return (
+    b?.author_display ||
+    b?.author ||
+    b?.BAutor ||
+    b?.author_name ||
+    "—"
+  );
+})();
               const title = b.title || "—";
               const url =
                 typeof b.purchase_url === "string" && b.purchase_url.trim()

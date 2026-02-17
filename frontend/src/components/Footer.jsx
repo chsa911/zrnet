@@ -1,6 +1,6 @@
 import { Link } from "react-router-dom";
 import { useI18n } from "../context/I18nContext";
-
+ 
 const SOCIALS = [
   { key: "nav_youtube", href: "https://www.youtube.com/@pagesinline" },
   { key: "nav_tiktok", href: "https://www.tiktok.com/@pagesinline" },
@@ -24,7 +24,8 @@ export default function Footer() {
         <div className="zr-footer__right">
           <nav className="zr-footer__links" aria-label={t("footer_links_label")}>
             <Link to="/ueber_mich.html">{t("nav_about")}</Link>
-            <Link to="/kontaktformular.html">{t("nav_contact")}</Link>
+            <Link to="/merch">{t("nav_shop")}</Link>
+           {/* <Link to="/kontaktformular.html">{t("nav_contact")}</Link>*/}
             <Link to="/faq.html">{t("nav_faq")}</Link>
             <Link to="/impressum.html">{t("nav_impressum")}</Link>
           </nav>

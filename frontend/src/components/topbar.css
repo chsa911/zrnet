@@ -26,9 +26,20 @@
 .zr-brand{
   text-decoration:none;
   color: var(--text);
-  font-weight: 900;
-  letter-spacing: -0.02em;
-  font-size: 18px;
+  /* Match the size of the main nav links (e.g. "Technique") */
+  font-weight: 600;
+  font-size: 14px;
+  opacity: 0.82;
+  display:inline-flex;
+  align-items:center;
+  gap: 0;
+}
+
+.zr-brand:hover{ opacity: 1; }
+
+/* Tight dot separators for the brand wordmark */
+.zr-brand__sep{
+  margin: 0 0.04em; /* very tight spacing */
 }
 
 .zr-nav{
@@ -102,4 +113,6 @@
   .zr-nav__link{ display:none; }
   .zr-more{ display:block; }
   .zr-more > summary{ display:inline-flex; }
+
+  .zr-brand{ font-size: 14px; }
 }

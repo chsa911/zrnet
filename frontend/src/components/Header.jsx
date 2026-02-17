@@ -184,7 +184,7 @@ export default function Header({ year = 2026 }) {
     { to: "/analytics", key: "nav_readingdiary" },
     { to: "/kontaktformular.html", key: "nav_contact" },
     { to: "/newsletter.html", key: "nav_newsletter" },
-    { to: "/merchandise.html", key: "nav_shop" },
+    { to: "/merch", key: "nav_shop" },
     { to: "/faq.html", key: "nav_faq" },
     { to: "/impressum.html", key: "nav_impressum" },
   ];

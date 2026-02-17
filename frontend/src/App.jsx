@@ -15,6 +15,7 @@ import BookThemesPage from "./pages/BookThemesPage";
 import StatsDetailPage from "./pages/StatsDetailPage";
 import MostReadAuthorsPage from "./pages/MostReadAuthorsPage";
 import BookPage from "./pages/BookPage";
+import MerchPage from "./pages/MerchPage";
 
 function NotFound() {
   return (
@@ -38,6 +39,10 @@ export default function App() {
 
         {/* analytics */}
         <Route path="analytics/*" element={<AnalyticsPage />} />
+
+        {/* merch */}
+        <Route path="merch" element={<MerchPage />} />
+        <Route path="merchandise.html" element={<Navigate to="/merch" replace />} />
 
         {/* book detail */}
         <Route path="book/:id" element={<BookPage />} />
