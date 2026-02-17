@@ -1,21 +1,51 @@
 import { Link } from "react-router-dom";
-import { useEffect, useRef } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import "./topbar.css";
+import { useI18n } from "../context/I18nContext";
+
+const LANGS = [
+  { locale: "en", label: "EN", bg: "#00C27A", fg: "#0b1a12" }, // green (default)
+  { locale: "de", label: "DE", bg: "#dc2626", fg: "#ffffff" }, // red
+  { locale: "es", label: "ES", bg: "#facc15", fg: "#111827" }, // yellow
+  { locale: "fr", label: "FR", bg: "#2563eb", fg: "#ffffff" }, // blue
+  { locale: "pt-BR", label: "PT-BR", bg: "#000000", fg: "#ffffff" }, // black
+];
+
+function normalizeLocale(input) {
+  const l = String(input || "").trim();
+  if (!l) return "en";
+  // treat any pt-* as pt-BR for now
+  if (l.toLowerCase().startsWith("pt")) return "pt-BR";
+  return l.includes("-") ? l.split("-")[0] : l;
+}
+
+function metaForLocale(locale) {
+  const n = normalizeLocale(locale);
+  return LANGS.find((x) => x.locale.toLowerCase() === n.toLowerCase()) || LANGS[0];
+}
 
 export default function TopBar() {
   const moreRef = useRef(null);
+  const langRef = useRef(null);
+  const { locale, setLocale } = useI18n();
+
+  const activeLang = useMemo(() => metaForLocale(locale), [locale]);
 
   useEffect(() => {
     const onPointerDown = (e) => {
-      const el = moreRef.current;
-      if (!el || !el.open) return;
-      if (!el.contains(e.target)) el.open = false;
+      const more = moreRef.current;
+      if (more?.open && !more.contains(e.target)) more.open = false;
+
+      const lang = langRef.current;
+      if (lang?.open && !lang.contains(e.target)) lang.open = false;
     };
 
     const onKeyDown = (e) => {
-      const el = moreRef.current;
-      if (!el || !el.open) return;
-      if (e.key === "Escape") el.open = false;
+      if (e.key !== "Escape") return;
+      const more = moreRef.current;
+      if (more?.open) more.open = false;
+      const lang = langRef.current;
+      if (lang?.open) lang.open = false;
     };
 
     window.addEventListener("pointerdown", onPointerDown);
@@ -31,12 +61,21 @@ export default function TopBar() {
     if (moreRef.current?.open) moreRef.current.open = false;
   };
 
+  const closeLang = () => {
+    if (langRef.current?.open) langRef.current.open = false;
+  };
+
+  const onPickLocale = (l) => {
+    setLocale(l);
+    closeLang();
+  };
+
   return (
     <header className="zr-topbar">
       <div className="zr-topbar__inner">
         {/* LOGO LEFT */}
         <Link to="/" className="zr-brand" aria-label="ZenReader Home">
-          PagesInLine
+          PAGESiNLiNE
         </Link>
 
         {/* BUTTONS RIGHT */}
@@ -70,9 +109,31 @@ export default function TopBar() {
             </div>
           </details>
 
-          <a className="zr-btn zr-btn--primary" href="#start">
-            Start
-          </a>
+          {/* Language switcher (replaces Start button) */}
+          <details ref={langRef} className="zr-langmenu">
+            <summary
+              className="zr-btn zr-langbtn"
+              aria-label="Language"
+              style={{ background: activeLang.bg, color: activeLang.fg }}
+            >
+              {activeLang.label}
+            </summary>
+
+            <div className="zr-langmenu__menu" role="menu">
+              {LANGS.filter((l) => l.locale !== activeLang.locale).map((l) => (
+                <button
+                  key={l.locale}
+                  type="button"
+                  role="menuitem"
+                  className="zr-langmenu__item"
+                  onClick={() => onPickLocale(l.locale)}
+                  style={{ background: l.bg, color: l.fg }}
+                >
+                  {l.label}
+                </button>
+              ))}
+            </div>
+          </details>
         </nav>
       </div>
     </header>
