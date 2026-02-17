@@ -5,7 +5,6 @@ import Layout from "./components/Layout";
 import Home from "./pages/Home";
 import AnalyticsPage from "./pages/AnalyticsPage";
 import LegacyHtmlPage from "./pages/LegacyHtmlPage";
-import InfoPage from "./pages/InfoPage";
 
 import AdminPage from "./pages/AdminPage";
 import RegisterPage from "./pages/RegisterPage";
@@ -16,7 +15,7 @@ import BookThemesPage from "./pages/BookThemesPage";
 import StatsDetailPage from "./pages/StatsDetailPage";
 import MostReadAuthorsPage from "./pages/MostReadAuthorsPage";
 import BookPage from "./pages/BookPage";
-import MerchPage from "./pages/MerchPage";
+import NewsletterPage from "./pages/NewsletterPage";
 
 function NotFound() {
   return (
@@ -38,26 +37,12 @@ export default function App() {
         <Route path="bookthemes" element={<BookThemesPage />} />
         <Route path="bookthemes.html" element={<Navigate to="/bookthemes" replace />} />
 
+        {/* newsletter */}
+        <Route path="newsletter" element={<NewsletterPage />} />
+        <Route path="newsletter.html" element={<Navigate to="/newsletter" replace />} />
+
         {/* analytics */}
         <Route path="analytics/*" element={<AnalyticsPage />} />
-
-        {/* merch */}
-        <Route path="merch" element={<MerchPage />} />
-        <Route path="merchandise.html" element={<Navigate to="/merch" replace />} />
-
-        {/* static info pages (React + i18n) */}
-        <Route path="info/:slug" element={<InfoPage />} />
-
-        {/* legacy static routes → info/:slug */}
-        <Route path="technik.html" element={<Navigate to="/info/technik" replace />} />
-        <Route path="ausruestung.html" element={<Navigate to="/info/ausruestung" replace />} />
-        <Route path="beschaffung.html" element={<Navigate to="/info/beschaffung" replace />} />
-        <Route path="faq.html" element={<Navigate to="/info/faq" replace />} />
-        <Route path="haeufige_fragen.html" element={<Navigate to="/info/faq" replace />} />
-        <Route path="haeufige_fragen_d.html" element={<Navigate to="/info/faq" replace />} />
-        <Route path="ueber_mich.html" element={<Navigate to="/info/ueber_mich" replace />} />
-        <Route path="impressum.html" element={<Navigate to="/info/impressum" replace />} />
-        <Route path="impressum_d.html" element={<Navigate to="/info/impressum" replace />} />
 
         {/* book detail */}
         <Route path="book/:id" element={<BookPage />} />

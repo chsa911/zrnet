@@ -6,6 +6,7 @@
   "nav_readingdiary": "Reading diary",
   "nav_contact": "Contact",
   "nav_newsletter": "Newsletter",
+  "nav_privacy": "Privacy",
   "nav_shop": "Shop",
   "nav_faq": "FAQ",
   "nav_login": "Login",
@@ -149,7 +150,6 @@
   "nav_getting_books": "Getting books",
   "nav_top_authors": "Top authors",
   "i18n_legacy_notice": "This page isn’t translated to {locale} yet — showing the default version.",
-
   "info.technik.title": "bookswiping, a gamechanger",
   "info.technik.p1": "Swiping on a smartphone means changing content when you’ve seen enough or don’t like it.",
   "info.technik.p2": "With paperbooks that seemed impossible—until I had the idea to cut my books into small pieces.",
@@ -157,7 +157,6 @@
   "info.technik.p4": "I can carry several book parts and switch if a book isn’t a pageturner. Read pages go to the bin, so I always know where I stopped.",
   "info.technik.callout": "3‑R Method: Rip · Read · Recycle.",
   "info.technik.img_pocket_alt": "Pocket pages",
-
   "info.ausruestung.title": "My equipment",
   "info.ausruestung.p1": "A few things make the 3R reading routine easy in everyday life.",
   "info.ausruestung.h_markers": "Markers",
@@ -172,12 +171,10 @@
   "info.ausruestung.h_bag": "Reading bag",
   "info.ausruestung.img_bag_alt": "Reading bag",
   "info.ausruestung.p_bag": "When traveling I use a reading bag to store books. It’s easier than a backpack for quick access—and even works as a trash bag for finished pages.",
-
   "info.beschaffung.title": "How do I get pageturners?",
   "info.beschaffung.p1": "I usually buy my books at flea markets.",
   "info.beschaffung.p2": "For new books I go to Hugendubel in Munich (Karlsplatz) to test‑read and decide—also available online.",
   "info.beschaffung.p3": "For used books in Munich I recommend Antiquariat Angelika Ziegler, Landsberger Str. 71, 80339 Munich (also online).",
-
   "info.faq.title": "Questions you might have",
   "info.faq.q1": "How long have you been doing this already?",
   "info.faq.a1": "For almost 3 years.",
@@ -187,7 +184,6 @@
   "info.faq.a3": "The great ones yes. A real pageturner is hard to forget.",
   "info.faq.q4": "Why don’t you use ebooks?",
   "info.faq.a4": "Three reasons: (1) bigger choice—especially older paperbacks, (2) I love the haptic of paperbooks, (3) pages fit in any pocket (and you can even sit on them).",
-
   "info.about.title": "What drives me to use a reading technique?",
   "info.about.lede": "How the 3R technique helped me return to reading—more often, with better books.",
   "info.about.p1": "As a kid, I devoured adventure stories—especially Karl May. Later, life got busy and reading slowly slipped away.",
@@ -196,7 +192,6 @@
   "info.about.p4": "Today I’m grateful for how many great books I’ve discovered this way—and I’m excited for the next ones.",
   "info.about.cta_technique": "Read about the technique",
   "info.about.cta_home": "Back to home",
-
   "info.impressum.title": "Disclaimer / Impressum",
   "info.impressum.owner": "Owner of the website / Betreiber der Website:",
   "info.impressum.name": "Christopher Sanders",

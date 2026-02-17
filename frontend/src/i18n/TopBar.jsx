@@ -77,7 +77,7 @@ export default function TopBar() {
       <div className="zr-topbar__inner">
         {/* LOGO LEFT */}
         <Link to="/" className="zr-brand" aria-label="ZenReader Home">
-          PagesInLine
+          PAGESiNLiNE
         </Link>
 
         {/* BUTTONS RIGHT */}

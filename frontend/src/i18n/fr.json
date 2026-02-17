@@ -6,6 +6,7 @@
   "nav_readingdiary": "Reading diary",
   "nav_contact": "Contact",
   "nav_newsletter": "Newsletter",
+  "nav_privacy": "Confidentialité",
   "nav_shop": "Shop",
   "nav_faq": "FAQ",
   "nav_login": "Login",
@@ -91,7 +92,6 @@
   "nav_getting_books": "Obtenir des livres",
   "nav_top_authors": "Auteurs principaux",
   "i18n_legacy_notice": "Cette page n’est pas encore traduite en {locale} — affichage de la version par défaut.",
-
   "info.technik.title": "Bookswiping, un game changer",
   "info.technik.p1": "Sur un smartphone, « swiper » veut dire changer de contenu quand on a assez vu ou qu’on n’aime pas.",
   "info.technik.p2": "Avec les livres papier, ça semblait impossible—jusqu’au jour où j’ai eu l’idée de les découper en petites sections.",
@@ -99,7 +99,6 @@
   "info.technik.p4": "Je peux emporter plusieurs sections et changer de livre si ce n’est pas un page‑turner. Les pages lues partent au recyclage : je sais toujours où je me suis arrêté.",
   "info.technik.callout": "Méthode 3R : Déchirer · Lire · Recycler.",
   "info.technik.img_pocket_alt": "Pages dans la poche",
-
   "info.ausruestung.title": "Mon équipement",
   "info.ausruestung.p1": "Quelques objets rendent la routine 3R simple au quotidien.",
   "info.ausruestung.h_markers": "Marqueurs",
@@ -114,12 +113,10 @@
   "info.ausruestung.h_bag": "Sac de lecture",
   "info.ausruestung.img_bag_alt": "Sac de lecture",
   "info.ausruestung.p_bag": "En voyage, j’utilise un sac de lecture. C’est plus pratique qu’un sac à dos pour accéder vite aux livres—et ça sert aussi de sac pour les pages terminées.",
-
   "info.beschaffung.title": "Comment je trouve des page‑turners ?",
   "info.beschaffung.p1": "J’achète souvent mes livres sur les marchés aux puces.",
   "info.beschaffung.p2": "Pour les livres neufs, je vais chez Hugendubel à Munich (Karlsplatz) pour tester et décider—disponible aussi en ligne.",
   "info.beschaffung.p3": "Pour les livres d’occasion à Munich, je recommande Antiquariat Angelika Ziegler, Landsberger Str. 71, 80339 Munich (aussi en ligne).",
-
   "info.faq.title": "Questions que vous pourriez avoir",
   "info.faq.q1": "Depuis combien de temps fais‑tu ça ?",
   "info.faq.a1": "Depuis presque 3 ans.",
@@ -129,7 +126,6 @@
   "info.faq.a3": "Des excellents, oui. Un vrai page‑turner est difficile à oublier.",
   "info.faq.q4": "Pourquoi ne pas utiliser des ebooks ?",
   "info.faq.a4": "Trois raisons : (1) plus de choix—surtout pour les anciens livres papier, (2) j’aime le toucher du papier, (3) les pages vont dans n’importe quelle poche (et on peut même s’asseoir dessus).",
-
   "info.about.title": "Pourquoi j’utilise une technique de lecture ?",
   "info.about.lede": "Comment la technique 3R m’a ramené à la lecture—plus souvent, avec de meilleurs livres.",
   "info.about.p1": "Enfant, je dévorais des histoires d’aventure—surtout Karl May. Plus tard, la vie s’est accélérée et la lecture a disparu.",
@@ -138,7 +134,6 @@
   "info.about.p4": "Aujourd’hui, je suis reconnaissant pour tous ces livres découverts—et impatient pour les prochains.",
   "info.about.cta_technique": "Découvrir la technique",
   "info.about.cta_home": "Retour à l’accueil",
-
   "info.impressum.title": "Mentions légales / Impressum",
   "info.impressum.owner": "Responsable du site :",
   "info.impressum.name": "Christopher Sanders",

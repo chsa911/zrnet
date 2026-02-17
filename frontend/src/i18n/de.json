@@ -29,6 +29,7 @@
   "nav_readingdiary": "Lesetagebuch",
   "nav_contact": "Kontakt",
   "nav_newsletter": "Newsletter",
+  "nav_privacy": "Datenschutz",
   "nav_shop": "Shop",
   "nav_faq": "FAQ",
   "nav_login": "Login",
@@ -122,7 +123,6 @@
   "nav_getting_books": "Beschaffung",
   "nav_top_authors": "Top Autoren",
   "i18n_legacy_notice": "Diese Seite ist noch nicht auf {locale} übersetzt — es wird die Standardversion angezeigt.",
-
   "info.technik.title": "Bookswiping – ein Gamechanger",
   "info.technik.p1": "Wischen auf dem Smartphone heißt: Content wechseln, wenn man genug gesehen hat oder es einem nicht gefällt.",
   "info.technik.p2": "Bei Papierbüchern schien das unmöglich – bis ich auf die Idee kam, Bücher in kleine Teile zu schneiden.",
@@ -130,7 +130,6 @@
   "info.technik.p4": "Ich kann mehrere Buchteile mitnehmen und wechseln, wenn ein Buch kein Pageturner ist. Gelesene Seiten kommen sofort weg – so weiß ich immer, wo ich stehen geblieben bin.",
   "info.technik.callout": "3‑R‑Methode: Reißen · Lesen · Recyceln.",
   "info.technik.img_pocket_alt": "Seiten in der Hosentasche",
-
   "info.ausruestung.title": "Meine Ausrüstung",
   "info.ausruestung.p1": "Ein paar Dinge machen die 3R‑Routine im Alltag leicht.",
   "info.ausruestung.h_markers": "Marker",
@@ -145,12 +144,10 @@
   "info.ausruestung.h_bag": "Lesetasche",
   "info.ausruestung.img_bag_alt": "Lesetasche",
   "info.ausruestung.p_bag": "Auf Reisen nutze ich eine Lesetasche. Sie ist praktischer als ein Rucksack, weil ich schnell an Bücher komme – und sie funktioniert auch als „Mülltasche“ für gelesene Seiten.",
-
   "info.beschaffung.title": "Wie finde ich Pageturner?",
   "info.beschaffung.p1": "Ich kaufe meine Bücher meistens auf Flohmärkten.",
   "info.beschaffung.p2": "Für neue Bücher gehe ich in München zum Hugendubel am Karlsplatz: anlesen und dann entscheiden – gibt’s auch online.",
   "info.beschaffung.p3": "Für gebrauchte Bücher empfehle ich in München das Antiquariat Angelika Ziegler, Landsberger Str. 71, 80339 München (auch online).",
-
   "info.faq.title": "Fragen, die du vielleicht hast",
   "info.faq.q1": "Wie lange machst du das schon?",
   "info.faq.a1": "Seit fast 3 Jahren.",
@@ -160,7 +157,6 @@
   "info.faq.a3": "An die richtig guten: ja. Einen echten Pageturner vergisst man (fast) nie.",
   "info.faq.q4": "Warum nutzt du keine E‑Books?",
   "info.faq.a4": "Drei Gründe: (1) größere Auswahl – besonders bei älteren Paperbacks, (2) ich liebe die Haptik von Papierbüchern, (3) Seiten passen in jede Tasche (und man kann sogar drauf sitzen).",
-
   "info.about.title": "Was treibt mich an, eine Lesetechnik zu nutzen?",
   "info.about.lede": "Wie mir die 3R‑Technik geholfen hat, wieder mehr zu lesen – und bessere Bücher zu finden.",
   "info.about.p1": "Als Kind habe ich Abenteuer verschlungen – besonders Karl May. Später wurde das Leben voller und Lesen rutschte weg.",
@@ -169,7 +165,6 @@
   "info.about.p4": "Heute bin ich dankbar für all die tollen Bücher, die ich so entdeckt habe – und freue mich auf die nächsten.",
   "info.about.cta_technique": "Mehr zur Technik",
   "info.about.cta_home": "Zur Startseite",
-
   "info.impressum.title": "Disclaimer / Impressum",
   "info.impressum.owner": "Betreiber der Website:",
   "info.impressum.name": "Christopher Sanders",
