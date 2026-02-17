@@ -52,7 +52,7 @@
                         {t("home_cta_start")}
                       </a>
 
-                      <Link className="zr-btn2 zr-btn2--ghost" to="/technik.html">
+                      <Link className="zr-btn2 zr-btn2--ghost" to="/info/technik">
                         {t("home_cta_technique")}
                       </Link>
 

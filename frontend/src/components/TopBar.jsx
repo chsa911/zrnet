@@ -27,9 +27,10 @@ function metaForLocale(locale) {
 export default function TopBar() {
   const moreRef = useRef(null);
   const langRef = useRef(null);
-  const { locale, setLocale } = useI18n();
+  const { locale, setLocale, t } = useI18n();
 
   const activeLang = useMemo(() => metaForLocale(locale), [locale]);
+  const langMenuBorder = activeLang.fg === "#ffffff" ? "rgba(255,255,255,0.28)" : "rgba(0,0,0,0.12)";
 
   useEffect(() => {
     const onPointerDown = (e) => {
@@ -75,18 +76,18 @@ export default function TopBar() {
       <div className="zr-topbar__inner">
         {/* LOGO LEFT */}
         <Link to="/" className="zr-brand" aria-label="ZenReader Home">
-          PagesInLine
+          PAGESiNLiNE
         </Link>
 
         {/* BUTTONS RIGHT */}
         <nav className="zr-nav" aria-label="Main navigation">
-          <Link className="zr-nav__link" to="/technik.html">Technique</Link>
-          <Link className="zr-nav__link" to="/analytics">Diary</Link>
-          <Link className="zr-nav__link" to="/faq.html">FAQ</Link>
+          <Link className="zr-nav__link" to="/info/technik">{t("nav_technique")}</Link>
+          <Link className="zr-nav__link" to="/analytics">{t("nav_diary")}</Link>
+          <Link className="zr-nav__link" to="/info/faq">{t("nav_faq")}</Link>
 
           {/* ALL OTHER PAGES UNDER "MORE" */}
           <details ref={moreRef} className="zr-more">
-            <summary className="zr-nav__link">More</summary>
+            <summary className="zr-nav__link">{t("nav_more")}</summary>
 
             <div
               className="zr-more__menu"
@@ -96,16 +97,16 @@ export default function TopBar() {
                 if (e.target.closest?.("a")) closeMore();
               }}
             >
-              <Link to="/ueber_mich.html">About</Link>
+              <Link to="/info/ueber_mich">{t("nav_about")}</Link>
              {/* <Link to="/newsletter.html">Newsletter</Link>
              // <Link to="/merchandise.html">Shop</Link>
              // <Link to="/kontaktformular.html">Contact</Link>*/}
-              <Link to="/login">Admin / Login</Link>
-              <Link to="/impressum.html">Imprint</Link>
+              <Link to="/login">{t("nav_admin_login")}</Link>
+              <Link to="/info/impressum">{t("nav_impressum")}</Link>
             {/*  <Link to="/bookthemes">Book themes</Link> */}
-              <Link to="/ausruestung.html">Equipment</Link>
-              <Link to="/beschaffung.html">Getting books</Link>
-              <Link to="/autoren_meistgelesen.html">Top authors</Link>
+              <Link to="/info/ausruestung">{t("nav_equipment")}</Link>
+              <Link to="/info/beschaffung">{t("nav_getting_books")}</Link>
+              <Link to="/autoren_meistgelesen.html">{t("nav_top_authors")}</Link>
             </div>
           </details>
 
@@ -113,13 +114,17 @@ export default function TopBar() {
           <details ref={langRef} className="zr-langmenu">
             <summary
               className="zr-btn zr-langbtn"
-              aria-label="Language"
+              aria-label={t("lang_label")}
               style={{ background: activeLang.bg, color: activeLang.fg }}
             >
               {activeLang.label}
             </summary>
 
-            <div className="zr-langmenu__menu" role="menu">
+            <div
+              className="zr-langmenu__menu"
+              role="menu"
+              style={{ background: activeLang.bg, borderColor: langMenuBorder }}
+            >
               {LANGS.filter((l) => l.locale !== activeLang.locale).map((l) => (
                 <button
                   key={l.locale}

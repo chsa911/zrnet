@@ -1,0 +1,132 @@
+.zr-info{
+  padding: 26px 16px 60px;
+}
+
+.zr-info__card{
+  max-width: 920px;
+  margin: 0 auto;
+  background: mintcream;
+  border: 1px solid rgba(0,0,0,0.06);
+  border-radius: 18px;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.08);
+  padding: 24px;
+}
+
+.zr-info__title{
+  font-family: Arial, sans-serif;
+  font-size: clamp(24px, 2.6vw, 34px);
+  font-weight: 900;
+  text-align: center;
+  margin: 6px 0 18px;
+}
+
+.zr-info__lede{
+  text-align: center;
+  font-size: 16px;
+  opacity: 0.85;
+  margin: 0 auto 18px;
+  max-width: 64ch;
+}
+
+.zr-info__content{
+  font-family: Arial, sans-serif;
+}
+
+.zr-info__p{
+  font-size: 18px;
+  line-height: 1.85;
+  margin: 0 0 14px;
+}
+
+.zr-info__h2{
+  font-size: 20px;
+  font-weight: 900;
+  margin: 18px 0 10px;
+  text-align: center;
+}
+
+.zr-info__figure{
+  margin: 14px 0 18px;
+  display:flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.zr-info__img{
+  width: min(520px, 100%);
+  height: auto;
+  border-radius: 16px;
+  border: 1px solid rgba(0,0,0,0.08);
+  box-shadow: 0 10px 22px rgba(0,0,0,0.10);
+}
+
+.zr-info__caption{
+  font-size: 14px;
+  opacity: 0.75;
+}
+
+.zr-info__callout{
+  margin: 16px auto 4px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: rgba(0, 255, 191, 0.18);
+  border: 1px solid rgba(0,0,0,0.06);
+  font-weight: 900;
+  text-align: center;
+}
+
+.zr-info__lines{
+  margin: 12px 0 14px;
+  text-align: center;
+  font-size: 18px;
+  line-height: 1.7;
+}
+
+.zr-info__qa{
+  display:flex;
+  flex-direction: column;
+  gap: 14px;
+  margin-top: 8px;
+}
+
+.zr-info__qaItem{
+  padding: 14px;
+  border-radius: 16px;
+  border: 1px solid rgba(0,0,0,0.08);
+  background: rgba(255,255,255,0.7);
+}
+
+.zr-info__q{
+  font-weight: 900;
+  margin-bottom: 6px;
+}
+
+.zr-info__a{
+  opacity: 0.92;
+}
+
+.zr-info__actions{
+  display:flex;
+  justify-content: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 18px;
+}
+
+.zr-info__btn{
+  text-decoration: none;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  padding: 10px 16px;
+  border-radius: 999px;
+  font-weight: 900;
+  border: 1px solid rgba(0,0,0,0.10);
+  background: rgba(0, 211, 124, 0.12);
+  color: #0b1a12;
+}
+
+.zr-info__btn:hover{
+  filter: brightness(0.98);
+}
