@@ -3,27 +3,31 @@ import { useEffect, useMemo, useRef } from "react";
 import "./topbar.css";
 import { useI18n } from "../context/I18nContext";
 
-// Language "identity" colors (used primarily as *text* + dot color).
-// NOTE: Pure yellow text is hard to read on white, so ES uses a darker gold.
+// Language "identity" colors (used as font + dot color in the dropdown,
+// and as font color on the green button for non-EN).
+// NOTE: Pure yellow text is hard to read on light backgrounds, so ES uses a darker gold.
 const LANGS = [
   { locale: "en", label: "EN", accent: "#00C27A" }, // green (default)
   { locale: "de", label: "DE", accent: "#dc2626" }, // red
   { locale: "es", label: "ES", accent: "#B8860B" }, // golden yellow (legible)
   { locale: "fr", label: "FR", accent: "#2563eb" }, // blue
-  { locale: "pt-BR", label: "PT-BR", accent: "#111111" }, // near-black
+  { locale: "pt-BR", label: "PT-BR", accent: "#111111" }, // black
 ];
+
+const BUTTON_BG = "#00C27A"; // keep button background always green (like the Start button)
 
 function normalizeLocale(input) {
   const l = String(input || "").trim();
   if (!l) return "en";
-  // treat any pt-* as pt-BR for now
   if (l.toLowerCase().startsWith("pt")) return "pt-BR";
   return l.includes("-") ? l.split("-")[0] : l;
 }
 
 function metaForLocale(locale) {
   const n = normalizeLocale(locale);
-  return LANGS.find((x) => x.locale.toLowerCase() === n.toLowerCase()) || LANGS[0];
+  return (
+    LANGS.find((x) => x.locale.toLowerCase() === n.toLowerCase()) || LANGS[0]
+  );
 }
 
 export default function TopBar() {
@@ -32,6 +36,15 @@ export default function TopBar() {
   const { locale, setLocale, t } = useI18n();
 
   const activeLang = useMemo(() => metaForLocale(locale), [locale]);
+
+  // Button font rule:
+  // - EN => black on green
+  // - otherwise => language accent color (PT-BR accent is already black)
+  const buttonTextColor = useMemo(() => {
+    const n = normalizeLocale(locale).toLowerCase();
+    if (n === "en") return "#111111";
+    return activeLang.accent;
+  }, [locale, activeLang.accent]);
 
   useEffect(() => {
     const onPointerDown = (e) => {
@@ -82,9 +95,15 @@ export default function TopBar() {
 
         {/* BUTTONS RIGHT */}
         <nav className="zr-nav" aria-label="Main navigation">
-          <Link className="zr-nav__link" to="/info/technik">{t("nav_technique")}</Link>
-          <Link className="zr-nav__link" to="/analytics">{t("nav_diary")}</Link>
-          <Link className="zr-nav__link" to="/info/faq">{t("nav_faq")}</Link>
+          <Link className="zr-nav__link" to="/info/technik">
+            {t("nav_technique")}
+          </Link>
+          <Link className="zr-nav__link" to="/analytics">
+            {t("nav_diary")}
+          </Link>
+          <Link className="zr-nav__link" to="/info/faq">
+            {t("nav_faq")}
+          </Link>
 
           {/* ALL OTHER PAGES UNDER "MORE" */}
           <details ref={moreRef} className="zr-more">
@@ -94,17 +113,12 @@ export default function TopBar() {
               className="zr-more__menu"
               role="menu"
               onClick={(e) => {
-                // close when user clicks any menu item
                 if (e.target.closest?.("a")) closeMore();
               }}
             >
               <Link to="/info/ueber_mich">{t("nav_about")}</Link>
-             {/* <Link to="/newsletter.html">Newsletter</Link>
-             // <Link to="/merchandise.html">Shop</Link>
-             // <Link to="/kontaktformular.html">Contact</Link>*/}
               <Link to="/login">{t("nav_admin_login")}</Link>
               <Link to="/info/impressum">{t("nav_impressum")}</Link>
-            {/*  <Link to="/bookthemes">Book themes</Link> */}
               <Link to="/info/ausruestung">{t("nav_equipment")}</Link>
               <Link to="/info/beschaffung">{t("nav_getting_books")}</Link>
               <Link to="/autoren_meistgelesen.html">{t("nav_top_authors")}</Link>
@@ -116,34 +130,47 @@ export default function TopBar() {
             <summary
               className="zr-btn zr-langbtn"
               aria-label={t("lang_label")}
-              style={{ background: activeLang.accent }}
+              style={{
+                background: BUTTON_BG,
+                color: buttonTextColor,
+                borderColor: "rgba(0,0,0,0.12)",
+              }}
             >
-              <span className="zr-langdot" aria-hidden="true" style={{ background: "rgba(255,255,255,0.92)" }} />
+              <span
+                className="zr-langdot"
+                aria-hidden="true"
+                style={{ background: buttonTextColor }}
+              />
               {activeLang.label}
             </summary>
 
-            <div
-              className="zr-langmenu__menu"
-              role="menu"
-            >
+            <div className="zr-langmenu__menu" role="menu">
               {LANGS.map((l) => {
-                const isActive = l.locale.toLowerCase() === activeLang.locale.toLowerCase();
+                const isActive =
+                  l.locale.toLowerCase() === activeLang.locale.toLowerCase();
+
                 return (
                   <button
                     key={l.locale}
                     type="button"
                     role="menuitem"
                     className={`zr-langmenu__item${isActive ? " is-active" : ""}`}
-                    onClick={() => (!isActive ? onPickLocale(l.locale) : undefined)}
+                    onClick={() => (isActive ? closeLang() : onPickLocale(l.locale))}
                     aria-current={isActive ? "true" : undefined}
-                    disabled={isActive}
-                    style={{ "--lang-accent": l.accent }}
                   >
-                    <span className="zr-langdot" aria-hidden="true" style={{ background: l.accent }} />
+                    <span
+                      className="zr-langdot"
+                      aria-hidden="true"
+                      style={{ background: l.accent }}
+                    />
                     <span className="zr-langlabel" style={{ color: l.accent }}>
                       {l.label}
                     </span>
-                    {isActive ? <span className="zr-langcheck" aria-hidden="true">✓</span> : null}
+                    {isActive ? (
+                      <span className="zr-langcheck" aria-hidden="true">
+                        ✓
+                      </span>
+                    ) : null}
                   </button>
                 );
               })}
