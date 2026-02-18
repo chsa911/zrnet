@@ -1,0 +1,132 @@
+.checkout-grid {
+  display: grid;
+  grid-template-columns: 1.2fr 1fr;
+  gap: 16px;
+}
+
+@media (max-width: 900px) {
+  .checkout-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.checkout-h2 {
+  margin: 0 0 12px;
+}
+
+.checkout-muted {
+  opacity: 0.75;
+}
+
+.checkout-lines {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.checkout-line {
+  display: grid;
+  grid-template-columns: 1fr 140px 120px;
+  gap: 12px;
+  align-items: end;
+  padding: 10px 0;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+}
+
+@media (max-width: 700px) {
+  .checkout-line {
+    grid-template-columns: 1fr;
+    align-items: start;
+  }
+}
+
+.checkout-line-title {
+  font-weight: 700;
+}
+
+.checkout-line-meta {
+  opacity: 0.75;
+  font-size: 0.95em;
+}
+
+.checkout-line-qty input {
+  width: 100%;
+  padding: 8px;
+  border-radius: 8px;
+  border: 1px solid rgba(0, 0, 0, 0.18);
+}
+
+.checkout-line-total {
+  text-align: right;
+  font-weight: 700;
+}
+
+.checkout-summary {
+  margin-top: 10px;
+  padding-top: 10px;
+}
+
+.checkout-summary-row {
+  display: flex;
+  justify-content: space-between;
+  font-weight: 700;
+}
+
+.checkout-summary-hint {
+  margin-top: 6px;
+  opacity: 0.75;
+  font-size: 0.95em;
+}
+
+.checkout-form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.checkout-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+@media (max-width: 700px) {
+  .checkout-row {
+    grid-template-columns: 1fr;
+  }
+}
+
+.checkout-label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 0.95em;
+}
+
+.checkout-label input,
+.checkout-label select,
+.checkout-label textarea {
+  padding: 10px;
+  border-radius: 10px;
+  border: 1px solid rgba(0, 0, 0, 0.18);
+  font: inherit;
+}
+
+.checkout-paybox {
+  padding: 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  background: rgba(0, 0, 0, 0.03);
+}
+
+.checkout-paybox-title {
+  font-weight: 700;
+  margin-bottom: 4px;
+}
+
+.checkout-error {
+  padding: 10px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 0, 0, 0.25);
+  background: rgba(255, 0, 0, 0.06);
+}

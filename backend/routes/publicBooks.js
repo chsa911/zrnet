@@ -25,6 +25,7 @@ function normStr(v) {
 // single sources of truth for public display
 const AUTHOR_EXPR = "a.name_display";
 const TITLE_EXPR = "COALESCE(NULLIF(b.title_display,''), NULLIF(b.title_keyword,''))";
+const PUBLISHER_EXPR = "COALESCE(p.name, b.publisher)";
 
 
 // purchase providers (optional) — compute best link from isbn + templates
@@ -111,7 +112,7 @@ router.get("/", async (req, res) => {
         `(
           ${TITLE_EXPR} ILIKE ${p} OR
           ${AUTHOR_EXPR} ILIKE ${p} OR
-          b.publisher ILIKE ${p} OR
+          ${PUBLISHER_EXPR} ILIKE ${p} OR
           b.title_keyword ILIKE ${p} OR
           b.title_keyword2 ILIKE ${p} OR
           b.title_keyword3 ILIKE ${p} OR
@@ -138,6 +139,7 @@ router.get("/", async (req, res) => {
         bb.barcode
       FROM public.books b
       LEFT JOIN public.authors a ON a.id = b.author_id
+      LEFT JOIN public.publishers p ON p.id = b.publisher_id
       LEFT JOIN LATERAL (
         SELECT barcode FROM public.book_barcodes bb WHERE bb.book_id = b.id LIMIT 1
       ) bb ON true

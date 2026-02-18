@@ -1,4 +1,4 @@
-import React from "react";
+ import React from "react";
 import { Routes, Route, Navigate } from "react-router-dom";
 
 import Layout from "./components/Layout";
@@ -15,7 +15,9 @@ import BookThemesPage from "./pages/BookThemesPage";
 import StatsDetailPage from "./pages/StatsDetailPage";
 import MostReadAuthorsPage from "./pages/MostReadAuthorsPage";
 import BookPage from "./pages/BookPage";
-import NewsletterPage from "./pages/NewsletterPage";
+import MerchPage from "./pages/MerchPage";
+import CheckoutPage from "./pages/CheckoutPage";
+import OrderThanksPage from "./pages/OrderThanksPage";
 
 function NotFound() {
   return (
@@ -37,12 +39,14 @@ export default function App() {
         <Route path="bookthemes" element={<BookThemesPage />} />
         <Route path="bookthemes.html" element={<Navigate to="/bookthemes" replace />} />
 
-        {/* newsletter */}
-        <Route path="newsletter" element={<NewsletterPage />} />
-        <Route path="newsletter.html" element={<Navigate to="/newsletter" replace />} />
-
         {/* analytics */}
         <Route path="analytics/*" element={<AnalyticsPage />} />
+
+        {/* merch */}
+        <Route path="merch" element={<MerchPage />} />
+        <Route path="checkout" element={<CheckoutPage />} />
+        <Route path="order/:orderId" element={<OrderThanksPage />} />
+        <Route path="merchandise.html" element={<Navigate to="/merch" replace />} />
 
         {/* book detail */}
         <Route path="book/:id" element={<BookPage />} />
@@ -65,6 +69,8 @@ export default function App() {
         <Route path="stats/:type" element={<StatsDetailPage />} />
 
         {/* other legacy html routes */}
+        {/* friendly info routes used by TopBar (serve legacy html via iframe) */}
+        <Route path="info/:page" element={<LegacyHtmlPage />} />
         <Route path="autoren_meistgelesen.html" element={<MostReadAuthorsPage />} />
         <Route path="autoren_meist_gelesen.html" element={<MostReadAuthorsPage />} />
         <Route path=":page.html" element={<LegacyHtmlPage />} />

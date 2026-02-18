@@ -146,6 +146,12 @@ export async function updateBook(id, patch) {
   return http(`/books/${encodeURIComponent(id)}`, { method: "PATCH", json: patch || {} });
 }
 
+// Read one full book record (used to prefill the edit form)
+export async function getBook(id) {
+  if (!id) throw new Error("Missing book id");
+  return http(`/books/${encodeURIComponent(id)}`);
+}
+
 export async function autocomplete(field, value) {
   const qs = toQuery({ field, q: value });
   return http(`/books/autocomplete?${qs}`);

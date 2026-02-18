@@ -4,6 +4,7 @@ const router = express.Router();
 
 const {
   listBooks,
+  getBook,
   autocomplete,
   registerBook,
   updateBook,
@@ -16,6 +17,9 @@ router.get("/list", listBooks);
 
 // Autocomplete
 router.get("/autocomplete", autocomplete);
+
+// Read one
+router.get("/:id", getBook);
 
 // Create
 router.post("/", registerBook);

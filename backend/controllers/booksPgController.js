@@ -430,6 +430,47 @@ async function listBooks(req, res) {
   }
 }
 
+/* ------------------------------ read one ---------------------------------- */
+
+// Return a full book record (all columns) plus UI-friendly alias fields.
+// Used by the edit form to prefill every field.
+async function getBook(req, res) {
+  try {
+    const pool = getPool(req);
+    const id = String(req.params.id || "").trim();
+    if (!UUID_RE.test(id)) return res.status(400).json({ error: "bad_id" });
+
+    const { rows } = await pool.query(
+      `
+      SELECT
+        b.*,
+        bb.barcode,
+        a.name_display AS author_name_display,
+        a.first_name   AS author_first_name,
+        a.last_name    AS author_last_name
+      FROM public.books b
+      LEFT JOIN public.authors a ON a.id = b.author_id
+      LEFT JOIN LATERAL (
+        SELECT barcode FROM public.book_barcodes bb WHERE bb.book_id = b.id LIMIT 1
+      ) bb ON true
+      WHERE b.id = $1::uuid
+      LIMIT 1
+      `,
+      [id]
+    );
+
+    if (!rows.length) return res.status(404).json({ error: "not_found" });
+
+    const row = rows[0];
+    // Merge the raw DB row with the legacy/UI alias keys.
+    // This way the edit form can show *all* fields and still reuse existing pick() logic.
+    return res.json({ ...row, ...rowToApi(row) });
+  } catch (err) {
+    console.error("getBook error", err);
+    return res.status(500).json({ error: "internal_error" });
+  }
+}
+
 /* ------------------------------ autocomplete -------------------------------- */
 
 async function autocomplete(req, res) {
@@ -844,6 +885,7 @@ async function dropBook(req, res) {
 
 module.exports = {
   listBooks,
+  getBook,
   autocomplete,
   registerBook,
   updateBook,

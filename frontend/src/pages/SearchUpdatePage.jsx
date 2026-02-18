@@ -25,9 +25,11 @@ function pick(b, aliases, joinArray = ", ") {
 // small helpers using pick + aliases
 const getBarcodeRaw = (b) => pick(b, ["barcode", "BMarkb", "BMark", "code", "Barcode"]);
 const getBarcode = (b) => getBarcodeRaw(b) ?? "—";
-const getAuthor = (b) => pick(b, ["BAutor", "Autor", "author", "Author"]) ?? "—";
+const getAuthor = (b) =>
+  pick(b, ["name_display", "author_name_display", "author_display", "BAutor", "Autor", "author", "Author"]) ?? "—";
 const getKeyword = (b) => pick(b, ["BKw", "Stichwort", "Schlagwort", "keyword", "keywords"]) ?? "—";
-const getPublisher = (b) => pick(b, ["BVerlag", "Verlag", "publisher", "Publisher"]) ?? "—";
+const getPublisher = (b) =>
+  pick(b, ["publisher_name_display", "BVerlag", "Verlag", "publisher", "Publisher"]) ?? "—";
 const getPages = (b) => {
   const raw = pick(b, ["BSeiten", "Seiten", "pages", "Pages", "Seite", "page_count"]);
   if (raw === undefined || raw === null || raw === "") return "—";
@@ -436,6 +438,7 @@ export default function SearchUpdatePage() {
 
                   patchRow(idOf(editingBook), patch);
                   setEditingBook((prev) => ({ ...(prev || {}), ...patch }));
+                  closeEditor();
                 }}
               />
             </div>
