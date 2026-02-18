@@ -90,6 +90,131 @@
     res.json({ ok: true });
   });
 
+  /* -------------------- comments moderation -------------------- */
+
+  function clampOffset(v, { min = 0, max = 1000000, def = 0 } = {}) {
+    const n = Number(v);
+    if (!Number.isFinite(n)) return def;
+    return Math.max(min, Math.min(max, Math.trunc(n)));
+  }
+
+  // GET /api/admin/comments?status=pending|approved|rejected|spam&bookId=<uuid>&page=1&limit=50
+  router.get("/comments", async (req, res) => {
+    const pool = req.app.get("pgPool");
+    if (!pool) return res.status(500).json({ error: "pgPool missing" });
+
+    const statusRaw = String(req.query?.status || "").trim().toLowerCase();
+    const status = statusRaw && ["pending", "approved", "rejected", "spam"].includes(statusRaw)
+      ? statusRaw
+      : null;
+
+    const bookId = String(req.query?.bookId || req.query?.book_id || "").trim() || null;
+
+    const page = clampInt(req.query?.page, { min: 1, max: 100000, def: 1 });
+    const limit = clampInt(req.query?.limit, { min: 1, max: 200, def: 50 });
+    const offset = (page - 1) * limit;
+
+    try {
+      const countRes = await pool.query(
+        `
+        SELECT count(*)::int AS total
+        FROM public.book_comments c
+        WHERE ($1::text IS NULL OR c.status = $1)
+          AND ($2::uuid IS NULL OR c.book_id = $2::uuid)
+        `,
+        [status, bookId]
+      );
+      const totalItems = countRes.rows?.[0]?.total ?? 0;
+      const pages = Math.max(1, Math.ceil(totalItems / limit));
+
+      const listRes = await pool.query(
+        `
+        SELECT
+          c.id::text AS id,
+          c.book_id::text AS book_id,
+          c.parent_id::text AS parent_id,
+          c.author_name,
+          c.body,
+          c.status,
+          c.created_at,
+          c.approved_at,
+          c.rejected_at,
+          COALESCE(NULLIF(b.title_display,''), NULLIF(b.title_keyword,'')) AS book_title,
+          a.name_display AS book_author
+        FROM public.book_comments c
+        LEFT JOIN public.books b ON b.id = c.book_id
+        LEFT JOIN public.authors a ON a.id = b.author_id
+        WHERE ($1::text IS NULL OR c.status = $1)
+          AND ($2::uuid IS NULL OR c.book_id = $2::uuid)
+        ORDER BY c.created_at DESC
+        LIMIT $3 OFFSET $4
+        `,
+        [status, bookId, limit, offset]
+      );
+
+      return res.json({
+        items: listRes.rows || [],
+        page,
+        limit,
+        totalItems,
+        pages,
+      });
+    } catch (e) {
+      console.error("GET /api/admin/comments failed:", e);
+      return res.status(500).json({ error: "comments_list_failed", detail: String(e?.message || e) });
+    }
+  });
+
+  // POST /api/admin/comments/:id/approve
+  router.post("/comments/:id/approve", async (req, res) => {
+    const pool = req.app.get("pgPool");
+    if (!pool) return res.status(500).json({ error: "pgPool missing" });
+
+    const id = String(req.params.id || "").trim();
+    if (!id) return res.status(400).json({ error: "missing_id" });
+
+    try {
+      const r = await pool.query(
+        `
+        UPDATE public.book_comments
+        SET status='approved', approved_at=now(), rejected_at=NULL
+        WHERE id = $1::uuid
+        RETURNING id::text AS id, status, approved_at
+        `,
+        [id]
+      );
+      if (!r.rows?.[0]) return res.status(404).json({ error: "not_found" });
+      return res.json({ ok: true, ...r.rows[0] });
+    } catch (e) {
+      return res.status(500).json({ error: "approve_failed", detail: String(e?.message || e) });
+    }
+  });
+
+  // POST /api/admin/comments/:id/reject
+  router.post("/comments/:id/reject", async (req, res) => {
+    const pool = req.app.get("pgPool");
+    if (!pool) return res.status(500).json({ error: "pgPool missing" });
+
+    const id = String(req.params.id || "").trim();
+    if (!id) return res.status(400).json({ error: "missing_id" });
+
+    try {
+      const r = await pool.query(
+        `
+        UPDATE public.book_comments
+        SET status='rejected', rejected_at=now()
+        WHERE id = $1::uuid
+        RETURNING id::text AS id, status, rejected_at
+        `,
+        [id]
+      );
+      if (!r.rows?.[0]) return res.status(404).json({ error: "not_found" });
+      return res.json({ ok: true, ...r.rows[0] });
+    } catch (e) {
+      return res.status(500).json({ error: "reject_failed", detail: String(e?.message || e) });
+    }
+  });
+
   /* -------------------- barcode dashboard -------------------- */
 
   // GET /api/admin/barcodes/summary

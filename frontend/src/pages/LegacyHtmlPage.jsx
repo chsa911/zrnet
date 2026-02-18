@@ -29,11 +29,24 @@ export default function LegacyHtmlPage() {
     let alive = true;
     const ac = new AbortController();
 
+    // IMPORTANT:
+    // Many deployments have an SPA "catch-all" that returns index.html (HTTP 200)
+    // even for missing files like /assets/technik_de.html. If we only check resp.ok
+    // we'd incorrectly think the localized legacy HTML exists and then the iframe
+    // would render the React app inside itself (double header + 404).
+    //
+    // So we also detect and reject SPA index.html responses.
     async function exists(url) {
       try {
         // Some servers don't support HEAD → use a lightweight GET.
         const resp = await fetch(url, { method: "GET", signal: ac.signal, cache: "no-store" });
-        return resp.ok;
+        if (!resp.ok) return false;
+
+        // Heuristic: our SPA index contains a root mount node.
+        // Legacy HTML pages don't.
+        const text = await resp.text();
+        if (text.includes('id="root"') || text.includes("id='root'")) return false;
+        return true;
       } catch {
         return false;
       }

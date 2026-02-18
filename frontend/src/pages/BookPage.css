@@ -128,6 +128,147 @@
   border-radius: 12px;
 }
 
+/* My comment box (personal) */
+.zr-bookpage__commentBox {
+  margin-top: 14px;
+  padding: 12px;
+  border-radius: 14px;
+  border: 1px solid rgba(0,0,0,0.10);
+  background: rgba(0,0,0,0.02);
+}
+
+.zr-bookpage__commentTitle {
+  font-weight: 950;
+  margin-bottom: 6px;
+}
+
+.zr-bookpage__commentText {
+  font-size: 14px;
+  opacity: 0.92;
+}
+
+/* Public comments */
+.zr-bookpage__commentsHeader {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.zr-bookpage__commentsTitle {
+  margin: 0;
+  font-weight: 950;
+}
+
+.zr-bookpage__commentsMeta {
+  font-size: 12px;
+  opacity: 0.75;
+  font-weight: 800;
+}
+
+.zr-bookpage__commentsError {
+  color: #a00;
+  font-weight: 800;
+  margin-bottom: 10px;
+}
+
+.zr-bookpage__commentsList {
+  display: grid;
+  gap: 10px;
+}
+
+.zr-bookpage__commentsEmpty {
+  font-size: 13px;
+  opacity: 0.75;
+  font-weight: 800;
+}
+
+.zr-bookpage__comment {
+  border: 1px solid rgba(0,0,0,0.10);
+  border-radius: 14px;
+  padding: 12px;
+  background: #fff;
+}
+
+.zr-bookpage__commentTop {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 6px;
+}
+
+.zr-bookpage__commentAuthor {
+  font-weight: 950;
+}
+
+.zr-bookpage__commentDate {
+  font-size: 12px;
+  opacity: 0.7;
+  font-weight: 800;
+}
+
+.zr-bookpage__commentBody {
+  font-size: 14px;
+  opacity: 0.92;
+}
+
+.zr-bookpage__divider {
+  margin: 14px 0;
+  border-top: 1px solid rgba(0,0,0,0.10);
+}
+
+.zr-bookpage__leaveTitle {
+  margin: 0 0 6px;
+  font-weight: 950;
+}
+
+.zr-bookpage__hint {
+  font-size: 12px;
+  opacity: 0.75;
+  margin-bottom: 10px;
+}
+
+.zr-bookpage__noticeOk {
+  border: 1px solid rgba(0,120,0,0.25);
+  background: rgba(0,120,0,0.06);
+  padding: 10px 12px;
+  border-radius: 12px;
+  font-weight: 800;
+  margin-bottom: 10px;
+}
+
+.zr-bookpage__noticeErr {
+  border: 1px solid rgba(160,0,0,0.25);
+  background: rgba(160,0,0,0.05);
+  padding: 10px 12px;
+  border-radius: 12px;
+  font-weight: 800;
+  color: #a00;
+  margin-bottom: 10px;
+}
+
+.zr-bookpage__form {
+  display: grid;
+  gap: 10px;
+}
+
+.zr-bookpage__label {
+  display: grid;
+  gap: 6px;
+  font-weight: 800;
+}
+
+.zr-bookpage__hp {
+  position: absolute;
+  left: -9999px;
+  top: auto;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+}
+
 @media (max-width: 920px) {
   .zr-bookpage__grid {
     grid-template-columns: 1fr;

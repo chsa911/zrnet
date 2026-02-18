@@ -3,6 +3,7 @@
 
 const express = require("express");
 const router = express.Router();
+const crypto = require("crypto");
 
 function getPool(req) {
   const pool = req.app.get("pgPool");
@@ -20,6 +21,29 @@ function normStr(v) {
   if (v === undefined || v === null) return null;
   const s = String(v).trim();
   return s ? s : null;
+}
+
+function isUuid(v) {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+    String(v || "")
+  );
+}
+
+function getClientIp(req) {
+  const xf = String(req.headers["x-forwarded-for"] || "");
+  if (xf) return xf.split(",")[0].trim();
+  return req.socket?.remoteAddress || "";
+}
+
+function hashIp(ip) {
+  const salt = String(process.env.IP_HASH_SALT || "zr");
+  const raw = `${salt}:${String(ip || "")}`;
+  return crypto.createHash("sha256").update(raw).digest("hex");
+}
+
+function countLinks(text) {
+  const m = String(text || "").match(/https?:\/\/\S+/gi);
+  return m ? m.length : 0;
 }
 
 // single sources of truth for public display
@@ -359,6 +383,134 @@ router.get("/most-read-authors", async (req, res) => {
     );
   } catch (err) {
     console.error("GET /api/public/books/most-read-authors error", err);
+    return res.status(500).json({ error: "internal_error" });
+  }
+});
+
+/**
+ * GET /api/public/books/:id/comments
+ * Public: only approved comments.
+ */
+router.get("/:id/comments", async (req, res) => {
+  try {
+    const pool = getPool(req);
+    const bookId = String(req.params.id || "").trim();
+    if (!isUuid(bookId)) return res.status(400).json({ error: "invalid_book_id" });
+
+    const limit = clampInt(req.query.limit, 200, 1, 500);
+
+    const { rows } = await pool.query(
+      `
+      SELECT
+        id::text AS id,
+        book_id::text AS book_id,
+        parent_id::text AS parent_id,
+        COALESCE(NULLIF(author_name,''), 'Guest') AS author_name,
+        body,
+        created_at
+      FROM public.book_comments
+      WHERE book_id = $1::uuid
+        AND status = 'approved'
+      ORDER BY created_at ASC
+      LIMIT $2
+      `,
+      [bookId, limit]
+    );
+
+    return res.json({ items: rows || [] });
+  } catch (err) {
+    // If table doesn't exist yet, fail gracefully for public pages.
+    if (String(err?.message || "").toLowerCase().includes("book_comments")) {
+      return res.json({ items: [] });
+    }
+    console.error("GET /api/public/books/:id/comments error", err);
+    return res.status(500).json({ error: "internal_error" });
+  }
+});
+
+/**
+ * POST /api/public/books/:id/comments
+ * Guest: creates a pending comment (moderation recommended).
+ * Basic anti-spam:
+ *  - honeypot field "website" (must be empty)
+ *  - link limit
+ *  - rate limiting by ip_hash (DB-based)
+ */
+router.post("/:id/comments", async (req, res) => {
+  try {
+    const pool = getPool(req);
+    const bookId = String(req.params.id || "").trim();
+    if (!isUuid(bookId)) return res.status(400).json({ error: "invalid_book_id" });
+
+    const authorName = normStr(req.body?.authorName ?? req.body?.author_name) || "";
+    const body = normStr(req.body?.body) || "";
+    const parentId = normStr(req.body?.parentId ?? req.body?.parent_id);
+    const website = normStr(req.body?.website);
+
+    // Honeypot: bots often fill it
+    if (website) return res.json({ ok: true, status: "pending" });
+
+    if (body.length < 3) return res.status(400).json({ error: "comment_too_short" });
+    if (body.length > 2000) return res.status(400).json({ error: "comment_too_long" });
+    if (authorName.length > 80) return res.status(400).json({ error: "name_too_long" });
+    if (parentId && !isUuid(parentId)) return res.status(400).json({ error: "invalid_parent_id" });
+    if (countLinks(body) > 2) return res.status(400).json({ error: "too_many_links" });
+
+    // Ensure book exists (avoid comment spam on random uuids)
+    const exists = await pool.query(`SELECT 1 FROM public.books WHERE id = $1::uuid LIMIT 1`, [bookId]);
+    if (!exists.rows?.[0]) return res.status(404).json({ error: "book_not_found" });
+
+    const ip = getClientIp(req);
+    const ipHash = hashIp(ip);
+    const ua = normStr(req.headers["user-agent"]) || null;
+
+    // Rate limit: max 5 per 10 min + max 1 per 30 sec
+    try {
+      const recent10 = await pool.query(
+        `
+        SELECT count(*)::int AS c
+        FROM public.book_comments
+        WHERE ip_hash = $1
+          AND created_at > (now() - interval '10 minutes')
+        `,
+        [ipHash]
+      );
+      if ((recent10.rows?.[0]?.c ?? 0) >= 5) {
+        return res.status(429).json({ error: "rate_limited" });
+      }
+
+      const recent30 = await pool.query(
+        `
+        SELECT count(*)::int AS c
+        FROM public.book_comments
+        WHERE ip_hash = $1
+          AND created_at > (now() - interval '30 seconds')
+        `,
+        [ipHash]
+      );
+      if ((recent30.rows?.[0]?.c ?? 0) >= 1) {
+        return res.status(429).json({ error: "rate_limited" });
+      }
+    } catch (e) {
+      // If table doesn't exist yet, we still allow posting to avoid hard failures in dev.
+      // (But the INSERT will fail anyway.)
+    }
+
+    const id = crypto.randomUUID();
+
+    await pool.query(
+      `
+      INSERT INTO public.book_comments
+        (id, book_id, parent_id, author_name, body, status, ip_hash, user_agent)
+      VALUES
+        ($1::uuid, $2::uuid, $3::uuid, $4, $5, 'pending', $6, $7)
+      `,
+      [id, bookId, parentId, authorName || null, body, ipHash, ua]
+    );
+
+    return res.status(201).json({ ok: true, status: "pending", id });
+  } catch (err) {
+    console.error("POST /api/public/books/:id/comments error", err);
     return res.status(500).json({ error: "internal_error" });
   }
 });

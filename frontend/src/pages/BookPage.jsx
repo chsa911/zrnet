@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useParams, useSearchParams } from "react-router-dom";
 import { getPublicBook } from "../api/books";
+import { createPublicBookComment, listPublicBookComments } from "../api/comments";
 import "./BookPage.css";
 
 function isAbortError(e) {
@@ -33,6 +34,13 @@ export default function BookPage() {
   const [loading, setLoading] = useState(true);
   const [coverBroken, setCoverBroken] = useState(false);
 
+  const [comments, setComments] = useState([]);
+  const [commentsLoading, setCommentsLoading] = useState(false);
+  const [commentsErr, setCommentsErr] = useState("");
+
+  const [form, setForm] = useState({ authorName: "", body: "", website: "" });
+  const [submitState, setSubmitState] = useState({ busy: false, okMsg: "", errMsg: "" });
+
   // Full cover: prefer querystring cover; else default to /assets/covers/<id>.jpg
   const coverSrc = useMemo(() => {
     if (coverFromQS) return coverFromQS;
@@ -61,6 +69,43 @@ export default function BookPage() {
 
     return () => ac.abort();
   }, [safeId]);
+
+  // Load approved comments
+  useEffect(() => {
+    if (!safeId) return;
+    const ac = new AbortController();
+
+    (async () => {
+      try {
+        setCommentsLoading(true);
+        setCommentsErr("");
+        const items = await listPublicBookComments(safeId, { signal: ac.signal });
+        setComments(Array.isArray(items) ? items : []);
+      } catch (e) {
+        if (isAbortError(e)) return;
+        setCommentsErr(e?.message || "Failed to load comments");
+      } finally {
+        if (!ac.signal.aborted) setCommentsLoading(false);
+      }
+    })();
+
+    return () => ac.abort();
+  }, [safeId]);
+
+  async function submitComment(e) {
+    e.preventDefault();
+    setSubmitState({ busy: true, okMsg: "", errMsg: "" });
+    try {
+      const body = String(form.body || "").trim();
+      const authorName = String(form.authorName || "").trim();
+      if (body.length < 3) throw new Error("Comment is too short.");
+      await createPublicBookComment(safeId, { authorName, body, website: form.website });
+      setForm({ authorName: authorName, body: "", website: "" });
+      setSubmitState({ busy: false, okMsg: "Thanks! Your comment will appear after approval.", errMsg: "" });
+    } catch (e2) {
+      setSubmitState({ busy: false, okMsg: "", errMsg: e2?.message || "Failed to submit comment" });
+    }
+  }
 
   const title = book?.title || "—";
   const author = book?.author || "—";
@@ -109,6 +154,7 @@ export default function BookPage() {
           <strong>Error:</strong> {err}
         </div>
       ) : (
+        <>
         <div className="zr-bookpage__grid">
           {/* Full cover */}
           <div className="zr-bookpage__coverCard">
@@ -175,6 +221,95 @@ export default function BookPage() {
             </div>
           </div>
         </div>
+        
+        {/* Public comments */}
+        <div className="zr-bookpage__card">
+          <div className="zr-bookpage__commentsHeader">
+            <h2 className="zr-bookpage__commentsTitle">Comments</h2>
+            <div className="zr-bookpage__commentsMeta">
+              {commentsLoading ? "Loading…" : `${comments.length} approved`}
+            </div>
+          </div>
+
+          {commentsErr ? (
+            <div className="zr-bookpage__commentsError">{commentsErr}</div>
+          ) : null}
+
+          <div className="zr-bookpage__commentsList">
+            {commentsLoading ? (
+              <div className="zr-bookpage__commentsEmpty">Loading…</div>
+            ) : comments.length ? (
+              comments.map((c) => (
+                <div key={c.id} className="zr-bookpage__comment">
+                  <div className="zr-bookpage__commentTop">
+                    <div className="zr-bookpage__commentAuthor">{c.author_name || "Guest"}</div>
+                    <div className="zr-bookpage__commentDate">
+                      {c.created_at ? new Date(c.created_at).toLocaleDateString() : ""}
+                    </div>
+                  </div>
+                  <div className="zr-bookpage__commentBody" style={{ whiteSpace: "pre-wrap" }}>
+                    {c.body}
+                  </div>
+                </div>
+              ))
+            ) : (
+              <div className="zr-bookpage__commentsEmpty">No comments yet.</div>
+            )}
+          </div>
+
+          <div className="zr-bookpage__divider" />
+
+          <h3 className="zr-bookpage__leaveTitle">Leave a comment</h3>
+          <div className="zr-bookpage__hint">No account needed. Comments are visible after approval.</div>
+
+          {submitState.okMsg ? (
+            <div className="zr-bookpage__noticeOk">{submitState.okMsg}</div>
+          ) : null}
+          {submitState.errMsg ? (
+            <div className="zr-bookpage__noticeErr">{submitState.errMsg}</div>
+          ) : null}
+
+          <form className="zr-bookpage__form" onSubmit={submitComment}>
+            <label className="zr-bookpage__label">
+              Name (optional)
+              <input
+                className="zr-input"
+                value={form.authorName}
+                onChange={(e) => setForm((p) => ({ ...p, authorName: e.target.value }))}
+                maxLength={80}
+                placeholder="Guest"
+              />
+            </label>
+
+            {/* Honeypot (hidden) */}
+            <input
+              tabIndex={-1}
+              autoComplete="off"
+              className="zr-bookpage__hp"
+              value={form.website}
+              onChange={(e) => setForm((p) => ({ ...p, website: e.target.value }))}
+              name="website"
+            />
+
+            <label className="zr-bookpage__label">
+              Comment
+              <textarea
+                className="zr-input"
+                value={form.body}
+                onChange={(e) => setForm((p) => ({ ...p, body: e.target.value }))}
+                rows={5}
+                maxLength={2000}
+                placeholder="Write your comment…"
+                required
+              />
+            </label>
+
+            <button className="zr-btn2 zr-btn2--primary" type="submit" disabled={submitState.busy}>
+              {submitState.busy ? "Sending…" : "Submit"}
+            </button>
+          </form>
+        </div>
+        </>
       )}
     </div>
   );

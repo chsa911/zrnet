@@ -5,6 +5,7 @@ import Layout from "./components/Layout";
 import Home from "./pages/Home";
 import AnalyticsPage from "./pages/AnalyticsPage";
 import LegacyHtmlPage from "./pages/LegacyHtmlPage";
+import InfoPage from "./pages/InfoPage";
 
 import AdminPage from "./pages/AdminPage";
 import RegisterPage from "./pages/RegisterPage";
@@ -18,6 +19,7 @@ import BookPage from "./pages/BookPage";
 import MerchPage from "./pages/MerchPage";
 import CheckoutPage from "./pages/CheckoutPage";
 import OrderThanksPage from "./pages/OrderThanksPage";
+import NewsletterPage from "./pages/NewsletterPage";
 
 function NotFound() {
   return (
@@ -48,6 +50,25 @@ export default function App() {
         <Route path="order/:orderId" element={<OrderThanksPage />} />
         <Route path="merchandise.html" element={<Navigate to="/merch" replace />} />
 
+        {/* newsletter */}
+        <Route path="newsletter" element={<NewsletterPage />} />
+        <Route path="newsletter.html" element={<Navigate to="/newsletter" replace />} />
+
+        {/* static info pages (React + i18n) */}
+        <Route path="info/:slug" element={<InfoPage />} />
+
+        {/* legacy static routes → info/:slug */}
+        <Route path="technik.html" element={<Navigate to="/info/technik" replace />} />
+        <Route path="ausruestung.html" element={<Navigate to="/info/ausruestung" replace />} />
+        <Route path="beschaffung.html" element={<Navigate to="/info/beschaffung" replace />} />
+        <Route path="faq.html" element={<Navigate to="/info/faq" replace />} />
+        <Route path="haeufige_fragen.html" element={<Navigate to="/info/faq" replace />} />
+        <Route path="haeufige_fragen_d.html" element={<Navigate to="/info/faq" replace />} />
+        <Route path="ueber_mich.html" element={<Navigate to="/info/ueber_mich" replace />} />
+        <Route path="impressum.html" element={<Navigate to="/info/impressum" replace />} />
+        <Route path="impressum_d.html" element={<Navigate to="/info/impressum" replace />} />
+        <Route path="datenschutz.html" element={<Navigate to="/info/datenschutz" replace />} />
+
         {/* book detail */}
         <Route path="book/:id" element={<BookPage />} />
 
@@ -68,11 +89,12 @@ export default function App() {
         {/* stats */}
         <Route path="stats/:type" element={<StatsDetailPage />} />
 
-        {/* other legacy html routes */}
-        {/* friendly info routes used by TopBar (serve legacy html via iframe) */}
-        <Route path="info/:page" element={<LegacyHtmlPage />} />
-        <Route path="autoren_meistgelesen.html" element={<MostReadAuthorsPage />} />
-        <Route path="autoren_meist_gelesen.html" element={<MostReadAuthorsPage />} />
+        {/* Top authors */}
+        <Route path="top-authors" element={<MostReadAuthorsPage />} />
+        <Route path="autoren_meistgelesen.html" element={<Navigate to="/top-authors" replace />} />
+        <Route path="autoren_meist_gelesen.html" element={<Navigate to="/top-authors" replace />} />
+
+        {/* other legacy html routes (fallback) */}
         <Route path=":page.html" element={<LegacyHtmlPage />} />
 
         <Route path="*" element={<NotFound />} />

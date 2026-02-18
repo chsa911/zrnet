@@ -23,12 +23,12 @@ export default function Footer() {
 
         <div className="zr-footer__right">
           <nav className="zr-footer__links" aria-label={t("footer_links_label")}>
-            <Link to="/ueber_mich.html">{t("nav_about")}</Link>
+            <Link to="/info/ueber_mich">{t("nav_about")}</Link>
            {/* <Link to="/kontaktformular.html">{t("nav_contact")}</Link>*/}
             <Link to="/newsletter">{t("nav_newsletter")}</Link>
-            <Link to="/faq.html">{t("nav_faq")}</Link>
-            <Link to="/datenschutz.html">{t("nav_privacy")}</Link>
-            <Link to="/impressum.html">{t("nav_impressum")}</Link>
+            <Link to="/info/faq">{t("nav_faq")}</Link>
+            <Link to="/info/datenschutz">{t("nav_privacy")}</Link>
+            <Link to="/info/impressum">{t("nav_impressum")}</Link>
           </nav>
 
           <nav className="zr-footer__social" aria-label={t("footer_social_label")}>
