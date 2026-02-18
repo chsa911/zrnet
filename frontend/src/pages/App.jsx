@@ -1,6 +1,6 @@
 import React from "react";
 import { Routes, Route, Navigate } from "react-router-dom";
-
+import AdminCommentsPage from "./pages/AdminCommentsPage";
 import Layout from "./components/Layout";
 import Home from "./pages/Home";
 import AnalyticsPage from "./pages/AnalyticsPage";
@@ -17,7 +17,7 @@ import StatsDetailPage from "./pages/StatsDetailPage";
 import MostReadAuthorsPage from "./pages/MostReadAuthorsPage";
 import BookPage from "./pages/BookPage";
 import MerchPage from "./pages/MerchPage";
-
+import AdminNewsletterPage from "./pages/AdminNewsletterPage";
 function NotFound() {
   return (
     <div style={{ padding: 24, fontFamily: "Arial, sans-serif" }}>
@@ -63,6 +63,7 @@ export default function App() {
         <Route path="book/:id" element={<BookPage />} />
 
         {/* admin */}
+        <Route path="admin/newsletter" element={<AdminNewsletterPage />} />
         <Route path="admin" element={<AdminPage />} />
         <Route path="admin/register" element={<RegisterPage />} />
         <Route path="admin/search-update" element={<SearchUpdatePage />} />
@@ -70,7 +71,7 @@ export default function App() {
         <Route path="admin/barcodes" element={<BarcodeDashboardPage />} />
         <Route path="login" element={<Navigate to="/admin" replace />} />
         <Route path="login.html" element={<Navigate to="/admin" replace />} />
-
+<Route path="admin/comments" element={<AdminCommentsPage />} />
         {/* legacy admin links */}
         <Route path="register" element={<Navigate to="/admin/register" replace />} />
         <Route path="update" element={<Navigate to="/admin/search-update" replace />} />

@@ -416,3 +416,24 @@
     align-items: flex-start;
   }
 }
+/* Newsletter form layout + hide honeypot */
+.zr-newsletter__inputRow{
+  display:flex;
+  gap:10px;
+  flex-wrap:wrap;
+  align-items:center;
+}
+
+.zr-newsletter__input{
+  flex:1;
+  min-width:240px;
+}
+
+.zr-newsletter__hp{
+  position:absolute;
+  left:-9999px;
+  width:1px;
+  height:1px;
+  opacity:0;
+  pointer-events:none;
+}

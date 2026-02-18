@@ -23,14 +23,6 @@
   gap: 14px;
 }
 
-/* Make the cover card size itself nicely */
-.zr-bookpage__coverCard {
-   padding: 16px;            /* optional */
-  display: flex;
-  justify-content: center;
-  align-items: flex-start;  /* don't vertically center */
-}
-
 /* Cover card: let the image define height (works for portrait + landscape) */
 .zr-bookpage__coverCard {
   padding: 16px;
@@ -42,11 +34,12 @@
 /* Show the whole cover, no crop, no forced height */
 .zr-bookpage__coverImg {
   width: 100%;
-  height: auto;         /* ✅ IMPORTANT */
-  object-fit: contain;  /* ok */
+  height: auto;
+  object-fit: contain;
   display: block;
   max-width: 900px;
 }
+
 .zr-bookpage__coverEmpty {
   width: 100%;
   min-height: 320px;
@@ -85,6 +78,23 @@
   font-weight: 900;
   opacity: 0.85;
   margin-bottom: 12px;
+}
+
+/* ✅ Leave a comment box (now visible near top) */
+.zr-bookpage__leaveBox {
+  margin-top: 10px;
+  padding: 12px;
+  border-radius: 14px;
+  border: 1px solid rgba(0,0,0,0.10);
+  background: rgba(0,0,0,0.02);
+}
+
+.zr-bookpage__leaveHeader {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 6px;
 }
 
 .zr-bookpage__meta {
@@ -220,7 +230,7 @@
 }
 
 .zr-bookpage__leaveTitle {
-  margin: 0 0 6px;
+  margin: 0;
   font-weight: 950;
 }
 

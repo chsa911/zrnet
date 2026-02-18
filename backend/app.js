@@ -14,7 +14,7 @@ app.use(cookieParser());
 app.use(express.urlencoded({ extended: true }));
 app.use("/api/enrich", require("./routes/enrich"));
 app.use("/api/public/books", require("./routes/publicBooks"));
-
+app.use("/api/public/newsletter", require("./routes/publicNewsletter"));
 /**
  * CORS with credentials:
  * - Reads allowed origins from CORS_ORIGIN (comma-separated)

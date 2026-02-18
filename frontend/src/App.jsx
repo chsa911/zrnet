@@ -6,7 +6,7 @@ import Home from "./pages/Home";
 import AnalyticsPage from "./pages/AnalyticsPage";
 import LegacyHtmlPage from "./pages/LegacyHtmlPage";
 import InfoPage from "./pages/InfoPage";
-
+import AdminCommentsPage from "./pages/AdminCommentsPage";
 import AdminPage from "./pages/AdminPage";
 import RegisterPage from "./pages/RegisterPage";
 import SearchUpdatePage from "./pages/SearchUpdatePage";
@@ -80,7 +80,7 @@ export default function App() {
         <Route path="admin/barcodes" element={<BarcodeDashboardPage />} />
         <Route path="login" element={<Navigate to="/admin" replace />} />
         <Route path="login.html" element={<Navigate to="/admin" replace />} />
-
+<Route path="admin/comments" element={<AdminCommentsPage />} />
         {/* legacy admin links */}
         <Route path="register" element={<Navigate to="/admin/register" replace />} />
         <Route path="update" element={<Navigate to="/admin/search-update" replace />} />

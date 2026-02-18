@@ -4,7 +4,6 @@ import { NEWSLETTER } from "../config/newsletter";
 import { useI18n } from "../context/I18nContext";
 
 function isValidEmail(email) {
-  // Practical validation (not RFC-perfect, but avoids obvious typos)
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(email || "").trim());
 }
 
@@ -15,18 +14,20 @@ export default function NewsletterSignup({ source = "newsletter_page" }) {
   const [consent, setConsent] = useState(false);
   const [tracking, setTracking] = useState(false);
   const [hp, setHp] = useState(""); // honeypot (spam)
+
   const [busy, setBusy] = useState(false);
+  const [done, setDone] = useState(false);
+  const [submittedEmail, setSubmittedEmail] = useState("");
+
   const [okMsg, setOkMsg] = useState("");
   const [errMsg, setErrMsg] = useState("");
 
   const canSubmit = useMemo(() => {
     const e = email.trim();
-    return !busy && consent && isValidEmail(e) && !hp;
-  }, [busy, consent, email, hp]);
+    return !busy && !done && consent && isValidEmail(e) && !hp;
+  }, [busy, done, consent, email, hp]);
 
   const consentText = useMemo(() => {
-    // Keep wording short on the form; your privacy policy should contain full details.
-    // IMPORTANT: Keep this text in sync with your backend logging.
     const freq = NEWSLETTER.FREQUENCY_HINT ? ` (${NEWSLETTER.FREQUENCY_HINT})` : "";
     return t("newsletter_consent_short", {
       list: NEWSLETTER.LIST_NAME,
@@ -34,12 +35,22 @@ export default function NewsletterSignup({ source = "newsletter_page" }) {
     });
   }, [t]);
 
+  function resetToEdit() {
+    setDone(false);
+    setOkMsg("");
+    setErrMsg("");
+    // professional UX: keep the current email so user can correct it
+    // keep consent checked (user already agreed), but you can force re-check if you prefer:
+    // setConsent(false);
+  }
+
   async function onSubmit(e) {
     e.preventDefault();
     setOkMsg("");
     setErrMsg("");
 
     const cleanEmail = email.trim();
+
     if (!isValidEmail(cleanEmail)) {
       setErrMsg(t("newsletter_error_email"));
       return;
@@ -49,8 +60,10 @@ export default function NewsletterSignup({ source = "newsletter_page" }) {
       return;
     }
     if (hp) {
-      // spam bots fill hidden fields
+      // bots fill hidden fields -> pretend success
+      setSubmittedEmail(cleanEmail);
       setOkMsg(t("newsletter_success_pending"));
+      setDone(true);
       return;
     }
 
@@ -62,19 +75,16 @@ export default function NewsletterSignup({ source = "newsletter_page" }) {
           setErrMsg(t("newsletter_error_config"));
           return;
         }
-
-        // Use a normal POST to the provider endpoint (DOI is handled by the provider).
-        // We still show a local success hint.
+        // Provider handles everything; we show local success
         const form = e.target;
         form.submit();
+
+        setSubmittedEmail(cleanEmail);
         setOkMsg(t("newsletter_success_pending"));
-        setEmail("");
-        setConsent(false);
-        setTracking(false);
+        setDone(true);
         return;
       }
 
-      // API mode: backend should start DOUBLE OPT-IN and store consent proof
       const res = await fetch(NEWSLETTER.API_URL, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -94,14 +104,11 @@ export default function NewsletterSignup({ source = "newsletter_page" }) {
         throw new Error(data?.error || data?.message || "request_failed");
       }
 
+      setSubmittedEmail(cleanEmail);
       setOkMsg(data?.message || t("newsletter_success_pending"));
-      setEmail("");
-      setConsent(false);
-      setTracking(false);
-    } catch (err) {
+      setDone(true);
+    } catch {
       setErrMsg(t("newsletter_error_generic"));
-      // Optional: uncomment for debugging
-      // console.error(err);
     } finally {
       setBusy(false);
     }
@@ -109,6 +116,27 @@ export default function NewsletterSignup({ source = "newsletter_page" }) {
 
   const formAction = NEWSLETTER.MODE === "form" ? NEWSLETTER.FORM_ACTION : undefined;
   const formMethod = NEWSLETTER.MODE === "form" ? (NEWSLETTER.FORM_METHOD || "post") : undefined;
+
+  // Professional: after success, replace the form with a success panel
+  if (done) {
+    return (
+      <div className="zr-newsletter">
+        <div className="zr-alert">{okMsg || t("newsletter_success_pending")}</div>
+
+        {submittedEmail ? (
+          <div style={{ marginTop: 8, opacity: 0.85, fontSize: 14 }}>
+            {submittedEmail}
+          </div>
+        ) : null}
+
+        <div style={{ marginTop: 12 }}>
+          <button type="button" className="zr-btn2 zr-btn2--ghost" onClick={resetToEdit}>
+            Change email
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <form
@@ -123,6 +151,7 @@ export default function NewsletterSignup({ source = "newsletter_page" }) {
         <label className="zr-newsletter__label" htmlFor="zr_nl_email">
           {t("newsletter_email_label")}
         </label>
+
         <div className="zr-newsletter__inputRow">
           <input
             id="zr_nl_email"
@@ -132,22 +161,22 @@ export default function NewsletterSignup({ source = "newsletter_page" }) {
             autoComplete="email"
             placeholder={t("newsletter_email_placeholder")}
             value={email}
-            onChange={(e) => setEmail(e.target.value)}
+            onChange={(e2) => setEmail(e2.target.value)}
             required
+            disabled={busy}
           />
 
-          {/* Spam honeypot: hidden from humans, but bots may fill it */}
+          {/* Spam honeypot: should be hidden via CSS (.zr-newsletter__hp) */}
           <input
             className="zr-newsletter__hp"
             type="text"
             tabIndex={-1}
             autoComplete="off"
             value={hp}
-            onChange={(e) => setHp(e.target.value)}
+            onChange={(e2) => setHp(e2.target.value)}
             aria-hidden="true"
           />
 
-          {/* In FORM mode, providers often expect a field like EMAIL */}
           {NEWSLETTER.MODE === "form" && (
             <>
               <input type="hidden" name="EMAIL" value={email} readOnly />
@@ -157,11 +186,7 @@ export default function NewsletterSignup({ source = "newsletter_page" }) {
             </>
           )}
 
-          <button
-            className="zr-btn2 zr-btn2--primary"
-            type="submit"
-            disabled={!canSubmit}
-          >
+          <button className="zr-btn2 zr-btn2--primary" type="submit" disabled={!canSubmit}>
             {busy ? t("newsletter_submitting") : t("newsletter_submit")}
           </button>
         </div>
@@ -172,8 +197,9 @@ export default function NewsletterSignup({ source = "newsletter_page" }) {
           <input
             type="checkbox"
             checked={consent}
-            onChange={(e) => setConsent(e.target.checked)}
+            onChange={(e2) => setConsent(e2.target.checked)}
             required
+            disabled={busy}
           />
           <span>
             {consentText}{" "}
@@ -189,13 +215,13 @@ export default function NewsletterSignup({ source = "newsletter_page" }) {
           <input
             type="checkbox"
             checked={tracking}
-            onChange={(e) => setTracking(e.target.checked)}
+            onChange={(e2) => setTracking(e2.target.checked)}
+            disabled={busy}
           />
           <span>{t("newsletter_tracking_optional")}</span>
         </label>
       </div>
 
-      {okMsg ? <div className="zr-alert">{okMsg}</div> : null}
       {errMsg ? <div className="zr-alert zr-alert--error">{errMsg}</div> : null}
     </form>
   );

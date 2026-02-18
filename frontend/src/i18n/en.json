@@ -1,4 +1,32 @@
-{
+
+  {
+  "newsletter_title": "Newsletter",
+  "newsletter_lede": "Get occasional updates from {list}. No spam — unsubscribe anytime.",
+  "newsletter_signup_title": "Sign up",
+  "newsletter_email_label": "Email address",
+  "newsletter_email_placeholder": "you@example.com",
+  "newsletter_submit": "Sign up",
+  "newsletter_submitting": "Sending…",
+
+  "newsletter_consent_short": "I agree to receive the {list}{freq} and accept the",
+  "newsletter_tracking_optional": "Allow open/click tracking (optional)",
+
+  "newsletter_error_email": "Please enter a valid email address.",
+  "newsletter_error_consent": "Please accept the privacy policy to subscribe.",
+  "newsletter_error_config": "Newsletter is not configured yet.",
+  "newsletter_error_generic": "Something went wrong. Please try again.",
+  "newsletter_success_pending": "Thank you for your subscription",
+
+  "newsletter_confirmed_ok": "Thanks — your subscription is confirmed.",
+  "newsletter_confirmed_bad": "Confirmation failed or the link expired.",
+  "newsletter_unsub_ok": "You’ve been unsubscribed.",
+  "newsletter_unsub_bad": "Unsubscribe failed or the link expired.",
+
+  "newsletter_what_title": "What you’ll get",
+  "newsletter_what_1": "New posts and project updates.",
+  "newsletter_what_2": "Occasional behind-the-scenes notes.",
+  "newsletter_what_3": "Unsubscribe anytime with one click.",
+  "newsletter_doi_hint": "We use double opt-in: you’ll get an email to confirm your subscription.",
   "lang_label": "Language",
   "search_placeholder": "Search books or authors…",
   "nav_about": "About me",
