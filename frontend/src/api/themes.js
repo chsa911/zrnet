@@ -31,3 +31,8 @@ export async function listThemes() {
   // SELECT abbr, full_name, image_path, description, sort_order FROM public.themes WHERE is_active=true ORDER BY sort_order, full_name;
   return httpJson("/themes").catch(() => httpJson("/api/themes"));
 }
+
+export async function listThemesSummary() {
+  // backend: GET /api/themes/summary
+  return httpJson("/themes/summary").catch(() => httpJson("/api/themes/summary"));
+}

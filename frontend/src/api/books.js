@@ -87,6 +87,7 @@ function buildListQS(params = {}) {
     BSeiten,
     status,
     reading_status,
+    theme,
   } = params;
   const base = {
     page,
@@ -102,6 +103,7 @@ function buildListQS(params = {}) {
   if (BSeiten !== undefined && BSeiten !== null && BSeiten !== "") base.BSeiten = BSeiten;
   const st = status ?? reading_status;
   if (st !== undefined && st !== null && st !== "") base.status = st;
+  if (theme !== undefined && theme !== null && String(theme).trim()) base.theme = String(theme).trim();
   return toQuery(base);
 }
 
@@ -243,21 +245,15 @@ export async function listMostReadAuthors({ limit = 200, signal } = {}) {
   const qs = toQuery({ limit });
   return http(`/public/books/most-read-authors?${qs}`, { signal });
 } 
-
-/**
- * Top books for an author (public).
- * GET /api/public/authors/top-books?author=<uuid|name>&limit=3&exclude=<bookId>
- */
-export async function getAuthorTopBooks(
-  { author, limit = 3, exclude, signal } = {}
-) {
-  if (!author) throw new Error("Missing author");
-  const qs = toQuery({ author, limit, exclude });
-  return http(`/public/authors/top-books?${qs}`, { signal });
-}
-
 // Fetch a single public book by id
 export async function getPublicBook(id, { signal } = {}) {
   if (!id) throw new Error("Missing book id");
   return http(`/public/books/${encodeURIComponent(id)}`, { signal });
+}
+
+// Fetch related books (same author + same theme tokens)
+export async function getPublicRelatedBooks(id, { limit = 12, signal } = {}) {
+  if (!id) throw new Error("Missing book id");
+  const qs = toQuery({ limit });
+  return http(`/public/books/${encodeURIComponent(id)}/related?${qs}`, { signal });
 }
