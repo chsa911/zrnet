@@ -1,4 +1,4 @@
-// backend/app.js
+ // backend/app.js
 const express = require("express");
 const cors = require("cors");
 const morgan = require("morgan");
@@ -14,6 +14,7 @@ app.use(cookieParser());
 app.use(express.urlencoded({ extended: true }));
 app.use("/api/enrich", require("./routes/enrich"));
 app.use("/api/public/books", require("./routes/publicBooks"));
+app.use("/api/public/authors", require("./routes/publicAuthors"));
 app.use("/api/public/newsletter", require("./routes/publicNewsletter"));
 /**
  * CORS with credentials:

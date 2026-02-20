@@ -1,20 +1,7 @@
 // frontend/src/components/BookForm.jsx
 import React, { useEffect, useMemo, useState } from "react";
 import { autocomplete, registerBook, updateBook } from "../api/books";
-
-// IMPORTANT: Never use `[]` as a default prop value inside a component signature,
-// because it creates a new array on every render and can trigger infinite effects.
-const EMPTY_ARR = Object.freeze([]);
-
-function shallowEqualObj(a, b) {
-  if (a === b) return true;
-  if (!a || !b) return false;
-  const ak = Object.keys(a);
-  const bk = Object.keys(b);
-  if (ak.length !== bk.length) return false;
-  for (const k of ak) if (a[k] !== b[k]) return false;
-  return true;
-}
+import { previewBarcode } from "../api/barcodes";
 
 /* ---------- tolerant field picker ---------- */
 const norm = (s) => String(s || "").toLowerCase().replace(/[^a-z0-9]/g, "");
@@ -31,24 +18,17 @@ function pick(b, aliases) {
 
 const toStr = (v) => (v === undefined || v === null ? "" : String(v));
 
-// Keep numeric inputs as strings.
-const numToStr = (v) => {
-  if (v === undefined || v === null || v === "") return "";
-  const n = Number(v);
-  return Number.isFinite(n) ? String(n).replace(".", ",") : "";
-};
-
-const parseDecimal = (s) => {
-  const t = String(s ?? "").trim();
-  if (!t) return null;
-  const n = Number(t.replace(",", "."));
-  return Number.isFinite(n) ? n : null;
-};
-
 const parseIntOrNull = (s) => {
   const t = String(s ?? "").trim();
   if (!t) return null;
   const n = Number.parseInt(t, 10);
+  return Number.isFinite(n) ? n : null;
+};
+
+const parseFloatOrNull = (s) => {
+  const t = String(s ?? "").trim().replace(",", ".");
+  if (!t) return null;
+  const n = Number(t);
   return Number.isFinite(n) ? n : null;
 };
 
@@ -65,8 +45,6 @@ function coerceScalar(raw) {
   return s;
 }
 
-/* ------------------------------------------------------------------------- */
-
 export default function BookForm({
   mode = "create", // create | edit
   bookId,
@@ -78,52 +56,39 @@ export default function BookForm({
   onCancel,
   onSuccess,
   showUnknownFields = false,
-  excludeUnknownKeys = EMPTY_ARR,
+  excludeUnknownKeys = [],
 }) {
   const isEdit = mode === "edit";
-
-  // Derive a stable dependency from excludeUnknownKeys values.
-  // (Parents sometimes pass a literal array, which changes reference every render.)
-  const excludeKey = (excludeUnknownKeys || EMPTY_ARR)
-    .map((k) => String(k))
-    .sort()
-    .join("|");
 
   const initial = useMemo(() => {
     const b = initialBook || {};
     return {
-      barcode: toStr(pick(b, ["barcode", "BMarkb", "BMark", "code"])) ,
+      barcode: toStr(pick(b, ["barcode", "BMarkb", "BMark", "code"])),
 
-      // size (optional on edit)
-      BBreite: numToStr(pick(b, ["BBreite", "width"])),
-      BHoehe: numToStr(pick(b, ["BHoehe", "height"])),
+      // author fields
+      BAutor: toStr(pick(b, ["BAutor", "author", "author_lastname", "Autor"])),
+      author_firstname: toStr(pick(b, ["author_firstname", "authorFirstname"])),
+      name_display: toStr(pick(b, ["name_display", "author_name_display"])),
 
-      // ✅ canonical author fields
-      author_lastname: toStr(pick(b, ["author_lastname", "BAutor", "author", "Autor"])),
-      author_firstname: toStr(pick(b, ["author_firstname"])),
-      name_display: toStr(pick(b, ["name_display", "author_name_display", "author_display"])),
-
-      // ✅ canonical publisher fields
-      publisher_name: toStr(pick(b, ["publisher_name"])),
-      publisher_name_display: toStr(pick(b, ["publisher_name_display", "BVerlag", "publisher"])),
-
-      // title keywords
+      // book fields
+      BVerlag: toStr(pick(b, ["BVerlag", "publisher"])),
       BKw: toStr(pick(b, ["BKw", "title_keyword", "keyword"])),
       BKP: toStr(pick(b, ["BKP", "title_keyword_position"])),
       BKw1: toStr(pick(b, ["BKw1", "title_keyword2"])),
       BK1P: toStr(pick(b, ["BK1P", "title_keyword2_position"])),
       BKw2: toStr(pick(b, ["BKw2", "title_keyword3"])),
       BK2P: toStr(pick(b, ["BK2P", "title_keyword3_position"])),
-
       BSeiten: toStr(pick(b, ["BSeiten", "pages"])),
 
-      // misc
+      // size (cm) – only needed for barcode suggestion/auto-pick
+      BBreite: toStr(pick(b, ["BBreite", "width"])),
+      BHoehe: toStr(pick(b, ["BHoehe", "height"])),
+
       purchase_url: toStr(pick(b, ["purchase_url"])),
       isbn13: toStr(pick(b, ["isbn13"])),
       isbn10: toStr(pick(b, ["isbn10"])),
-      title_display: toStr(pick(b, ["title_display"])),
-      title_en: toStr(pick(b, ["title_en"])),
-      comment: toStr(pick(b, ["comment"])),
+      original_language: toStr(pick(b, ["original_language"])),
+      title_display: toStr(pick(b, ["title_display", "titleDisplay", "title"])),
     };
   }, [initialBook]);
 
@@ -131,79 +96,82 @@ export default function BookForm({
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState("");
 
-  // known/extra fields
+  // unknown/extra fields
   const knownKeys = useMemo(
     () =>
-      new Set(
-        [
-          "id",
-          "_id",
-          "createdat",
-          "created_at",
-          "updatedat",
-          "updated_at",
-          "registered_at",
-          "registeredat",
-          "beind",
-          "barcode",
-          "bmark",
-          "bmarkb",
-          "code",
+      new Set([
+        "id",
+        "_id",
+        "createdat",
+        "created_at",
+        "updatedat",
+        "updated_at",
+        "registered_at",
+        "registeredat",
+        "added_at",
+        "beind",
+        "status",
+        "reading_status",
+        "reading_status_updated_at",
+        "themes",
+        "full_title",
 
-          // form keys
-          "bbreite",
-          "bhoehe",
+        // explicit form keys
+        "barcode",
+        "bmark",
+        "bmarkb",
+        "code",
+        "bautor",
+        "author",
+        "author_lastname",
+        "author_firstname",
+        "name_display",
+        "author_name_display",
+        "bverlag",
+        "publisher",
+        "title_display",
+        "title",
+        "titledisplay",
+        "bkw",
+        "bkp",
+        "bkw1",
+        "bk1p",
+        "bkw2",
+        "bk2p",
+        "bseiten",
+        "pages",
+        "purchase_url",
+        "isbn10",
+        "isbn13",
+        "original_language",
 
-          "author_lastname",
-          "author_firstname",
-          "name_display",
-          "author_name_display",
-          "author_display",
-
-          "publisher_name",
-          "publisher_name_display",
-          "bverlag",
-          "publisher",
-
-          "bkw",
-          "bkp",
-          "bkw1",
-          "bk1p",
-          "bkw2",
-          "bk2p",
-          "bseiten",
-          "pages",
-
-          "purchase_url",
-          "isbn10",
-          "isbn13",
-          "title_display",
-          "title_en",
-          "comment",
-
-          "status",
-          "reading_status",
-        ].map(norm)
-      ),
+        // explicitly hide size fields (Breite/Höhe)
+        "bbreite",
+        "bhoehe",
+        "width",
+        "height",
+      ]),
     []
   );
 
   const [extras, setExtras] = useState({});
 
-  // NOTE: Effect dependencies are compared by reference.
-  // If a parent passes a new object each render (same values, different reference),
-  // depending on that object directly can cause an update loop.
-  // We therefore depend on stable *value signatures* instead.
-  const initialSig = useMemo(() => JSON.stringify(initial), [initial]);
+  // IMPORTANT: stable key from excludeUnknownKeys CONTENT (prevents infinite loops)
+  const excludeKey = (excludeUnknownKeys || []).map(String).join("\u0000");
 
-  const computedExtras = useMemo(() => {
-    if (!showUnknownFields) return {};
+  useEffect(() => {
+    setV(initial);
+
+    if (!showUnknownFields) {
+      setExtras({});
+      return;
+    }
 
     const b = initialBook || {};
     const ex = {};
-
-    const excludeArr = excludeKey ? excludeKey.split("|").filter(Boolean) : [];
-    const exclude = new Set(excludeArr);
+    const exclude = new Set(
+      (excludeUnknownKeys || []).map((k) => String(k))
+    );
 
     for (const [k, raw] of Object.entries(b)) {
       if (!k) continue;
@@ -213,25 +181,9 @@ export default function BookForm({
       if (typeof raw === "object" && raw !== null) continue;
       ex[k] = toStr(raw);
     }
-
-    return ex;
-  }, [initialBook, showUnknownFields, excludeKey, knownKeys]);
-
-  const extrasSig = useMemo(() => JSON.stringify(computedExtras), [computedExtras]);
-
-  useEffect(() => {
-    setV((p) => (shallowEqualObj(p, initial) ? p : initial));
-  }, [initialSig]);
-
-  useEffect(() => {
-    if (!showUnknownFields) {
-      // Avoid infinite re-renders by not setting a *new* empty object every render.
-      setExtras((p) => (p && Object.keys(p).length ? {} : p));
-      return;
-    }
-
-    setExtras((p) => (shallowEqualObj(p, computedExtras) ? p : computedExtras));
-  }, [extrasSig, showUnknownFields]);
+    setExtras(ex);
+    // excludeKey is stable even if parent passes a new array each render
+  }, [initial, initialBook, showUnknownFields, excludeKey, knownKeys]); // <-- FIXED
 
   function setField(key, val) {
     setV((p) => ({ ...p, [key]: val }));
@@ -242,6 +194,55 @@ export default function BookForm({
 
   // light autocomplete
   const [ac, setAc] = useState({ field: "", items: [] });
+
+  // barcode preview (based on BBreite/BHoehe)
+  const [barcodePreview, setBarcodePreview] = useState(null);
+  const [barcodePreviewErr, setBarcodePreviewErr] = useState("");
+
+  useEffect(() => {
+    if (isEdit || !assignBarcode) {
+      setBarcodePreview(null);
+      setBarcodePreviewErr("");
+      return;
+    }
+
+    // Only preview when user did not type a fixed barcode
+    if (String(v.barcode || "").trim()) {
+      setBarcodePreview(null);
+      setBarcodePreviewErr("");
+      return;
+    }
+
+    const w = parseFloatOrNull(v.BBreite);
+    const h = parseFloatOrNull(v.BHoehe);
+    if (!(Number.isFinite(w) && w > 0 && Number.isFinite(h) && h > 0)) {
+      setBarcodePreview(null);
+      setBarcodePreviewErr("");
+      return;
+    }
+
+    let alive = true;
+    const t = setTimeout(() => {
+      (async () => {
+        try {
+          setBarcodePreviewErr("");
+          const p = await previewBarcode(w, h);
+          if (!alive) return;
+          setBarcodePreview(p);
+        } catch (e) {
+          if (!alive) return;
+          setBarcodePreview(null);
+          setBarcodePreviewErr(e?.message || "Kein Barcode Vorschlag");
+        }
+      })();
+    }, 250);
+
+    return () => {
+      alive = false;
+      clearTimeout(t);
+    };
+  }, [isEdit, assignBarcode, v.barcode, v.BBreite, v.BHoehe]);
+
   async function runAutocomplete(field, q) {
     const t = String(q || "").trim();
     if (t.length < 1) return setAc({ field: "", items: [] });
@@ -259,13 +260,9 @@ export default function BookForm({
 
     const payload = {};
 
-    const w = parseDecimal(v.BBreite);
-    const h = parseDecimal(v.BHoehe);
-
-    // CREATE: size + author + keyword required (barcode assignment needs size rules)
+    // CREATE: keep minimal validations (no width/height requirement)
     if (!isEdit) {
-      if (!w || w <= 0 || !h || h <= 0) return setMsg("Breite und Höhe sind erforderlich (für Barcode/Serie)." );
-      if (!v.author_lastname.trim() && !v.author_firstname.trim()) return setMsg("Autor ist erforderlich.");
+      if (!v.BAutor.trim()) return setMsg("Autor ist erforderlich.");
       if (!v.BKw.trim()) return setMsg("Stichwort ist erforderlich.");
     }
 
@@ -274,72 +271,44 @@ export default function BookForm({
       payload[key] = next;
     };
 
+    // Barcode + optional size for auto-pick
     const nextBarcode = v.barcode.trim();
-    if (!lockBarcode && !isEdit && assignBarcode && nextBarcode) payload.barcode = nextBarcode;
+    const suggestedBarcode = String(barcodePreview?.candidate || "").trim();
+    const finalBarcode = nextBarcode || suggestedBarcode;
 
-    // size
-    if (!isEdit) {
-      payload.BBreite = w;
-      payload.BHoehe = h;
-    } else {
-      if (v.BBreite.trim()) {
-        if (w === null || w <= 0) return setMsg("Breite ist keine gültige Zahl.");
-        if (v.BBreite !== initial.BBreite) payload.BBreite = w;
-      }
-      if (v.BHoehe.trim()) {
-        if (h === null || h <= 0) return setMsg("Höhe ist keine gültige Zahl.");
-        if (v.BHoehe !== initial.BHoehe) payload.BHoehe = h;
-      }
+    const wCm = parseFloatOrNull(v.BBreite);
+    const hCm = parseFloatOrNull(v.BHoehe);
+    // If we want a barcode now, user must provide either a fixed barcode OR width+height for auto-pick.
+    if (!isEdit && assignBarcode && !finalBarcode) {
+      const ok = Number.isFinite(wCm) && wCm > 0 && Number.isFinite(hCm) && hCm > 0;
+      if (!ok)
+        return setMsg(
+          "Bitte Barcode eingeben ODER Breite + Höhe (cm) angeben, damit ein Barcode automatisch gewählt werden kann."
+        );
     }
 
-    // ✅ author (only these 3 are maintained)
-    const nextLast = v.author_lastname.trim() ? v.author_lastname.trim() : null;
-    const prevLast = initial.author_lastname.trim() ? initial.author_lastname.trim() : null;
-    const nextFirst = v.author_firstname.trim() ? v.author_firstname.trim() : null;
-    const prevFirst = initial.author_firstname.trim() ? initial.author_firstname.trim() : null;
-    const nextDisp = v.name_display.trim() ? v.name_display.trim() : null;
-    const prevDisp = initial.name_display.trim() ? initial.name_display.trim() : null;
+    if (!lockBarcode && !isEdit && assignBarcode && finalBarcode) payload.barcode = finalBarcode;
+    if (!isEdit && Number.isFinite(wCm) && wCm > 0) payload.BBreite = wCm;
+    if (!isEdit && Number.isFinite(hCm) && hCm > 0) payload.BHoehe = hCm;
 
-    if (!isEdit) {
-      if (nextLast !== null) payload.author_lastname = nextLast;
-      if (nextFirst !== null) payload.author_firstname = nextFirst;
-      if (nextDisp !== null) payload.name_display = nextDisp;
-    } else {
-      addIfChanged("author_lastname", nextLast, prevLast);
-      addIfChanged("author_firstname", nextFirst, prevFirst);
-      addIfChanged("name_display", nextDisp, prevDisp);
-    }
-
-    // ✅ publisher (you maintain name + name_display)
-    const nextPubName = v.publisher_name.trim() ? v.publisher_name.trim() : null;
-    const prevPubName = initial.publisher_name.trim() ? initial.publisher_name.trim() : null;
-    const nextPubDisp = v.publisher_name_display.trim() ? v.publisher_name_display.trim() : null;
-    const prevPubDisp = initial.publisher_name_display.trim() ? initial.publisher_name_display.trim() : null;
-
-    if (!isEdit) {
-      if (nextPubName !== null) payload.publisher_name = nextPubName;
-      if (nextPubDisp !== null) payload.publisher_name_display = nextPubDisp;
-    } else {
-      addIfChanged("publisher_name", nextPubName, prevPubName);
-      addIfChanged("publisher_name_display", nextPubDisp, prevPubDisp);
-    }
-
-    // title keywords etc.
-    const fieldPairs = [
-      ["BKw", v.BKw, initial.BKw, (s) => (s.trim() ? s.trim() : null)],
-      ["BKw1", v.BKw1, initial.BKw1, (s) => (s.trim() ? s.trim() : null)],
-      ["BKw2", v.BKw2, initial.BKw2, (s) => (s.trim() ? s.trim() : null)],
-      ["purchase_url", v.purchase_url, initial.purchase_url, (s) => (s.trim() ? s.trim() : null)],
-      ["isbn13", v.isbn13, initial.isbn13, (s) => (s.trim() ? s.trim() : null)],
-      ["isbn10", v.isbn10, initial.isbn10, (s) => (s.trim() ? s.trim() : null)],
-      ["title_display", v.title_display, initial.title_display, (s) => (s.trim() ? s.trim() : null)],
-      ["title_en", v.title_en, initial.title_en, (s) => (s.trim() ? s.trim() : null)],
-      ["comment", v.comment, initial.comment, (s) => (s.trim() ? s.trim() : null)],
+    const strPairs = [
+      ["BAutor", v.BAutor, initial.BAutor],
+      ["author_firstname", v.author_firstname, initial.author_firstname],
+      ["name_display", v.name_display, initial.name_display],
+      ["BVerlag", v.BVerlag, initial.BVerlag],
+      ["title_display", v.title_display, initial.title_display],
+      ["BKw", v.BKw, initial.BKw],
+      ["BKw1", v.BKw1, initial.BKw1],
+      ["BKw2", v.BKw2, initial.BKw2],
+      ["purchase_url", v.purchase_url, initial.purchase_url],
+      ["isbn13", v.isbn13, initial.isbn13],
+      ["isbn10", v.isbn10, initial.isbn10],
+      ["original_language", v.original_language, initial.original_language],
     ];
 
-    for (const [k, nextRaw, prevRaw, normFn] of fieldPairs) {
-      const next = normFn(nextRaw);
-      const prev = normFn(prevRaw);
+    for (const [k, nextRaw, prevRaw] of strPairs) {
+      const next = nextRaw.trim() ? nextRaw.trim() : null;
+      const prev = prevRaw.trim() ? prevRaw.trim() : null;
       if (!isEdit) {
         if (next !== null) payload[k] = next;
       } else {
@@ -355,14 +324,24 @@ export default function BookForm({
     ];
 
     for (const [k, nextRaw, prevRaw] of intPairs) {
-      const next = parseIntOrNull(nextRaw);
-      const prev = parseIntOrNull(prevRaw);
+      const nextTrim = String(nextRaw ?? "").trim();
+      const prevTrim = String(prevRaw ?? "").trim();
+
       if (!isEdit) {
+        const next = parseIntOrNull(nextTrim);
         if (next !== null) payload[k] = next;
-      } else {
-        if (!String(nextRaw ?? "").trim()) continue;
-        addIfChanged(k, next, prev);
+        continue;
       }
+
+      if (!nextTrim) {
+        if (prevTrim) payload[k] = null;
+        continue;
+      }
+
+      const next = parseIntOrNull(nextTrim);
+      if (next === null) return setMsg(`${k} ist keine gültige Zahl.`);
+      const prev = parseIntOrNull(prevTrim);
+      addIfChanged(k, next, prev);
     }
 
     // unknown fields (only on edit)
@@ -389,8 +368,16 @@ export default function BookForm({
         : await registerBook(payload);
 
       onSuccess && onSuccess({ payload, saved });
-      if (!isEdit) setV((p) => ({ ...p, barcode: "" }));
-      setMsg(isEdit ? "Gespeichert." : "Registriert.");
+      setMsg(isEdit ? "Gespeichert." : "Gespeichert ✔");
+
+      // clear form after successful CREATE
+      if (!isEdit) {
+        setV({ ...initial, barcode: "", BBreite: "", BHoehe: "" });
+        setExtras({});
+        setAc({ field: "", items: [] });
+        setBarcodePreview(null);
+        setBarcodePreviewErr("");
+      }
     } catch (err) {
       setMsg(err?.message || "Fehler beim Speichern");
     } finally {
@@ -406,42 +393,18 @@ export default function BookForm({
         <div
           className="zr-card"
           style={{
-            borderColor: msg.toLowerCase().includes("fehler") ? "rgba(200,0,0,0.25)" : "rgba(0,0,0,0.12)",
-            background: msg.toLowerCase().includes("fehler") ? "rgba(200,0,0,0.04)" : "rgba(0,0,0,0.02)",
+            borderColor: msg.toLowerCase().includes("fehler")
+              ? "rgba(200,0,0,0.25)"
+              : "rgba(0,0,0,0.12)",
+            background: msg.toLowerCase().includes("fehler")
+              ? "rgba(200,0,0,0.04)"
+              : "rgba(0,0,0,0.02)",
           }}
         >
           {msg}
         </div>
       ) : null}
 
-      {/* Size - optional on edit */}
-      <div className="zr-toolbar">
-        <label style={{ display: "grid", gap: 6 }}>
-          <span>Breite (BBreite)</span>
-          <input
-            className="zr-input"
-            type="text"
-            inputMode="decimal"
-            placeholder={isEdit ? "(optional)" : "z.B. 15,2"}
-            value={v.BBreite}
-            onChange={(e) => setField("BBreite", e.target.value)}
-          />
-        </label>
-
-        <label style={{ display: "grid", gap: 6 }}>
-          <span>Höhe (BHoehe)</span>
-          <input
-            className="zr-input"
-            type="text"
-            inputMode="decimal"
-            placeholder={isEdit ? "(optional)" : "z.B. 21,0"}
-            value={v.BHoehe}
-            onChange={(e) => setField("BHoehe", e.target.value)}
-          />
-        </label>
-      </div>
-
-      {/* Barcode */}
       <div className="zr-toolbar">
         <label style={{ display: "grid", gap: 6, flex: 1 }}>
           <span>Barcode{lockBarcode ? " (gesperrt)" : ""}</span>
@@ -450,91 +413,163 @@ export default function BookForm({
             value={v.barcode}
             disabled={lockBarcode || busy || isEdit}
             onChange={(e) => setField("barcode", e.target.value)}
-            placeholder={assignBarcode ? "z.B. dk444" : "(leer)"}
+            placeholder={assignBarcode ? (barcodePreview?.candidate ? `Vorschlag: ${barcodePreview.candidate}` : "z.B. dk444") : "(leer)"}
           />
         </label>
       </div>
 
-      {/* Author */}
-      <div className="zr-card" style={{ display: "grid", gap: 10 }}>
-        <div style={{ fontWeight: 900 }}>Autor (nur in authors gepflegt)</div>
-        <div className="zr-toolbar">
-          <label style={{ display: "grid", gap: 6, flex: 1, position: "relative" }}>
-            <span>Nachname (author_lastname)</span>
-            <input
-              className="zr-input"
-              value={v.author_lastname}
-              onChange={(e) => {
-                setField("author_lastname", e.target.value);
-                runAutocomplete("BAutor", e.target.value);
-              }}
-              onBlur={() => setTimeout(() => setAc({ field: "", items: [] }), 150)}
-            />
-            {ac.field === "BAutor" && ac.items.length ? (
-              <div
-                style={{
-                  position: "absolute",
-                  top: "100%",
-                  left: 0,
-                  right: 0,
-                  zIndex: 5,
-                  background: "#fff",
-                  border: "1px solid rgba(0,0,0,0.15)",
-                  borderRadius: 12,
-                  padding: 6,
-                  marginTop: 4,
-                }}
-              >
-                {ac.items.map((it) => (
-                  <button
-                    key={it}
-                    type="button"
-                    className="zr-btn2 zr-btn2--ghost zr-btn2--sm"
-                    style={{ width: "100%", justifyContent: "flex-start", marginBottom: 4 }}
-                    onMouseDown={(e) => e.preventDefault()}
-                    onClick={() => {
-                      // best effort split "First Last" from suggestion
-                      const parts = String(it).trim().split(/\s+/);
-                      if (parts.length >= 2) {
-                        setField("author_firstname", parts.slice(0, -1).join(" "));
-                        setField("author_lastname", parts.slice(-1).join(""));
-                        setField("name_display", it);
-                      } else {
-                        setField("author_lastname", it);
-                        setField("name_display", it);
-                      }
-                      setAc({ field: "", items: [] });
-                    }}
-                  >
-                    {it}
-                  </button>
-                ))}
+      {!isEdit && assignBarcode ? (
+        <div className="zr-card" style={{ display: "grid", gap: 10 }}>
+          <div style={{ fontWeight: 900 }}>
+            Breite/Höhe für Barcode-Vorschlag (optional)
+          </div>
+
+          <div className="zr-toolbar">
+            <label style={{ display: "grid", gap: 6, flex: 1 }}>
+              <span>Breite (cm) (BBreite)</span>
+              <input
+                className="zr-input"
+                name="BBreite"
+                type="text"
+                inputMode="decimal"
+                autoComplete="off"
+                pattern="[0-9]*[\.,]?[0-9]*"
+                value={v.BBreite}
+                onChange={(e) => setField("BBreite", e.target.value)}
+                onInput={(e) => setField("BBreite", e.currentTarget.value)}
+                placeholder="z.B. 13,5"
+                style={{ width: "100%" }}
+              />
+            </label>
+
+            <label style={{ display: "grid", gap: 6, flex: 1 }}>
+              <span>Höhe (cm) (BHoehe)</span>
+              <input
+                className="zr-input"
+                name="BHoehe"
+                type="text"
+                inputMode="decimal"
+                autoComplete="off"
+                pattern="[0-9]*[\.,]?[0-9]*"
+                value={v.BHoehe}
+                onChange={(e) => setField("BHoehe", e.target.value)}
+                onInput={(e) => setField("BHoehe", e.currentTarget.value)}
+                placeholder="z.B. 21"
+                style={{ width: "100%" }}
+              />
+            </label>
+          </div>
+
+          {barcodePreview?.candidate ? (
+            <div className="zr-toolbar" style={{ alignItems: "center" }}>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontWeight: 800 }}>
+                  Vorschlag: {barcodePreview.candidate}
+                </div>
+                <div style={{ opacity: 0.8, fontSize: 12 }}>Wird beim Speichern automatisch verwendet (wenn das Barcode-Feld leer ist).</div>
+                <div style={{ opacity: 0.75, fontSize: 13 }}>
+                  {barcodePreview.color ? `Serie: ${barcodePreview.color}` : null}
+                  {barcodePreview.band ? ` • Band: ${barcodePreview.band}` : null}
+                  {barcodePreview.availableCount != null
+                    ? ` • verfügbar: ${barcodePreview.availableCount}`
+                    : null}
+                </div>
               </div>
-            ) : null}
-          </label>
-
-          <label style={{ display: "grid", gap: 6, flex: 1 }}>
-            <span>Vorname (author_firstname)</span>
-            <input
-              className="zr-input"
-              value={v.author_firstname}
-              onChange={(e) => setField("author_firstname", e.target.value)}
-            />
-          </label>
+              <button
+                type="button"
+                className="zr-btn2 zr-btn2--ghost zr-btn2--sm"
+                disabled={busy || !barcodePreview?.candidate}
+                onClick={() => setField("barcode", barcodePreview.candidate)}
+              >
+                Übernehmen
+              </button>
+            </div>
+          ) : barcodePreviewErr ? (
+            <div style={{ opacity: 0.8, fontSize: 13 }}>
+              {barcodePreviewErr}
+            </div>
+          ) : null}
         </div>
+      ) : null}
 
-        <label style={{ display: "grid", gap: 6 }}>
-          <span>Anzeigename (name_display)</span>
+      <div className="zr-toolbar">
+        <label style={{ display: "grid", gap: 6, flex: 1, position: "relative" }}>
+          <span>Autor (BAutor)</span>
           <input
             className="zr-input"
-            value={v.name_display}
-            onChange={(e) => setField("name_display", e.target.value)}
-            placeholder="z.B. Barbara Wood"
+            value={v.BAutor}
+            onChange={(e) => {
+              setField("BAutor", e.target.value);
+              runAutocomplete("BAutor", e.target.value);
+            }}
+            onBlur={() => setTimeout(() => setAc({ field: "", items: [] }), 150)}
+          />
+          {ac.field === "BAutor" && ac.items.length ? (
+            <div
+              style={{
+                position: "absolute",
+                top: "100%",
+                left: 0,
+                right: 0,
+                zIndex: 5,
+                background: "#fff",
+                border: "1px solid rgba(0,0,0,0.15)",
+                borderRadius: 12,
+                padding: 6,
+                marginTop: 4,
+              }}
+            >
+              {ac.items.map((it) => (
+                <button
+                  key={it}
+                  type="button"
+                  className="zr-btn2 zr-btn2--ghost zr-btn2--sm"
+                  style={{
+                    width: "100%",
+                    justifyContent: "flex-start",
+                    marginBottom: 4,
+                  }}
+                  onMouseDown={(e) => e.preventDefault()}
+                  onClick={() => {
+                    setField("BAutor", it);
+                    setAc({ field: "", items: [] });
+                  }}
+                >
+                  {it}
+                </button>
+              ))}
+            </div>
+          ) : null}
+        </label>
+
+        <label style={{ display: "grid", gap: 6, flex: 1 }}>
+          <span>Vorname (optional)</span>
+          <input
+            className="zr-input"
+            value={v.author_firstname}
+            onChange={(e) => setField("author_firstname", e.target.value)}
           />
         </label>
       </div>
 
-      {/* Keywords */}
+      <label style={{ display: "grid", gap: 6 }}>
+        <span>Autor Anzeigename (name_display) (optional)</span>
+        <input
+          className="zr-input"
+          value={v.name_display}
+          onChange={(e) => setField("name_display", e.target.value)}
+        />
+      </label>
+
+      <label style={{ display: "grid", gap: 6 }}>
+        <span>Titel anzeigen (title_display) (optional)</span>
+        <input
+          className="zr-input"
+          value={v.title_display}
+          onChange={(e) => setField("title_display", e.target.value)}
+        />
+      </label>
+
       <div className="zr-toolbar">
         <label style={{ display: "grid", gap: 6, flex: 1 }}>
           <span>Stichwort (BKw)</span>
@@ -548,7 +583,6 @@ export default function BookForm({
             onBlur={() => setTimeout(() => setAc({ field: "", items: [] }), 150)}
           />
         </label>
-
         <label style={{ display: "grid", gap: 6 }}>
           <span>Position (BKP)</span>
           <input
@@ -561,69 +595,64 @@ export default function BookForm({
         </label>
       </div>
 
-      {/* Publisher */}
       <div className="zr-card" style={{ display: "grid", gap: 10 }}>
-        <div style={{ fontWeight: 900 }}>Verlag (nur in publishers gepflegt)</div>
+        <div style={{ fontWeight: 900 }}>Weitere Stichworte (optional)</div>
         <div className="zr-toolbar">
           <label style={{ display: "grid", gap: 6, flex: 1 }}>
-            <span>publisher.name (Key)</span>
+            <span>BKw1</span>
             <input
               className="zr-input"
-              value={v.publisher_name}
-              onChange={(e) => setField("publisher_name", e.target.value)}
-              placeholder="z.B. heyne"
+              value={v.BKw1}
+              onChange={(e) => setField("BKw1", e.target.value)}
             />
           </label>
-
-          <label style={{ display: "grid", gap: 6, flex: 2, position: "relative" }}>
-            <span>publisher.name_display</span>
+          <label style={{ display: "grid", gap: 6 }}>
+            <span>BK1P</span>
             <input
               className="zr-input"
-              value={v.publisher_name_display}
-              onChange={(e) => {
-                setField("publisher_name_display", e.target.value);
-                runAutocomplete("BVerlag", e.target.value);
-              }}
-              onBlur={() => setTimeout(() => setAc({ field: "", items: [] }), 150)}
+              type="text"
+              inputMode="numeric"
+              value={v.BK1P}
+              onChange={(e) => setField("BK1P", e.target.value)}
             />
-            {ac.field === "BVerlag" && ac.items.length ? (
-              <div
-                style={{
-                  position: "absolute",
-                  top: "100%",
-                  left: 0,
-                  right: 0,
-                  zIndex: 5,
-                  background: "#fff",
-                  border: "1px solid rgba(0,0,0,0.15)",
-                  borderRadius: 12,
-                  padding: 6,
-                  marginTop: 4,
-                }}
-              >
-                {ac.items.map((it) => (
-                  <button
-                    key={it}
-                    type="button"
-                    className="zr-btn2 zr-btn2--ghost zr-btn2--sm"
-                    style={{ width: "100%", justifyContent: "flex-start", marginBottom: 4 }}
-                    onMouseDown={(e) => e.preventDefault()}
-                    onClick={() => {
-                      setField("publisher_name_display", it);
-                      setAc({ field: "", items: [] });
-                    }}
-                  >
-                    {it}
-                  </button>
-                ))}
-              </div>
-            ) : null}
+          </label>
+        </div>
+        <div className="zr-toolbar">
+          <label style={{ display: "grid", gap: 6, flex: 1 }}>
+            <span>BKw2</span>
+            <input
+              className="zr-input"
+              value={v.BKw2}
+              onChange={(e) => setField("BKw2", e.target.value)}
+            />
+          </label>
+          <label style={{ display: "grid", gap: 6 }}>
+            <span>BK2P</span>
+            <input
+              className="zr-input"
+              type="text"
+              inputMode="numeric"
+              value={v.BK2P}
+              onChange={(e) => setField("BK2P", e.target.value)}
+            />
           </label>
         </div>
       </div>
 
-      {/* Pages */}
       <div className="zr-toolbar">
+        <label style={{ display: "grid", gap: 6, flex: 1 }}>
+          <span>Verlag (BVerlag)</span>
+          <input
+            className="zr-input"
+            value={v.BVerlag}
+            onChange={(e) => {
+              setField("BVerlag", e.target.value);
+              runAutocomplete("BVerlag", e.target.value);
+            }}
+            onBlur={() => setTimeout(() => setAc({ field: "", items: [] }), 150)}
+          />
+        </label>
+
         <label style={{ display: "grid", gap: 6 }}>
           <span>Seiten (BSeiten)</span>
           <input
@@ -636,48 +665,47 @@ export default function BookForm({
         </label>
       </div>
 
-      {/* Title display / language */}
-      <div className="zr-card" style={{ display: "grid", gap: 10 }}>
-        <div style={{ fontWeight: 900 }}>Titel (optional)</div>
-        <label style={{ display: "grid", gap: 6 }}>
-          <span>title_display</span>
-          <input className="zr-input" value={v.title_display} onChange={(e) => setField("title_display", e.target.value)} />
-        </label>
-        <label style={{ display: "grid", gap: 6 }}>
-          <span>title_en</span>
-          <input className="zr-input" value={v.title_en} onChange={(e) => setField("title_en", e.target.value)} />
-        </label>
-      </div>
-
-      {/* ISBN & Kauf-Link */}
       <div className="zr-card" style={{ display: "grid", gap: 10 }}>
         <div style={{ fontWeight: 900 }}>ISBN & Kauf-Link (optional)</div>
         <div className="zr-toolbar">
           <label style={{ display: "grid", gap: 6, flex: 1 }}>
             <span>ISBN-13</span>
-            <input className="zr-input" value={v.isbn13} onChange={(e) => setField("isbn13", e.target.value)} />
+            <input
+              className="zr-input"
+              value={v.isbn13}
+              onChange={(e) => setField("isbn13", e.target.value)}
+            />
           </label>
           <label style={{ display: "grid", gap: 6, flex: 1 }}>
             <span>ISBN-10</span>
-            <input className="zr-input" value={v.isbn10} onChange={(e) => setField("isbn10", e.target.value)} />
+            <input
+              className="zr-input"
+              value={v.isbn10}
+              onChange={(e) => setField("isbn10", e.target.value)}
+            />
           </label>
         </div>
-        <label style={{ display: "grid", gap: 6 }}>
-          <span>purchase_url</span>
-          <input
-            className="zr-input"
-            value={v.purchase_url}
-            onChange={(e) => setField("purchase_url", e.target.value)}
-            placeholder="https://…"
-          />
-        </label>
+        <div className="zr-toolbar">
+          <label style={{ display: "grid", gap: 6, flex: 1 }}>
+            <span>purchase_url</span>
+            <input
+              className="zr-input"
+              value={v.purchase_url}
+              onChange={(e) => setField("purchase_url", e.target.value)}
+              placeholder="https://…"
+            />
+          </label>
+          <label style={{ display: "grid", gap: 6, width: 220 }}>
+            <span>Originalsprache (original_language)</span>
+            <input
+              className="zr-input"
+              value={v.original_language}
+              onChange={(e) => setField("original_language", e.target.value)}
+              placeholder="z.B. en"
+            />
+          </label>
+        </div>
       </div>
-
-      {/* Comment */}
-      <label style={{ display: "grid", gap: 6 }}>
-        <span>comment</span>
-        <input className="zr-input" value={v.comment} onChange={(e) => setField("comment", e.target.value)} />
-      </label>
 
       {isEdit && showUnknownFields && Object.keys(extras || {}).length ? (
         <div className="zr-card" style={{ display: "grid", gap: 10 }}>
@@ -687,7 +715,11 @@ export default function BookForm({
             .map((k) => (
               <label key={k} style={{ display: "grid", gap: 6 }}>
                 <span>{k}</span>
-                <input className="zr-input" value={extras[k] ?? ""} onChange={(e) => setExtra(k, e.target.value)} />
+                <input
+                  className="zr-input"
+                  value={extras[k] ?? ""}
+                  onChange={(e) => setExtra(k, e.target.value)}
+                />
               </label>
             ))}
         </div>
@@ -698,7 +730,12 @@ export default function BookForm({
           {busy ? "…" : submitLabel}
         </button>
         {onCancel ? (
-          <button className="zr-btn2 zr-btn2--ghost" type="button" onClick={onCancel} disabled={busy}>
+          <button
+            className="zr-btn2 zr-btn2--ghost"
+            type="button"
+            onClick={onCancel}
+            disabled={busy}
+          >
             Abbrechen
           </button>
         ) : null}

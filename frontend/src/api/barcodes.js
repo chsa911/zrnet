@@ -10,7 +10,17 @@ export async function previewBarcode(width, height) {
   });
   const data = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(data?.error || `HTTP ${res.status}`);
-  return { candidate: data?.candidate ?? null, series: data?.series ?? null };
+  // backend returns: { sizegroup, color, pos, band, candidate, availableCount }
+  return {
+    candidate: data?.candidate ?? null,
+    sizegroup: data?.sizegroup ?? null,
+    color: data?.color ?? null,
+    pos: data?.pos ?? null,
+    band: data?.band ?? null,
+    availableCount: data?.availableCount ?? null,
+    // backwards-ish alias (older UI called this "series")
+    series: data?.series ?? data?.color ?? null,
+  };
 }
 
 // -------------------- admin: barcode inventory dashboard --------------------

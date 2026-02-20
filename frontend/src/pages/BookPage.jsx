@@ -129,6 +129,7 @@ export default function BookPage() {
 
   const title = book?.title || "—";
   const author = book?.author || "—";
+  const authorId = book?.authorId || book?.author_id || "";
 
   // ✅ Your personal comment (stored in DB)
   const comment = book?.comment || "";
@@ -194,7 +195,18 @@ export default function BookPage() {
             {/* User-facing info */}
             <div className="zr-bookpage__card">
               <h1 className="zr-bookpage__title">{title}</h1>
-              <div className="zr-bookpage__author">{author}</div>
+              <div className="zr-bookpage__author">
+                {author && author !== "—" ? (
+                  <Link
+                    to={`/author/${encodeURIComponent(authorId || author)}`}
+                    title="See top books by this author"
+                  >
+                    {author}
+                  </Link>
+                ) : (
+                  author
+                )}
+              </div>
 
               {/* ✅ Leave a comment (moved up) */}
               <div className="zr-bookpage__leaveBox">

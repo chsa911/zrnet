@@ -429,7 +429,7 @@ export default function SearchUpdatePage() {
                 bookId={idOf(editingBook)}
                 initialBook={editingBook}
                 lockBarcode={true}
-                showUnknownFields={true}
+                showUnknownFields={false}
                 excludeUnknownKeys={["status"]} // keep your status radios as source of truth
                 submitLabel="Speichern"
                 onCancel={closeEditor}

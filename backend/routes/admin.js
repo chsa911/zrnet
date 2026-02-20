@@ -64,13 +64,17 @@
   async function pickBarcode(pool, sizegroup, band) {
     const r = await pool.query(
       `
-      SELECT barcode, rank_in_inventory
-      FROM public.barcode_inventory
-      WHERE status = 'AVAILABLE'
-        AND rank_in_inventory IS NOT NULL
-        AND sizegroup = $1
-        AND band = $2
-      ORDER BY rank_in_inventory
+      SELECT bi.barcode, bi.rank_in_inventory
+      FROM public.barcode_inventory bi
+      LEFT JOIN public.barcode_assignments ba
+        ON lower(ba.barcode) = lower(bi.barcode)
+       AND ba.freed_at IS NULL
+      WHERE bi.status = 'AVAILABLE'
+        AND bi.rank_in_inventory IS NOT NULL
+        AND bi.sizegroup = $1
+        AND bi.band = $2
+        AND ba.barcode IS NULL
+      ORDER BY bi.rank_in_inventory
       LIMIT 1
       `,
       [sizegroup, band]

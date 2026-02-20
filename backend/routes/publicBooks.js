@@ -528,6 +528,7 @@ router.get("/:id", async (req, res) => {
       `
       SELECT
         b.id::text AS id,
+        b.author_id::text AS author_id,
         ${AUTHOR_EXPR} AS author_name_display,
         ${TITLE_EXPR}  AS book_title_display,
         b.publisher,
@@ -585,6 +586,9 @@ router.get("/:id", async (req, res) => {
 
     return res.json({
       id: r.id,
+
+      // stable ids
+      authorId: r.author_id || null,
 
       // new names
       authorNameDisplay: r.author_name_display || "",
