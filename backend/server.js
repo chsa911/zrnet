@@ -12,7 +12,8 @@ const app = require("./app");
 // ✅ Read from env, provide defaults
 const PORT = Number(process.env.PORT || 4000);
 const DATABASE_URL = process.env.DATABASE_URL;
-
+const u = new URL(DATABASE_URL);
+console.log("[env] DB user:", u.username, "| host:", u.host, "| db:", u.pathname.slice(1));
 if (!DATABASE_URL) {
   console.error("❌ Missing DATABASE_URL in environment (.env)");
   process.exit(1);

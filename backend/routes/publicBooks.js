@@ -29,6 +29,60 @@ function isUuid(v) {
   );
 }
 
+const normKey = (s) =>
+  String(s || "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "");
+
+async function resolveAuthorByKey(pool, key) {
+  const k = normStr(key);
+  if (!k) return null;
+
+  // UUID is already an author id.
+  if (isUuid(k)) {
+    const { rows } = await pool.query(
+      `
+      SELECT id::text AS id, name_display, abbreviation, published_titles
+      FROM public.authors
+      WHERE id = $1::uuid
+      LIMIT 1
+      `,
+      [k]
+    );
+    return rows?.[0] || { id: k };
+  }
+
+  const kNorm = normKey(k);
+
+  // Try exact matches first (abbr / display / name). Fallback stays in handler.
+  const { rows } = await pool.query(
+    `
+    SELECT id::text AS id, name_display, abbreviation, published_titles
+    FROM public.authors
+    WHERE
+      LOWER(abbreviation) = LOWER($1)
+      OR regexp_replace(lower(abbreviation), '[^a-z0-9]+', '', 'g') = $2
+      OR LOWER(name_display) = LOWER($1)
+      OR LOWER(name) = LOWER($1)
+      OR LOWER(full_name) = LOWER($1)
+    ORDER BY
+      CASE
+        WHEN LOWER(abbreviation) = LOWER($1) THEN 0
+        WHEN regexp_replace(lower(abbreviation), '[^a-z0-9]+', '', 'g') = $2 THEN 1
+        WHEN LOWER(name_display) = LOWER($1) THEN 2
+        WHEN LOWER(name) = LOWER($1) THEN 3
+        WHEN LOWER(full_name) = LOWER($1) THEN 4
+        ELSE 9
+      END,
+      name_display ASC
+    LIMIT 1
+    `,
+    [k, kNorm]
+  );
+
+  return rows?.[0] || null;
+}
+
 function getClientIp(req) {
   const xf = String(req.headers["x-forwarded-for"] || "");
   if (xf) return xf.split(",")[0].trim();
@@ -100,7 +154,10 @@ router.get("/", async (req, res) => {
     const pool = getPool(req);
 
     const bucket = String(req.query.bucket || "registered").toLowerCase();
-    const limit = clampInt(req.query.limit, 50, 1, 200);
+    const limit = clampInt(req.query.limit, 50, 1, 2000);
+    const offset = clampInt(req.query.offset, 0, 0, 1_000_000);
+    const yearRaw = normStr(req.query.year);
+    const year = yearRaw ? clampInt(yearRaw, new Date().getFullYear(), 1970, 2100) : null;
 
     const author = normStr(req.query.author);
     const title = normStr(req.query.title);
@@ -109,22 +166,93 @@ router.get("/", async (req, res) => {
     const where = [];
     const params = [];
 
-    let orderBy = "b.registered_at DESC";
+    // Join for open barcode assignment (physical on-shelf)
+    const fromSql = `
+      FROM public.books b
+      LEFT JOIN public.authors a ON a.id = b.author_id
+      LEFT JOIN public.publishers p ON p.id = b.publisher_id
+      LEFT JOIN LATERAL (
+        SELECT barcode
+        FROM public.book_barcodes bb
+        WHERE bb.book_id = b.id
+        LIMIT 1
+      ) bb ON true
+      LEFT JOIN LATERAL (
+        SELECT barcode, assigned_at
+        FROM public.barcode_assignments ba
+        WHERE ba.book_id = b.id
+          AND ba.freed_at IS NULL
+        ORDER BY ba.assigned_at DESC
+        LIMIT 1
+      ) open_ba ON true
+    `;
+
+    // Bucket filters + ordering
+    let orderBy = "b.registered_at DESC NULLS LAST, b.id ASC";
     if (bucket === "top") {
       where.push("b.top_book = true");
-      orderBy = "b.top_book_set_at DESC NULLS LAST, b.registered_at DESC";
+      orderBy = "b.top_book_set_at DESC NULLS LAST, b.registered_at DESC NULLS LAST, b.id ASC";
+      if (year) {
+        params.push(`${year}-01-01`);
+        params.push(`${year + 1}-01-01`);
+        where.push(`b.top_book_set_at >= $${params.length - 1}::timestamptz AND b.top_book_set_at < $${params.length}::timestamptz`);
+      }
     } else if (bucket === "finished") {
       where.push("b.reading_status = 'finished'");
-      orderBy = "b.reading_status_updated_at DESC NULLS LAST, b.registered_at DESC";
+      orderBy = "b.reading_status_updated_at DESC NULLS LAST, b.registered_at DESC NULLS LAST, b.id ASC";
+      if (year) {
+        params.push(`${year}-01-01`);
+        params.push(`${year + 1}-01-01`);
+        where.push(`b.reading_status_updated_at >= $${params.length - 1}::timestamptz AND b.reading_status_updated_at < $${params.length}::timestamptz`);
+      }
     } else if (bucket === "abandoned") {
       where.push("b.reading_status = 'abandoned'");
-      orderBy = "b.reading_status_updated_at DESC NULLS LAST, b.registered_at DESC";
+      orderBy = "b.reading_status_updated_at DESC NULLS LAST, b.registered_at DESC NULLS LAST, b.id ASC";
+      if (year) {
+        params.push(`${year}-01-01`);
+        params.push(`${year + 1}-01-01`);
+        where.push(`b.reading_status_updated_at >= $${params.length - 1}::timestamptz AND b.reading_status_updated_at < $${params.length}::timestamptz`);
+      }
+    } else if (bucket === "stock" || bucket === "in_stock") {
+      // “Stock” on the public stats pages = physically on shelf
+      where.push("open_ba.barcode IS NOT NULL");
+      orderBy = "open_ba.assigned_at DESC NULLS LAST, b.registered_at DESC NULLS LAST, b.id ASC";
     }
 
+    // Author filter:
+    // - allow UUID (author_id) from AuthorPage
+    // - allow abbreviations (e.g. "Mann.")
+    // - fallback to fuzzy substring match
     if (author) {
-      params.push(`%${author}%`);
-      where.push(`${AUTHOR_EXPR} ILIKE $${params.length}`);
+      const resolved = await resolveAuthorByKey(pool, author);
+      if (resolved?.id && isUuid(resolved.id)) {
+        params.push(resolved.id);
+        const p = `$${params.length}`;
+        where.push(
+          `(
+            b.author_id = ${p}::uuid
+            OR EXISTS (
+              SELECT 1 FROM public.book_authors ba
+              WHERE ba.book_id = b.id AND ba.author_id = ${p}::uuid
+            )
+          )`
+        );
+      } else {
+        params.push(`%${author}%`);
+        const p = `$${params.length}`;
+        where.push(
+          `(
+            ${AUTHOR_EXPR} ILIKE ${p}
+            OR a.name ILIKE ${p}
+            OR a.full_name ILIKE ${p}
+            OR a.abbreviation ILIKE ${p}
+            OR b.author_display ILIKE ${p}
+            OR b.author ILIKE ${p}
+          )`
+        );
+      }
     }
+
     if (title) {
       params.push(`%${title}%`);
       where.push(`${TITLE_EXPR} ILIKE $${params.length}`);
@@ -136,23 +264,36 @@ router.get("/", async (req, res) => {
         `(
           ${TITLE_EXPR} ILIKE ${p} OR
           ${AUTHOR_EXPR} ILIKE ${p} OR
+          a.abbreviation ILIKE ${p} OR
           ${PUBLISHER_EXPR} ILIKE ${p} OR
           b.title_keyword ILIKE ${p} OR
           b.title_keyword2 ILIKE ${p} OR
           b.title_keyword3 ILIKE ${p} OR
           b.isbn10 ILIKE ${p} OR
           b.isbn13 ILIKE ${p} OR
-          bb.barcode ILIKE ${p}
+          COALESCE(open_ba.barcode, bb.barcode) ILIKE ${p}
         )`
       );
     }
 
     const whereSql = where.length ? `WHERE ${where.join(" AND ")}` : "";
 
+    // total count (for pagination)
+    const { rows: countRows } = await pool.query(
+      `SELECT COUNT(*)::int AS total ${fromSql} ${whereSql}`,
+      params
+    );
+    const total = countRows?.[0]?.total ?? 0;
+
+    const dataParams = [...params, limit, offset];
+    const limP = `$${params.length + 1}`;
+    const offP = `$${params.length + 2}`;
+
     const { rows } = await pool.query(
       `
       SELECT
         b.id::text AS id,
+        a.id::text AS author_id,
         ${AUTHOR_EXPR} AS author_name_display,
         ${TITLE_EXPR}  AS book_title_display,
         b.registered_at,
@@ -160,40 +301,58 @@ router.get("/", async (req, res) => {
         b.reading_status_updated_at,
         b.top_book,
         b.top_book_set_at,
-        bb.barcode
-      FROM public.books b
-      LEFT JOIN public.authors a ON a.id = b.author_id
-      LEFT JOIN public.publishers p ON p.id = b.publisher_id
-      LEFT JOIN LATERAL (
-        SELECT barcode FROM public.book_barcodes bb WHERE bb.book_id = b.id LIMIT 1
-      ) bb ON true
+        b.purchase_url,
+        b.purchase_source,
+        a.published_titles,
+        COALESCE(open_ba.barcode, bb.barcode) AS barcode,
+        (open_ba.barcode IS NOT NULL) AS is_in_stock,
+        ('/assets/covers/' || b.id::text || '.jpg') AS cover
+      ${fromSql}
       ${whereSql}
       ORDER BY ${orderBy}
-      LIMIT $${params.length + 1}
+      LIMIT ${limP}
+      OFFSET ${offP}
       `,
-      [...params, limit]
+      dataParams
     );
 
-    return res.json(
-      (rows || []).map((r) => ({
-        id: r.id,
+    const items = (rows || []).map((r) => ({
+      id: r.id,
+      author_id: r.author_id || null,
+      authorId: r.author_id || null,
 
-        // new names
-        authorNameDisplay: r.author_name_display || "",
-        bookTitleDisplay: r.book_title_display || "",
+      // new names
+      authorNameDisplay: r.author_name_display || "",
+      bookTitleDisplay: r.book_title_display || "",
 
-        // legacy names (keep for now)
-        author: r.author_name_display || "",
-        title: r.book_title_display || "",
+      // legacy names (keep for now)
+      author: r.author_name_display || "",
+      title: r.book_title_display || "",
 
-        registered_at: r.registered_at,
-        reading_status: r.reading_status,
-        reading_status_updated_at: r.reading_status_updated_at,
-        top_book: r.top_book,
-        top_book_set_at: r.top_book_set_at,
-        barcode: r.barcode,
-      }))
-    );
+      registered_at: r.registered_at,
+      reading_status: r.reading_status,
+      reading_status_updated_at: r.reading_status_updated_at,
+      top_book: r.top_book,
+      top_book_set_at: r.top_book_set_at,
+
+      purchase_url: r.purchase_url || null,
+      purchase_source: r.purchase_source || null,
+
+      barcode: r.barcode || null,
+      is_in_stock: !!r.is_in_stock,
+      isInStock: !!r.is_in_stock,
+
+      published_titles: r.published_titles ?? null,
+      publishedTitles: r.published_titles ?? null,
+
+      cover: r.cover,
+    }));
+
+    // Backwards compatibility:
+    // If meta=1 (frontend default) or offset is provided, return {items,total}.
+    // Otherwise, keep returning a bare array.
+    const wantsMeta = String(req.query.meta || "").trim() === "1" || offset > 0;
+    return wantsMeta ? res.json({ items, total, limit, offset }) : res.json(items);
   } catch (err) {
     console.error("GET /api/public/books error", err);
     return res.status(500).json({ error: "internal_error" });
@@ -353,33 +512,159 @@ router.get("/most-read-authors", async (req, res) => {
     const pool = getPool(req);
     const limit = clampInt(req.query.limit, 50, 1, 500);
 
+    // NOTE:
+    // - If an author has > 10 titles in the DB, return the top 3 titles.
+    // - If an author has <= 10 titles, return 1 favorite title.
+    // Favorite/top ordering preference matches /api/public/authors/top-books.
     const { rows } = await pool.query(
       `
+      WITH author_books AS (
+        -- Primary author
+        SELECT
+          a.id AS author_id,
+          a.name_display AS author,
+          b.id AS book_id,
+          b.reading_status
+        FROM public.books b
+        JOIN public.authors a ON a.id = b.author_id
+
+        UNION
+
+        -- Co-authors (if present)
+        SELECT
+          a.id AS author_id,
+          a.name_display AS author,
+          ba.book_id AS book_id,
+          b.reading_status
+        FROM public.book_authors ba
+        JOIN public.authors a ON a.id = ba.author_id
+        JOIN public.books b ON b.id = ba.book_id
+      ),
+      author_stats AS (
+        SELECT
+          author_id,
+          author,
+          COUNT(DISTINCT book_id) FILTER (WHERE reading_status = 'finished')::int AS books_read,
+          COUNT(DISTINCT book_id)::int AS books_total
+        FROM author_books
+        WHERE author IS NOT NULL
+          AND BTRIM(author) <> ''
+        GROUP BY author_id, author
+        HAVING COUNT(DISTINCT book_id) FILTER (WHERE reading_status = 'finished') > 0
+      ),
+      ranked_books AS (
+        SELECT
+          s.author_id,
+          b.id::text AS book_id,
+          ${TITLE_EXPR} AS title_display,
+          b.purchase_url,
+          ROW_NUMBER() OVER (
+            PARTITION BY s.author_id
+            ORDER BY
+              -- Admin-controlled featured slots (preferred)
+              CASE
+                WHEN s.books_total > 10 THEN
+                  CASE WHEN b.featured_rank BETWEEN 1 AND 3 THEN 0 ELSE 1 END
+                ELSE
+                  -- for authors with <= 10 titles we only want #1; demote #2/#3
+                  CASE
+                    WHEN b.featured_rank = 1 THEN 0
+                    WHEN b.featured_rank IS NULL THEN 1
+                    ELSE 2
+                  END
+              END,
+              b.featured_rank ASC NULLS LAST,
+              b.top_book DESC,
+              b.top_book_set_at DESC NULLS LAST,
+              (b.reading_status = 'finished') DESC,
+              b.reading_status_updated_at DESC NULLS LAST,
+              b.registered_at DESC NULLS LAST,
+              b.id ASC
+          ) AS rn
+        FROM author_stats s
+        JOIN author_books ab ON ab.author_id = s.author_id
+        JOIN public.books b ON b.id = ab.book_id
+      )
       SELECT
-        ${AUTHOR_EXPR} AS author,
-        COUNT(*) FILTER (WHERE b.reading_status = 'finished')::int AS books_read,
-        COUNT(*)::int AS books_in_stock
-      FROM public.books b
-      LEFT JOIN public.authors a ON a.id = b.author_id
-      WHERE ${AUTHOR_EXPR} IS NOT NULL
-        AND BTRIM(${AUTHOR_EXPR}) <> ''
-      GROUP BY 1
-      HAVING COUNT(*) FILTER (WHERE b.reading_status = 'finished') > 0
-      ORDER BY books_read DESC, books_in_stock DESC, author ASC
+        s.author,
+        s.books_read,
+        s.books_total,
+        CASE
+          WHEN s.books_total > 10 THEN
+            COALESCE(
+              ARRAY_AGG(r.title_display ORDER BY r.rn)
+                FILTER (
+                  WHERE r.rn <= 3
+                    AND r.title_display IS NOT NULL
+                    AND BTRIM(r.title_display) <> ''
+                ),
+              '{}'::text[]
+            )
+          ELSE
+            COALESCE(
+              ARRAY_AGG(r.title_display ORDER BY r.rn)
+                FILTER (
+                  WHERE r.rn <= 1
+                    AND r.title_display IS NOT NULL
+                    AND BTRIM(r.title_display) <> ''
+                ),
+              '{}'::text[]
+            )
+        END AS featured_titles,
+        CASE
+          WHEN s.books_total > 10 THEN
+            COALESCE(ARRAY_AGG(r.book_id ORDER BY r.rn) FILTER (WHERE r.rn <= 3), '{}'::text[])
+          ELSE
+            COALESCE(ARRAY_AGG(r.book_id ORDER BY r.rn) FILTER (WHERE r.rn <= 1), '{}'::text[])
+        END AS featured_book_ids,
+        CASE
+          WHEN s.books_total > 10 THEN
+            COALESCE(ARRAY_AGG(r.purchase_url ORDER BY r.rn) FILTER (WHERE r.rn <= 3), '{}'::text[])
+          ELSE
+            COALESCE(ARRAY_AGG(r.purchase_url ORDER BY r.rn) FILTER (WHERE r.rn <= 1), '{}'::text[])
+        END AS featured_purchase_urls
+      FROM author_stats s
+      LEFT JOIN ranked_books r ON r.author_id = s.author_id
+      GROUP BY s.author, s.books_read, s.books_total
+      ORDER BY s.books_read DESC, s.books_total DESC, s.author ASC
       LIMIT $1
       `,
       [limit]
     );
 
     return res.json(
-      (rows || []).map((r) => ({
-        author: r.author,
-        books_read: r.books_read,
-        booksRead: r.books_read,
-        books_in_stock: r.books_in_stock,
-        booksInStock: r.books_in_stock,
-        count: r.books_read,
-      }))
+      (rows || []).map((r) => {
+        const titles = Array.isArray(r.featured_titles)
+          ? r.featured_titles.filter((x) => x && String(x).trim())
+          : [];
+        const best = titles[0] || null;
+
+        return {
+          author: r.author,
+          books_read: r.books_read,
+          booksRead: r.books_read,
+
+          // keep legacy naming used in UI (this is total titles in DB for that author)
+          books_in_stock: r.books_total,
+          booksInStock: r.books_total,
+
+          // backward compat
+          best_title: best,
+          bestTitle: best,
+
+          // new fields
+          titles,
+          featured_titles: titles,
+          featuredTitles: titles,
+          featured_book_ids: r.featured_book_ids || [],
+          featuredBookIds: r.featured_book_ids || [],
+          featured_purchase_urls: r.featured_purchase_urls || [],
+          featuredPurchaseUrls: r.featured_purchase_urls || [],
+
+          // legacy
+          count: r.books_read,
+        };
+      })
     );
   } catch (err) {
     console.error("GET /api/public/books/most-read-authors error", err);

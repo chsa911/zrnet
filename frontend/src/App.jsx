@@ -1,6 +1,5 @@
- import React from "react";
+import React from "react";
 import { Routes, Route, Navigate } from "react-router-dom";
-
 import Layout from "./components/Layout";
 import Home from "./pages/Home";
 import AnalyticsPage from "./pages/AnalyticsPage";
@@ -13,8 +12,10 @@ import SearchUpdatePage from "./pages/SearchUpdatePage";
 import SyncIssuePage from "./pages/SyncIssuePage";
 import BarcodeDashboardPage from "./pages/BarcodeDashboardPage";
 import BookThemesPage from "./pages/BookThemesPage";
+import ThemeBooksPage from "./pages/ThemeBooksPage";
 import StatsDetailPage from "./pages/StatsDetailPage";
 import MostReadAuthorsPage from "./pages/MostReadAuthorsPage";
+import AuthorPage from "./pages/AuthorPage";
 import BookPage from "./pages/BookPage";
 import MerchPage from "./pages/MerchPage";
 import CheckoutPage from "./pages/CheckoutPage";
@@ -39,6 +40,7 @@ export default function App() {
 
         {/* book themes */}
         <Route path="bookthemes" element={<BookThemesPage />} />
+        <Route path="bookthemes/:abbr" element={<ThemeBooksPage />} />
         <Route path="bookthemes.html" element={<Navigate to="/bookthemes" replace />} />
 
         {/* analytics */}
@@ -72,15 +74,19 @@ export default function App() {
         {/* book detail */}
         <Route path="book/:id" element={<BookPage />} />
 
+        {/* author detail */}
+        <Route path="author/:author" element={<AuthorPage />} />
+
         {/* admin */}
         <Route path="admin" element={<AdminPage />} />
         <Route path="admin/register" element={<RegisterPage />} />
         <Route path="admin/search-update" element={<SearchUpdatePage />} />
         <Route path="admin/sync-issues" element={<SyncIssuePage />} />
         <Route path="admin/barcodes" element={<BarcodeDashboardPage />} />
+        <Route path="admin/comments" element={<AdminCommentsPage />} />
         <Route path="login" element={<Navigate to="/admin" replace />} />
         <Route path="login.html" element={<Navigate to="/admin" replace />} />
-<Route path="admin/comments" element={<AdminCommentsPage />} />
+
         {/* legacy admin links */}
         <Route path="register" element={<Navigate to="/admin/register" replace />} />
         <Route path="update" element={<Navigate to="/admin/search-update" replace />} />

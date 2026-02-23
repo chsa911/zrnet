@@ -163,6 +163,59 @@ export async function registerBook(payload) {
   return http(`/books`, { method: "POST", json: payload });
 }
 
+// Find existing photo draft by ISBN or by 4-digit code stored in pages.
+export async function findDraft({ isbn, code } = {}) {
+  const qs = toQuery({ isbn, code });
+  return http(`/admin/drafts/find?${qs}`);
+}
+
+// Finalize an existing draft: assign/pick a barcode and save metadata (UPDATE, not CREATE)
+export async function registerExistingBook(bookId, payload) {
+  if (!bookId) throw new Error("Missing book id");
+  return http(`/admin/books/${encodeURIComponent(bookId)}/register`, { method: "POST", json: payload || {} });
+}
+
+/* =========================
+   ENRICHMENT / MEDIA
+   ========================= */
+
+// ISBN lookup (Google Books + Open Library + DNB + Wikidata, merged on backend)
+export async function lookupIsbn(isbn) {
+  const qs = toQuery({ isbn });
+  return http(`/enrich/lookup?${qs}`);
+}
+
+// Upload cover image (multipart). Backend stores as /assets/covers/<book_id>.jpg
+export async function uploadCover(bookId, file) {
+  if (!bookId) throw new Error("Missing book id");
+  if (!file) throw new Error("Missing file");
+
+  const fd = new FormData();
+  fd.append("cover", file);
+
+  const res = await fetch(buildUrl(`/admin/books/${encodeURIComponent(bookId)}/cover`), {
+    method: "POST",
+    body: fd,
+    credentials: "include",
+  });
+
+  const text = await res.text();
+  if (!res.ok) {
+    let msg = text || `HTTP ${res.status}`;
+    try {
+      const j = text ? JSON.parse(text) : null;
+      msg = j?.message || j?.error || msg;
+    } catch {}
+    throw new Error(msg);
+  }
+
+  try {
+    return text ? JSON.parse(text) : null;
+  } catch {
+    return text;
+  }
+}
+
 /* =========================
    PUBLIC BOOKS / STATS API
    ========================= */
@@ -244,7 +297,8 @@ export async function listStockAuthors({ limit = 80, signal } = {}) {
 export async function listMostReadAuthors({ limit = 200, signal } = {}) {
   const qs = toQuery({ limit });
   return http(`/public/books/most-read-authors?${qs}`, { signal });
-} 
+}
+
 // Fetch a single public book by id
 export async function getPublicBook(id, { signal } = {}) {
   if (!id) throw new Error("Missing book id");

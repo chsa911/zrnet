@@ -1,7 +1,13 @@
   // backend/routes/admin.js
   const express = require("express");
+  const fs = require("fs");
+  const path = require("path");
+  const multer = require("multer");
   const router = express.Router();
   const { adminAuthRequired, adminLogin, adminLogout } = require("../middleware/adminAuth");
+  const { registerExistingBook } = require("../controllers/booksPgController");
+
+  const upload = multer({ storage: multer.memoryStorage() });
 
   function cmToMm(v) {
     const n = Number(String(v).replace(",", "."));
@@ -93,6 +99,118 @@
   router.get("/me", (_req, res) => {
     res.json({ ok: true });
   });
+
+  /* -------------------- cover upload -------------------- */
+
+  // POST /api/admin/books/:id/cover  (multipart field: cover)
+  router.post("/books/:id/cover", upload.single("cover"), async (req, res) => {
+    const pool = req.app.get("pgPool");
+    if (!pool) return res.status(500).json({ error: "pgPool missing" });
+
+    const id = String(req.params.id || "").trim();
+    if (!id) return res.status(400).json({ error: "missing_id" });
+    if (!req.file) return res.status(400).json({ error: "missing_file" });
+
+    try {
+      // Ensure folder
+      const dir = path.resolve(__dirname, "../public/assets/covers");
+      fs.mkdirSync(dir, { recursive: true });
+
+      const ts = new Date().toISOString().replace(/[:.]/g, "-");
+      const main = path.join(dir, `${id}.jpg`);
+      const archive = path.join(dir, `${id}-${ts}.jpg`);
+
+      fs.writeFileSync(main, req.file.buffer);
+      fs.writeFileSync(archive, req.file.buffer);
+
+      // Mark cover presence on the book row
+      await pool.query(
+        `
+        UPDATE public.books
+        SET raw = jsonb_set(
+          coalesce(raw,'{}'::jsonb),
+          '{capture,coverUploadedAt}',
+          to_jsonb(now()),
+          true
+        )
+        WHERE id = $1::uuid
+        `,
+        [id]
+      );
+
+      return res.json({ ok: true, cover: `/assets/covers/${id}.jpg` });
+    } catch (e) {
+      console.error("cover upload failed", e);
+      return res.status(500).json({ error: "cover_upload_failed", detail: String(e?.message || e) });
+    }
+  });
+
+  /* -------------------- draft lookup (by ISBN or code=pages) -------------------- */
+
+  // GET /api/admin/drafts/find?isbn=...  OR  ?code=3847
+  router.get("/drafts/find", async (req, res) => {
+    const pool = req.app.get("pgPool");
+    if (!pool) return res.status(500).json({ error: "pgPool missing" });
+
+    const isbn = String(req.query.isbn || "").trim();
+    const codeRaw = String(req.query.code || "").trim();
+
+    let code = null;
+    if (codeRaw) {
+      if (!/^[0-9]+$/.test(codeRaw)) return res.status(400).json({ error: "invalid_code" });
+      const n = Number(codeRaw);
+      if (!Number.isFinite(n) || n <= 0) return res.status(400).json({ error: "invalid_code" });
+      code = Math.trunc(n);
+    }
+
+    if (!isbn && code == null) return res.status(400).json({ error: "missing_isbn_or_code" });
+
+    try {
+      const params = [];
+      let i = 1;
+      const where = [
+        "b.registered_at IS NULL",
+        // Photo drafts are created as in_stock until barcode registration finalizes them.
+        "b.reading_status = 'in_stock'",
+        "(b.raw->'capture'->>'coverUploadedAt') IS NOT NULL",
+      ];
+
+      if (isbn) {
+        where.push(`(b.isbn13 = $${i} OR b.isbn10 = $${i} OR b.isbn13_raw = $${i})`);
+        params.push(isbn);
+        i++;
+      }
+      if (code != null) {
+        // Your flow: the numeric code is stored in pages and should match exactly.
+        where.push(`b.pages = $${i}`);
+        params.push(code);
+        i++;
+      }
+
+      const q = `
+        SELECT b.id::text AS id, b.added_at, b.pages, b.isbn13, b.isbn10
+        FROM public.books b
+        WHERE ${where.join(" AND ")}
+        ORDER BY b.added_at DESC
+        LIMIT 20
+      `;
+
+      const r = await pool.query(q, params);
+      const items = (r.rows || []).map((row) => ({
+        ...row,
+        coverUrl: `/assets/covers/${row.id}.jpg`,
+      }));
+      return res.json({ items });
+    } catch (e) {
+      console.error("draft find failed", e);
+      return res.status(500).json({ error: "draft_find_failed", detail: String(e?.message || e) });
+    }
+  });
+
+  /* -------------------- finalize draft (assign barcode + update) -------------------- */
+
+  // POST /api/admin/books/:id/register
+  router.post("/books/:id/register", registerExistingBook);
 
   /* -------------------- comments moderation -------------------- */
 

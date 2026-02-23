@@ -3,6 +3,7 @@ import { listMostReadAuthors } from "../api/books";
 import { useI18n } from "../context/I18nContext";
 
 // hardcoded favorites (from your old HTML screenshot)
+// kept as a fallback if DB doesn't have a favorite/top-book set yet.
 const FAVORITES = [
   { re: /konsalik/i, title: "the black mandarin" },
   { re: /grisham/i, title: "the firm" },
@@ -104,8 +105,17 @@ export default function MostReadAuthorsPage() {
                 const booksRead = r.books_read ?? 0;
                 const booksInStock = r.books_in_stock ?? 0;
 
-                const fav = favFor(author) || r.best_title || "";
-                const url = fav ? buyUrl(author, fav) : "";
+                const titlesRaw =
+                  (Array.isArray(r.titles) && r.titles) ||
+                  (Array.isArray(r.featuredTitles) && r.featuredTitles) ||
+                  (Array.isArray(r.featured_titles) && r.featured_titles) ||
+                  (r.best_title ? [r.best_title] : []);
+
+                const titles = (titlesRaw || []).filter((x) => x && String(x).trim());
+
+                // If backend doesn't return titles yet, fall back to the old hardcoded list.
+                const fallbackFav = favFor(author);
+                const finalTitles = titles.length ? titles : (fallbackFav ? [fallbackFav] : []);
 
                 return (
                   <tr key={author}>
@@ -113,10 +123,22 @@ export default function MostReadAuthorsPage() {
                     <td style={{ textAlign: "right" }}>{booksRead}</td>
                     <td style={{ textAlign: "right" }}>{booksInStock}</td>
                     <td>
-                      {fav ? (
-                        <a href={url} target="_blank" rel="noreferrer noopener">
-                          {fav}
-                        </a>
+                      {finalTitles.length ? (
+                        <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                          {finalTitles.map((title, idx) => {
+                            const url = buyUrl(author, title);
+                            return (
+                              <a
+                                key={`${author}-${idx}`}
+                                href={url}
+                                target="_blank"
+                                rel="noreferrer noopener"
+                              >
+                                {finalTitles.length > 1 ? `${idx + 1}. ${title}` : title}
+                              </a>
+                            );
+                          })}
+                        </div>
                       ) : (
                         "—"
                       )}

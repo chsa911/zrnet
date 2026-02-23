@@ -1,4 +1,4 @@
- // backend/app.js
+// backend/app.js
 const express = require("express");
 const cors = require("cors");
 const morgan = require("morgan");
@@ -12,10 +12,7 @@ app.use(morgan("dev"));
 app.use(express.json());
 app.use(cookieParser());
 app.use(express.urlencoded({ extended: true }));
-app.use("/api/enrich", require("./routes/enrich"));
-app.use("/api/public/books", require("./routes/publicBooks"));
-app.use("/api/public/authors", require("./routes/publicAuthors"));
-app.use("/api/public/newsletter", require("./routes/publicNewsletter"));
+
 /**
  * CORS with credentials:
  * - Reads allowed origins from CORS_ORIGIN (comma-separated)
@@ -43,10 +40,12 @@ function makeCorsOptions() {
     allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With", "Accept"],
   };
 }
+
 const corsOptions = makeCorsOptions();
 app.use(cors(corsOptions));
 app.options("*", cors(corsOptions));
 
+/* ---------- public endpoints (must be after CORS) ---------- */
 app.get("/api/public/home-highlights", async (req, res) => {
   try {
     const pool = req.app.get("pgPool");
@@ -104,6 +103,7 @@ app.get("/api/public/home-highlights", async (req, res) => {
     res.status(500).json({ error: "internal_error" });
   }
 });
+
 /* ---------- health ---------- */
 app.get("/health", async (req, res, next) => {
   try {
@@ -125,7 +125,9 @@ app.get("/api/health", async (req, res, next) => {
     next(e);
   }
 });
+
 app.use("/api/themes", require("./routes/themes"));
+
 // ✅ optional: make /api and /api/ not look “broken”
 app.get(["/api", "/api/"], (req, res) => {
   res.json({
@@ -137,6 +139,8 @@ app.get(["/api", "/api/"], (req, res) => {
       "/api/bmarks",
       "/api/barcodes",
       "/api/public/books",
+      "/api/public/authors",
+      "/api/public/newsletter",
       "/api/public/home-highlights",
       "/api/mobile",
     ],
@@ -145,12 +149,17 @@ app.get(["/api", "/api/"], (req, res) => {
 
 /* ---------- routes ---------- */
 app.use("/api/admin", require("./routes/admin"));
+
+app.use("/api/enrich", require("./routes/enrich"));
+app.use("/api/public/books", require("./routes/publicBooks"));
+app.use("/api/public/authors", require("./routes/publicAuthors"));
+app.use("/api/public/newsletter", require("./routes/publicNewsletter"));
+
 app.use("/api/barcodes", require("./routes/api/barcodes/previewBarcode"));
 app.use("/api/books", require("./routes/books"));
 app.use("/api/bmarks", require("./routes/bmarks"));
 app.use("/api/mobile", require("./routes/mobileSync"));
 app.use("/api/mobile-sync", require("./routes/mobileSync"));
-app.use("/api/public/books", require("./routes/publicBooks"));
 
 /* ---------- static public website ---------- */
 const publicDir = path.resolve(__dirname, "public");

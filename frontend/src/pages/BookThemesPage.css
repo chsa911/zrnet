@@ -1,177 +1,90 @@
-/* BookThemesPage styles (local to this page) */
+/* ===== Featured (small tiles under search + sort) ===== */
 
-.bt-layout{
-  display: grid;
-  grid-template-columns: 280px 1fr;
-  gap: 16px;
-  align-items: start;
+.bt-featuredCard{
+  margin-top: 14px;
+  padding: 14px;
+  border-radius: 18px;
+  border: 1px solid rgba(0,0,0,0.10);
+  background: #fff;
 }
 
-.bt-side{
+.bt-featuredTitle{
+  font-weight: 950;
+  letter-spacing: -0.02em;
+  font-size: 18px;
+  margin-bottom: 10px;
+}
+
+.bt-featuredGrid{
   display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 10px;
 }
 
-.bt-sideTip{
-  padding: 10px 12px;
-  border-radius: 14px;
-  border: 1px solid rgba(0,0,0,0.10);
-  background: rgba(0,0,0,0.02);
-  font-weight: 800;
-  opacity: 0.85;
-}
-
-.bt-grid{
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-  gap: 14px;
-}
-
-.bt-tile{
+.bt-featuredTile{
   position: relative;
-  padding: 0;
   border: 1px solid rgba(0,0,0,0.10);
-  border-radius: 18px;
-  background: #fff;
+  border-radius: 16px;
   overflow: hidden;
-  text-align: left;
+  background: #fff;
+  padding: 0;
   cursor: pointer;
-  display: block;
-  min-height: 210px;
-  transition: transform 140ms ease, box-shadow 140ms ease, border-color 140ms ease;
+  text-align: left;
+
+  /* ✅ square */
+  aspect-ratio: 1 / 1;
 }
 
-.bt-tile:hover{
-  transform: translateY(-2px);
-  box-shadow: 0 16px 34px rgba(0,0,0,0.12);
-}
-
-.bt-tile--active{
-  border-color: rgba(0, 194, 122, 0.45);
-  box-shadow: 0 16px 34px rgba(0,0,0,0.12);
-}
-
-.bt-img{
+.bt-featuredImg{
   width: 100%;
   height: 100%;
-  min-height: 210px;
   object-fit: cover;
   display: block;
   background: #f2f2f2;
 }
 
-.bt-overlay{
+.bt-featuredOverlay{
   position: absolute;
   inset: 0;
-  background: linear-gradient(180deg, rgba(0,0,0,0.00) 0%, rgba(0,0,0,0.60) 100%);
+  background: linear-gradient(180deg, rgba(0,0,0,0.00) 0%, rgba(0,0,0,0.55) 100%);
 }
 
-.bt-content{
+.bt-featuredLabel{
   position: absolute;
-  inset: 0;
-  display: flex;
-  flex-direction: column;
-  justify-content: flex-end;
-  padding: 12px 12px 14px;
-  color: #fff;
-  gap: 8px;
-}
-
-.bt-top{
+  left: 10px;
+  right: 10px;
+  bottom: 10px;
   display: flex;
   align-items: flex-end;
   justify-content: space-between;
   gap: 10px;
+  color: #fff;
 }
 
-.bt-title{
+.bt-featuredName{
   font-weight: 950;
   letter-spacing: -0.02em;
-  font-size: 18px;
-  line-height: 1.1;
+  font-size: 14px;
+  line-height: 1.15;
+
+  /* ✅ show up to 2 lines (so "/ Bergsteigen" shows) */
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 
-.bt-count{
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 30px;
-  height: 24px;
-  padding: 0 9px;
+.bt-featuredCount{
+  flex: 0 0 auto;
+  min-width: 34px;
+  height: 26px;
+  padding: 0 10px;
   border-radius: 999px;
   background: rgba(255,255,255,0.16);
   border: 1px solid rgba(255,255,255,0.22);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   font-weight: 900;
   font-size: 12px;
-}
-
-.bt-sub{
-  font-size: 13px;
-  font-weight: 800;
-  opacity: 0.92;
-  line-height: 1.35;
-}
-
-.bt-mini{
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.bt-cta{
-  margin-top: 2px;
-  font-weight: 900;
-  opacity: 0.95;
-}
-
-.bt-detail{
-  margin-top: 16px;
-}
-
-.bt-detail__head{
-  display: flex;
-  justify-content: space-between;
-  gap: 12px;
-  align-items: flex-start;
-}
-
-.bt-detail__title{
-  font-weight: 950;
-  letter-spacing: -0.02em;
-  font-size: 22px;
-}
-
-.bt-detail__meta{
-  margin-top: 6px;
-  color: rgba(0,0,0,0.65);
-  font-weight: 800;
-}
-
-.bt-detail__list{
-  margin-top: 12px;
-  display: grid;
-  gap: 10px;
-}
-
-.bt-detail__item{
-  padding: 10px 12px;
-  border-radius: 14px;
-  border: 1px solid rgba(0,0,0,0.08);
-  background: rgba(0,0,0,0.02);
-}
-
-.bt-detail__itemTitle{
-  font-weight: 950;
-  letter-spacing: -0.01em;
-}
-
-.bt-detail__itemAuthor{
-  margin-top: 4px;
-  color: rgba(0,0,0,0.72);
-  font-weight: 800;
-}
-
-@media (max-width: 980px){
-  .bt-layout{ grid-template-columns: 1fr; }
-  .bt-side{ order: -1; }
 }

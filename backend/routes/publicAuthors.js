@@ -35,6 +35,52 @@ const AUTHOR_COL = "name_display";
 const TITLE_EXPR = "COALESCE(NULLIF(b.title_display,''), NULLIF(b.title_keyword,''))";
 
 /**
+ * GET /api/public/authors/:id
+ * Minimal author lookup used by the public AuthorPage when the URL contains a UUID.
+ * Returns snake_case fields matching DB column names.
+ */
+router.get(
+  "/:id([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12})",
+  async (req, res) => {
+    try {
+      const pool = getPool(req);
+      const id = normStr(req.params.id);
+      if (!id || !isUuid(id)) return res.status(400).json({ error: "invalid_author_id" });
+
+      const { rows } = await pool.query(
+        `
+        SELECT
+          id::text AS id,
+          name,
+          name_display,
+          full_name,
+          first_name,
+          last_name,
+          birth_date,
+          death_date,
+          abbreviation,
+          published_titles,
+          number_of_millionsellers,
+          male_female,
+          author_nationality,
+          place_of_birth
+        FROM public.authors
+        WHERE id = $1::uuid
+        LIMIT 1
+        `,
+        [id]
+      );
+
+      if (!rows?.[0]) return res.status(404).json({ error: "author_not_found" });
+      return res.json(rows[0]);
+    } catch (err) {
+      console.error("GET /api/public/authors/:id error", err);
+      return res.status(500).json({ error: "internal_error" });
+    }
+  }
+);
+
+/**
  * GET /api/public/authors/top-books?author=<uuid|name>&limit=3&exclude=<bookId>
  * Returns the top N books for an author (within your collection).
  * Ordering preference:
@@ -110,6 +156,7 @@ router.get("/top-books", async (req, res) => {
         ${AUTHOR_EXPR} AS author_name_display,
         b.reading_status,
         b.reading_status_updated_at,
+        b.featured_rank,
         b.top_book,
         b.top_book_set_at,
         b.registered_at,
@@ -129,6 +176,8 @@ router.get("/top-books", async (req, res) => {
         )
         ${excludeSql}
       ORDER BY
+        CASE WHEN b.featured_rank BETWEEN 1 AND 3 THEN 0 ELSE 1 END,
+        b.featured_rank ASC NULLS LAST,
         b.top_book DESC,
         b.top_book_set_at DESC NULLS LAST,
         (b.reading_status = 'finished') DESC,
@@ -153,6 +202,7 @@ router.get("/top-books", async (req, res) => {
         purchaseUrl: r.purchase_url || null,
         readingStatus: r.reading_status || null,
         readingStatusUpdatedAt: r.reading_status_updated_at || null,
+        featuredRank: r.featured_rank ?? null,
         topBook: !!r.top_book,
         topBookSetAt: r.top_book_set_at || null,
         registeredAt: r.registered_at || null,

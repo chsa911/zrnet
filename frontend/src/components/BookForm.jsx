@@ -1,6 +1,14 @@
 // frontend/src/components/BookForm.jsx
-import React, { useEffect, useMemo, useState } from "react";
-import { autocomplete, registerBook, updateBook } from "../api/books";
+import React, { useEffect, useMemo, useRef, useState } from "react";
+import {
+  autocomplete,
+  findDraft,
+  lookupIsbn,
+  registerBook,
+  registerExistingBook,
+  updateBook,
+  uploadCover,
+} from "../api/books";
 import { previewBarcode } from "../api/barcodes";
 
 /* ---------- tolerant field picker ---------- */
@@ -43,6 +51,57 @@ function coerceScalar(raw) {
   const n = Number(s.replace(",", "."));
   if (Number.isFinite(n) && /^-?[0-9]+([\.,][0-9]+)?$/.test(s)) return n;
   return s;
+}
+
+function splitAuthorName(name) {
+  const s = String(name || "").trim();
+  if (!s) return { first: "", last: "", display: "" };
+  // handle "Last, First"
+  if (s.includes(",")) {
+    const [last, first] = s.split(",").map((x) => x.trim());
+    return {
+      first: first || "",
+      last: last || "",
+      display: [first, last].filter(Boolean).join(" ").trim(),
+    };
+  }
+  const parts = s.split(/\s+/).filter(Boolean);
+  if (parts.length === 1) return { first: "", last: parts[0], display: parts[0] };
+  return {
+    first: parts.slice(0, -1).join(" "),
+    last: parts.slice(-1)[0],
+    display: s,
+  };
+}
+
+function computeKeywordFromTitle(title) {
+  const t = String(title || "").trim();
+  if (!t) return { keyword: "", pos: "" };
+  const articles = [
+    "der",
+    "die",
+    "das",
+    "ein",
+    "eine",
+    "einer",
+    "eines",
+    "the",
+    "a",
+    "an",
+    "la",
+    "le",
+    "les",
+    "el",
+  ];
+  const m = t.match(/^([A-Za-zÄÖÜäöüß]+)\s+(.*)$/);
+  if (!m) return { keyword: t, pos: "0" };
+  const first = m[1];
+  const rest = m[2];
+  if (articles.includes(first.toLowerCase())) {
+    // BKP as a simple 1-based word offset
+    return { keyword: rest.trim(), pos: "1" };
+  }
+  return { keyword: t, pos: "0" };
 }
 
 export default function BookForm({
@@ -95,6 +154,80 @@ export default function BookForm({
   const [v, setV] = useState(initial);
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState("");
+
+  const msgRef = useRef(null);
+  useEffect(() => {
+    if (!msg) return;
+    // Make feedback visible on mobile (form is long)
+    msgRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, [msg]);
+
+  // iPhone cover capture
+  const [coverFile, setCoverFile] = useState(null);
+  const [coverPreviewUrl, setCoverPreviewUrl] = useState("");
+
+  // Draft detection (photo already exists) – used in registration mode
+  const [draftBusy, setDraftBusy] = useState(false);
+  const [draftCandidates, setDraftCandidates] = useState([]);
+  const [draftSelectedId, setDraftSelectedId] = useState("");
+
+  // Try to find an existing photo draft as soon as ISBN or 4-digit code is entered.
+  useEffect(() => {
+    if (isEdit) return;
+    if (!assignBarcode) return; // only relevant for barcode registration flow
+    if (draftSelectedId) return; // keep selection stable while user continues entering data
+
+    const isbn = String(v.isbn13 || "").trim() || String(v.isbn10 || "").trim();
+    const pagesRaw = String(v.BSeiten || "").trim();
+    // In your flow, the (numeric) capture code is typed into the pages field; length doesn't matter.
+    const code = /^[0-9]+$/.test(pagesRaw) ? pagesRaw : "";
+
+    // Only search when we have a strong key
+    const hasKey = (isbn.length === 10 || isbn.length === 13) || !!code;
+    if (!hasKey) {
+      setDraftCandidates([]);
+      return;
+    }
+
+    let alive = true;
+    const t = setTimeout(() => {
+      (async () => {
+        try {
+          setDraftBusy(true);
+          const r = await findDraft({ isbn: isbn || undefined, code: code || undefined });
+          if (!alive) return;
+          const items = Array.isArray(r?.items) ? r.items : Array.isArray(r) ? r : [];
+          setDraftCandidates(items);
+          if (items.length === 1) setDraftSelectedId(items[0].id);
+        } catch {
+          if (!alive) return;
+          setDraftCandidates([]);
+          setDraftSelectedId("");
+        } finally {
+          if (alive) setDraftBusy(false);
+        }
+      })();
+    }, 350);
+
+    return () => {
+      alive = false;
+      clearTimeout(t);
+    };
+  }, [isEdit, assignBarcode, v.isbn13, v.isbn10, v.BSeiten]);
+
+  useEffect(() => {
+    if (!coverFile) {
+      setCoverPreviewUrl("");
+      return;
+    }
+    const u = URL.createObjectURL(coverFile);
+    setCoverPreviewUrl(u);
+    return () => URL.revokeObjectURL(u);
+  }, [coverFile]);
+
+  // ISBN lookup
+  const [isbnBusy, setIsbnBusy] = useState(false);
+  const lastAutoIsbnRef = useRef("");
 
   // unknown/extra fields
   const knownKeys = useMemo(
@@ -254,17 +387,103 @@ export default function BookForm({
     }
   }
 
+  async function doIsbnLookup() {
+    const isbn = String(v.isbn13 || "").trim() || String(v.isbn10 || "").trim();
+    if (!isbn) {
+      setMsg("Bitte ISBN eingeben (ISBN-13 oder ISBN-10). ");
+      return;
+    }
+
+    setIsbnBusy(true);
+    setMsg("");
+    try {
+      const r = await lookupIsbn(isbn);
+      const s = r?.suggested || {};
+
+      // Apply suggestions (only if field is empty, to avoid overwriting your edits)
+      const applyIfEmpty = (key, val) => {
+        const cur = String(v[key] ?? "").trim();
+        if (cur) return;
+        if (val === undefined || val === null) return;
+        setField(key, String(val));
+      };
+
+      applyIfEmpty("isbn13", s.isbn13);
+      applyIfEmpty("isbn10", s.isbn10);
+      applyIfEmpty("title_display", s.title_display);
+      applyIfEmpty("BVerlag", s.BVerlag);
+      applyIfEmpty("BSeiten", s.BSeiten);
+      applyIfEmpty("purchase_url", s.purchase_url);
+      applyIfEmpty("original_language", s.original_language);
+
+      // author
+      applyIfEmpty("BAutor", s.BAutor);
+      applyIfEmpty("author_firstname", s.author_firstname);
+      applyIfEmpty("name_display", s.name_display);
+
+      // keyword
+      applyIfEmpty("BKw", s.BKw);
+      applyIfEmpty("BKP", s.BKP);
+
+      // If backend returned title but BKw is still empty, derive locally as fallback
+      if (!String(v.BKw || "").trim() && (s.title_display || v.title_display)) {
+        const { keyword, pos } = computeKeywordFromTitle(s.title_display || v.title_display);
+        if (keyword) setField("BKw", keyword);
+        if (pos) setField("BKP", pos);
+      }
+
+      // If backend returned only a display author string, derive locally (fallback)
+      if (!String(v.BAutor || "").trim() && (s.author_name || s.name_display)) {
+        const { first, last, display } = splitAuthorName(s.author_name || s.name_display);
+        if (last) setField("BAutor", last);
+        if (first) setField("author_firstname", first);
+        if (display) setField("name_display", display);
+      }
+
+      setMsg("ISBN gefunden ✔ (Felder wurden ergänzt)");
+    } catch (e) {
+      setMsg(e?.message || "ISBN Lookup fehlgeschlagen");
+    } finally {
+      setIsbnBusy(false);
+    }
+  }
+
+  // Optional convenience: if you already captured a cover and entered an ISBN, run lookup automatically.
+  useEffect(() => {
+    if (isEdit) return;
+    if (!coverFile) return;
+    const isbn = String(v.isbn13 || "").trim() || String(v.isbn10 || "").trim();
+    if (!(isbn.length === 10 || isbn.length === 13)) return;
+    if (isbnBusy) return;
+    if (lastAutoIsbnRef.current === isbn) return;
+
+    const t = setTimeout(() => {
+      lastAutoIsbnRef.current = isbn;
+      doIsbnLookup();
+    }, 500);
+
+    return () => clearTimeout(t);
+  }, [isEdit, coverFile, v.isbn13, v.isbn10]);
+
   async function onSubmit(e) {
     e.preventDefault();
     setMsg("");
 
     const payload = {};
 
-    // CREATE: keep minimal validations (no width/height requirement)
-    if (!isEdit) {
-      if (!v.BAutor.trim()) return setMsg("Autor ist erforderlich.");
-      if (!v.BKw.trim()) return setMsg("Stichwort ist erforderlich.");
+    // Quick-shot (assignBarcode=false): require a cover photo so we don't create useless drafts.
+    if (!isEdit && !assignBarcode && !coverFile) {
+      return setMsg("Bitte zuerst ein Cover-Foto aufnehmen.");
     }
+
+    // If multiple drafts were found, force an explicit selection to avoid creating duplicates.
+    if (!isEdit && assignBarcode && draftCandidates.length > 1 && !draftSelectedId) {
+      return setMsg("Mehrere Drafts gefunden – bitte zuerst den richtigen auswählen.");
+    }
+
+    // Tell backend explicitly whether we want a barcode assignment now.
+    // (Needed for flows like "Wishlist" / "Neu im Bestand".)
+    if (!isEdit) payload.assign_barcode = !!assignBarcode;
 
     const addIfChanged = (key, next, prev) => {
       if (next === prev) return;
@@ -363,12 +582,45 @@ export default function BookForm({
 
     setBusy(true);
     try {
-      const saved = isEdit
-        ? await updateBook(bookId || initialBook?._id || initialBook?.id, payload)
-        : await registerBook(payload);
+      let saved;
+      if (isEdit) {
+        saved = await updateBook(bookId || initialBook?._id || initialBook?.id, payload);
+      } else if (assignBarcode && draftSelectedId) {
+        // Draft exists -> finalize via UPDATE/REGISTER (no CREATE)
+        const p2 = { ...payload };
+        delete p2.assign_barcode;
+        saved = await registerExistingBook(draftSelectedId, p2);
+      } else {
+        saved = await registerBook(payload);
+      }
+
+      const savedId =
+        saved?.id ||
+        saved?._id ||
+        draftSelectedId ||
+        bookId ||
+        initialBook?._id ||
+        initialBook?.id;
+
+      let coverUploadFailed = false;
+      // Upload cover if selected
+      if (coverFile && savedId) {
+        try {
+          await uploadCover(savedId, coverFile);
+          setCoverFile(null);
+        } catch (e) {
+          coverUploadFailed = true;
+          // keep coverFile so user can retry
+          setMsg(
+            `${isEdit ? "Gespeichert" : "Gespeichert"}, aber Cover-Upload fehlgeschlagen: ${
+              e?.message || "Fehler"
+            }`
+          );
+        }
+      }
 
       onSuccess && onSuccess({ payload, saved });
-      setMsg(isEdit ? "Gespeichert." : "Gespeichert ✔");
+      if (!coverUploadFailed) setMsg(isEdit ? "Gespeichert." : "Gespeichert ✔");
 
       // clear form after successful CREATE
       if (!isEdit) {
@@ -377,6 +629,8 @@ export default function BookForm({
         setAc({ field: "", items: [] });
         setBarcodePreview(null);
         setBarcodePreviewErr("");
+        setDraftCandidates([]);
+        setDraftSelectedId("");
       }
     } catch (err) {
       setMsg(err?.message || "Fehler beim Speichern");
@@ -391,6 +645,7 @@ export default function BookForm({
 
       {msg ? (
         <div
+          ref={msgRef}
           className="zr-card"
           style={{
             borderColor: msg.toLowerCase().includes("fehler")
@@ -403,6 +658,47 @@ export default function BookForm({
         >
           {msg}
         </div>
+      ) : null}
+
+      {!isEdit && assignBarcode ? (
+        draftBusy ? (
+          <div className="zr-card" style={{ opacity: 0.85 }}>
+            Suche nach vorhandenem Draft (Foto) …
+          </div>
+        ) : draftCandidates.length ? (
+          <div className="zr-card" style={{ display: "grid", gap: 10 }}>
+            <div style={{ fontWeight: 600 }}>
+              {draftCandidates.length === 1
+                ? "✅ Draft mit Foto gefunden – Registrierung aktualisiert diesen Eintrag"
+                : "Mehrere Drafts gefunden – bitte auswählen"}
+            </div>
+
+            <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+              {draftCandidates.slice(0, 6).map((d) => (
+                <button
+                  key={d.id}
+                  type="button"
+                  onClick={() => setDraftSelectedId(d.id)}
+                  className="zr-card"
+                  style={{
+                    padding: 8,
+                    cursor: "pointer",
+                    borderColor: d.id === draftSelectedId ? "rgba(0,0,0,0.35)" : "rgba(0,0,0,0.12)",
+                  }}
+                >
+                  <img
+                    src={d.coverUrl || `/assets/covers/${d.id}.jpg`}
+                    alt="cover"
+                    style={{ width: 72, height: 96, objectFit: "cover", display: "block" }}
+                  />
+                  <div style={{ marginTop: 6, fontSize: 12, opacity: 0.8 }}>
+                    {String(d.added_at || "").slice(0, 10)}
+                  </div>
+                </button>
+              ))}
+            </div>
+          </div>
+        ) : null
       ) : null}
 
       <div className="zr-toolbar">
@@ -491,6 +787,29 @@ export default function BookForm({
           ) : null}
         </div>
       ) : null}
+
+      <div className="zr-card" style={{ display: "grid", gap: 10 }}>
+        <div style={{ fontWeight: 900 }}>Cover Foto (iPhone)</div>
+        <div style={{ opacity: 0.8, fontSize: 13 }}>
+          Tippen → Kamera öffnet sich → Foto wird automatisch als <code>&lt;book_id&gt;.jpg</code> gespeichert.
+        </div>
+
+        <input
+          type="file"
+          accept="image/*"
+          capture="environment"
+          disabled={busy}
+          onChange={(e) => setCoverFile(e.target.files?.[0] || null)}
+        />
+
+        {coverPreviewUrl ? (
+          <img
+            src={coverPreviewUrl}
+            alt="Cover preview"
+            style={{ width: "100%", borderRadius: 12, border: "1px solid rgba(0,0,0,0.12)" }}
+          />
+        ) : null}
+      </div>
 
       <div className="zr-toolbar">
         <label style={{ display: "grid", gap: 6, flex: 1, position: "relative" }}>
@@ -684,6 +1003,20 @@ export default function BookForm({
               onChange={(e) => setField("isbn10", e.target.value)}
             />
           </label>
+        </div>
+
+        <div className="zr-toolbar" style={{ alignItems: "center", gap: 10 }}>
+          <button
+            type="button"
+            className="zr-btn2 zr-btn2--ghost"
+            disabled={busy || isbnBusy}
+            onClick={doIsbnLookup}
+          >
+            {isbnBusy ? "Suche…" : "ISBN Lookup"}
+          </button>
+          <div style={{ fontSize: 12, opacity: 0.75 }}>
+            Füllt Titel/Autor/Verlag/Seiten/Kauf-Link automatisch (Google/OpenLibrary/DNB/Wikidata).
+          </div>
         </div>
         <div className="zr-toolbar">
           <label style={{ display: "grid", gap: 6, flex: 1 }}>
