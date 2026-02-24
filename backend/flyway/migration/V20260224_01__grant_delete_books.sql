@@ -1,0 +1,1 @@
+	Adds: GRANT DELETE ON public.books TO rxlog_app;

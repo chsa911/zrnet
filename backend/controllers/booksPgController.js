@@ -1318,59 +1318,71 @@ async function updateBook(req, res) {
 /* --------------------------------- drop --------------------------------- */
 
 async function dropBook(req, res) {
+  const pool = getPool(req);
+  const id = String(req.params.id || "").trim();
+  if (!UUID_RE.test(id)) return res.status(400).json({ error: "invalid_id" });
+
+  const client = await pool.connect();
   try {
-    const pool = getPool(req);
-    const id = String(req.params.id || "").trim();
-    if (!UUID_RE.test(id)) return res.status(400).json({ error: "invalid_id" });
+    await client.query("BEGIN");
 
-    const client = await pool.connect();
-    try {
-      await client.query("BEGIN");
-
-      // 1) Free active barcode assignments (your schema uses barcode_assignments)
-      await client.query(
-        `
-        UPDATE public.barcode_assignments
-        SET freed_at = now()
-        WHERE book_id = $1::uuid
-          AND freed_at IS NULL
-        `,
-        [id]
-      );
-
-      // 2) Remove legacy mapping (your codebase also uses book_barcodes)
-      await client.query(`DELETE FROM public.book_barcodes WHERE book_id = $1::uuid`, [id]);
-
-      // 3) Delete the book itself
-      const del = await client.query(`DELETE FROM public.books WHERE id = $1::uuid RETURNING id`, [id]);
-
-      await client.query("COMMIT");
-
-      if (!del.rowCount) return res.status(404).json({ error: "not_found" });
-      return res.status(204).send();
-    } catch (e) {
-      try {
-        await client.query("ROLLBACK");
-      } catch {}
-
-      // FK conflict (book referenced by other tables)
-      if (String(e?.code) === "23503") {
-        return res.status(409).json({
-          error: "conflict_foreign_key",
-          detail: "Book is referenced by other records; cannot delete.",
-        });
-      }
-
-      console.error("dropBook error", e);
-      return res.status(500).json({ error: "delete_failed", detail: String(e?.message || e) });
-    } finally {
-      client.release();
+    // Ensure the book exists and lock it so concurrent drops/updates don't race.
+    const exists = await client.query(
+      `SELECT id FROM public.books WHERE id = $1::uuid FOR UPDATE`,
+      [id]
+    );
+    if (!exists.rowCount) {
+      await client.query("ROLLBACK");
+      return res.status(404).json({ error: "not_found" });
     }
-  } catch (err) {
-    console.error("dropBook error", err);
-    return res.status(500).json({ error: "internal_error" });
+
+    // 1) Free active barcode assignment(s)
+    await client.query(
+      `
+      UPDATE public.barcode_assignments
+      SET freed_at = now()
+      WHERE book_id = $1::uuid
+        AND freed_at IS NULL
+      `,
+      [id]
+    );
+
+    // 2) Remove current barcode mapping (book_barcodes is the canonical mapping table)
+    await client.query(`DELETE FROM public.book_barcodes WHERE book_id = $1::uuid`, [id]);
+
+    // 3) Delete the book itself
+    await client.query(`DELETE FROM public.books WHERE id = $1::uuid`, [id]);
+
+    await client.query("COMMIT");
+    return res.status(204).send();
+  } catch (e) {
+    try {
+      await client.query("ROLLBACK");
+    } catch {}
+
+    // FK conflict (book referenced by other tables)
+    if (String(e?.code) === "23503") {
+      return res.status(409).json({
+        error: "conflict_foreign_key",
+        detail: "Book is referenced by other records; cannot delete.",
+      });
+    }
+
+    // Permissions
+    if (String(e?.code) === "42501") {
+      return res.status(403).json({
+        error: "permission_denied",
+        detail: "Missing DB privileges (need DELETE on public.books).",
+      });
+    }
+
+    console.error("dropBook error", e);
+    return res.status(500).json({ error: "delete_failed", detail: String(e?.message || e) });
+  } finally {
+    client.release();
   }
 }
+
 
 module.exports = {
   listBooks,

@@ -85,8 +85,8 @@ export default function AuthorPage() {
   }, [authorParam]);
 
   // tab names:
-  // on_hand | finished | abandoned | in_progress | in_stock (to read) | wishlist | top | all
-  const tabRaw = (sp.get("tab") || "on_hand").toLowerCase();
+  // on_hand | finished | abandoned | in_progress | in_stock | wishlist | top | all
+  const tabRaw = (sp.get("tab") || "all").toLowerCase();
   const tab =
     tabRaw === "read" || tabRaw === "completed"
       ? "finished"
@@ -146,7 +146,7 @@ export default function AuthorPage() {
 
   // Resolve author if URL contains UUID: fetch author display/abbr, then query books by that.
   const [authorResolved, setAuthorResolved] = useState({
-    id: null, // <-- important for author photo filename
+    id: null, // used for author photo filename
     key: authorQuery,
     display: authorQuery,
     publishedTitles: null,
@@ -219,8 +219,6 @@ export default function AuthorPage() {
   }, [authorQuery]);
 
   const [items, setItems] = useState([]);
-  const [totalInDb, setTotalInDb] = useState(null);
-  const [publishedTitles, setPublishedTitles] = useState(null);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState("");
 
@@ -261,12 +259,10 @@ export default function AuthorPage() {
         setLoading(true);
         setErr("");
         setItems([]);
-        setTotalInDb(null);
 
         const key = String(authorResolved.key || "").trim();
         if (!key) {
           setItems([]);
-          setTotalInDb(0);
           return;
         }
 
@@ -281,9 +277,6 @@ export default function AuthorPage() {
 
         const nextItems = Array.isArray(res?.items) ? res.items : [];
         setItems(nextItems);
-
-        const t = Number(res?.total);
-        setTotalInDb(Number.isFinite(t) ? t : nextItems.length);
       } catch (e) {
         if (isAbortError(e) || ac.signal.aborted) return;
         setErr(e?.message || "Failed to load author books");
@@ -295,52 +288,6 @@ export default function AuthorPage() {
     return () => ac.abort();
   }, [authorResolved.key]);
 
-  // Published titles: prefer authorResolved, else take from list rows, else fallback to getBook(firstId)
-  useEffect(() => {
-    if (authorResolved.publishedTitles != null) {
-      setPublishedTitles(authorResolved.publishedTitles);
-      return;
-    }
-
-    const fromList = items
-      .map((x) => x?.published_titles ?? x?.publishedTitles ?? null)
-      .map((v) => Number(v))
-      .find((n) => Number.isFinite(n) && n > 0);
-
-    if (fromList != null) {
-      setPublishedTitles(fromList);
-      return;
-    }
-
-    let alive = true;
-    const firstId = items?.map((x) => idFromRaw(x)).find((x) => !!x);
-    if (!firstId) {
-      setPublishedTitles(null);
-      return () => {
-        alive = false;
-      };
-    }
-
-    (async () => {
-      try {
-        const full = await getBook(firstId);
-        if (!alive) return;
-
-        const v = full?.published_titles ?? full?.publishedTitles ?? null;
-        const n = Number(v);
-        setPublishedTitles(Number.isFinite(n) && n > 0 ? n : null);
-      } catch {
-        if (!alive) return;
-        setPublishedTitles(null);
-      }
-    })();
-
-    return () => {
-      alive = false;
-    };
-  }, [items, authorResolved.publishedTitles]);
-
-  // Prefer nicer heading
   const authorName = useMemo(() => {
     const d = String(authorResolved.display || "").trim();
     const first = items?.[0];
@@ -379,7 +326,6 @@ export default function AuthorPage() {
     const notStarted = [];
     const wishlist = [];
     const top = [];
-    const shelf = [];
 
     for (const raw of items) {
       const id =
@@ -395,28 +341,12 @@ export default function AuthorPage() {
           pick(raw, ["BTop", "top", "Topbook", "top_book", "topBook"])
       );
 
-      const onShelf = Boolean(raw?.isInStock ?? raw?.is_in_stock);
-
       const topRankRaw = pick(raw, [
         "top_rank", "topRank", "top_no", "topNo", "top_number", "topNumber",
         "BTopRank", "BTopNo",
       ]);
       const topRankNum = Number(topRankRaw);
       const topRank = Number.isFinite(topRankNum) ? topRankNum : null;
-
-      const favRankRaw = pick(raw, [
-        "favorite_rank", "favoriteRank", "fav_rank", "favRank",
-        "BFavRank", "BFavNo",
-      ]);
-      const favRankNum = Number(favRankRaw);
-      const favRank = Number.isFinite(favRankNum) ? favRankNum : null;
-
-      const isFavorite = Boolean(
-        pick(raw, [
-          "favorite_book", "favoriteBook", "favorite",
-          "is_favorite", "isFavorite", "BFav", "BFavorite",
-        ])
-      );
 
       const b = {
         id,
@@ -432,9 +362,6 @@ export default function AuthorPage() {
         st,
         isTop,
         topRank,
-        isFavorite,
-        favRank,
-        onShelf,
       };
 
       all.push(b);
@@ -448,10 +375,9 @@ export default function AuthorPage() {
       if (st === "in_stock") notStarted.push(b);
       if (st === "wishlist") wishlist.push(b);
       if (isTop) top.push(b);
-      if (onShelf) shelf.push(b);
     }
 
-    return { all, onHand, finished, abandoned, inProgress, notStarted, wishlist, top, shelf };
+    return { all, onHand, finished, abandoned, inProgress, notStarted, wishlist, top };
   }, [items]);
 
   const counts = {
@@ -466,8 +392,8 @@ export default function AuthorPage() {
   };
 
   const showWishlist = counts.wishlist > 0;
-  const showTop = counts.top > 0;
-  const tabSafe = !showWishlist && tab === "wishlist" ? "on_hand" : tab;
+
+  const tabSafe = !showWishlist && tab === "wishlist" ? "all" : tab;
 
   const activeList = useMemo(() => {
     const base =
@@ -483,9 +409,9 @@ export default function AuthorPage() {
                 ? groups.abandoned
                 : tabSafe === "top"
                   ? groups.top
-                  : tabSafe === "all"
-                    ? groups.all
-                    : groups.finished;
+                  : tabSafe === "finished"
+                    ? groups.finished
+                    : groups.all;
 
     const needle = q.trim().toLowerCase();
     if (!needle) return base;
@@ -502,18 +428,7 @@ export default function AuthorPage() {
     return `${Math.round(x * 10) / 10}%`;
   };
 
-  const favoriteBook = useMemo(() => {
-    const favs = groups.all
-      .filter((b) => b.isFavorite)
-      .slice()
-      .sort(
-        (a, b) =>
-          (a.favRank ?? 9999) - (b.favRank ?? 9999) ||
-          String(a.title || "").localeCompare(String(b.title || ""))
-      );
-
-    if (favs.length) return favs[0];
-
+  const topBook = useMemo(() => {
     const topSorted = groups.top
       .slice()
       .sort(
@@ -521,21 +436,8 @@ export default function AuthorPage() {
           (a.topRank ?? 9999) - (b.topRank ?? 9999) ||
           String(a.title || "").localeCompare(String(b.title || ""))
       );
-
-    return topSorted.length ? topSorted[0] : null;
-  }, [groups]);
-
-  const top3Books = useMemo(() => {
-    if (decisionTotal <= 10) return [];
-    const topSorted = groups.top
-      .slice()
-      .sort(
-        (a, b) =>
-          (a.topRank ?? 9999) - (b.topRank ?? 9999) ||
-          String(a.title || "").localeCompare(String(b.title || ""))
-      );
-    return topSorted.slice(0, 3);
-  }, [decisionTotal, groups]);
+    return topSorted[0] || null;
+  }, [groups.top]);
 
   const jumpTo = (nextTab) => {
     setQ("");
@@ -584,13 +486,7 @@ export default function AuthorPage() {
 
         // title variants
         const t =
-          pick(patch, [
-            "title_display",
-            "titleDisplay",
-            "title",
-            "bookTitleDisplay",
-            "BTitle",
-          ]) ?? null;
+          pick(patch, ["title_display", "titleDisplay", "title", "bookTitleDisplay", "BTitle"]) ?? null;
 
         if (t != null && String(t).trim()) {
           const s = String(t).trim();
@@ -616,10 +512,6 @@ export default function AuthorPage() {
           next.topBook = tb;
           next.BTop = tb;
         }
-
-        // published_titles (author-level field, kept for compatibility)
-        if (patch?.published_titles !== undefined) next.published_titles = patch.published_titles;
-        if (patch?.publishedTitles !== undefined) next.publishedTitles = patch.publishedTitles;
 
         return next;
       })
@@ -697,9 +589,13 @@ export default function AuthorPage() {
         </div>
       </div>
 
-      {/* Option A: Readings + On hand hero cards (numbers live only here) */}
+      {/* Two big panels only (panel itself not clickable; only buttons inside) */}
       <div className="zr-author__heroRow">
-        <div className="zr-card zr-author__panel zr-author__panel--readings" aria-label="Readings summary">
+        <div
+          className="zr-card zr-author__panel zr-author__panel--readings"
+          aria-label="Readings summary"
+          style={{ color: "#fff" }}
+        >
           <div className="zr-author__panelHead">
             <div>
               <div className="zr-author__panelTitle">Readings</div>
@@ -729,7 +625,11 @@ export default function AuthorPage() {
           </div>
         </div>
 
-        <div className="zr-card zr-author__panel zr-author__panel--onhand" aria-label="On hand summary">
+        <div
+          className="zr-card zr-author__panel zr-author__panel--onhand"
+          aria-label="On hand summary"
+          style={{ color: "#fff" }}
+        >
           <div className="zr-author__panelTitle">On hand</div>
           <div className="zr-author__panelBig">{loading ? "—" : counts.onHand}</div>
 
@@ -752,16 +652,18 @@ export default function AuthorPage() {
         </div>
       </div>
 
-      {favoriteBook ? (
-        <div className="zr-card zr-author__featured" aria-label="Favorite read">
-          <div className="zr-author__sectionTitle">Favorite read</div>
-          <article className="zr-author__featuredBook">
-            <Link className="zr-author__featuredCover" to={"/book/" + encodeURIComponent(favoriteBook.id)}>
-              {favoriteBook.cover ? (
+      {/* Only ONE top book below, full-width */}
+      {topBook ? (
+        <div className="zr-card zr-author__topOne" aria-label="Top read">
+          <div className="zr-author__sectionTitle">Top read</div>
+
+          <article className="zr-author__topOneInner">
+            <Link className="zr-author__topOneCover" to={"/book/" + encodeURIComponent(topBook.id)}>
+              {topBook.cover ? (
                 <img
                   className="zr-author__cover"
-                  src={favoriteBook.cover}
-                  alt={favoriteBook.title + " cover"}
+                  src={topBook.cover}
+                  alt={topBook.title + " cover"}
                   loading="lazy"
                   onError={(e) => {
                     e.currentTarget.style.display = "none";
@@ -773,128 +675,53 @@ export default function AuthorPage() {
               <div className="zr-author__coverEmpty">No cover</div>
             </Link>
 
-            <div className="zr-author__featuredMeta">
-              <Link className="zr-author__featuredTitle" to={"/book/" + encodeURIComponent(favoriteBook.id)}>
-                {favoriteBook.title}
+            <div className="zr-author__topOneMeta">
+              <Link className="zr-author__featuredTitle" to={"/book/" + encodeURIComponent(topBook.id)}>
+                {topBook.title}
               </Link>
+
               <div className="zr-author__status">
-                {displayStatus(favoriteBook.st)}
-                {favoriteBook.isTop ? " · top" : ""}
+                {displayStatus(topBook.st)} · top
+              </div>
+
+              <div className="zr-author__actions">
+                <Link className="zr-btn2 zr-btn2--ghost" to={`/book/${encodeURIComponent(topBook.id)}`}>
+                  Details
+                </Link>
+
+                {admin.ok ? (
+                  <button
+                    type="button"
+                    className="zr-btn2 zr-btn2--ghost"
+                    onClick={() => openEdit(topBook.id)}
+                    title="Quick edit (admin only)"
+                  >
+                    Edit
+                  </button>
+                ) : null}
+
+                {(topBook.purchaseUrl || buyFallback(authorName, topBook.title)) ? (
+                  <a
+                    className="zr-btn2 zr-btn2--primary"
+                    href={topBook.purchaseUrl || buyFallback(authorName, topBook.title)}
+                    target="_blank"
+                    rel="noreferrer noopener"
+                    title="Opens in a new tab"
+                  >
+                    Buy ↗
+                  </a>
+                ) : null}
               </div>
             </div>
           </article>
         </div>
       ) : null}
 
-      {!loading && decisionTotal > 10 && top3Books.length ? (
-        <div className="zr-card zr-author__top3" aria-label="Top reads">
-          <div className="zr-author__sectionTitle">Top reads</div>
-          <div className="zr-author__topRow">
-            {top3Books.map((b, idx) => (
-              <Link key={b.id} className="zr-author__topCard" to={"/book/" + encodeURIComponent(b.id)}>
-                <div className="zr-author__rank">{idx + 1}</div>
-                <div className="zr-author__topCover">
-                  {b.cover ? (
-                    <img
-                      className="zr-author__topImg"
-                      src={b.cover}
-                      alt={b.title + " cover"}
-                      loading="lazy"
-                      onError={(e) => {
-                        e.currentTarget.style.display = "none";
-                        const next = e.currentTarget.nextElementSibling;
-                        if (next) next.style.display = "flex";
-                      }}
-                    />
-                  ) : null}
-                  <div className="zr-author__topEmpty">No cover</div>
-                </div>
-                <div className="zr-author__topTitle">{b.title}</div>
-              </Link>
-            ))}
-          </div>
-        </div>
-      ) : null}
-
       {err ? <div className="zr-alert zr-alert--error">{err}</div> : null}
       {loading ? <div className="zr-alert">Loading…</div> : null}
 
-      {/* Tabs + Search (labels only, no numbers) */}
-      <div className="zr-card" style={{ marginBottom: 12 }}>
-        <div className="zr-toolbar" style={{ flexWrap: "wrap", gap: 8 }}>
-          <button
-            className={`zr-btn2 zr-btn2--sm ${tabSafe === "all" ? "zr-btn2--primary" : "zr-btn2--ghost"}`}
-            onClick={() => setTab("all")}
-          >
-            All
-          </button>
-
-          <button
-            className={`zr-btn2 zr-btn2--sm ${tabSafe === "on_hand" ? "zr-btn2--primary" : "zr-btn2--ghost"}`}
-            onClick={() => setTab("on_hand")}
-          >
-            On hand
-          </button>
-
-          <button
-            className={`zr-btn2 zr-btn2--sm ${tabSafe === "in_stock" ? "zr-btn2--primary" : "zr-btn2--ghost"}`}
-            onClick={() => setTab("in_stock")}
-          >
-            To read
-          </button>
-
-          <button
-            className={`zr-btn2 zr-btn2--sm ${tabSafe === "in_progress" ? "zr-btn2--primary" : "zr-btn2--ghost"}`}
-            onClick={() => setTab("in_progress")}
-          >
-            Reading
-          </button>
-
-          <button
-            className={`zr-btn2 zr-btn2--sm ${tabSafe === "finished" ? "zr-btn2--primary" : "zr-btn2--ghost"}`}
-            onClick={() => setTab("finished")}
-          >
-            Completed
-          </button>
-
-          <button
-            className={`zr-btn2 zr-btn2--sm ${tabSafe === "abandoned" ? "zr-btn2--primary" : "zr-btn2--ghost"}`}
-            onClick={() => setTab("abandoned")}
-          >
-            Not a match
-          </button>
-
-          {showWishlist ? (
-            <button
-              className={`zr-btn2 zr-btn2--sm ${tabSafe === "wishlist" ? "zr-btn2--primary" : "zr-btn2--ghost"}`}
-              onClick={() => setTab("wishlist")}
-            >
-              Wishlist
-            </button>
-          ) : null}
-
-          {showTop ? (
-            <button
-              className={`zr-btn2 zr-btn2--sm ${tabSafe === "top" ? "zr-btn2--primary" : "zr-btn2--ghost"}`}
-              onClick={() => setTab("top")}
-            >
-              Top
-            </button>
-          ) : null}
-
-          <div style={{ flex: 1 }} />
-          <input
-            className="zr-input"
-            placeholder="Search title…"
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-            style={{ minWidth: 220 }}
-          />
-        </div>
-      </div>
-
       {!loading && activeList.length === 0 ? (
-        <div className="zr-card">No books found for this selection.</div>
+        <div className="zr-card">No books found.</div>
       ) : null}
 
       <div ref={listAnchorRef} />
@@ -1012,10 +839,6 @@ export default function AuthorPage() {
                     const patch = saved && typeof saved === "object" ? saved : payload;
                     patchLocalList(editId, patch);
                     setEditingBook((prev) => ({ ...(prev || {}), ...(patch || {}) }));
-
-                    const pt = patch?.published_titles ?? patch?.publishedTitles;
-                    const n = Number(pt);
-                    if (Number.isFinite(n) && n > 0) setPublishedTitles(n);
                   }}
                 />
               ) : null}

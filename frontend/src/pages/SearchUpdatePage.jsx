@@ -1,6 +1,6 @@
 // frontend/src/pages/SearchUpdatePage.jsx
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { listBooks, updateBook } from "../api/books";
+import { listBooks, updateBook, deleteBook } from "../api/books";
 import AdminNavRow from "../components/AdminNavRow";
 import BookForm from "../components/BookForm"; // <-- make sure this exists (shared form used by register + edit)
 
@@ -164,6 +164,26 @@ export default function SearchUpdatePage() {
     } catch (e) {
       patchRow(id, revert);
       alert(e?.message || "Update Status fehlgeschlagen");
+    } finally {
+      setUpdatingOn(id, false);
+    }
+  }
+
+  async function dropRow(b) {
+    const id = idOf(b);
+    if (!id) return alert("Kein Datensatz-ID gefunden.");
+
+    if (!confirm("Buch wirklich löschen? (Barcode wird freigegeben)")) return;
+
+    setUpdatingOn(id, true);
+    try {
+      await deleteBook(id);
+      setItems((prev) => prev.filter((it) => idOf(it) !== id));
+      setTotal((prev) => Math.max(0, (Number(prev) || 0) - 1));
+      // If we deleted the last row on this page, go one page back (if possible)
+      if (items.length === 1 && q.page > 1) setQuery({ page: q.page - 1 });
+    } catch (e) {
+      alert(e?.message || "Löschen fehlgeschlagen");
     } finally {
       setUpdatingOn(id, false);
     }
@@ -344,6 +364,16 @@ export default function SearchUpdatePage() {
                             type="button"
                           >
                             {getTop(b) ? "★ Top entfernen" : "☆ Top setzen"}
+                          </button>
+
+                          <button
+                            disabled={isBusy}
+                            onClick={() => dropRow(b)}
+                            className="zr-btn2 zr-btn2--ghost zr-btn2--sm"
+                            type="button"
+                            title="Löschen"
+                          >
+                            🗑 Löschen
                           </button>
 
                           <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
