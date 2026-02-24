@@ -2,6 +2,7 @@ import React from "react";
 import { Outlet } from "react-router-dom";
 import TopBar from "./TopBar";
 import Footer from "./Footer";
+import UploadQueueManager from "./UploadQueueManager"; // <-- add
 
 export default function Layout() {
   return (
@@ -12,6 +13,7 @@ export default function Layout() {
         <Outlet />
       </main>
       <Footer />
+      <UploadQueueManager />
     </div>
   );
 }

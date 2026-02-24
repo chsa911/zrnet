@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect } from "react";
 import { Routes, Route, Navigate } from "react-router-dom";
 import Layout from "./components/Layout";
 import Home from "./pages/Home";
@@ -22,6 +22,8 @@ import CheckoutPage from "./pages/CheckoutPage";
 import OrderThanksPage from "./pages/OrderThanksPage";
 import NewsletterPage from "./pages/NewsletterPage";
 
+import { processUploadQueue } from "./utils/uploadQueue";
+
 function NotFound() {
   return (
     <div style={{ padding: 24, fontFamily: "Arial, sans-serif" }}>
@@ -32,6 +34,35 @@ function NotFound() {
 }
 
 export default function App() {
+  // Safety net: retry any locally queued registrations/uploads when the app opens or comes online.
+  useEffect(() => {
+    let alive = true;
+
+    const run = async () => {
+      try {
+        await processUploadQueue({ maxJobs: 10 });
+      } catch {
+        // ignore (queue persists)
+      }
+    };
+
+    run();
+
+    const onOnline = () => alive && run();
+    const onVis = () => {
+      if (!alive) return;
+      if (document.visibilityState === "visible") run();
+    };
+
+    window.addEventListener("online", onOnline);
+    document.addEventListener("visibilitychange", onVis);
+    return () => {
+      alive = false;
+      window.removeEventListener("online", onOnline);
+      document.removeEventListener("visibilitychange", onVis);
+    };
+  }, []);
+
   return (
     <Routes>
       {/* ✅ Make the layout route explicit */}

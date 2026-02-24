@@ -16,6 +16,56 @@
   margin-top: 14px;
 }
 
+/* ----- metrics strip (single source of truth for numbers) ----- */
+
+.zr-author__metrics{
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 10px;
+}
+
+.zr-author__metric{
+  text-align: left;
+  border: 1px solid rgba(0,0,0,0.10);
+  background: rgba(0,0,0,0.02);
+  border-radius: 14px;
+  padding: 12px 12px;
+  cursor: pointer;
+}
+
+.zr-author__metric:hover{ background: rgba(0,0,0,0.03); }
+
+.zr-author__metric[disabled]{
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.zr-author__metricLabel{
+  font-size: 12px;
+  opacity: 0.75;
+  font-weight: 800;
+  margin-bottom: 6px;
+}
+
+.zr-author__metricValue{
+  font-size: 22px;
+  font-weight: 950;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+}
+
+.zr-author__metricSub{
+  margin-top: 6px;
+  font-size: 12px;
+  opacity: 0.7;
+}
+
+.zr-author__showing{
+  margin-top: 10px;
+  font-size: 13px;
+  opacity: 0.85;
+}
+
 .zr-author__book {
   display: grid;
   grid-template-columns: 110px 1fr;
@@ -72,4 +122,277 @@
   display: flex;
   gap: 10px;
   flex-wrap: wrap;
+}
+
+/* ----- Option A hero layout ----- */
+
+.zr-author__heroRow{
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+  margin: 16px 0 12px;
+}
+
+@media (max-width: 900px){
+  .zr-author__heroRow{ grid-template-columns: 1fr; }
+}
+
+.zr-author__panel{
+  padding: 16px;
+}
+
+.zr-author__panelHead{
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.zr-author__panelTitle{
+  font-size: 12px;
+  opacity: 0.75;
+  font-weight: 850;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.zr-author__panelBig{
+  font-size: 42px;
+  font-weight: 950;
+  letter-spacing: -0.03em;
+  line-height: 1;
+  margin-top: 6px;
+}
+
+.zr-author__rate{
+  text-align: right;
+  min-width: 160px;
+}
+
+.zr-author__rateLabel{
+  font-size: 12px;
+  opacity: 0.75;
+  font-weight: 850;
+}
+
+.zr-author__rateValue{
+  font-size: 18px;
+  font-weight: 950;
+  margin-top: 6px;
+}
+
+.zr-author__progress{
+  height: 6px;
+  background: rgba(0,0,0,0.10);
+  border-radius: 999px;
+  overflow: hidden;
+  margin-top: 8px;
+}
+
+.zr-author__progressBar{
+  height: 100%;
+  background: rgba(0,0,0,0.55);
+  border-radius: 999px;
+}
+
+.zr-author__chipRow{
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 14px;
+}
+
+.zr-author__chip{
+  border: 1px solid rgba(0,0,0,0.12);
+  background: rgba(0,0,0,0.02);
+  border-radius: 999px;
+  padding: 8px 10px;
+  display: inline-flex;
+  gap: 8px;
+  align-items: baseline;
+  cursor: pointer;
+}
+
+.zr-author__chip:hover{ background: rgba(0,0,0,0.03); }
+
+.zr-author__chip[disabled]{
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.zr-author__chip span{
+  font-size: 12px;
+  opacity: 0.8;
+  font-weight: 750;
+}
+
+.zr-author__chip strong{
+  font-size: 14px;
+  font-weight: 950;
+}
+
+/* ----- Favorite + Top reads ----- */
+
+.zr-author__featured,
+.zr-author__top3{
+  padding: 14px 16px;
+  margin-bottom: 12px;
+}
+
+.zr-author__sectionTitle{
+  font-size: 14px;
+  font-weight: 950;
+  margin-bottom: 10px;
+}
+
+.zr-author__featuredBook{
+  display: grid;
+  grid-template-columns: 110px 1fr;
+  gap: 12px;
+  align-items: start;
+}
+
+.zr-author__featuredCover{
+  display: block;
+  width: 110px;
+}
+
+.zr-author__featuredMeta{
+  min-width: 0;
+}
+
+.zr-author__featuredTitle{
+  display: inline-block;
+  font-weight: 850;
+  text-decoration: none;
+  margin-bottom: 6px;
+}
+
+.zr-author__featuredTitle:hover{ text-decoration: underline; }
+
+.zr-author__topRow{
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 12px;
+}
+
+.zr-author__topCard{
+  position: relative;
+  border: 1px solid rgba(0,0,0,0.10);
+  border-radius: 14px;
+  padding: 10px;
+  text-decoration: none;
+  color: inherit;
+  background: rgba(0,0,0,0.01);
+}
+
+.zr-author__topCard:hover{ background: rgba(0,0,0,0.02); }
+
+.zr-author__rank{
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  width: 22px;
+  height: 22px;
+  border-radius: 7px;
+  background: rgba(0,0,0,0.65);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 950;
+}
+
+.zr-author__topCover{
+  width: 100%;
+  aspect-ratio: 3 / 4;
+  border-radius: 12px;
+  overflow: hidden;
+  background: rgba(0,0,0,0.05);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.zr-author__topImg{
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.zr-author__topEmpty{
+  font-size: 12px;
+  opacity: 0.8;
+}
+
+.zr-author__topTitle{
+  margin-top: 10px;
+  font-weight: 850;
+  font-size: 14px;
+  line-height: 1.2;
+}
+/* =========================
+   Option A – colored panels
+   ========================= */
+
+.zr-card.zr-author__panel.zr-author__panel--readings{
+  background: linear-gradient(135deg, #17223a, #0f1a2b);
+  color: #fff;
+  border: 1px solid rgba(255,255,255,0.10);
+}
+
+.zr-card.zr-author__panel.zr-author__panel--onhand{
+  background: linear-gradient(135deg, #1d6b62, #145d55);
+  color: #fff;
+  border: 1px solid rgba(255,255,255,0.12);
+}
+
+/* Headings + small labels in panels */
+.zr-author__panel--readings .zr-author__panelTitle,
+.zr-author__panel--readings .zr-author__rateLabel,
+.zr-author__panel--readings .zr-author__chip span,
+.zr-author__panel--onhand  .zr-author__panelTitle,
+.zr-author__panel--onhand  .zr-author__chip span{
+  opacity: 0.88;
+}
+
+/* Chips inside colored panels */
+.zr-author__panel--readings .zr-author__chip,
+.zr-author__panel--onhand  .zr-author__chip{
+  border-color: rgba(255,255,255,0.22);
+  background: rgba(255,255,255,0.08);
+}
+
+.zr-author__panel--readings .zr-author__chip:hover,
+.zr-author__panel--onhand  .zr-author__chip:hover{
+  background: rgba(255,255,255,0.12);
+}
+
+/* Progress bar in colored panels */
+.zr-author__panel--readings .zr-author__progress,
+.zr-author__panel--onhand  .zr-author__progress{
+  background: rgba(255,255,255,0.18);
+}
+
+.zr-author__panel--readings .zr-author__progressBar,
+.zr-author__panel--onhand  .zr-author__progressBar{
+  background: rgba(255,255,255,0.85);
+}
+.zr-author__head{
+  display: flex;
+  gap: 14px;
+  align-items: center;
+  margin: 8px 0 10px;
+}
+
+.zr-author__avatar{
+  width: 64px;
+  height: 64px;
+  border-radius: 999px;
+  object-fit: cover;
+  border: 1px solid rgba(0,0,0,0.12);
+  background: rgba(0,0,0,0.06);
 }

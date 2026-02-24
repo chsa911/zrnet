@@ -1,6 +1,7 @@
   // backend/routes/admin.js
   const express = require("express");
-  const fs = require("fs");
+  // Use async fs to avoid blocking Node's event loop during uploads.
+  const fs = require("fs/promises");
   const path = require("path");
   const multer = require("multer");
   const router = express.Router();
@@ -114,14 +115,16 @@
     try {
       // Ensure folder
       const dir = path.resolve(__dirname, "../public/assets/covers");
-      fs.mkdirSync(dir, { recursive: true });
+      await fs.mkdir(dir, { recursive: true });
 
       const ts = new Date().toISOString().replace(/[:.]/g, "-");
       const main = path.join(dir, `${id}.jpg`);
       const archive = path.join(dir, `${id}-${ts}.jpg`);
 
-      fs.writeFileSync(main, req.file.buffer);
-      fs.writeFileSync(archive, req.file.buffer);
+      await Promise.all([
+        fs.writeFile(main, req.file.buffer),
+        fs.writeFile(archive, req.file.buffer),
+      ]);
 
       // Mark cover presence on the book row
       await pool.query(

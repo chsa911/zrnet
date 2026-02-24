@@ -6,7 +6,7 @@ import Home from "./pages/Home";
 import AnalyticsPage from "./pages/AnalyticsPage";
 import LegacyHtmlPage from "./pages/LegacyHtmlPage";
 import InfoPage from "./pages/InfoPage";
-
+import AuthorPage from "./pages/AuthorPage";
 import AdminPage from "./pages/AdminPage";
 import RegisterPage from "./pages/RegisterPage";
 import SearchUpdatePage from "./pages/SearchUpdatePage";
@@ -18,6 +18,7 @@ import MostReadAuthorsPage from "./pages/MostReadAuthorsPage";
 import BookPage from "./pages/BookPage";
 import MerchPage from "./pages/MerchPage";
 import AdminNewsletterPage from "./pages/AdminNewsletterPage";
+
 function NotFound() {
   return (
     <div style={{ padding: 24, fontFamily: "Arial, sans-serif" }}>
@@ -47,7 +48,8 @@ export default function App() {
 
         {/* static info pages (React + i18n) */}
         <Route path="info/:slug" element={<InfoPage />} />
-
+<Route path="author/:author" element={<AuthorPage />} />
+<Route path="author-id/:author" element={<AuthorPage />} />
         {/* legacy static routes → info/:slug */}
         <Route path="technik.html" element={<Navigate to="/info/technik" replace />} />
         <Route path="ausruestung.html" element={<Navigate to="/info/ausruestung" replace />} />

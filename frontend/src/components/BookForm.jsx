@@ -4,12 +4,11 @@ import {
   autocomplete,
   findDraft,
   lookupIsbn,
-  registerBook,
-  registerExistingBook,
   updateBook,
   uploadCover,
 } from "../api/books";
 import { previewBarcode } from "../api/barcodes";
+import { upsertUploadJob, processUploadQueue } from "../utils/uploadQueue";
 
 /* ---------- tolerant field picker ---------- */
 const norm = (s) => String(s || "").toLowerCase().replace(/[^a-z0-9]/g, "");
@@ -39,6 +38,76 @@ const parseFloatOrNull = (s) => {
   const n = Number(t);
   return Number.isFinite(n) ? n : null;
 };
+
+/* ---------- ISBN helpers (never block upload) ---------- */
+const normalizeIsbnInput = (s) => String(s || "").toUpperCase().replace(/[^0-9X]/g, "");
+
+// Validate ISBN-10 checksum (X allowed only as check digit)
+function isValidIsbn10(isbn10) {
+  const s = normalizeIsbnInput(isbn10);
+  if (s.length !== 10) return false;
+  let sum = 0;
+  for (let i = 0; i < 10; i++) {
+    const ch = s[i];
+    const v = ch === "X" ? 10 : ch >= "0" && ch <= "9" ? Number(ch) : NaN;
+    if (!Number.isFinite(v)) return false;
+    sum += v * (10 - i);
+  }
+  return sum % 11 === 0;
+}
+
+// Validate ISBN-13 checksum
+function isValidIsbn13(isbn13) {
+  const s = normalizeIsbnInput(isbn13);
+  if (s.length !== 13) return false;
+  if (!/^[0-9]{13}$/.test(s)) return false;
+  let sum = 0;
+  for (let i = 0; i < 12; i++) {
+    const d = Number(s[i]);
+    sum += d * (i % 2 === 0 ? 1 : 3);
+  }
+  const check = (10 - (sum % 10)) % 10;
+  return check === Number(s[12]);
+}
+
+// Ensure payload cannot be rejected due to ISBN formatting/validation.
+// If ISBN is invalid, move it into isbn13_raw (safe text field) and remove isbn10/isbn13.
+function sanitizeIsbnPayload(payload) {
+  if (!payload) return;
+
+  const raw13 = payload.isbn13 != null ? String(payload.isbn13).trim() : "";
+  const raw10 = payload.isbn10 != null ? String(payload.isbn10).trim() : "";
+
+  // keep exactly what user entered (prefer isbn13 input, else isbn10)
+  const rawPreferred = raw13 || raw10;
+  if (rawPreferred) payload.isbn13_raw = rawPreferred;
+
+  const n13 = normalizeIsbnInput(raw13);
+  const n10 = normalizeIsbnInput(raw10);
+
+  // if valid, keep normalized structured field too
+  if (n13 && n13.length === 13 && isValidIsbn13(n13)) {
+    payload.isbn13 = n13;
+    delete payload.isbn10;
+    return;
+  }
+  if (n10 && n10.length === 10 && isValidIsbn10(n10)) {
+    payload.isbn10 = n10;
+    delete payload.isbn13;
+    return;
+  }
+
+  // invalid -> do NOT send invalid isbn10/isbn13 fields (avoid server rejection)
+  delete payload.isbn13;
+  delete payload.isbn10;
+}
+function makeRequestId() {
+  try {
+    return crypto.randomUUID();
+  } catch {
+    return `req_${Date.now()}_${Math.random().toString(16).slice(2)}`;
+  }
+}
 
 function coerceScalar(raw) {
   if (raw === null) return null;
@@ -158,7 +227,6 @@ export default function BookForm({
   const msgRef = useRef(null);
   useEffect(() => {
     if (!msg) return;
-    // Make feedback visible on mobile (form is long)
     msgRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
   }, [msg]);
 
@@ -171,19 +239,17 @@ export default function BookForm({
   const [draftCandidates, setDraftCandidates] = useState([]);
   const [draftSelectedId, setDraftSelectedId] = useState("");
 
-  // Try to find an existing photo draft as soon as ISBN or 4-digit code is entered.
   useEffect(() => {
     if (isEdit) return;
-    if (!assignBarcode) return; // only relevant for barcode registration flow
-    if (draftSelectedId) return; // keep selection stable while user continues entering data
+    if (!assignBarcode) return;
+    if (draftSelectedId) return;
 
     const isbn = String(v.isbn13 || "").trim() || String(v.isbn10 || "").trim();
     const pagesRaw = String(v.BSeiten || "").trim();
-    // In your flow, the (numeric) capture code is typed into the pages field; length doesn't matter.
     const code = /^[0-9]+$/.test(pagesRaw) ? pagesRaw : "";
 
-    // Only search when we have a strong key
-    const hasKey = (isbn.length === 10 || isbn.length === 13) || !!code;
+    const isbnClean = normalizeIsbnInput(isbn);
+    const hasKey = (isbnClean.length === 10 || isbnClean.length === 13) || !!code;
     if (!hasKey) {
       setDraftCandidates([]);
       return;
@@ -194,7 +260,7 @@ export default function BookForm({
       (async () => {
         try {
           setDraftBusy(true);
-          const r = await findDraft({ isbn: isbn || undefined, code: code || undefined });
+          const r = await findDraft({ isbn: isbnClean || undefined, code: code || undefined });
           if (!alive) return;
           const items = Array.isArray(r?.items) ? r.items : Array.isArray(r) ? r : [];
           setDraftCandidates(items);
@@ -213,7 +279,7 @@ export default function BookForm({
       alive = false;
       clearTimeout(t);
     };
-  }, [isEdit, assignBarcode, v.isbn13, v.isbn10, v.BSeiten]);
+  }, [isEdit, assignBarcode, v.isbn13, v.isbn10, v.BSeiten, draftSelectedId]);
 
   useEffect(() => {
     if (!coverFile) {
@@ -227,7 +293,6 @@ export default function BookForm({
 
   // ISBN lookup
   const [isbnBusy, setIsbnBusy] = useState(false);
-  const lastAutoIsbnRef = useRef("");
 
   // unknown/extra fields
   const knownKeys = useMemo(
@@ -276,6 +341,7 @@ export default function BookForm({
         "purchase_url",
         "isbn10",
         "isbn13",
+        "isbn13_raw",
         "original_language",
 
         // explicitly hide size fields (Breite/Höhe)
@@ -289,7 +355,6 @@ export default function BookForm({
 
   const [extras, setExtras] = useState({});
 
-  // IMPORTANT: stable key from excludeUnknownKeys CONTENT (prevents infinite loops)
   const excludeKey = (excludeUnknownKeys || []).map(String).join("\u0000");
 
   useEffect(() => {
@@ -302,9 +367,7 @@ export default function BookForm({
 
     const b = initialBook || {};
     const ex = {};
-    const exclude = new Set(
-      (excludeUnknownKeys || []).map((k) => String(k))
-    );
+    const exclude = new Set((excludeUnknownKeys || []).map((k) => String(k)));
 
     for (const [k, raw] of Object.entries(b)) {
       if (!k) continue;
@@ -315,8 +378,7 @@ export default function BookForm({
       ex[k] = toStr(raw);
     }
     setExtras(ex);
-    // excludeKey is stable even if parent passes a new array each render
-  }, [initial, initialBook, showUnknownFields, excludeKey, knownKeys]); // <-- FIXED
+  }, [initial, initialBook, showUnknownFields, excludeKey, knownKeys]);
 
   function setField(key, val) {
     setV((p) => ({ ...p, [key]: val }));
@@ -339,7 +401,6 @@ export default function BookForm({
       return;
     }
 
-    // Only preview when user did not type a fixed barcode
     if (String(v.barcode || "").trim()) {
       setBarcodePreview(null);
       setBarcodePreviewErr("");
@@ -388,19 +449,30 @@ export default function BookForm({
   }
 
   async function doIsbnLookup() {
-    const isbn = String(v.isbn13 || "").trim() || String(v.isbn10 || "").trim();
+    const isbnRaw = String(v.isbn13 || "").trim() || String(v.isbn10 || "").trim();
+    const isbn = normalizeIsbnInput(isbnRaw);
+
     if (!isbn) {
       setMsg("Bitte ISBN eingeben (ISBN-13 oder ISBN-10). ");
+      return;
+    }
+
+    if (!(isbn.length === 10 || isbn.length === 13)) {
+      setMsg("ISBN Format unklar — du kannst trotzdem speichern (wird als raw gespeichert).");
       return;
     }
 
     setIsbnBusy(true);
     setMsg("");
     try {
-      const r = await lookupIsbn(isbn);
+      const timeoutMs = 60_000;
+      const timeout = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error("timeout")), timeoutMs)
+      );
+
+      const r = await Promise.race([lookupIsbn(isbn), timeout]);
       const s = r?.suggested || {};
 
-      // Apply suggestions (only if field is empty, to avoid overwriting your edits)
       const applyIfEmpty = (key, val) => {
         const cur = String(v[key] ?? "").trim();
         if (cur) return;
@@ -416,23 +488,19 @@ export default function BookForm({
       applyIfEmpty("purchase_url", s.purchase_url);
       applyIfEmpty("original_language", s.original_language);
 
-      // author
       applyIfEmpty("BAutor", s.BAutor);
       applyIfEmpty("author_firstname", s.author_firstname);
       applyIfEmpty("name_display", s.name_display);
 
-      // keyword
       applyIfEmpty("BKw", s.BKw);
       applyIfEmpty("BKP", s.BKP);
 
-      // If backend returned title but BKw is still empty, derive locally as fallback
       if (!String(v.BKw || "").trim() && (s.title_display || v.title_display)) {
         const { keyword, pos } = computeKeywordFromTitle(s.title_display || v.title_display);
         if (keyword) setField("BKw", keyword);
         if (pos) setField("BKP", pos);
       }
 
-      // If backend returned only a display author string, derive locally (fallback)
       if (!String(v.BAutor || "").trim() && (s.author_name || s.name_display)) {
         const { first, last, display } = splitAuthorName(s.author_name || s.name_display);
         if (last) setField("BAutor", last);
@@ -442,28 +510,15 @@ export default function BookForm({
 
       setMsg("ISBN gefunden ✔ (Felder wurden ergänzt)");
     } catch (e) {
-      setMsg(e?.message || "ISBN Lookup fehlgeschlagen");
+      if (String(e?.message || e) === "timeout") {
+        setMsg("ISBN Suche dauert länger als 1 Minute — du kannst trotzdem speichern (Upload läuft weiter).");
+      } else {
+        setMsg((e?.message || "ISBN Lookup fehlgeschlagen") + " — Du kannst trotzdem speichern.");
+      }
     } finally {
       setIsbnBusy(false);
     }
   }
-
-  // Optional convenience: if you already captured a cover and entered an ISBN, run lookup automatically.
-  useEffect(() => {
-    if (isEdit) return;
-    if (!coverFile) return;
-    const isbn = String(v.isbn13 || "").trim() || String(v.isbn10 || "").trim();
-    if (!(isbn.length === 10 || isbn.length === 13)) return;
-    if (isbnBusy) return;
-    if (lastAutoIsbnRef.current === isbn) return;
-
-    const t = setTimeout(() => {
-      lastAutoIsbnRef.current = isbn;
-      doIsbnLookup();
-    }, 500);
-
-    return () => clearTimeout(t);
-  }, [isEdit, coverFile, v.isbn13, v.isbn10]);
 
   async function onSubmit(e) {
     e.preventDefault();
@@ -471,18 +526,14 @@ export default function BookForm({
 
     const payload = {};
 
-    // Quick-shot (assignBarcode=false): require a cover photo so we don't create useless drafts.
     if (!isEdit && !assignBarcode && !coverFile) {
       return setMsg("Bitte zuerst ein Cover-Foto aufnehmen.");
     }
 
-    // If multiple drafts were found, force an explicit selection to avoid creating duplicates.
     if (!isEdit && assignBarcode && draftCandidates.length > 1 && !draftSelectedId) {
       return setMsg("Mehrere Drafts gefunden – bitte zuerst den richtigen auswählen.");
     }
 
-    // Tell backend explicitly whether we want a barcode assignment now.
-    // (Needed for flows like "Wishlist" / "Neu im Bestand".)
     if (!isEdit) payload.assign_barcode = !!assignBarcode;
 
     const addIfChanged = (key, next, prev) => {
@@ -490,14 +541,13 @@ export default function BookForm({
       payload[key] = next;
     };
 
-    // Barcode + optional size for auto-pick
     const nextBarcode = v.barcode.trim();
     const suggestedBarcode = String(barcodePreview?.candidate || "").trim();
     const finalBarcode = nextBarcode || suggestedBarcode;
 
     const wCm = parseFloatOrNull(v.BBreite);
     const hCm = parseFloatOrNull(v.BHoehe);
-    // If we want a barcode now, user must provide either a fixed barcode OR width+height for auto-pick.
+
     if (!isEdit && assignBarcode && !finalBarcode) {
       const ok = Number.isFinite(wCm) && wCm > 0 && Number.isFinite(hCm) && hCm > 0;
       if (!ok)
@@ -563,7 +613,6 @@ export default function BookForm({
       addIfChanged(k, next, prev);
     }
 
-    // unknown fields (only on edit)
     if (isEdit && showUnknownFields) {
       for (const [k, nextStr] of Object.entries(extras || {})) {
         if (!k) continue;
@@ -582,56 +631,77 @@ export default function BookForm({
 
     setBusy(true);
     try {
-      let saved;
+      // EDIT stays direct (small & safe)
       if (isEdit) {
-        saved = await updateBook(bookId || initialBook?._id || initialBook?.id, payload);
-      } else if (assignBarcode && draftSelectedId) {
-        // Draft exists -> finalize via UPDATE/REGISTER (no CREATE)
-        const p2 = { ...payload };
-        delete p2.assign_barcode;
-        saved = await registerExistingBook(draftSelectedId, p2);
-      } else {
-        saved = await registerBook(payload);
-      }
+        const saved = await updateBook(bookId || initialBook?._id || initialBook?.id, payload);
 
-      const savedId =
-        saved?.id ||
-        saved?._id ||
-        draftSelectedId ||
-        bookId ||
-        initialBook?._id ||
-        initialBook?.id;
+        const savedId =
+          saved?.id ||
+          saved?._id ||
+          bookId ||
+          initialBook?._id ||
+          initialBook?.id;
 
-      let coverUploadFailed = false;
-      // Upload cover if selected
-      if (coverFile && savedId) {
-        try {
-          await uploadCover(savedId, coverFile);
-          setCoverFile(null);
-        } catch (e) {
-          coverUploadFailed = true;
-          // keep coverFile so user can retry
-          setMsg(
-            `${isEdit ? "Gespeichert" : "Gespeichert"}, aber Cover-Upload fehlgeschlagen: ${
-              e?.message || "Fehler"
-            }`
-          );
+        if (coverFile && savedId) {
+          try {
+            await uploadCover(savedId, coverFile);
+            setCoverFile(null);
+          } catch (e) {
+            setMsg(`Gespeichert, aber Cover-Upload fehlgeschlagen: ${e?.message || "Fehler"}`);
+          }
         }
+
+        onSuccess && onSuccess({ payload, saved });
+        setMsg("Gespeichert.");
+        return;
       }
 
-      onSuccess && onSuccess({ payload, saved });
-      if (!coverUploadFailed) setMsg(isEdit ? "Gespeichert." : "Gespeichert ✔");
+      // CREATE/FINALIZE => OFFLINE-FIRST QUEUE (never block user)
+      const jobId = makeRequestId();
 
-      // clear form after successful CREATE
-      if (!isEdit) {
-        setV({ ...initial, barcode: "", BBreite: "", BHoehe: "" });
-        setExtras({});
-        setAc({ field: "", items: [] });
-        setBarcodePreview(null);
-        setBarcodePreviewErr("");
-        setDraftCandidates([]);
-        setDraftSelectedId("");
-      }
+      const payload2 = { ...payload };
+      sanitizeIsbnPayload(payload2);
+
+      payload2.requestId = jobId;
+
+      const job =
+        assignBarcode && draftSelectedId
+          ? (() => {
+              const p2 = { ...payload2 };
+              delete p2.assign_barcode;
+              return {
+                id: jobId,
+                flow: "finalize",
+                draftId: draftSelectedId,
+                payload: p2,
+                cover: coverFile || null,
+                coverName: coverFile?.name || "cover.jpg",
+              };
+            })()
+          : {
+              id: jobId,
+              flow: "create",
+              payload: payload2,
+              cover: coverFile || null,
+              coverName: coverFile?.name || "cover.jpg",
+            };
+
+      await upsertUploadJob(job);
+
+      setMsg("✅ Lokal gespeichert. Upload läuft im Hintergrund (Warteschlange).");
+      setCoverFile(null);
+
+      setV({ ...initial, barcode: "", BBreite: "", BHoehe: "" });
+      setExtras({});
+      setAc({ field: "", items: [] });
+      setBarcodePreview(null);
+      setBarcodePreviewErr("");
+      setDraftCandidates([]);
+      setDraftSelectedId("");
+
+      onSuccess && onSuccess({ payload: payload2, saved: null, queued: true });
+
+      processUploadQueue({ maxJobs: 2 }).catch(() => {});
     } catch (err) {
       setMsg(err?.message || "Fehler beim Speichern");
     } finally {
@@ -709,16 +779,20 @@ export default function BookForm({
             value={v.barcode}
             disabled={lockBarcode || busy || isEdit}
             onChange={(e) => setField("barcode", e.target.value)}
-            placeholder={assignBarcode ? (barcodePreview?.candidate ? `Vorschlag: ${barcodePreview.candidate}` : "z.B. dk444") : "(leer)"}
+            placeholder={
+              assignBarcode
+                ? barcodePreview?.candidate
+                  ? `Vorschlag: ${barcodePreview.candidate}`
+                  : "z.B. dk444"
+                : "(leer)"
+            }
           />
         </label>
       </div>
 
       {!isEdit && assignBarcode ? (
         <div className="zr-card" style={{ display: "grid", gap: 10 }}>
-          <div style={{ fontWeight: 900 }}>
-            Breite/Höhe für Barcode-Vorschlag (optional)
-          </div>
+          <div style={{ fontWeight: 900 }}>Breite/Höhe für Barcode-Vorschlag (optional)</div>
 
           <div className="zr-toolbar">
             <label style={{ display: "grid", gap: 6, flex: 1 }}>
@@ -729,7 +803,7 @@ export default function BookForm({
                 type="text"
                 inputMode="decimal"
                 autoComplete="off"
-                pattern="[0-9]*[\.,]?[0-9]*"
+                pattern="[0-9]*[\\.,]?[0-9]*"
                 value={v.BBreite}
                 onChange={(e) => setField("BBreite", e.target.value)}
                 onInput={(e) => setField("BBreite", e.currentTarget.value)}
@@ -746,7 +820,7 @@ export default function BookForm({
                 type="text"
                 inputMode="decimal"
                 autoComplete="off"
-                pattern="[0-9]*[\.,]?[0-9]*"
+                pattern="[0-9]*[\\.,]?[0-9]*"
                 value={v.BHoehe}
                 onChange={(e) => setField("BHoehe", e.target.value)}
                 onInput={(e) => setField("BHoehe", e.currentTarget.value)}
@@ -759,16 +833,9 @@ export default function BookForm({
           {barcodePreview?.candidate ? (
             <div className="zr-toolbar" style={{ alignItems: "center" }}>
               <div style={{ flex: 1 }}>
-                <div style={{ fontWeight: 800 }}>
-                  Vorschlag: {barcodePreview.candidate}
-                </div>
-                <div style={{ opacity: 0.8, fontSize: 12 }}>Wird beim Speichern automatisch verwendet (wenn das Barcode-Feld leer ist).</div>
-                <div style={{ opacity: 0.75, fontSize: 13 }}>
-                  {barcodePreview.color ? `Serie: ${barcodePreview.color}` : null}
-                  {barcodePreview.band ? ` • Band: ${barcodePreview.band}` : null}
-                  {barcodePreview.availableCount != null
-                    ? ` • verfügbar: ${barcodePreview.availableCount}`
-                    : null}
+                <div style={{ fontWeight: 800 }}>Vorschlag: {barcodePreview.candidate}</div>
+                <div style={{ opacity: 0.8, fontSize: 12 }}>
+                  Wird beim Speichern automatisch verwendet (wenn das Barcode-Feld leer ist).
                 </div>
               </div>
               <button
@@ -781,9 +848,7 @@ export default function BookForm({
               </button>
             </div>
           ) : barcodePreviewErr ? (
-            <div style={{ opacity: 0.8, fontSize: 13 }}>
-              {barcodePreviewErr}
-            </div>
+            <div style={{ opacity: 0.8, fontSize: 13 }}>{barcodePreviewErr}</div>
           ) : null}
         </div>
       ) : null}
@@ -791,7 +856,7 @@ export default function BookForm({
       <div className="zr-card" style={{ display: "grid", gap: 10 }}>
         <div style={{ fontWeight: 900 }}>Cover Foto (iPhone)</div>
         <div style={{ opacity: 0.8, fontSize: 13 }}>
-          Tippen → Kamera öffnet sich → Foto wird automatisch als <code>&lt;book_id&gt;.jpg</code> gespeichert.
+          Tippen → Kamera öffnet sich → Foto wird lokal gespeichert und später hochgeladen.
         </div>
 
         <input
@@ -811,250 +876,213 @@ export default function BookForm({
         ) : null}
       </div>
 
-      <div className="zr-toolbar">
-        <label style={{ display: "grid", gap: 6, flex: 1, position: "relative" }}>
-          <span>Autor (BAutor)</span>
+      <div className="zr-card" style={{ display: "grid", gap: 10 }}>
+        <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+          <div style={{ fontWeight: 900, flex: 1 }}>ISBN (optional)</div>
+          <button
+            type="button"
+            className="zr-btn2 zr-btn2--sm"
+            disabled={busy || isbnBusy}
+            onClick={doIsbnLookup}
+            title="Nur Anreicherung — blockiert Speichern NICHT"
+          >
+            {isbnBusy ? "Suche…" : "ISBN suchen"}
+          </button>
+        </div>
+
+        <div className="zr-toolbar">
+          <label style={{ display: "grid", gap: 6, flex: 1 }}>
+            <span>ISBN-13</span>
+            <input className="zr-input" value={v.isbn13} onChange={(e) => setField("isbn13", e.target.value)} />
+          </label>
+          <label style={{ display: "grid", gap: 6, flex: 1 }}>
+            <span>ISBN-10</span>
+            <input className="zr-input" value={v.isbn10} onChange={(e) => setField("isbn10", e.target.value)} />
+          </label>
+        </div>
+      </div>
+
+      {/* AUTOR */}
+      <div className="zr-card" style={{ display: "grid", gap: 10 }}>
+        <div style={{ fontWeight: 900 }}>Autor</div>
+
+        <label style={{ display: "grid", gap: 6 }}>
+          <span>Nachname (BAutor)</span>
           <input
             className="zr-input"
             value={v.BAutor}
             onChange={(e) => {
               setField("BAutor", e.target.value);
-              runAutocomplete("BAutor", e.target.value);
+              runAutocomplete("author", e.target.value);
             }}
-            onBlur={() => setTimeout(() => setAc({ field: "", items: [] }), 150)}
-          />
-          {ac.field === "BAutor" && ac.items.length ? (
-            <div
-              style={{
-                position: "absolute",
-                top: "100%",
-                left: 0,
-                right: 0,
-                zIndex: 5,
-                background: "#fff",
-                border: "1px solid rgba(0,0,0,0.15)",
-                borderRadius: 12,
-                padding: 6,
-                marginTop: 4,
-              }}
-            >
-              {ac.items.map((it) => (
-                <button
-                  key={it}
-                  type="button"
-                  className="zr-btn2 zr-btn2--ghost zr-btn2--sm"
-                  style={{
-                    width: "100%",
-                    justifyContent: "flex-start",
-                    marginBottom: 4,
-                  }}
-                  onMouseDown={(e) => e.preventDefault()}
-                  onClick={() => {
-                    setField("BAutor", it);
-                    setAc({ field: "", items: [] });
-                  }}
-                >
-                  {it}
-                </button>
-              ))}
-            </div>
-          ) : null}
-        </label>
-
-        <label style={{ display: "grid", gap: 6, flex: 1 }}>
-          <span>Vorname (optional)</span>
-          <input
-            className="zr-input"
-            value={v.author_firstname}
-            onChange={(e) => setField("author_firstname", e.target.value)}
+            onFocus={() => runAutocomplete("author", v.BAutor)}
           />
         </label>
-      </div>
 
-      <label style={{ display: "grid", gap: 6 }}>
-        <span>Autor Anzeigename (name_display) (optional)</span>
-        <input
-          className="zr-input"
-          value={v.name_display}
-          onChange={(e) => setField("name_display", e.target.value)}
-        />
-      </label>
+        {ac.field === "author" && ac.items?.length ? (
+          <div className="zr-card" style={{ padding: 8, background: "rgba(0,0,0,0.02)" }}>
+            {ac.items.map((it) => (
+              <button
+                key={it}
+                type="button"
+                className="zr-btn2 zr-btn2--ghost zr-btn2--sm"
+                style={{ marginRight: 6, marginBottom: 6 }}
+                onClick={() => {
+                  setField("BAutor", String(it));
+                  setAc({ field: "", items: [] });
+                }}
+              >
+                {it}
+              </button>
+            ))}
+          </div>
+        ) : null}
 
-      <label style={{ display: "grid", gap: 6 }}>
-        <span>Titel anzeigen (title_display) (optional)</span>
-        <input
-          className="zr-input"
-          value={v.title_display}
-          onChange={(e) => setField("title_display", e.target.value)}
-        />
-      </label>
-
-      <div className="zr-toolbar">
-        <label style={{ display: "grid", gap: 6, flex: 1 }}>
-          <span>Stichwort (BKw)</span>
-          <input
-            className="zr-input"
-            value={v.BKw}
-            onChange={(e) => {
-              setField("BKw", e.target.value);
-              runAutocomplete("BKw", e.target.value);
-            }}
-            onBlur={() => setTimeout(() => setAc({ field: "", items: [] }), 150)}
-          />
-        </label>
         <label style={{ display: "grid", gap: 6 }}>
-          <span>Position (BKP)</span>
-          <input
-            className="zr-input"
-            type="text"
-            inputMode="numeric"
-            value={v.BKP}
-            onChange={(e) => setField("BKP", e.target.value)}
-          />
+          <span>Vorname (author_firstname)</span>
+          <input className="zr-input" value={v.author_firstname} onChange={(e) => setField("author_firstname", e.target.value)} />
+        </label>
+
+        <label style={{ display: "grid", gap: 6 }}>
+          <span>Anzeige-Name (name_display)</span>
+          <input className="zr-input" value={v.name_display} onChange={(e) => setField("name_display", e.target.value)} />
         </label>
       </div>
 
+      {/* TITEL / VERLAG */}
       <div className="zr-card" style={{ display: "grid", gap: 10 }}>
-        <div style={{ fontWeight: 900 }}>Weitere Stichworte (optional)</div>
-        <div className="zr-toolbar">
-          <label style={{ display: "grid", gap: 6, flex: 1 }}>
-            <span>BKw1</span>
-            <input
-              className="zr-input"
-              value={v.BKw1}
-              onChange={(e) => setField("BKw1", e.target.value)}
-            />
-          </label>
-          <label style={{ display: "grid", gap: 6 }}>
-            <span>BK1P</span>
-            <input
-              className="zr-input"
-              type="text"
-              inputMode="numeric"
-              value={v.BK1P}
-              onChange={(e) => setField("BK1P", e.target.value)}
-            />
-          </label>
-        </div>
-        <div className="zr-toolbar">
-          <label style={{ display: "grid", gap: 6, flex: 1 }}>
-            <span>BKw2</span>
-            <input
-              className="zr-input"
-              value={v.BKw2}
-              onChange={(e) => setField("BKw2", e.target.value)}
-            />
-          </label>
-          <label style={{ display: "grid", gap: 6 }}>
-            <span>BK2P</span>
-            <input
-              className="zr-input"
-              type="text"
-              inputMode="numeric"
-              value={v.BK2P}
-              onChange={(e) => setField("BK2P", e.target.value)}
-            />
-          </label>
-        </div>
-      </div>
+        <div style={{ fontWeight: 900 }}>Buch</div>
 
-      <div className="zr-toolbar">
-        <label style={{ display: "grid", gap: 6, flex: 1 }}>
+        <label style={{ display: "grid", gap: 6 }}>
+          <span>Titel (title_display)</span>
+          <input
+            className="zr-input"
+            value={v.title_display}
+            onChange={(e) => {
+              setField("title_display", e.target.value);
+              runAutocomplete("title", e.target.value);
+            }}
+            onFocus={() => runAutocomplete("title", v.title_display)}
+          />
+        </label>
+
+        {ac.field === "title" && ac.items?.length ? (
+          <div className="zr-card" style={{ padding: 8, background: "rgba(0,0,0,0.02)" }}>
+            {ac.items.map((it) => (
+              <button
+                key={it}
+                type="button"
+                className="zr-btn2 zr-btn2--ghost zr-btn2--sm"
+                style={{ marginRight: 6, marginBottom: 6 }}
+                onClick={() => {
+                  setField("title_display", String(it));
+                  setAc({ field: "", items: [] });
+                }}
+              >
+                {it}
+              </button>
+            ))}
+          </div>
+        ) : null}
+
+        <label style={{ display: "grid", gap: 6 }}>
           <span>Verlag (BVerlag)</span>
           <input
             className="zr-input"
             value={v.BVerlag}
             onChange={(e) => {
               setField("BVerlag", e.target.value);
-              runAutocomplete("BVerlag", e.target.value);
+              runAutocomplete("publisher", e.target.value);
             }}
-            onBlur={() => setTimeout(() => setAc({ field: "", items: [] }), 150)}
+            onFocus={() => runAutocomplete("publisher", v.BVerlag)}
           />
         </label>
+
+        {ac.field === "publisher" && ac.items?.length ? (
+          <div className="zr-card" style={{ padding: 8, background: "rgba(0,0,0,0.02)" }}>
+            {ac.items.map((it) => (
+              <button
+                key={it}
+                type="button"
+                className="zr-btn2 zr-btn2--ghost zr-btn2--sm"
+                style={{ marginRight: 6, marginBottom: 6 }}
+                onClick={() => {
+                  setField("BVerlag", String(it));
+                  setAc({ field: "", items: [] });
+                }}
+              >
+                {it}
+              </button>
+            ))}
+          </div>
+        ) : null}
+
+        <div className="zr-toolbar">
+          <label style={{ display: "grid", gap: 6, flex: 1 }}>
+            <span>Seiten (BSeiten)</span>
+            <input className="zr-input" value={v.BSeiten} onChange={(e) => setField("BSeiten", e.target.value)} />
+          </label>
+
+          <label style={{ display: "grid", gap: 6, flex: 1 }}>
+            <span>Originalsprache (original_language)</span>
+            <input className="zr-input" value={v.original_language} onChange={(e) => setField("original_language", e.target.value)} />
+          </label>
+        </div>
 
         <label style={{ display: "grid", gap: 6 }}>
-          <span>Seiten (BSeiten)</span>
-          <input
-            className="zr-input"
-            type="text"
-            inputMode="numeric"
-            value={v.BSeiten}
-            onChange={(e) => setField("BSeiten", e.target.value)}
-          />
+          <span>Kauf-Link (purchase_url)</span>
+          <input className="zr-input" value={v.purchase_url} onChange={(e) => setField("purchase_url", e.target.value)} />
         </label>
       </div>
 
+      {/* KEYWORDS */}
       <div className="zr-card" style={{ display: "grid", gap: 10 }}>
-        <div style={{ fontWeight: 900 }}>ISBN & Kauf-Link (optional)</div>
+        <div style={{ fontWeight: 900 }}>Keywords</div>
+
         <div className="zr-toolbar">
           <label style={{ display: "grid", gap: 6, flex: 1 }}>
-            <span>ISBN-13</span>
-            <input
-              className="zr-input"
-              value={v.isbn13}
-              onChange={(e) => setField("isbn13", e.target.value)}
-            />
+            <span>BKw</span>
+            <input className="zr-input" value={v.BKw} onChange={(e) => setField("BKw", e.target.value)} />
           </label>
-          <label style={{ display: "grid", gap: 6, flex: 1 }}>
-            <span>ISBN-10</span>
-            <input
-              className="zr-input"
-              value={v.isbn10}
-              onChange={(e) => setField("isbn10", e.target.value)}
-            />
+          <label style={{ display: "grid", gap: 6, width: 120 }}>
+            <span>BKP</span>
+            <input className="zr-input" value={v.BKP} onChange={(e) => setField("BKP", e.target.value)} />
           </label>
         </div>
 
-        <div className="zr-toolbar" style={{ alignItems: "center", gap: 10 }}>
-          <button
-            type="button"
-            className="zr-btn2 zr-btn2--ghost"
-            disabled={busy || isbnBusy}
-            onClick={doIsbnLookup}
-          >
-            {isbnBusy ? "Suche…" : "ISBN Lookup"}
-          </button>
-          <div style={{ fontSize: 12, opacity: 0.75 }}>
-            Füllt Titel/Autor/Verlag/Seiten/Kauf-Link automatisch (Google/OpenLibrary/DNB/Wikidata).
-          </div>
-        </div>
         <div className="zr-toolbar">
           <label style={{ display: "grid", gap: 6, flex: 1 }}>
-            <span>purchase_url</span>
-            <input
-              className="zr-input"
-              value={v.purchase_url}
-              onChange={(e) => setField("purchase_url", e.target.value)}
-              placeholder="https://…"
-            />
+            <span>BKw1</span>
+            <input className="zr-input" value={v.BKw1} onChange={(e) => setField("BKw1", e.target.value)} />
           </label>
-          <label style={{ display: "grid", gap: 6, width: 220 }}>
-            <span>Originalsprache (original_language)</span>
-            <input
-              className="zr-input"
-              value={v.original_language}
-              onChange={(e) => setField("original_language", e.target.value)}
-              placeholder="z.B. en"
-            />
+          <label style={{ display: "grid", gap: 6, width: 120 }}>
+            <span>BK1P</span>
+            <input className="zr-input" value={v.BK1P} onChange={(e) => setField("BK1P", e.target.value)} />
+          </label>
+        </div>
+
+        <div className="zr-toolbar">
+          <label style={{ display: "grid", gap: 6, flex: 1 }}>
+            <span>BKw2</span>
+            <input className="zr-input" value={v.BKw2} onChange={(e) => setField("BKw2", e.target.value)} />
+          </label>
+          <label style={{ display: "grid", gap: 6, width: 120 }}>
+            <span>BK2P</span>
+            <input className="zr-input" value={v.BK2P} onChange={(e) => setField("BK2P", e.target.value)} />
           </label>
         </div>
       </div>
 
+      {/* Unknown fields (edit-only) */}
       {isEdit && showUnknownFields && Object.keys(extras || {}).length ? (
         <div className="zr-card" style={{ display: "grid", gap: 10 }}>
           <div style={{ fontWeight: 900 }}>Weitere Felder</div>
-          {Object.keys(extras)
-            .sort((a, b) => a.localeCompare(b))
-            .map((k) => (
-              <label key={k} style={{ display: "grid", gap: 6 }}>
-                <span>{k}</span>
-                <input
-                  className="zr-input"
-                  value={extras[k] ?? ""}
-                  onChange={(e) => setExtra(k, e.target.value)}
-                />
-              </label>
-            ))}
+          {Object.entries(extras).map(([k, val]) => (
+            <label key={k} style={{ display: "grid", gap: 6 }}>
+              <span>{k}</span>
+              <input className="zr-input" value={val} onChange={(e) => setExtra(k, e.target.value)} />
+            </label>
+          ))}
         </div>
       ) : null}
 

@@ -1,12 +1,6 @@
 // frontend/src/pages/AuthorPage.jsx
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import {
-  Link,
-  useLocation,
-  useNavigate,
-  useParams,
-  useSearchParams,
-} from "react-router-dom";
+import { Link, useLocation, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { getBook, listPublicBooks } from "../api/books";
 import { getApiRoot } from "../api/apiRoot";
 import BookForm from "../components/BookForm";
@@ -67,11 +61,12 @@ function idFromRaw(raw) {
 
 function displayStatus(st) {
   const s = normStatus(st);
-  if (s === "finished") return "finished";
-  if (s === "abandoned") return "abandoned";
-  if (s === "in_progress") return "in progress";
-  if (s === "in_stock") return "not started";
-  if (s === "wishlist") return "wishlist";
+  // UI labels (keep internal values unchanged)
+  if (s === "finished") return "Completed";
+  if (s === "abandoned") return "Not a match";
+  if (s === "in_progress") return "Reading";
+  if (s === "in_stock") return "To read";
+  if (s === "wishlist") return "Wishlist";
   return s || "";
 }
 
@@ -90,15 +85,15 @@ export default function AuthorPage() {
   }, [authorParam]);
 
   // tab names:
-  // finished | abandoned | in_progress | in_stock (not started) | wishlist | shelf (barcode) | top | closed | all
-  const tabRaw = (sp.get("tab") || "finished").toLowerCase();
+  // on_hand | finished | abandoned | in_progress | in_stock (to read) | wishlist | top | all
+  const tabRaw = (sp.get("tab") || "on_hand").toLowerCase();
   const tab =
-    tabRaw === "read"
+    tabRaw === "read" || tabRaw === "completed"
       ? "finished"
-      : tabRaw === "stock"
+      : tabRaw === "stock" || tabRaw === "toread"
         ? "in_stock"
-        : tabRaw === "done"
-          ? "closed"
+        : tabRaw === "hand" || tabRaw === "onhand" || tabRaw === "now"
+          ? "on_hand"
           : tabRaw;
 
   const q = sp.get("q") || "";
@@ -151,6 +146,7 @@ export default function AuthorPage() {
 
   // Resolve author if URL contains UUID: fetch author display/abbr, then query books by that.
   const [authorResolved, setAuthorResolved] = useState({
+    id: null, // <-- important for author photo filename
     key: authorQuery,
     display: authorQuery,
     publishedTitles: null,
@@ -162,15 +158,13 @@ export default function AuthorPage() {
     (async () => {
       const base = authorQuery || "";
       if (!base) {
-        if (alive) {
-          setAuthorResolved({ key: "", display: "Author", publishedTitles: null });
-        }
+        if (alive) setAuthorResolved({ id: null, key: "", display: "Author", publishedTitles: null });
         return;
       }
 
       // If not UUID -> use it directly as key (abbr/name_display)
       if (!isUuid(base)) {
-        if (alive) setAuthorResolved({ key: base, display: base, publishedTitles: null });
+        if (alive) setAuthorResolved({ id: null, key: base, display: base, publishedTitles: null });
         return;
       }
 
@@ -204,15 +198,18 @@ export default function AuthorPage() {
         const ptRaw = a?.published_titles ?? a?.publishedTitles ?? null;
         const pt = Number(ptRaw);
 
+        const id = a?.id ?? base;
+
         if (alive) {
           setAuthorResolved({
+            id: String(id || "").trim() || base,
             key: String(key || "").trim() || base,
             display: String(display || "").trim() || base,
             publishedTitles: Number.isFinite(pt) && pt > 0 ? pt : null,
           });
         }
       } catch {
-        if (alive) setAuthorResolved({ key: base, display: base, publishedTitles: null });
+        if (alive) setAuthorResolved({ id: base, key: base, display: base, publishedTitles: null });
       }
     })();
 
@@ -305,7 +302,6 @@ export default function AuthorPage() {
       return;
     }
 
-    // from list rows (authoritative backend returns published_titles)
     const fromList = items
       .map((x) => x?.published_titles ?? x?.publishedTitles ?? null)
       .map((v) => Number(v))
@@ -316,7 +312,6 @@ export default function AuthorPage() {
       return;
     }
 
-    // last resort: fetch a full book record and read published_titles (legacy)
     let alive = true;
     const firstId = items?.map((x) => idFromRaw(x)).find((x) => !!x);
     if (!firstId) {
@@ -345,7 +340,7 @@ export default function AuthorPage() {
     };
   }, [items, authorResolved.publishedTitles]);
 
-  // If title is still UUID, prefer the authorNameDisplay from loaded items (for nicer heading)
+  // Prefer nicer heading
   const authorName = useMemo(() => {
     const d = String(authorResolved.display || "").trim();
     const first = items?.[0];
@@ -360,17 +355,31 @@ export default function AuthorPage() {
     return d || "Author";
   }, [authorResolved.display, items]);
 
+  // Determine authorId for photo filename (best-effort)
+  const authorIdForImage = useMemo(() => {
+    if (authorResolved.id && isUuid(authorResolved.id)) return authorResolved.id;
+    if (isUuid(authorParam)) return String(authorParam).trim();
+    const first = items?.[0];
+    const idFromItems =
+      first?.author_id ??
+      first?.authorId ??
+      first?.authorID ??
+      first?.author_uuid ??
+      null;
+    return isUuid(idFromItems) ? String(idFromItems).trim() : null;
+  }, [authorResolved.id, authorParam, items]);
+
   // Grouping (client-side)
   const groups = useMemo(() => {
     const all = [];
+    const onHand = [];
     const finished = [];
     const abandoned = [];
     const inProgress = [];
-    const notStarted = []; // reading_status = in_stock
+    const notStarted = [];
     const wishlist = [];
     const top = [];
-    const closed = []; // finished + abandoned
-    const shelf = []; // physical stock (barcode assignment open): is_in_stock / isInStock
+    const shelf = [];
 
     for (const raw of items) {
       const id =
@@ -386,8 +395,28 @@ export default function AuthorPage() {
           pick(raw, ["BTop", "top", "Topbook", "top_book", "topBook"])
       );
 
-      // physical “on shelf” from barcode_assignments, exposed by API as is_in_stock/isInStock
       const onShelf = Boolean(raw?.isInStock ?? raw?.is_in_stock);
+
+      const topRankRaw = pick(raw, [
+        "top_rank", "topRank", "top_no", "topNo", "top_number", "topNumber",
+        "BTopRank", "BTopNo",
+      ]);
+      const topRankNum = Number(topRankRaw);
+      const topRank = Number.isFinite(topRankNum) ? topRankNum : null;
+
+      const favRankRaw = pick(raw, [
+        "favorite_rank", "favoriteRank", "fav_rank", "favRank",
+        "BFavRank", "BFavNo",
+      ]);
+      const favRankNum = Number(favRankRaw);
+      const favRank = Number.isFinite(favRankNum) ? favRankNum : null;
+
+      const isFavorite = Boolean(
+        pick(raw, [
+          "favorite_book", "favoriteBook", "favorite",
+          "is_favorite", "isFavorite", "BFav", "BFavorite",
+        ])
+      );
 
       const b = {
         id,
@@ -402,72 +431,111 @@ export default function AuthorPage() {
         readingStatus,
         st,
         isTop,
+        topRank,
+        isFavorite,
+        favRank,
         onShelf,
       };
 
       all.push(b);
+
+      // On hand = available right now (not completed / not a match / not wishlist)
+      if (st !== "finished" && st !== "abandoned" && st !== "wishlist") onHand.push(b);
 
       if (st === "finished") finished.push(b);
       if (st === "abandoned") abandoned.push(b);
       if (st === "in_progress") inProgress.push(b);
       if (st === "in_stock") notStarted.push(b);
       if (st === "wishlist") wishlist.push(b);
-
-      if (st === "finished" || st === "abandoned") closed.push(b);
       if (isTop) top.push(b);
       if (onShelf) shelf.push(b);
     }
 
-    return { all, finished, abandoned, inProgress, notStarted, wishlist, top, closed, shelf };
+    return { all, onHand, finished, abandoned, inProgress, notStarted, wishlist, top, shelf };
   }, [items]);
 
   const counts = {
+    onHand: groups.onHand.length,
     finished: groups.finished.length,
     abandoned: groups.abandoned.length,
     inProgress: groups.inProgress.length,
     notStarted: groups.notStarted.length,
     wishlist: groups.wishlist.length,
-    shelf: groups.shelf.length,
     top: groups.top.length,
-    closed: groups.closed.length,
     all: groups.all.length,
   };
 
+  const showWishlist = counts.wishlist > 0;
+  const showTop = counts.top > 0;
+  const tabSafe = !showWishlist && tab === "wishlist" ? "on_hand" : tab;
+
   const activeList = useMemo(() => {
     const base =
-      tab === "wishlist"
-        ? groups.wishlist
-        : tab === "in_stock"
-          ? groups.notStarted
-          : tab === "in_progress"
-            ? groups.inProgress
-            : tab === "abandoned"
-              ? groups.abandoned
-              : tab === "top"
-                ? groups.top
-                : tab === "shelf"
-                  ? groups.shelf
-                  : tab === "all"
+      tabSafe === "on_hand"
+        ? groups.onHand
+        : tabSafe === "wishlist"
+          ? groups.wishlist
+          : tabSafe === "in_stock"
+            ? groups.notStarted
+            : tabSafe === "in_progress"
+              ? groups.inProgress
+              : tabSafe === "abandoned"
+                ? groups.abandoned
+                : tabSafe === "top"
+                  ? groups.top
+                  : tabSafe === "all"
                     ? groups.all
-                    : tab === "closed"
-                      ? groups.closed
-                      : groups.finished;
+                    : groups.finished;
 
     const needle = q.trim().toLowerCase();
     if (!needle) return base;
     return base.filter((b) => String(b.title || "").toLowerCase().includes(needle));
-  }, [tab, q, groups]);
+  }, [tabSafe, q, groups]);
 
-  const totalLabel = Number.isFinite(Number(totalInDb)) ? Number(totalInDb) : counts.all;
-
-  const doneCount = counts.closed;
-  const fulfillmentPct =
-    publishedTitles && publishedTitles > 0 ? (doneCount / publishedTitles) * 100 : null;
+  const completedCount = counts.finished;
+  const notMatchCount = counts.abandoned;
+  const decisionTotal = completedCount + notMatchCount;
+  const completionPct = decisionTotal > 0 ? (completedCount / decisionTotal) * 100 : null;
 
   const fmtPct = (x) => {
     if (!Number.isFinite(x)) return "—";
     return `${Math.round(x * 10) / 10}%`;
   };
+
+  const favoriteBook = useMemo(() => {
+    const favs = groups.all
+      .filter((b) => b.isFavorite)
+      .slice()
+      .sort(
+        (a, b) =>
+          (a.favRank ?? 9999) - (b.favRank ?? 9999) ||
+          String(a.title || "").localeCompare(String(b.title || ""))
+      );
+
+    if (favs.length) return favs[0];
+
+    const topSorted = groups.top
+      .slice()
+      .sort(
+        (a, b) =>
+          (a.topRank ?? 9999) - (b.topRank ?? 9999) ||
+          String(a.title || "").localeCompare(String(b.title || ""))
+      );
+
+    return topSorted.length ? topSorted[0] : null;
+  }, [groups]);
+
+  const top3Books = useMemo(() => {
+    if (decisionTotal <= 10) return [];
+    const topSorted = groups.top
+      .slice()
+      .sort(
+        (a, b) =>
+          (a.topRank ?? 9999) - (b.topRank ?? 9999) ||
+          String(a.title || "").localeCompare(String(b.title || ""))
+      );
+    return topSorted.slice(0, 3);
+  }, [decisionTotal, groups]);
 
   const jumpTo = (nextTab) => {
     setQ("");
@@ -573,6 +641,8 @@ export default function AuthorPage() {
     return `/admin?next=${encodeURIComponent(next)}`;
   }, [location.pathname, location.search, location.hash]);
 
+  const authorPhotoSrc = `/assets/images/authors/${authorIdForImage || "default"}.jpg`;
+
   return (
     <section className="zr-section zr-author" aria-busy={loading ? "true" : "false"}>
       <div className="zr-author__top">
@@ -610,165 +680,207 @@ export default function AuthorPage() {
         </Link>
       </div>
 
-      <h1 className="zr-author__title">{authorName}</h1>
-      <p className="zr-lede">All books by this author (from your collection).</p>
-
-      {/* Always-visible author stats */}
-      <div className="zr-card zr-author__statsCard" aria-label="Author stats">
-        <div className="zr-author__stats">
-          <button className="zr-author__statBtn" type="button" onClick={() => jumpTo("finished")} disabled={loading}>
-            <div className="zr-author__statLabel">Finished</div>
-            <div className="zr-author__statValue">{loading ? "—" : counts.finished}</div>
-          </button>
-
-          <button className="zr-author__statBtn" type="button" onClick={() => jumpTo("abandoned")} disabled={loading}>
-            <div className="zr-author__statLabel">Abandoned</div>
-            <div className="zr-author__statValue">{loading ? "—" : counts.abandoned}</div>
-          </button>
-
-          <button className="zr-author__statBtn" type="button" onClick={() => jumpTo("in_progress")} disabled={loading}>
-            <div className="zr-author__statLabel">In progress</div>
-            <div className="zr-author__statValue">{loading ? "—" : counts.inProgress}</div>
-          </button>
-
-          <button
-            className="zr-author__statBtn"
-            type="button"
-            onClick={() => jumpTo("in_stock")}
-            disabled={loading}
-            title="reading_status = in_stock (owned/received but not started)"
-          >
-            <div className="zr-author__statLabel">Not started</div>
-            <div className="zr-author__statValue">{loading ? "—" : counts.notStarted}</div>
-          </button>
-
-          <button className="zr-author__statBtn" type="button" onClick={() => jumpTo("wishlist")} disabled={loading}>
-            <div className="zr-author__statLabel">Wishlist</div>
-            <div className="zr-author__statValue">{loading ? "—" : counts.wishlist}</div>
-          </button>
-
-          <button
-            className="zr-author__statBtn"
-            type="button"
-            onClick={() => jumpTo("shelf")}
-            disabled={loading}
-            title="Physical stock (open barcode assignment)"
-          >
-            <div className="zr-author__statLabel">On shelf</div>
-            <div className="zr-author__statValue">{loading ? "—" : counts.shelf}</div>
-          </button>
-
-          <button className="zr-author__statBtn" type="button" onClick={() => jumpTo("top")} disabled={loading}>
-            <div className="zr-author__statLabel">Top</div>
-            <div className="zr-author__statValue">{loading ? "—" : counts.top}</div>
-          </button>
-
-          <button className="zr-author__statBtn" type="button" onClick={() => jumpTo("all")} disabled={loading}>
-            <div className="zr-author__statLabel">Total (DB)</div>
-            <div className="zr-author__statValue">{loading ? "—" : totalLabel}</div>
-          </button>
-
-          <button
-            className="zr-author__statBtn"
-            type="button"
-            onClick={() => jumpTo("all")}
-            disabled={loading}
-            title="Author-level field published_titles"
-          >
-            <div className="zr-author__statLabel">Published titles</div>
-            <div className="zr-author__statValue">{loading ? "—" : publishedTitles ?? "—"}</div>
-            <div className="zr-author__statSub">from DB field</div>
-          </button>
-
-          <button
-            className="zr-author__statBtn"
-            type="button"
-            onClick={() => jumpTo("closed")}
-            disabled={loading}
-            title="(Finished + Abandoned) / Published titles"
-          >
-            <div className="zr-author__statLabel">Fulfillment</div>
-            <div className="zr-author__statValue">
-              {loading ? "—" : fulfillmentPct == null ? "—" : fmtPct(fulfillmentPct)}
-            </div>
-            <div className="zr-author__statSub">
-              {loading ? "" : publishedTitles ? `${doneCount}/${publishedTitles}` : ""}
-            </div>
-          </button>
+      {/* Header with author photo */}
+      <div className="zr-author__head">
+        <img
+          className="zr-author__avatar"
+          src={authorPhotoSrc}
+          alt={authorName}
+          loading="lazy"
+          onError={(e) => {
+            e.currentTarget.src = "/assets/images/authors/default.jpg";
+          }}
+        />
+        <div>
+          <h1 className="zr-author__title">{authorName}</h1>
+          <p className="zr-lede">All readings by this author (from your reading life).</p>
         </div>
       </div>
+
+      {/* Option A: Readings + On hand hero cards (numbers live only here) */}
+      <div className="zr-author__heroRow">
+        <div className="zr-card zr-author__panel zr-author__panel--readings" aria-label="Readings summary">
+          <div className="zr-author__panelHead">
+            <div>
+              <div className="zr-author__panelTitle">Readings</div>
+              <div className="zr-author__panelBig">{loading ? "—" : decisionTotal}</div>
+            </div>
+
+            <div className="zr-author__rate" title="Completed / Readings">
+              <div className="zr-author__rateLabel">Completion rate</div>
+              <div className="zr-author__rateValue">
+                {loading ? "—" : completionPct == null ? "—" : fmtPct(completionPct)}
+              </div>
+              <div className="zr-author__progress" aria-hidden="true">
+                <div className="zr-author__progressBar" style={{ width: (completionPct || 0) + "%" }} />
+              </div>
+            </div>
+          </div>
+
+          <div className="zr-author__chipRow">
+            <button className="zr-author__chip" type="button" onClick={() => jumpTo("finished")} disabled={loading}>
+              <span>Completed</span>
+              <strong>{loading ? "—" : counts.finished}</strong>
+            </button>
+            <button className="zr-author__chip" type="button" onClick={() => jumpTo("abandoned")} disabled={loading}>
+              <span>Not a match</span>
+              <strong>{loading ? "—" : counts.abandoned}</strong>
+            </button>
+          </div>
+        </div>
+
+        <div className="zr-card zr-author__panel zr-author__panel--onhand" aria-label="On hand summary">
+          <div className="zr-author__panelTitle">On hand</div>
+          <div className="zr-author__panelBig">{loading ? "—" : counts.onHand}</div>
+
+          <div className="zr-author__chipRow">
+            <button className="zr-author__chip" type="button" onClick={() => jumpTo("in_stock")} disabled={loading}>
+              <span>To read</span>
+              <strong>{loading ? "—" : counts.notStarted}</strong>
+            </button>
+            <button className="zr-author__chip" type="button" onClick={() => jumpTo("in_progress")} disabled={loading}>
+              <span>Reading</span>
+              <strong>{loading ? "—" : counts.inProgress}</strong>
+            </button>
+            {showWishlist ? (
+              <button className="zr-author__chip" type="button" onClick={() => jumpTo("wishlist")} disabled={loading}>
+                <span>Wishlist</span>
+                <strong>{loading ? "—" : counts.wishlist}</strong>
+              </button>
+            ) : null}
+          </div>
+        </div>
+      </div>
+
+      {favoriteBook ? (
+        <div className="zr-card zr-author__featured" aria-label="Favorite read">
+          <div className="zr-author__sectionTitle">Favorite read</div>
+          <article className="zr-author__featuredBook">
+            <Link className="zr-author__featuredCover" to={"/book/" + encodeURIComponent(favoriteBook.id)}>
+              {favoriteBook.cover ? (
+                <img
+                  className="zr-author__cover"
+                  src={favoriteBook.cover}
+                  alt={favoriteBook.title + " cover"}
+                  loading="lazy"
+                  onError={(e) => {
+                    e.currentTarget.style.display = "none";
+                    const next = e.currentTarget.nextElementSibling;
+                    if (next) next.style.display = "flex";
+                  }}
+                />
+              ) : null}
+              <div className="zr-author__coverEmpty">No cover</div>
+            </Link>
+
+            <div className="zr-author__featuredMeta">
+              <Link className="zr-author__featuredTitle" to={"/book/" + encodeURIComponent(favoriteBook.id)}>
+                {favoriteBook.title}
+              </Link>
+              <div className="zr-author__status">
+                {displayStatus(favoriteBook.st)}
+                {favoriteBook.isTop ? " · top" : ""}
+              </div>
+            </div>
+          </article>
+        </div>
+      ) : null}
+
+      {!loading && decisionTotal > 10 && top3Books.length ? (
+        <div className="zr-card zr-author__top3" aria-label="Top reads">
+          <div className="zr-author__sectionTitle">Top reads</div>
+          <div className="zr-author__topRow">
+            {top3Books.map((b, idx) => (
+              <Link key={b.id} className="zr-author__topCard" to={"/book/" + encodeURIComponent(b.id)}>
+                <div className="zr-author__rank">{idx + 1}</div>
+                <div className="zr-author__topCover">
+                  {b.cover ? (
+                    <img
+                      className="zr-author__topImg"
+                      src={b.cover}
+                      alt={b.title + " cover"}
+                      loading="lazy"
+                      onError={(e) => {
+                        e.currentTarget.style.display = "none";
+                        const next = e.currentTarget.nextElementSibling;
+                        if (next) next.style.display = "flex";
+                      }}
+                    />
+                  ) : null}
+                  <div className="zr-author__topEmpty">No cover</div>
+                </div>
+                <div className="zr-author__topTitle">{b.title}</div>
+              </Link>
+            ))}
+          </div>
+        </div>
+      ) : null}
 
       {err ? <div className="zr-alert zr-alert--error">{err}</div> : null}
       {loading ? <div className="zr-alert">Loading…</div> : null}
 
-      {/* Tabs + Search */}
+      {/* Tabs + Search (labels only, no numbers) */}
       <div className="zr-card" style={{ marginBottom: 12 }}>
         <div className="zr-toolbar" style={{ flexWrap: "wrap", gap: 8 }}>
           <button
-            className={`zr-btn2 zr-btn2--sm ${tab === "finished" ? "zr-btn2--primary" : "zr-btn2--ghost"}`}
-            onClick={() => setTab("finished")}
-          >
-            Finished ({counts.finished})
-          </button>
-
-          <button
-            className={`zr-btn2 zr-btn2--sm ${tab === "abandoned" ? "zr-btn2--primary" : "zr-btn2--ghost"}`}
-            onClick={() => setTab("abandoned")}
-          >
-            Abandoned ({counts.abandoned})
-          </button>
-
-          <button
-            className={`zr-btn2 zr-btn2--sm ${tab === "closed" ? "zr-btn2--primary" : "zr-btn2--ghost"}`}
-            onClick={() => setTab("closed")}
-            title="Finished + Abandoned"
-          >
-            Finished + Abandoned ({counts.closed})
-          </button>
-
-          <button
-            className={`zr-btn2 zr-btn2--sm ${tab === "in_progress" ? "zr-btn2--primary" : "zr-btn2--ghost"}`}
-            onClick={() => setTab("in_progress")}
-          >
-            In progress ({counts.inProgress})
-          </button>
-
-          <button
-            className={`zr-btn2 zr-btn2--sm ${tab === "in_stock" ? "zr-btn2--primary" : "zr-btn2--ghost"}`}
-            onClick={() => setTab("in_stock")}
-            title="reading_status = in_stock (owned/received but not started)"
-          >
-            Not started ({counts.notStarted})
-          </button>
-
-          <button
-            className={`zr-btn2 zr-btn2--sm ${tab === "wishlist" ? "zr-btn2--primary" : "zr-btn2--ghost"}`}
-            onClick={() => setTab("wishlist")}
-          >
-            Wishlist ({counts.wishlist})
-          </button>
-
-          <button
-            className={`zr-btn2 zr-btn2--sm ${tab === "shelf" ? "zr-btn2--primary" : "zr-btn2--ghost"}`}
-            onClick={() => setTab("shelf")}
-            title="Physical stock (open barcode assignment)"
-          >
-            On shelf ({counts.shelf})
-          </button>
-
-          <button
-            className={`zr-btn2 zr-btn2--sm ${tab === "top" ? "zr-btn2--primary" : "zr-btn2--ghost"}`}
-            onClick={() => setTab("top")}
-          >
-            Top ({counts.top})
-          </button>
-
-          <button
-            className={`zr-btn2 zr-btn2--sm ${tab === "all" ? "zr-btn2--primary" : "zr-btn2--ghost"}`}
+            className={`zr-btn2 zr-btn2--sm ${tabSafe === "all" ? "zr-btn2--primary" : "zr-btn2--ghost"}`}
             onClick={() => setTab("all")}
           >
-            All ({totalLabel})
+            All
           </button>
+
+          <button
+            className={`zr-btn2 zr-btn2--sm ${tabSafe === "on_hand" ? "zr-btn2--primary" : "zr-btn2--ghost"}`}
+            onClick={() => setTab("on_hand")}
+          >
+            On hand
+          </button>
+
+          <button
+            className={`zr-btn2 zr-btn2--sm ${tabSafe === "in_stock" ? "zr-btn2--primary" : "zr-btn2--ghost"}`}
+            onClick={() => setTab("in_stock")}
+          >
+            To read
+          </button>
+
+          <button
+            className={`zr-btn2 zr-btn2--sm ${tabSafe === "in_progress" ? "zr-btn2--primary" : "zr-btn2--ghost"}`}
+            onClick={() => setTab("in_progress")}
+          >
+            Reading
+          </button>
+
+          <button
+            className={`zr-btn2 zr-btn2--sm ${tabSafe === "finished" ? "zr-btn2--primary" : "zr-btn2--ghost"}`}
+            onClick={() => setTab("finished")}
+          >
+            Completed
+          </button>
+
+          <button
+            className={`zr-btn2 zr-btn2--sm ${tabSafe === "abandoned" ? "zr-btn2--primary" : "zr-btn2--ghost"}`}
+            onClick={() => setTab("abandoned")}
+          >
+            Not a match
+          </button>
+
+          {showWishlist ? (
+            <button
+              className={`zr-btn2 zr-btn2--sm ${tabSafe === "wishlist" ? "zr-btn2--primary" : "zr-btn2--ghost"}`}
+              onClick={() => setTab("wishlist")}
+            >
+              Wishlist
+            </button>
+          ) : null}
+
+          {showTop ? (
+            <button
+              className={`zr-btn2 zr-btn2--sm ${tabSafe === "top" ? "zr-btn2--primary" : "zr-btn2--ghost"}`}
+              onClick={() => setTab("top")}
+            >
+              Top
+            </button>
+          ) : null}
 
           <div style={{ flex: 1 }} />
           <input
@@ -817,7 +929,6 @@ export default function AuthorPage() {
 
                 <div className="zr-author__status">
                   {displayStatus(b.st)}
-                  {b.onShelf ? " · on shelf" : ""}
                   {b.isTop ? " · top" : ""}
                 </div>
 
@@ -902,7 +1013,6 @@ export default function AuthorPage() {
                     patchLocalList(editId, patch);
                     setEditingBook((prev) => ({ ...(prev || {}), ...(patch || {}) }));
 
-                    // keep author-level field in sync if edited
                     const pt = patch?.published_titles ?? patch?.publishedTitles;
                     const n = Number(pt);
                     if (Number.isFinite(n) && n > 0) setPublishedTitles(n);

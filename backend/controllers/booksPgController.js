@@ -42,6 +42,34 @@ function normalizeBool(v) {
   return null;
 }
 
+// ISBN: allow user input like "978-3-..." but store canonical digits/X only.
+// This prevents DB constraint failures (e.g. CHECK isbn13 ~ '^[0-9]{13}$').
+function stripIsbnLike(raw) {
+  return String(raw || "")
+    .trim()
+    .toUpperCase()
+    .replace(/[^0-9X]/g, "");
+}
+
+function normalizeIsbnForDb(isbn13In, isbn10In, rawIn) {
+  const a = stripIsbnLike(isbn13In);
+  const b = stripIsbnLike(isbn10In);
+  const raw = stripIsbnLike(rawIn) || a || b || null;
+
+  let isbn13 = null;
+  let isbn10 = null;
+
+  if (a.length === 13 && /^[0-9]{13}$/.test(a)) isbn13 = a;
+  if (b.length === 10 && /^[0-9]{9}[0-9X]$/.test(b)) isbn10 = b;
+
+  // User may paste ISBN-10 into the ISBN-13 field (or vice versa).
+  if (!isbn10 && a.length === 10 && /^[0-9]{9}[0-9X]$/.test(a)) isbn10 = a;
+  if (!isbn13 && b.length === 13 && /^[0-9]{13}$/.test(b)) isbn13 = b;
+
+  const isbn13_raw = raw && !isbn13 && !isbn10 ? raw : null;
+  return { isbn13, isbn10, isbn13_raw };
+}
+
 function computeAuthorDisplay(first, last) {
   const f = normalizeStr(first);
   const l = normalizeStr(last);
@@ -738,6 +766,12 @@ async function registerBook(req, res) {
   try {
     const cols = await getColumns(pool, "books");
 
+    const isbnInfo = normalizeIsbnForDb(
+      body.isbn13,
+      body.isbn10,
+      body.isbn13_raw ?? body.isbn13Raw ?? body.isbn_raw ?? body.isbn
+    );
+
     // Idempotency (optional): if request_id exists, return the existing book.
     if (requestId && cols.has("request_id")) {
       const exists = await pool.query(`SELECT id FROM public.books WHERE request_id = $1 LIMIT 1`, [requestId]);
@@ -790,8 +824,9 @@ async function registerBook(req, res) {
 
         title_display: normalizeStr(body.title_display),
         title_en: normalizeStr(body.title_en),
-        isbn13: normalizeStr(body.isbn13),
-        isbn10: normalizeStr(body.isbn10),
+        isbn13: isbnInfo.isbn13,
+        isbn10: isbnInfo.isbn10,
+        isbn13_raw: isbnInfo.isbn13_raw,
         purchase_url: normalizeStr(body.purchase_url),
         comment: normalizeStr(body.comment),
 
@@ -914,6 +949,22 @@ async function registerExistingBook(req, res) {
   const nowIso = new Date().toISOString();
   const cols = await getColumns(pool, "books");
 
+  const isbnProvided =
+    body.isbn13 !== undefined ||
+    body.isbn10 !== undefined ||
+    body.isbn13_raw !== undefined ||
+    body.isbn13Raw !== undefined ||
+    body.isbn_raw !== undefined ||
+    body.isbn !== undefined;
+
+  const isbnInfo = isbnProvided
+    ? normalizeIsbnForDb(
+        body.isbn13,
+        body.isbn10,
+        body.isbn13_raw ?? body.isbn13Raw ?? body.isbn_raw ?? body.isbn
+      )
+    : null;
+
   const client = await pool.connect();
   try {
     await client.query("BEGIN");
@@ -976,8 +1027,9 @@ async function registerExistingBook(req, res) {
     if (body.title_display !== undefined && cols.has("title_display")) updates.title_display = normalizeStr(body.title_display);
     if (body.title_en !== undefined && cols.has("title_en")) updates.title_en = normalizeStr(body.title_en);
     if (body.purchase_url !== undefined && cols.has("purchase_url")) updates.purchase_url = normalizeStr(body.purchase_url);
-    if (body.isbn13 !== undefined && cols.has("isbn13")) updates.isbn13 = normalizeStr(body.isbn13);
-    if (body.isbn10 !== undefined && cols.has("isbn10")) updates.isbn10 = normalizeStr(body.isbn10);
+    if (isbnInfo && cols.has("isbn13")) updates.isbn13 = isbnInfo.isbn13;
+    if (isbnInfo && cols.has("isbn10")) updates.isbn10 = isbnInfo.isbn10;
+    if (isbnInfo && cols.has("isbn13_raw")) updates.isbn13_raw = isbnInfo.isbn13_raw;
     if (body.comment !== undefined && cols.has("comment")) updates.comment = normalizeStr(body.comment);
 
     // keywords
@@ -1097,6 +1149,22 @@ async function updateBook(req, res) {
 
     const updates = {};
 
+    const isbnProvided =
+      patch.isbn13 !== undefined ||
+      patch.isbn10 !== undefined ||
+      patch.isbn13_raw !== undefined ||
+      patch.isbn13Raw !== undefined ||
+      patch.isbn_raw !== undefined ||
+      patch.isbn !== undefined;
+
+    const isbnInfo = isbnProvided
+      ? normalizeIsbnForDb(
+          patch.isbn13,
+          patch.isbn10,
+          patch.isbn13_raw ?? patch.isbn13Raw ?? patch.isbn_raw ?? patch.isbn
+        )
+      : null;
+
     // ---------------- Author / Publisher ----------------
     const authorLastRaw = normalizeStr(patch.author_lastname ?? patch.BAutor ?? patch.author_lastname ?? patch.author);
     const authorFirstRaw = normalizeStr(patch.author_firstname);
@@ -1130,8 +1198,9 @@ async function updateBook(req, res) {
     if (patch.title_display !== undefined && cols.has("title_display")) updates.title_display = normalizeStr(patch.title_display);
     if (patch.title_en !== undefined && cols.has("title_en")) updates.title_en = normalizeStr(patch.title_en);
     if (patch.purchase_url !== undefined && cols.has("purchase_url")) updates.purchase_url = normalizeStr(patch.purchase_url);
-    if (patch.isbn13 !== undefined && cols.has("isbn13")) updates.isbn13 = normalizeStr(patch.isbn13);
-    if (patch.isbn10 !== undefined && cols.has("isbn10")) updates.isbn10 = normalizeStr(patch.isbn10);
+    if (isbnInfo && cols.has("isbn13")) updates.isbn13 = isbnInfo.isbn13;
+    if (isbnInfo && cols.has("isbn10")) updates.isbn10 = isbnInfo.isbn10;
+    if (isbnInfo && cols.has("isbn13_raw")) updates.isbn13_raw = isbnInfo.isbn13_raw;
     if (patch.comment !== undefined && cols.has("comment")) updates.comment = normalizeStr(patch.comment);
 
     // keywords
