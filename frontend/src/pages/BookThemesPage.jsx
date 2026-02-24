@@ -144,7 +144,7 @@ export default function BookThemesPage() {
                     key={`feat-${t.abbr}`}
                     type="button"
                     className="bt-featuredTile"
-                    onClick={() => navigate(`/bookthemes/${encodeURIComponent(t.abbr)}`)}
+                    onClick={() => navigate(`/bookthemes/${encodeURIComponent(t.abbr)}/subthemes`)}
                     title={t.description || t.full_name}
                   >
                     <img

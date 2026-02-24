@@ -21,7 +21,7 @@ import MerchPage from "./pages/MerchPage";
 import CheckoutPage from "./pages/CheckoutPage";
 import OrderThanksPage from "./pages/OrderThanksPage";
 import NewsletterPage from "./pages/NewsletterPage";
-
+import ThemeSubthemesAuthorsPage from "./pages/ThemeSubthemesAuthorsPage";
 import { processUploadQueue } from "./utils/uploadQueue";
 
 function NotFound() {
@@ -107,7 +107,7 @@ export default function App() {
 
         {/* author detail */}
         <Route path="author/:author" element={<AuthorPage />} />
-
+<Route path="bookthemes/:abbr/subthemes" element={<ThemeSubthemesAuthorsPage />} />
         {/* admin */}
         <Route path="admin" element={<AdminPage />} />
         <Route path="admin/register" element={<RegisterPage />} />

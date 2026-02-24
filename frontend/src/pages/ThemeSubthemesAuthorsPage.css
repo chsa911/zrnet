@@ -1,0 +1,32 @@
+/* frontend/src/pages/ThemeSubthemesAuthorsPage.css */
+
+.stp-page{max-width:1120px;margin:0 auto;padding:0 16px}
+.stp-top{display:flex;gap:12px;align-items:flex-start;flex-wrap:wrap;margin-bottom:14px}
+.stp-head{min-width:0}
+.stp-h1{margin:0;font-weight:950;letter-spacing:-0.03em;font-size:clamp(26px,3vw,40px);line-height:1.06}
+.stp-lede{margin-top:6px}
+
+.stp-split{display:grid;grid-template-columns:1fr 1.4fr;gap:18px;align-items:start}
+@media (max-width: 920px){.stp-split{grid-template-columns:1fr}}
+
+.stp-bar{display:flex;align-items:flex-end;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:10px}
+.stp-title{font-weight:950;letter-spacing:-0.02em;font-size:18px}
+.stp-hint{font-size:12px;opacity:0.75;font-weight:800;margin-top:2px}
+.stp-search{min-width:220px}
+
+.stp-tiles{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.stp-tiles--authors{grid-template-columns:repeat(3,minmax(0,1fr))}
+@media (max-width: 720px){.stp-tiles--authors{grid-template-columns:repeat(2,minmax(0,1fr))}}
+
+.stp-tile{position:relative;border:1px solid rgba(0,0,0,0.10);border-radius:16px;overflow:hidden;background:#fff;padding:0;cursor:pointer;text-align:left;aspect-ratio:1/1;box-shadow:0 1px 6px rgba(0,0,0,0.06);transition:transform .14s ease, box-shadow .14s ease, border-color .14s ease}
+.stp-tile:hover{transform:translateY(-1px);box-shadow:0 10px 22px rgba(0,0,0,0.16);border-color:rgba(0,0,0,0.14)}
+.stp-tile.is-active{outline:2px solid rgba(0,0,0,0.35);outline-offset:2px}
+
+.stp-img{width:100%;height:100%;object-fit:cover;display:block;background:#f2f2f2}
+.stp-overlay{position:absolute;inset:0;background:linear-gradient(180deg,rgba(0,0,0,0.00) 0%, rgba(0,0,0,0.55) 100%)}
+
+.stp-label{position:absolute;left:10px;right:10px;bottom:10px;display:flex;align-items:flex-end;justify-content:space-between;gap:10px;color:#fff}
+.stp-name{font-weight:950;letter-spacing:-0.02em;font-size:14px;line-height:1.15;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.stp-count{flex:0 0 auto;min-width:34px;height:26px;padding:0 10px;border-radius:999px;background:rgba(255,255,255,0.16);border:1px solid rgba(255,255,255,0.22);display:inline-flex;align-items:center;justify-content:center;font-weight:900;font-size:12px}
+
+.stp-pillActive{background:rgba(0,0,0,0.08)}
