@@ -443,6 +443,9 @@ function mapSort(sortByRaw) {
     BAutor: "a.name_display",
     BVerlag: "COALESCE(p.name_display, b.publisher)",
     BKw: "b.title_keyword",
+    statusChangedAt: "COALESCE(b.reading_status_updated_at, b.registered_at)",
+    status_changed_at: "COALESCE(b.reading_status_updated_at, b.registered_at)",
+    reading_status_updated_at: "COALESCE(b.reading_status_updated_at, b.registered_at)",
   };
   return map[sortBy] || "b.registered_at";
 }
@@ -489,15 +492,25 @@ async function listBooks(req, res) {
       params.push(pagesEq);
       where.push(`b.pages = $${params.length}`);
     }
+// status filter (supports single value or CSV like "finished,abandoned")
+const statusRaw = normalizeStr(req.query.status || req.query.reading_status);
+if (statusRaw) {
+  const parts = String(statusRaw)
+    .split(",")
+    .map((s) => mapReadingStatus(String(s || "").trim()))
+    .filter(Boolean);
 
-    // status filter
-    const status = mapReadingStatus(req.query.status || req.query.reading_status);
-    if (status) {
-      params.push(status);
-      where.push(`b.reading_status = $${params.length}`);
-    }
+  const uniq = Array.from(new Set(parts));
 
-    const topOnly = normalizeBool(req.query.topOnly ?? req.query.top);
+  if (uniq.length === 1) {
+    params.push(uniq[0]);
+    where.push(`b.reading_status = $${params.length}`);
+  } else if (uniq.length > 1) {
+    params.push(uniq);
+    where.push(`b.reading_status = ANY($${params.length}::text[])`);
+  }
+}
+const topOnly = normalizeBool(req.query.topOnly ?? req.query.top);
     if (topOnly === true) {
       where.push(`b.top_book = true`);
     }

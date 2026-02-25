@@ -44,12 +44,25 @@ const getCreatedAt = (b) => {
     return "—";
   }
 };
+const getStatusChangedAt = (b) => {
+  const raw = pick(b, [
+    "statusChangedAt",
+    "status_changed_at",
+    "reading_status_updated_at",
+    "readingStatusUpdatedAt",
+  ]);
+  try {
+    return raw ? new Date(raw).toLocaleString() : "—";
+  } catch {
+    return "—";
+  }
+};
 const getTop = (b) => !!(pick(b, ["BTop", "top", "Topbook"]) ?? b?.BTop);
 
 /* ------------------------------------------- */
 
 export default function SearchUpdatePage() {
-  const [q, setQ] = useState({ q: "", page: 1, limit: 20, sortBy: "BEind", order: "desc" });
+  const [q, setQ] = useState({ q: "", page: 1, limit: 20, sortBy: "BEind", order: "desc", status: "" });
   const [searchText, setSearchText] = useState("");
 
   const [items, setItems] = useState([]);
@@ -104,7 +117,7 @@ export default function SearchUpdatePage() {
     return () => {
       cancelled = true;
     };
-  }, [q.page, q.limit, q.sortBy, q.order, q.q]);
+  }, [q.page, q.limit, q.sortBy, q.order, q.q, q.status]);
 
   const idOf = (b) => b?._id || b?.id || getBarcodeRaw(b) || b?.code || "";
 
@@ -195,9 +208,7 @@ export default function SearchUpdatePage() {
     setEditingBook(b);
     setTimeout(() => {
       try {
-        document
-          .getElementById("edit-book-form")
-          ?.scrollIntoView({ behavior: "smooth", block: "start" });
+        document.getElementById("edit-book-form")?.scrollIntoView({ behavior: "smooth", block: "start" });
       } catch {}
     }, 0);
   }
@@ -211,8 +222,8 @@ export default function SearchUpdatePage() {
       <AdminNavRow />
       <h1>Bücher verwalten</h1>
       <p className="zr-lede">
-        Seite <strong>{q.page}</strong> / <strong>{totalPages}</strong> · Pro Seite{" "}
-        <strong>{q.limit}</strong> · Gesamt <strong>{total}</strong>
+        Seite <strong>{q.page}</strong> / <strong>{totalPages}</strong> · Pro Seite <strong>{q.limit}</strong> · Gesamt{" "}
+        <strong>{total}</strong>
         {q.q ? (
           <>
             {" "}
@@ -247,11 +258,7 @@ export default function SearchUpdatePage() {
               Suchen
             </button>
             {searchText ? (
-              <button
-                type="button"
-                className="zr-btn2 zr-btn2--ghost zr-btn2--sm"
-                onClick={() => setSearchText("")}
-              >
+              <button type="button" className="zr-btn2 zr-btn2--ghost zr-btn2--sm" onClick={() => setSearchText("")}>
                 Leeren
               </button>
             ) : null}
@@ -271,6 +278,30 @@ export default function SearchUpdatePage() {
               <option value="createdAt">Erstellt</option>
               <option value="BAutor">Autor</option>
               <option value="BVerlag">Verlag</option>
+              <option value="statusChangedAt">Status geändert</option>
+            </select>
+          </label>
+
+          <label style={{ fontSize: 12, opacity: 0.75 }}>
+            Status
+            <select
+              className="zr-select"
+              style={{ marginLeft: 8 }}
+              value={q.status || ""}
+              onChange={(e) => {
+                const v = e.target.value || "";
+                if (v) {
+                  // When filtering for finished/abandoned, sort by status change time newest-first.
+                  setQuery({ status: v, page: 1, sortBy: "statusChangedAt", order: "desc" });
+                } else {
+                  setQuery({ status: "", page: 1 });
+                }
+              }}
+            >
+              <option value="">Alle</option>
+              <option value="finished">Zuletzt Finished</option>
+              <option value="abandoned">Zuletzt Abandoned</option>
+              <option value="finished,abandoned">Zuletzt Finished + Abandoned</option>
             </select>
           </label>
 
@@ -304,9 +335,7 @@ export default function SearchUpdatePage() {
 
         {err ? <div className="zr-alert zr-alert--error">{err}</div> : null}
         {loading ? <div className="zr-alert">Lade…</div> : null}
-        {!loading && !err && items.length === 0 ? (
-          <div className="zr-alert">Keine Einträge gefunden.</div>
-        ) : null}
+        {!loading && !err && items.length === 0 ? <div className="zr-alert">Keine Einträge gefunden.</div> : null}
 
         {!loading && !err && items.length > 0 ? (
           <div style={{ overflow: "auto", marginTop: 12 }}>
@@ -321,6 +350,7 @@ export default function SearchUpdatePage() {
                   <th>Topbook</th>
                   <th>Abandoned</th>
                   <th>Finished</th>
+                  <th>Status geändert</th>
                   <th>Erstellt</th>
                   <th>Aktionen</th>
                 </tr>
@@ -344,6 +374,7 @@ export default function SearchUpdatePage() {
                       <td>{getTop(b) ? "✓" : "—"}</td>
                       <td>{isAbandoned ? "✓" : "—"}</td>
                       <td>{isFinished ? "✓" : "—"}</td>
+                      <td>{isAbandoned || isFinished ? getStatusChangedAt(b) : "—"}</td>
                       <td>{getCreatedAt(b)}</td>
                       <td>
                         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
@@ -377,14 +408,7 @@ export default function SearchUpdatePage() {
                           </button>
 
                           <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
-                            <label
-                              style={{
-                                fontSize: 12,
-                                display: "inline-flex",
-                                gap: 6,
-                                alignItems: "center",
-                              }}
-                            >
+                            <label style={{ fontSize: 12, display: "inline-flex", gap: 6, alignItems: "center" }}>
                               <input
                                 type="radio"
                                 name={`status-${id}`}
@@ -395,14 +419,7 @@ export default function SearchUpdatePage() {
                               Abandoned
                             </label>
 
-                            <label
-                              style={{
-                                fontSize: 12,
-                                display: "inline-flex",
-                                gap: 6,
-                                alignItems: "center",
-                              }}
-                            >
+                            <label style={{ fontSize: 12, display: "inline-flex", gap: 6, alignItems: "center" }}>
                               <input
                                 type="radio"
                                 name={`status-${id}`}
@@ -425,12 +442,7 @@ export default function SearchUpdatePage() {
 
         {/* Pagination */}
         <div className="zr-toolbar" style={{ marginTop: 12 }}>
-          <button
-            className="zr-btn2 zr-btn2--ghost zr-btn2--sm"
-            onClick={prevPage}
-            disabled={!canPrev}
-            type="button"
-          >
+          <button className="zr-btn2 zr-btn2--ghost zr-btn2--sm" onClick={prevPage} disabled={!canPrev} type="button">
             ← Zurück
           </button>
 
@@ -440,12 +452,7 @@ export default function SearchUpdatePage() {
             Seite <strong>{q.page}</strong> / <strong>{totalPages}</strong>
           </div>
 
-          <button
-            className="zr-btn2 zr-btn2--ghost zr-btn2--sm"
-            onClick={nextPage}
-            disabled={!canNext}
-            type="button"
-          >
+          <button className="zr-btn2 zr-btn2--ghost zr-btn2--sm" onClick={nextPage} disabled={!canNext} type="button">
             Weiter →
           </button>
         </div>
