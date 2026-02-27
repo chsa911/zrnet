@@ -5,17 +5,24 @@
 //  1) Legacy request-based jobs:
 //     job.request = { url, method, bodyType, json, form, fileBlob, fileField, fileName }
 //  2) PagesInLine "create" jobs (current UI):
-//     { flow:"create", step:"create"|"cover", payload:{...}, cover:File, coverName, draftId }
+//     { flow:"create", step:"create"|"cover", payload:{...}, cover:File, coverName, draftId, skipIsbn? }
 //
 // Key goals:
 //  - Never leave jobs stuck on "uploading" forever (uploadingAt watchdog).
 //  - For create-jobs: create book ONCE, store server book id in draftId, then upload cover.
 //  - Provide helpers expected by UploadQueueManager (retryUploadJob, retryUploadJobWithoutIsbn, deleteUploadJob).
+//
+// Notes:
+//  - DO NOT run any IDB actions at module top-level (no top-level await).
+//  - iOS Safari can abort fetch and leave jobs stuck; we use uploadingAt + resetStuckUploadingJobs().
 
 const DB_NAME = "zrnet_upload_queue";
 const DB_VERSION = 1;
 const STORE = "jobs";
 const UPLOADING_TTL_MS = 60_000; // if uploading longer than this, consider "stuck"
+const MIN_FILE_BYTES = 1024;
+
+let _processing = false;
 
 function hasIDB() {
   return typeof window !== "undefined" && typeof indexedDB !== "undefined";
@@ -156,8 +163,13 @@ export async function resetStuckUploadingJobs({ maxAgeMs = UPLOADING_TTL_MS } = 
         for (const j of items) {
           if (j?.status === "uploading") {
             const ts = Number(j.uploadingAt || 0);
-            if (!ts || now - ts > maxAgeMs) {
-              store.put({ ...j, status: "error", lastError: j.lastError || "stuck_upload_reset", uploadingAt: null });
+            if (!ts || now - ts >= maxAgeMs) {
+              store.put({
+                ...j,
+                status: "error",
+                lastError: j.lastError || "stuck_upload_reset",
+                uploadingAt: null,
+              });
               n++;
             }
           }
@@ -170,6 +182,15 @@ export async function resetStuckUploadingJobs({ maxAgeMs = UPLOADING_TTL_MS } = 
 }
 
 /* -------------------------- upload implementations ------------------------- */
+
+function stripIsbnFields(obj) {
+  const p = obj && typeof obj === "object" ? { ...obj } : {};
+  delete p.isbn;
+  delete p.isbn13;
+  delete p.isbn10;
+  delete p.isbn13_raw;
+  return p;
+}
 
 async function fetchJson(url, opts) {
   // Always include credentials so /api/admin cookies work across ports (same host).
@@ -189,7 +210,9 @@ async function fetchJson(url, opts) {
 }
 
 async function uploadCreateStep(job) {
-  const payload = job?.payload && typeof job.payload === "object" ? job.payload : {};
+  const rawPayload = job?.payload && typeof job.payload === "object" ? job.payload : {};
+  const payload = job?.skipIsbn ? stripIsbnFields(rawPayload) : rawPayload;
+
   // Idempotency hint: use job id as requestId (backend supports it if books.request_id exists)
   const body = { ...payload, requestId: job.id };
 
@@ -214,7 +237,7 @@ async function uploadCoverStep(job, bookIdOverride) {
   const file = job?.cover;
   const sz = file?.size ?? 0;
   if (!file) throw new Error("missing_file");
-  if (sz < 1024) throw new Error(`empty_file_${sz}`);
+  if (sz < MIN_FILE_BYTES) throw new Error(`empty_file_${sz}`);
 
   const fd = new FormData();
   fd.append("cover", file, job?.coverName || file.name || "cover.jpg");
@@ -248,7 +271,7 @@ async function legacyUploader(job) {
     }
     if (req.fileBlob) {
       const sz = req.fileBlob?.size ?? req.fileBlob?.length ?? 0;
-      if (sz < 1024) throw new Error(`upload_empty_file_${sz}`);
+      if (sz < MIN_FILE_BYTES) throw new Error(`upload_empty_file_${sz}`);
       fd.append(req.fileField || "cover", req.fileBlob, req.fileName || "cover.jpg");
     }
     body = fd;
@@ -271,55 +294,61 @@ async function legacyUploader(job) {
 
 export async function processUploadQueue({ maxJobs = 5 } = {}) {
   if (!hasIDB()) return { processed: 0, failed: 0 };
+  if (_processing) return { processed: 0, failed: 0, skipped: true };
 
-  // Auto-reset stuck "uploading" jobs so they become visible/retryable.
-  await resetStuckUploadingJobs({ maxAgeMs: UPLOADING_TTL_MS });
+  _processing = true;
+  try {
+    // Auto-reset stuck "uploading" jobs so they become visible/retryable.
+    await resetStuckUploadingJobs({ maxAgeMs: UPLOADING_TTL_MS });
 
-  const jobs = await listUploadJobs();
+    const jobs = await listUploadJobs();
 
-  const pending = jobs
-    .filter((j) => j?.status === "pending" || j?.status === "error")
-    .sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0))
-    .slice(0, maxJobs);
+    const pending = jobs
+      .filter((j) => j?.status === "pending" || j?.status === "error")
+      .sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0))
+      .slice(0, maxJobs);
 
-  let processed = 0;
-  let failed = 0;
+    let processed = 0;
+    let failed = 0;
 
-  for (const job of pending) {
-    const id = job.id;
+    for (const job of pending) {
+      const id = job.id;
 
-    // Mark uploading with timestamp so we can reset if Safari kills fetch
-    await updateJob(id, { status: "uploading", uploadingAt: Date.now(), lastError: null });
+      // Mark uploading with timestamp so we can reset if Safari kills fetch
+      await updateJob(id, { status: "uploading", uploadingAt: Date.now(), lastError: null });
 
-    try {
-      // PagesInLine "create" jobs
-      if (job.flow === "create" || job.step === "create" || job.step === "cover" || job.payload || job.cover) {
-        if (!job.draftId || job.step === "create" || !job.step) {
-          const { bookId } = await uploadCreateStep(job);
-          // IMPORTANT: use the bookId we just got; do not depend on re-reading job from IDB
-          await uploadCoverStep(job, bookId);
+      try {
+        // PagesInLine "create" jobs
+        if (job.flow === "create" || job.step === "create" || job.step === "cover" || job.payload || job.cover) {
+          if (!job.draftId || job.step === "create" || !job.step) {
+            const { bookId } = await uploadCreateStep(job);
+            // IMPORTANT: use the bookId we just got; do not depend on re-reading job from IDB
+            await uploadCoverStep(job, bookId);
+          } else {
+            await uploadCoverStep(job);
+          }
         } else {
-          await uploadCoverStep(job);
+          // Legacy request-based jobs
+          await legacyUploader(job);
         }
-      } else {
-        // Legacy request-based jobs
-        await legacyUploader(job);
+
+        await deleteUploadJob(id);
+        processed++;
+      } catch (e) {
+        failed++;
+        await updateJob(id, {
+          status: "error",
+          uploadingAt: null,
+          retries: (job.retries || 0) + 1,
+          lastError: String(e?.message || e),
+        });
       }
-
-      await deleteUploadJob(id);
-      processed++;
-    } catch (e) {
-      failed++;
-      await updateJob(id, {
-        status: "error",
-        uploadingAt: null,
-        retries: (job.retries || 0) + 1,
-        lastError: String(e?.message || e),
-      });
     }
-  }
 
-  return { processed, failed };
+    return { processed, failed };
+  } finally {
+    _processing = false;
+  }
 }
 
 // --- Exports expected by UploadQueueManager.jsx ---
@@ -338,16 +367,14 @@ export async function retryUploadJobWithoutIsbn(id) {
         const cur = getReq.result;
         if (!cur) return resolve(false);
 
-        const next = { ...cur, skipIsbn: true, status: "pending", uploadingAt: null, lastError: null };
-
-        if (next.payload && typeof next.payload === "object") {
-          const p = { ...next.payload };
-          delete p.isbn;
-          delete p.isbn13;
-          delete p.isbn10;
-          delete p.isbn13_raw;
-          next.payload = p;
-        }
+        const next = {
+          ...cur,
+          skipIsbn: true,
+          payload: stripIsbnFields(cur.payload),
+          status: "pending",
+          uploadingAt: null,
+          lastError: null,
+        };
 
         store.put(next);
         resolve(true);
