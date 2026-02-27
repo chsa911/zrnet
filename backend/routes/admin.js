@@ -110,7 +110,14 @@
 
     const id = String(req.params.id || "").trim();
     if (!id) return res.status(400).json({ error: "missing_id" });
+    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id)) {
+      return res.status(400).json({ error: "invalid_id" });
+    }
     if (!req.file) return res.status(400).json({ error: "missing_file" });
+    const byteLen = req.file?.buffer?.length ?? 0;
+    if (byteLen < 1024) {
+      return res.status(400).json({ error: "empty_file", bytes: byteLen });
+    }
 
     try {
       // Ensure folder
@@ -126,8 +133,8 @@
         fs.writeFile(archive, req.file.buffer),
       ]);
 
-      // Mark cover presence on the book row
-      await pool.query(
+      // Mark cover presence on the book row (and verify the book exists)
+      const upd = await pool.query(
         `
         UPDATE public.books
         SET raw = jsonb_set(
@@ -137,11 +144,24 @@
           true
         )
         WHERE id = $1::uuid
+        RETURNING (raw->'capture'->>'coverUploadedAt') AS coveruploadedat
         `,
         [id]
       );
 
-      return res.json({ ok: true, cover: `/assets/covers/${id}.jpg` });
+      if (!upd.rowCount) {
+        try { await fs.unlink(main); } catch {}
+        try { await fs.unlink(archive); } catch {}
+        return res.status(404).json({ error: "book_not_found_for_cover", id });
+      }
+
+      return res.json({
+        ok: true,
+        id,
+        bytes: req.file.buffer.length,
+        cover: `/assets/covers/${id}.jpg`,
+        coverUploadedAt: upd.rows?.[0]?.coveruploadedat || null,
+      });
     } catch (e) {
       console.error("cover upload failed", e);
       return res.status(500).json({ error: "cover_upload_failed", detail: String(e?.message || e) });

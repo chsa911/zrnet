@@ -123,6 +123,7 @@ export default function TopBar() {
               <Link to="/info/beschaffung">{t("nav_getting_books")}</Link>
               <Link to="/bookthemes">{t("nav_bookthemes")}</Link>
               <Link to="/top-authors">{t("nav_top_authors")}</Link>
+           <Link to="/authors">{t("nav_authors_overview")}</Link>
             </div>
           </details>
 

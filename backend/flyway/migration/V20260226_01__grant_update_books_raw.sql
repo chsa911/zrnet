@@ -1,0 +1,1 @@
+GRANT UPDATE (raw) ON public.books TO rxlog_app;

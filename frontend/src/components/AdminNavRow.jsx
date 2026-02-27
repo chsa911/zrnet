@@ -45,6 +45,14 @@ export default function AdminNavRow({ style }) {
       </Link>
 
       <Link
+        to="/admin/authors"
+        className="zr-btn2 zr-btn2--ghost"
+        style={baseBtn(pathname === "/admin/authors")}
+      >
+        👤 Authors
+      </Link>
+
+      <Link
         to="/admin/sync-issues"
         className="zr-btn2 zr-btn2--ghost"
         style={baseBtn(pathname === "/admin/sync-issues")}
@@ -59,21 +67,22 @@ export default function AdminNavRow({ style }) {
       >
         🏷️ Barcodes
       </Link>
- <Link
+
+      <Link
         to="/admin/newsletter"
         className="zr-btn2 zr-btn2--ghost"
         style={baseBtn(pathname === "/admin/newsletter")}
       >
         ✉️ Newsletter
       </Link>
-<Link
-  to="/admin/comments"
-  className="zr-btn2 zr-btn2--ghost"
-  style={baseBtn(pathname === "/admin/comments")}
->
-  💬 Comments
-</Link>
-      
+
+      <Link
+        to="/admin/comments"
+        className="zr-btn2 zr-btn2--ghost"
+        style={baseBtn(pathname === "/admin/comments")}
+      >
+        💬 Comments
+      </Link>
     </div>
   );
-}   
+}

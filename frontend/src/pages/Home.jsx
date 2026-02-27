@@ -3,6 +3,12 @@ import { Link } from "react-router-dom";
 import { useI18n } from "../context/I18nContext";
 import "./home_minimal.css";
 
+function toIntOrNull(v) {
+  if (v === null || v === undefined) return null;
+  const n = Number(v);
+  return Number.isFinite(n) ? n : null;
+}
+
 export default function Home() {
   const { t } = useI18n();
   const year = 2026;
@@ -10,6 +16,7 @@ export default function Home() {
   const FALLBACK_IMG = "/assets/images/allgemein/hosentasche_link.jpeg";
 
   const [hl, setHl] = useState(null);
+  const [stats, setStats] = useState({ in_stock: null, finished: null, top: null });
 
   useEffect(() => {
     const ac = new AbortController();
@@ -24,6 +31,39 @@ export default function Home() {
     })();
     return () => ac.abort();
   }, []);
+
+  // ✅ Live stats (were previously hardcoded)
+  useEffect(() => {
+    const ac = new AbortController();
+
+    async function load() {
+      try {
+        const url = `/api/public/books/stats?year=${encodeURIComponent(year)}&_=${Date.now()}`;
+        const res = await fetch(url, {
+          signal: ac.signal,
+          headers: { Accept: "application/json" },
+          cache: "no-store",
+        });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
+        setStats({
+          in_stock: toIntOrNull(data.in_stock ?? data.inStock ?? data.instock ?? data.stock),
+          finished: toIntOrNull(data.finished ?? data.finished_books ?? data.finishedBooks),
+          top: toIntOrNull(data.top ?? data.top_books ?? data.topBooks),
+        });
+      } catch {
+        // keep previous values; don't break the home page
+      }
+    }
+
+    load();
+    // optional: keep it "live" while user stays on home
+    const id = setInterval(load, 60_000);
+    return () => {
+      clearInterval(id);
+      ac.abort();
+    };
+  }, [year]);
 
   const finished = hl?.finished || {};
   const received = hl?.received || {};
@@ -81,17 +121,17 @@ export default function Home() {
 
             <Link className="zr-proof__row zr-proof__rowLink" to={`/stats/stock?year=${year}`}>
               <span>{t("home_stats_in_stock")}</span>
-              <strong>2933</strong>
+              <strong>{stats.in_stock ?? "—"}</strong>
             </Link>
 
             <Link className="zr-proof__row zr-proof__rowLink" to={`/stats/finished?year=${year}`}>
               <span>{t("home_stats_finished_2026")}</span>
-              <strong>15</strong>
+              <strong>{stats.finished ?? "—"}</strong>
             </Link>
 
             <Link className="zr-proof__row zr-proof__rowLink" to={`/stats/top?year=${year}`}>
               <span>{t("home_stats_top")}</span>
-              <strong>11</strong>
+              <strong>{stats.top ?? "—"}</strong>
             </Link>
 
             <div className="zr-proof__note">{t("home_stats_note")}</div>

@@ -1,36 +1,38 @@
 // frontend/src/utils/uploadQueue.js
+// IndexedDB upload queue (iPhone-safe).
+//
+// Supports two job shapes:
+//  1) Legacy request-based jobs:
+//     job.request = { url, method, bodyType, json, form, fileBlob, fileField, fileName }
+//  2) PagesInLine "create" jobs (current UI):
+//     { flow:"create", step:"create"|"cover", payload:{...}, cover:File, coverName, draftId }
+//
+// Key goals:
+//  - Never leave jobs stuck on "uploading" forever (uploadingAt watchdog).
+//  - For create-jobs: create book ONCE, store server book id in draftId, then upload cover.
+//  - Provide helpers expected by UploadQueueManager (retryUploadJob, retryUploadJobWithoutIsbn, deleteUploadJob).
+
 const DB_NAME = "zrnet_upload_queue";
 const DB_VERSION = 1;
 const STORE = "jobs";
-
-const ENV_BASE = (import.meta?.env?.VITE_API_BASE_URL || import.meta?.env?.VITE_API_BASE || "").trim();
-const BASE = String(ENV_BASE || "/api").replace(/\/$/, "");
-
-const MAX_RETRIES = 5;
-const STUCK_UPLOAD_MS = 10 * 60 * 1000; // 10 minutes
-
-function buildUrl(path) {
-  if (/^https?:\/\//i.test(path)) return path;
-  const p = path.startsWith("/") ? path : `/${path}`;
-  if (BASE.endsWith("/api") && p.startsWith("/api/")) return `${BASE}${p.slice(4)}`;
-  return `${BASE}${p}`;
-}
+const UPLOADING_TTL_MS = 60_000; // if uploading longer than this, consider "stuck"
 
 function hasIDB() {
   return typeof window !== "undefined" && typeof indexedDB !== "undefined";
 }
 
-function makeId() {
+function genId() {
   try {
-    return globalThis.crypto?.randomUUID?.() || `${Date.now()}-${Math.random()}`;
+    return crypto.randomUUID();
   } catch {
-    return `${Date.now()}-${Math.random()}`;
+    return `job_${Date.now()}_${Math.random().toString(16).slice(2)}`;
   }
 }
 
 function openDb() {
-  return new Promise((resolve, reject) => {
+  return new Promise((resolve) => {
     if (!hasIDB()) return resolve(null);
+
     const req = indexedDB.open(DB_NAME, DB_VERSION);
     req.onupgradeneeded = () => {
       const db = req.result;
@@ -41,7 +43,8 @@ function openDb() {
       }
     };
     req.onsuccess = () => resolve(req.result);
-    req.onerror = () => reject(req.error);
+    // iOS sometimes gives tx.error === null; never hard reject, keep app alive
+    req.onerror = () => resolve(null);
   });
 }
 
@@ -49,88 +52,52 @@ async function withStore(mode, fn) {
   const db = await openDb();
   if (!db) return fn(null);
 
-  return new Promise((resolve, reject) => {
+  return new Promise((resolve) => {
     const tx = db.transaction(STORE, mode);
     const store = tx.objectStore(STORE);
+
     let out;
     try {
       out = fn(store);
-    } catch (e) {
-      reject(e);
+    } catch {
+      resolve(null);
       return;
     }
+
     tx.oncomplete = () => resolve(out);
-    tx.onerror = () => reject(tx.error);
-    tx.onabort = () => reject(tx.error);
+    tx.onerror = () => resolve(out);
+    tx.onabort = () => resolve(out);
   });
 }
 
-async function getJob(id) {
-  return withStore("readonly", (store) => {
-    if (!store) return null;
-    return new Promise((resolve) => {
-      const r = store.get(id);
-      r.onsuccess = () => resolve(r.result || null);
-      r.onerror = () => resolve(null);
-    });
-  });
-}
-
-async function putJob(job) {
-  return withStore("readwrite", (store) => {
-    if (!store) return;
-    store.put(job);
-  });
-}
-
-async function updateJob(id, patch) {
-  const cur = await getJob(id);
-  if (!cur) return false;
-  await putJob({ ...cur, ...patch });
-  return true;
-}
-
-async function listJobs() {
-  return withStore("readonly", (store) => {
-    if (!store) return [];
-    return new Promise((resolve) => {
-      const r = store.getAll();
-      r.onsuccess = () => resolve(r.result || []);
-      r.onerror = () => resolve([]);
-    });
-  });
-}
-
-/* ------------------ exports used by app ------------------ */
-
-export async function upsertUploadJob(job) {
+export async function enqueueUploadJob(job) {
   const j = {
-    id: job?.id || makeId(),
+    id: job?.id || genId(),
     createdAt: job?.createdAt || Date.now(),
-    status: job?.status || "pending", // pending | uploading | error | blocked
+    status: job?.status || "pending", // pending | uploading | error
     retries: job?.retries || 0,
     lastError: job?.lastError || null,
-    uploadingSince: job?.uploadingSince || null,
+    uploadingAt: job?.uploadingAt || null,
     ...job,
   };
-  await putJob(j);
+
+  await withStore("readwrite", (store) => {
+    if (!store) return;
+    store.put(j);
+  });
+
   return j.id;
 }
 
-export async function deleteUploadJob(id) {
-  return withStore("readwrite", (store) => {
-    if (!store) return;
-    store.delete(id);
-  });
-}
-
-export async function listUploadJobs() {
-  return listJobs();
+// BookForm.jsx expects this name:
+export async function upsertUploadJob(job) {
+  return enqueueUploadJob(job); // put() already "upserts" in IndexedDB
 }
 
 export async function getPendingUploadCount() {
   return withStore("readonly", (store) => {
     if (!store) return 0;
+
     return new Promise((resolve) => {
       const idx = store.index("status");
       const req = idx.count("pending");
@@ -140,145 +107,177 @@ export async function getPendingUploadCount() {
   });
 }
 
-export async function retryUploadJob(id) {
-  return updateJob(id, { status: "pending", lastError: null, uploadingSince: null });
-}
+export async function listUploadJobs() {
+  return withStore("readonly", (store) => {
+    if (!store) return [];
 
-function stripIsbnFields(payload) {
-  const p = { ...(payload || {}) };
-  delete p.isbn13;
-  delete p.isbn10;
-  //delete p.isbn13_raw;
-  delete p.isbn13Raw;
-  delete p.isbn_raw;
-  delete p.isbn;
-  return p;
-}
-
-export async function retryUploadJobWithoutIsbn(id) {
-  const job = await getJob(id);
-  if (!job) return false;
-  const payload2 = stripIsbnFields(job.payload);
-  await putJob({
-    ...job,
-    payload: payload2,
-    status: "pending",
-    lastError: null,
-    uploadingSince: null,
+    return new Promise((resolve) => {
+      const req = store.getAll();
+      req.onsuccess = () => resolve(req.result || []);
+      req.onerror = () => resolve([]);
+    });
   });
-  return true;
 }
 
-/* ------------------ uploader ------------------ */
+export async function deleteUploadJob(id) {
+  return withStore("readwrite", (store) => {
+    if (!store) return;
+    store.delete(id);
+  });
+}
 
-async function fetchJsonOrText(url, opts) {
-  const res = await fetch(url, { credentials: "include", ...opts });
-  const text = await res.text().catch(() => "");
+async function updateJob(id, patch) {
+  return withStore("readwrite", (store) => {
+    if (!store) return false;
+
+    return new Promise((resolve) => {
+      const getReq = store.get(id);
+      getReq.onsuccess = () => {
+        const cur = getReq.result;
+        if (!cur) return resolve(false);
+        store.put({ ...cur, ...patch });
+        resolve(true);
+      };
+      getReq.onerror = () => resolve(false);
+    });
+  });
+}
+
+export async function resetStuckUploadingJobs({ maxAgeMs = UPLOADING_TTL_MS } = {}) {
+  const now = Date.now();
+  return withStore("readwrite", (store) => {
+    if (!store) return 0;
+
+    return new Promise((resolve) => {
+      const req = store.getAll();
+      req.onsuccess = () => {
+        const items = req.result || [];
+        let n = 0;
+        for (const j of items) {
+          if (j?.status === "uploading") {
+            const ts = Number(j.uploadingAt || 0);
+            if (!ts || now - ts > maxAgeMs) {
+              store.put({ ...j, status: "error", lastError: j.lastError || "stuck_upload_reset", uploadingAt: null });
+              n++;
+            }
+          }
+        }
+        resolve(n);
+      };
+      req.onerror = () => resolve(0);
+    });
+  });
+}
+
+/* -------------------------- upload implementations ------------------------- */
+
+async function fetchJson(url, opts) {
+  // Always include credentials so /api/admin cookies work across ports (same host).
+  const resp = await fetch(url, { credentials: "include", ...opts });
+  const text = await resp.text().catch(() => "");
   let json = null;
   try {
     json = text ? JSON.parse(text) : null;
-  } catch {}
-  if (!res.ok) {
-    const msg = json?.error || json?.message || text || `HTTP ${res.status}`;
-    const err = new Error(msg);
-    err.status = res.status;
-    err.body = json || text;
-    throw err;
+  } catch {
+    json = null;
   }
-  return json ?? text;
+  if (!resp.ok) {
+    const msg = json?.error || (text ? text.slice(0, 200) : `http_${resp.status}`);
+    throw new Error(String(msg));
+  }
+  return json;
 }
 
-async function unstickUploadingJobs() {
-  const jobs = await listJobs();
-  const now = Date.now();
-  const stuck = jobs.filter(
-    (j) =>
-      j?.status === "uploading" &&
-      (j.uploadingSince == null || now - Number(j.uploadingSince) > STUCK_UPLOAD_MS)
-  );
-  for (const j of stuck) {
-    await updateJob(j.id, {
-      status: "error",
-      lastError: j.lastError || "stuck_upload_reset",
-      uploadingSince: null,
-    });
-  }
+async function uploadCreateStep(job) {
+  const payload = job?.payload && typeof job.payload === "object" ? job.payload : {};
+  // Idempotency hint: use job id as requestId (backend supports it if books.request_id exists)
+  const body = { ...payload, requestId: job.id };
+
+  const book = await fetchJson("/api/books", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+
+  const bookId = book?.id || book?._id;
+  if (!bookId) throw new Error("create_missing_book_id");
+
+  // Persist server book id and advance to cover step
+  await updateJob(job.id, { draftId: bookId, step: "cover", lastError: null });
+  return { bookId };
 }
 
-async function uploadBookJob(job) {
-  if (typeof navigator !== "undefined" && navigator && navigator.onLine === false) {
-    throw new Error("offline");
-  }
+async function uploadCoverStep(job, bookIdOverride) {
+  const bookId = bookIdOverride || job?.draftId;
+  if (!bookId) throw new Error("missing_book_id_for_cover");
 
-  const id = job.id;
-  const flow = job.flow || "create";
+  const file = job?.cover;
+  const sz = file?.size ?? 0;
+  if (!file) throw new Error("missing_file");
+  if (sz < 1024) throw new Error(`empty_file_${sz}`);
 
-  let savedId = job.savedId || null;
+  const fd = new FormData();
+  fd.append("cover", file, job?.coverName || file.name || "cover.jpg");
 
-  if (!savedId) {
-    try {
-      if (flow === "finalize") {
-        if (!job.draftId) throw new Error("missing_draftId");
-        const r = await fetchJsonOrText(
-          buildUrl(`/admin/books/${encodeURIComponent(job.draftId)}/register`),
-          {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(job.payload || {}),
-          }
-        );
-        savedId = r?.id || r?._id || job.draftId;
-      } else {
-        const r = await fetchJsonOrText(buildUrl(`/books`), {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(job.payload || {}),
-        });
-        savedId = r?.id || r?._id;
-      }
-    } catch (e) {
-      // If server rejects ISBN, retry once without ISBN fields (never block)
-      const msg = String(e?.message || "");
-      if ((e?.status === 400 || e?.status === 422) && /isbn/i.test(msg)) {
-        const payload2 = stripIsbnFields(job.payload);
-        const r2 = await fetchJsonOrText(buildUrl(`/books`), {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload2),
-        });
-        savedId = r2?.id || r2?._id;
-        await updateJob(id, { payload: payload2 });
-      } else {
-        throw e;
+  await fetchJson(`/api/admin/books/${encodeURIComponent(bookId)}/cover`, {
+    method: "POST",
+    body: fd,
+  });
+
+  return true;
+}
+
+// Legacy generic uploader (request-based jobs)
+async function legacyUploader(job) {
+  const req = job?.request;
+  if (!req?.url) throw new Error("upload_job_missing_request_url");
+
+  const method = req.method || "POST";
+  const headers = { ...(req.headers || {}) };
+
+  let body;
+  if (req.bodyType === "form") {
+    const fd = new FormData();
+    if (req.form && typeof req.form === "object") {
+      for (const [k, v] of Object.entries(req.form)) {
+        if (v !== undefined && v !== null) fd.append(k, String(v));
       }
     }
-
-    if (!savedId) throw new Error("save_failed_no_id");
-    await updateJob(id, { savedId });
+    if (req.json && typeof req.json === "object") {
+      fd.append("payload", JSON.stringify(req.json));
+    }
+    if (req.fileBlob) {
+      const sz = req.fileBlob?.size ?? req.fileBlob?.length ?? 0;
+      if (sz < 1024) throw new Error(`upload_empty_file_${sz}`);
+      fd.append(req.fileField || "cover", req.fileBlob, req.fileName || "cover.jpg");
+    }
+    body = fd;
+    delete headers["Content-Type"];
+    delete headers["content-type"];
+  } else {
+    headers["Content-Type"] = headers["Content-Type"] || "application/json";
+    body = JSON.stringify(req.json ?? job.payload ?? {});
   }
 
-  const cover = job.cover || null;
-  if (cover) {
-    const fd = new FormData();
-    fd.append("cover", cover, job.coverName || "cover.jpg");
-    await fetchJsonOrText(buildUrl(`/admin/books/${encodeURIComponent(savedId)}/cover`), {
-      method: "POST",
-      body: fd,
-    });
+  const resp = await fetch(req.url, { method, headers, body, credentials: "include" });
+  if (!resp.ok) {
+    const text = await resp.text().catch(() => "");
+    throw new Error(`upload_failed_http_${resp.status}${text ? `: ${text.slice(0, 200)}` : ""}`);
   }
-
-  await deleteUploadJob(id);
+  return true;
 }
+
+/* --------------------------------- public --------------------------------- */
 
 export async function processUploadQueue({ maxJobs = 5 } = {}) {
   if (!hasIDB()) return { processed: 0, failed: 0 };
 
-  await unstickUploadingJobs();
+  // Auto-reset stuck "uploading" jobs so they become visible/retryable.
+  await resetStuckUploadingJobs({ maxAgeMs: UPLOADING_TTL_MS });
 
-  const jobs = await listJobs();
+  const jobs = await listUploadJobs();
 
-  // blocked jobs are ignored until manual retry
-  const candidates = jobs
+  const pending = jobs
     .filter((j) => j?.status === "pending" || j?.status === "error")
     .sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0))
     .slice(0, maxJobs);
@@ -286,28 +285,90 @@ export async function processUploadQueue({ maxJobs = 5 } = {}) {
   let processed = 0;
   let failed = 0;
 
-  for (const job of candidates) {
-    await updateJob(job.id, {
-      status: "uploading",
-      lastError: null,
-      uploadingSince: Date.now(),
-    });
+  for (const job of pending) {
+    const id = job.id;
+
+    // Mark uploading with timestamp so we can reset if Safari kills fetch
+    await updateJob(id, { status: "uploading", uploadingAt: Date.now(), lastError: null });
 
     try {
-      await uploadBookJob(job);
+      // PagesInLine "create" jobs
+      if (job.flow === "create" || job.step === "create" || job.step === "cover" || job.payload || job.cover) {
+        if (!job.draftId || job.step === "create" || !job.step) {
+          const { bookId } = await uploadCreateStep(job);
+          // IMPORTANT: use the bookId we just got; do not depend on re-reading job from IDB
+          await uploadCoverStep(job, bookId);
+        } else {
+          await uploadCoverStep(job);
+        }
+      } else {
+        // Legacy request-based jobs
+        await legacyUploader(job);
+      }
+
+      await deleteUploadJob(id);
       processed++;
     } catch (e) {
       failed++;
-      const nextRetries = (job.retries || 0) + 1;
-      await updateJob(job.id, {
-        status: nextRetries >= MAX_RETRIES ? "blocked" : "error",
-        retries: nextRetries,
+      await updateJob(id, {
+        status: "error",
+        uploadingAt: null,
+        retries: (job.retries || 0) + 1,
         lastError: String(e?.message || e),
-        uploadingSince: null,
       });
-      // continue => no blockage
     }
   }
 
   return { processed, failed };
 }
+
+// --- Exports expected by UploadQueueManager.jsx ---
+export async function retryUploadJob(id) {
+  return updateJob(id, { status: "pending", uploadingAt: null, lastError: null });
+}
+
+export async function retryUploadJobWithoutIsbn(id) {
+  // Mark as skipIsbn; also remove isbn fields from payload if present
+  return withStore("readwrite", (store) => {
+    if (!store) return false;
+
+    return new Promise((resolve) => {
+      const getReq = store.get(id);
+      getReq.onsuccess = () => {
+        const cur = getReq.result;
+        if (!cur) return resolve(false);
+
+        const next = { ...cur, skipIsbn: true, status: "pending", uploadingAt: null, lastError: null };
+
+        if (next.payload && typeof next.payload === "object") {
+          const p = { ...next.payload };
+          delete p.isbn;
+          delete p.isbn13;
+          delete p.isbn10;
+          delete p.isbn13_raw;
+          next.payload = p;
+        }
+
+        store.put(next);
+        resolve(true);
+      };
+      getReq.onerror = () => resolve(false);
+    });
+  });
+}
+
+// Convenience "drop" helpers
+export async function dropUploadJob(id) {
+  return deleteUploadJob(id);
+}
+export async function dropAllUploadJobs() {
+  const jobs = await listUploadJobs();
+  for (const j of jobs) {
+    await deleteUploadJob(j.id);
+  }
+  return true;
+}
+
+// Common aliases some components expect:
+export const getUploadJobs = listUploadJobs;
+export const removeUploadJob = deleteUploadJob;

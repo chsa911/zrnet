@@ -147,12 +147,11 @@ export async function updateBook(id, patch) {
   if (!id) throw new Error("Missing book id");
   return http(`/books/${encodeURIComponent(id)}`, { method: "PATCH", json: patch || {} });
 }
-
+// Delete a book (admin)
 export async function deleteBook(id) {
   if (!id) throw new Error("Missing book id");
   return http(`/books/${encodeURIComponent(id)}`, { method: "DELETE" });
 }
-
 // Read one full book record (used to prefill the edit form)
 export async function getBook(id) {
   if (!id) throw new Error("Missing book id");
@@ -194,6 +193,7 @@ export async function lookupIsbn(isbn) {
 export async function uploadCover(bookId, file) {
   if (!bookId) throw new Error("Missing book id");
   if (!file) throw new Error("Missing file");
+  if ((file.size ?? 0) < 1024) throw new Error("Cover file is empty (0 bytes). Please retake the photo.");
 
   const fd = new FormData();
   fd.append("cover", file);

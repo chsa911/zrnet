@@ -11,7 +11,8 @@ export default defineConfig({
     host: '0.0.0.0', // listen on all interfaces so your phone can connect
     proxy: {
       '/api': {
-        target: 'http://localhost:4000',
+        target: 'http://127.0.0.1:4000',
+        //target: 'http://localhost:4000',
         changeOrigin: true,
       },
    /*   '/assets': {

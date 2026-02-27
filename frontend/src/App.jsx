@@ -7,6 +7,7 @@ import LegacyHtmlPage from "./pages/LegacyHtmlPage";
 import InfoPage from "./pages/InfoPage";
 import AdminCommentsPage from "./pages/AdminCommentsPage";
 import AdminPage from "./pages/AdminPage";
+import AdminAuthorsOverviewPage from "./pages/AdminAuthorsOverviewPage";
 import RegisterPage from "./pages/RegisterPage";
 import SearchUpdatePage from "./pages/SearchUpdatePage";
 import SyncIssuePage from "./pages/SyncIssuePage";
@@ -15,6 +16,7 @@ import BookThemesPage from "./pages/BookThemesPage";
 import ThemeBooksPage from "./pages/ThemeBooksPage";
 import StatsDetailPage from "./pages/StatsDetailPage";
 import MostReadAuthorsPage from "./pages/MostReadAuthorsPage";
+import AuthorsOverviewPage from "./pages/AuthorsOverviewPage";
 import AuthorPage from "./pages/AuthorPage";
 import BookPage from "./pages/BookPage";
 import MerchPage from "./pages/MerchPage";
@@ -107,10 +109,13 @@ export default function App() {
 
         {/* author detail */}
         <Route path="author/:author" element={<AuthorPage />} />
-<Route path="bookthemes/:abbr/subthemes" element={<ThemeSubthemesAuthorsPage />} />
+        {/* alphabetical authors overview (public) */}
+        <Route path="authors" element={<AuthorsOverviewPage />} />
+        <Route path="bookthemes/:abbr/subthemes" element={<ThemeSubthemesAuthorsPage />} />
         {/* admin */}
         <Route path="admin" element={<AdminPage />} />
         <Route path="admin/register" element={<RegisterPage />} />
+        <Route path="admin/authors" element={<AdminAuthorsOverviewPage />} />
         <Route path="admin/search-update" element={<SearchUpdatePage />} />
         <Route path="admin/sync-issues" element={<SyncIssuePage />} />
         <Route path="admin/barcodes" element={<BarcodeDashboardPage />} />
