@@ -1,24 +1,31 @@
-import React from "react";
+import React, { useEffect } from "react";
 import { Routes, Route, Navigate } from "react-router-dom";
-import AdminCommentsPage from "./pages/AdminCommentsPage";
 import Layout from "./components/Layout";
 import Home from "./pages/Home";
 import AnalyticsPage from "./pages/AnalyticsPage";
 import LegacyHtmlPage from "./pages/LegacyHtmlPage";
 import InfoPage from "./pages/InfoPage";
-import AuthorPage from "./pages/AuthorPage";
+import AdminCommentsPage from "./pages/AdminCommentsPage";
 import AdminPage from "./pages/AdminPage";
+import AdminAuthorsOverviewPage from "./pages/AdminAuthorsOverviewPage";
 import RegisterPage from "./pages/RegisterPage";
 import SearchUpdatePage from "./pages/SearchUpdatePage";
 import SyncIssuePage from "./pages/SyncIssuePage";
 import BarcodeDashboardPage from "./pages/BarcodeDashboardPage";
 import BookThemesPage from "./pages/BookThemesPage";
+import ThemeBooksPage from "./pages/ThemeBooksPage";
 import StatsDetailPage from "./pages/StatsDetailPage";
 import MostReadAuthorsPage from "./pages/MostReadAuthorsPage";
+import AuthorPage from "./pages/AuthorPage";
 import BookPage from "./pages/BookPage";
 import MerchPage from "./pages/MerchPage";
-import AdminNewsletterPage from "./pages/AdminNewsletterPage";
-
+import CheckoutPage from "./pages/CheckoutPage";
+import OrderThanksPage from "./pages/OrderThanksPage";
+import NewsletterPage from "./pages/NewsletterPage";
+import ThemeSubthemesAuthorsPage from "./pages/ThemeSubthemesAuthorsPage";
+import { processUploadQueue } from "./utils/uploadQueue";
+import AuthorsIndexPage from "./pages/AuthorsIndexPage";
+import BetaTestPage from "./pages/BetaTestPage";
 function NotFound() {
   return (
     <div style={{ padding: 24, fontFamily: "Arial, sans-serif" }}>
@@ -29,6 +36,35 @@ function NotFound() {
 }
 
 export default function App() {
+  // Safety net: retry any locally queued registrations/uploads when the app opens or comes online.
+  useEffect(() => {
+    let alive = true;
+
+    const run = async () => {
+      try {
+        await processUploadQueue({ maxJobs: 10 });
+      } catch {
+        // ignore (queue persists)
+      }
+    };
+
+    run();
+
+    const onOnline = () => alive && run();
+    const onVis = () => {
+      if (!alive) return;
+      if (document.visibilityState === "visible") run();
+    };
+
+    window.addEventListener("online", onOnline);
+    document.addEventListener("visibilitychange", onVis);
+    return () => {
+      alive = false;
+      window.removeEventListener("online", onOnline);
+      document.removeEventListener("visibilitychange", onVis);
+    };
+  }, []);
+
   return (
     <Routes>
       {/* ✅ Make the layout route explicit */}
@@ -37,19 +73,27 @@ export default function App() {
 
         {/* book themes */}
         <Route path="bookthemes" element={<BookThemesPage />} />
+        <Route path="bookthemes/:abbr" element={<ThemeBooksPage />} />
         <Route path="bookthemes.html" element={<Navigate to="/bookthemes" replace />} />
+
+        <Route path="beta-test" element={<BetaTestPage />} />
 
         {/* analytics */}
         <Route path="analytics/*" element={<AnalyticsPage />} />
 
         {/* merch */}
         <Route path="merch" element={<MerchPage />} />
+        <Route path="checkout" element={<CheckoutPage />} />
+        <Route path="order/:orderId" element={<OrderThanksPage />} />
         <Route path="merchandise.html" element={<Navigate to="/merch" replace />} />
+
+        {/* newsletter */}
+        <Route path="newsletter" element={<NewsletterPage />} />
+        <Route path="newsletter.html" element={<Navigate to="/newsletter" replace />} />
 
         {/* static info pages (React + i18n) */}
         <Route path="info/:slug" element={<InfoPage />} />
-<Route path="author/:author" element={<AuthorPage />} />
-<Route path="author-id/:author" element={<AuthorPage />} />
+
         {/* legacy static routes → info/:slug */}
         <Route path="technik.html" element={<Navigate to="/info/technik" replace />} />
         <Route path="ausruestung.html" element={<Navigate to="/info/ausruestung" replace />} />
@@ -60,20 +104,26 @@ export default function App() {
         <Route path="ueber_mich.html" element={<Navigate to="/info/ueber_mich" replace />} />
         <Route path="impressum.html" element={<Navigate to="/info/impressum" replace />} />
         <Route path="impressum_d.html" element={<Navigate to="/info/impressum" replace />} />
+        <Route path="datenschutz.html" element={<Navigate to="/info/datenschutz" replace />} />
+<Route path="authors" element={<AuthorsIndexPage />} />
 
         {/* book detail */}
         <Route path="book/:id" element={<BookPage />} />
 
+        {/* author detail */}
+        <Route path="author/:author" element={<AuthorPage />} />
+        <Route path="bookthemes/:abbr/subthemes" element={<ThemeSubthemesAuthorsPage />} />
         {/* admin */}
-        <Route path="admin/newsletter" element={<AdminNewsletterPage />} />
         <Route path="admin" element={<AdminPage />} />
         <Route path="admin/register" element={<RegisterPage />} />
+        <Route path="admin/authors" element={<AdminAuthorsOverviewPage />} />
         <Route path="admin/search-update" element={<SearchUpdatePage />} />
         <Route path="admin/sync-issues" element={<SyncIssuePage />} />
         <Route path="admin/barcodes" element={<BarcodeDashboardPage />} />
+        <Route path="admin/comments" element={<AdminCommentsPage />} />
         <Route path="login" element={<Navigate to="/admin" replace />} />
         <Route path="login.html" element={<Navigate to="/admin" replace />} />
-<Route path="admin/comments" element={<AdminCommentsPage />} />
+
         {/* legacy admin links */}
         <Route path="register" element={<Navigate to="/admin/register" replace />} />
         <Route path="update" element={<Navigate to="/admin/search-update" replace />} />
@@ -82,9 +132,12 @@ export default function App() {
         {/* stats */}
         <Route path="stats/:type" element={<StatsDetailPage />} />
 
-        {/* other legacy html routes */}
-        <Route path="autoren_meistgelesen.html" element={<MostReadAuthorsPage />} />
-        <Route path="autoren_meist_gelesen.html" element={<MostReadAuthorsPage />} />
+        {/* Top authors */}
+        <Route path="top-authors" element={<MostReadAuthorsPage />} />
+        <Route path="autoren_meistgelesen.html" element={<Navigate to="/top-authors" replace />} />
+        <Route path="autoren_meist_gelesen.html" element={<Navigate to="/top-authors" replace />} />
+
+        {/* other legacy html routes (fallback) */}
         <Route path=":page.html" element={<LegacyHtmlPage />} />
 
         <Route path="*" element={<NotFound />} />

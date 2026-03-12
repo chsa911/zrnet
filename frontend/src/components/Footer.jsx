@@ -15,7 +15,7 @@ export default function Footer() {
     <footer className="zr-footer">
       <div className="zr-footer__inner">
         <div className="zr-footer__left">
-          <div className="zr-footer__copy">© {year} ZenReader</div>
+          <div className="zr-footer__copy">© {year} PagesInLine</div>
           <div className="zr-footer__disclaimer">
             <strong>{t("footer_disclaimer_label")}</strong> {t("footer_disclaimer_text")}
           </div>
@@ -24,7 +24,7 @@ export default function Footer() {
         <div className="zr-footer__right">
           <nav className="zr-footer__links" aria-label={t("footer_links_label")}>
             <Link to="/info/ueber_mich">{t("nav_about")}</Link>
-           {/* <Link to="/kontaktformular.html">{t("nav_contact")}</Link>*/}
+            <a href="mailto:info@pagesinline.com?subject=PagesInLine%20Kontakt">{t("nav_contact")}</a>
             <Link to="/newsletter">{t("nav_newsletter")}</Link>
             <Link to="/info/faq">{t("nav_faq")}</Link>
             <Link to="/info/datenschutz">{t("nav_privacy")}</Link>

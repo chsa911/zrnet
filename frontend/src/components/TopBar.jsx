@@ -25,9 +25,7 @@ function normalizeLocale(input) {
 
 function metaForLocale(locale) {
   const n = normalizeLocale(locale);
-  return (
-    LANGS.find((x) => x.locale.toLowerCase() === n.toLowerCase()) || LANGS[0]
-  );
+  return LANGS.find((x) => x.locale.toLowerCase() === n.toLowerCase()) || LANGS[0];
 }
 
 export default function TopBar() {
@@ -88,24 +86,27 @@ export default function TopBar() {
   return (
     <header className="zr-topbar">
       <div className="zr-topbar__inner">
-        {/* LOGO LEFT */}
-        <Link to="/" className="zr-brand" aria-label="ZenReader Home">
+        <Link to="/" className="zr-brand" aria-label="PagesInLine Home">
           PagesInLine
         </Link>
 
-        {/* BUTTONS RIGHT */}
         <nav className="zr-nav" aria-label="Main navigation">
           <Link className="zr-nav__link" to="/info/technik">
             {t("nav_technique")}
           </Link>
-          <Link className="zr-nav__link" to="/analytics">
-            {t("nav_diary")}
+          <Link className="zr-nav__link" to="/beta-test">
+            {t("nav_beta_test")}
           </Link>
           <Link className="zr-nav__link" to="/info/faq">
             {t("nav_faq")}
           </Link>
+          <a
+            className="zr-nav__link"
+            href="mailto:info@pagesinline.com?subject=PagesInLine%20Kontakt"
+          >
+            {t("nav_contact")}
+          </a>
 
-          {/* ALL OTHER PAGES UNDER "MORE" */}
           <details ref={moreRef} className="zr-more">
             <summary className="zr-nav__link">{t("nav_more")}</summary>
 
@@ -117,16 +118,12 @@ export default function TopBar() {
               }}
             >
               <Link to="/info/ueber_mich">{t("nav_about")}</Link>
+              <Link to="/analytics">{t("nav_diary")}</Link>
               <Link to="/info/impressum">{t("nav_impressum")}</Link>
-              <Link to="/info/ausruestung">{t("nav_equipment")}</Link>
-              <Link to="/info/beschaffung">{t("nav_getting_books")}</Link>
-              <Link to="/bookthemes">{t("nav_bookthemes")}</Link>
-              <Link to="/top-authors">{t("nav_top_authors")}</Link>
-           <Link to="/authors">{t("nav_authors_overview")}</Link>
+              <Link to="/info/datenschutz">{t("nav_privacy")}</Link>
             </div>
           </details>
 
-          {/* Language switcher (replaces Start button) */}
           <details ref={langRef} className="zr-langmenu">
             <summary
               className="zr-btn zr-langbtn"
@@ -147,8 +144,7 @@ export default function TopBar() {
 
             <div className="zr-langmenu__menu" role="menu">
               {LANGS.map((l) => {
-                const isActive =
-                  l.locale.toLowerCase() === activeLang.locale.toLowerCase();
+                const isActive = l.locale.toLowerCase() === activeLang.locale.toLowerCase();
 
                 return (
                   <button
