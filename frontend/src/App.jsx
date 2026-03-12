@@ -25,7 +25,8 @@ import OrderThanksPage from "./pages/OrderThanksPage";
 import NewsletterPage from "./pages/NewsletterPage";
 import ThemeSubthemesAuthorsPage from "./pages/ThemeSubthemesAuthorsPage";
 import { processUploadQueue } from "./utils/uploadQueue";
-
+import AuthorsIndexPage from "./pages/AuthorsIndexPage";
+import BetaTestPage from "./pages/BetaTestPage";
 function NotFound() {
   return (
     <div style={{ padding: 24, fontFamily: "Arial, sans-serif" }}>
@@ -76,6 +77,8 @@ export default function App() {
         <Route path="bookthemes/:abbr" element={<ThemeBooksPage />} />
         <Route path="bookthemes.html" element={<Navigate to="/bookthemes" replace />} />
 
+        <Route path="beta-test" element={<BetaTestPage />} />
+
         {/* analytics */}
         <Route path="analytics/*" element={<AnalyticsPage />} />
 
@@ -103,7 +106,7 @@ export default function App() {
         <Route path="impressum.html" element={<Navigate to="/info/impressum" replace />} />
         <Route path="impressum_d.html" element={<Navigate to="/info/impressum" replace />} />
         <Route path="datenschutz.html" element={<Navigate to="/info/datenschutz" replace />} />
-
+<Route path="authors" element={<AuthorsIndexPage />} />
         {/* book detail */}
         <Route path="book/:id" element={<BookPage />} />
 

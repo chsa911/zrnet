@@ -28,11 +28,291 @@ function isUuid(v) {
   );
 }
 
-// single source of truth for display
-const AUTHOR_EXPR = "a.name_display";
-// (authors table without alias)
-const AUTHOR_COL = "name_display";
+// Prefer display name, else full_name, else name
+const AUTHOR_EXPR =
+  "COALESCE(NULLIF(a.name_display,''), NULLIF(a.full_name,''), NULLIF(a.name,''))";
+
+// Same, but without table alias (for authors table queries)
+const AUTHOR_COL_EXPR =
+  "COALESCE(NULLIF(name_display,''), NULLIF(full_name,''), NULLIF(name,''))";
+
 const TITLE_EXPR = "COALESCE(NULLIF(b.title_display,''), NULLIF(b.title_keyword,''))";
+
+/**
+ * GET /api/public/authors/overview
+ *
+ * Alphabetical author index for *your* DB:
+ * - includes authors referenced by books.author_id or book_authors.author_id
+ * - includes wishlist books
+ *
+ * Query params:
+ *   q=<substring search>
+ *   startsWith=<A..Z|#0-9>     (optional letter filter)
+ *   limit=5000 (default 5000)
+ *   offset=0
+ *
+ * Item fields:
+ *   id
+ *   last, name_addition, first
+ *   author (formatted: "Last [addition] First")
+ *   nationality_abbr
+ *   on_hand, finished, wishlist, total, not_match
+ *
+ * Compatibility aliases (if your frontend expects older names):
+ *   completed == finished
+ *   last_name/first_name/name_display provided
+ */
+router.get("/overview", async (req, res) => {
+  try {
+    const pool = getPool(req);
+
+    const q = normStr(req.query.q);
+    const startsWithRaw = normStr(req.query.startsWith);
+    const limit = clampInt(req.query.limit, 5000, 1, 20000);
+    const offset = clampInt(req.query.offset, 0, 0, 5_000_000);
+
+    const qLike = q ? `%${q}%` : null;
+
+    // startsWith supports: "A".."Z" or "#0-9"
+    let startsWith = null;
+    let startsIsDigits = false;
+    if (startsWithRaw) {
+      const s = startsWithRaw.toUpperCase();
+      if (s === "#0-9" || s === "#" || s === "0-9") {
+        startsIsDigits = true;
+      } else if (/^[A-Z]$/.test(s)) {
+        startsWith = s;
+      }
+    }
+
+    const params = [qLike, limit, offset];
+    let startsFilterSql = "";
+    if (startsIsDigits) {
+      startsFilterSql = `AND (b.last_sort ~ '^[0-9]')`;
+    } else if (startsWith) {
+      params.push(`${startsWith}%`);
+      startsFilterSql = `AND (UPPER(b.last_sort) LIKE $${params.length})`;
+    }
+
+    const { rows } = await pool.query(
+      `
+      WITH authored AS (
+        -- Primary author
+        SELECT b.id AS book_id, b.author_id, b.reading_status
+        FROM public.books b
+        WHERE b.author_id IS NOT NULL
+
+        UNION
+
+        -- Co-authors
+        SELECT b.id AS book_id, ba.author_id, b.reading_status
+        FROM public.book_authors ba
+        JOIN public.books b ON b.id = ba.book_id
+        WHERE ba.author_id IS NOT NULL
+      ),
+      ids AS (
+        SELECT DISTINCT author_id FROM authored
+      ),
+      base AS (
+        SELECT
+          a.id,
+          ${AUTHOR_EXPR} AS author_display,
+          a.first_name,
+          a.last_name,
+          a.abbreviation,
+          a.author_nationality,
+          COALESCE(a.published_titles, 0)::int AS total,
+
+          -- Parse display "von Goethe, Johann" into:
+          -- left_part="von Goethe", right_part="Johann"
+          TRIM(SPLIT_PART(${AUTHOR_EXPR}, ',', 1)) AS left_part,
+          NULLIF(TRIM(SPLIT_PART(${AUTHOR_EXPR}, ',', 2)), '') AS right_part,
+
+          -- last_sort: prefer authors.last_name, else last token of left_part, else last token of full display
+          COALESCE(
+            NULLIF(TRIM(a.last_name), ''),
+            CASE
+              WHEN ${AUTHOR_EXPR} LIKE '%,%' THEN regexp_replace(TRIM(SPLIT_PART(${AUTHOR_EXPR}, ',', 1)), '^.*\\s', '')
+              ELSE NULL
+            END,
+            regexp_replace(${AUTHOR_EXPR}, '^.*\\s', '')
+          ) AS last_sort,
+
+          -- name_addition: everything in left_part except the last token (e.g. "von" from "von Goethe")
+          CASE
+            WHEN ${AUTHOR_EXPR} LIKE '%,%' THEN NULLIF(TRIM(regexp_replace(TRIM(SPLIT_PART(${AUTHOR_EXPR}, ',', 1)), '\\s+[^\\s]+$', '')), '')
+            ELSE NULL
+          END AS name_addition_sort,
+
+          -- first_sort: prefer authors.first_name, else right_part, else everything except last token
+          COALESCE(
+            NULLIF(TRIM(a.first_name), ''),
+            NULLIF(TRIM(SPLIT_PART(${AUTHOR_EXPR}, ',', 2)), ''),
+            NULLIF(TRIM(regexp_replace(${AUTHOR_EXPR}, '\\s+[^\\s]+$', '')), '')
+          ) AS first_sort,
+
+          -- nationality_abbr heuristic (best-effort):
+          CASE
+            WHEN a.author_nationality ~ '^[A-Za-z]{2,3}$' THEN UPPER(a.author_nationality)
+            ELSE NULL
+          END AS nationality_abbr
+        FROM public.authors a
+        JOIN ids ON ids.author_id = a.id
+        WHERE ($1::text IS NULL OR ${AUTHOR_EXPR} ILIKE $1)
+      ),
+      agg AS (
+        SELECT
+          b.id::text AS id,
+          b.last_sort,
+          b.name_addition_sort,
+          b.first_sort,
+          b.author_display,
+          b.nationality_abbr,
+          b.author_nationality,
+          b.total,
+
+          COUNT(DISTINCT ab.book_id) FILTER (WHERE ab.reading_status <> 'wishlist')::int AS on_hand,
+          COUNT(DISTINCT ab.book_id) FILTER (WHERE ab.reading_status = 'finished')::int AS finished,
+          COUNT(DISTINCT ab.book_id) FILTER (WHERE ab.reading_status = 'wishlist')::int AS wishlist
+        FROM base b
+        LEFT JOIN authored ab ON ab.author_id = b.id
+        WHERE 1=1
+        ${startsFilterSql}
+        GROUP BY
+          b.id, b.last_sort, b.name_addition_sort, b.first_sort,
+          b.author_display, b.nationality_abbr, b.author_nationality, b.total
+      )
+      SELECT
+        id,
+        last_sort,
+        name_addition_sort,
+        first_sort,
+        nationality_abbr,
+        on_hand,
+        finished,
+        wishlist,
+        total,
+        GREATEST(total - on_hand - wishlist, 0)::int AS not_match,
+        COUNT(*) OVER()::int AS total_authors
+      FROM agg
+      ORDER BY
+        LOWER(last_sort) ASC,
+        LOWER(COALESCE(name_addition_sort, '')) ASC,
+        LOWER(COALESCE(first_sort, '')) ASC,
+        id ASC
+      LIMIT $2 OFFSET $3
+      `,
+      params
+    );
+
+    const total = rows?.[0]?.total_authors ?? 0;
+
+    const items = (rows || []).map((r) => {
+      const last = normStr(r.last_sort);
+      const add = normStr(r.name_addition_sort);
+      const first = normStr(r.first_sort);
+
+      const author = [last, add, first].filter(Boolean).join(" ");
+
+      return {
+        id: r.id,
+
+        last,
+        name_addition: add,
+        first,
+        author,
+
+        nationality_abbr: r.nationality_abbr || null,
+
+        on_hand: r.on_hand ?? 0,
+        finished: r.finished ?? 0,
+        completed: r.finished ?? 0, // alias
+        wishlist: r.wishlist ?? 0,
+
+        total: r.total ?? 0,
+        not_match: r.not_match ?? 0,
+
+        // aliases (in case your frontend expects these)
+        last_name: last,
+        first_name: first,
+        name_display: author,
+      };
+    });
+
+    res.setHeader("Cache-Control", "no-store");
+    return res.json({ total, limit, offset, items });
+  } catch (err) {
+    console.error("GET /api/public/authors/overview error", err);
+    return res.status(500).json({ error: "internal_error" });
+  }
+});
+
+/**
+ * Optional helper for A-Z navigation:
+ * GET /api/public/authors/overview-letters?q=<search>
+ * Returns counts per first letter of last name (A..Z and "#0-9").
+ */
+router.get("/overview-letters", async (req, res) => {
+  try {
+    const pool = getPool(req);
+    const q = normStr(req.query.q);
+    const qLike = q ? `%${q}%` : null;
+
+    const { rows } = await pool.query(
+      `
+      WITH authored AS (
+        SELECT b.author_id, b.reading_status
+        FROM public.books b
+        WHERE b.author_id IS NOT NULL
+
+        UNION
+
+        SELECT ba.author_id, b.reading_status
+        FROM public.book_authors ba
+        JOIN public.books b ON b.id = ba.book_id
+        WHERE ba.author_id IS NOT NULL
+      ),
+      ids AS (SELECT DISTINCT author_id FROM authored),
+      base AS (
+        SELECT
+          a.id,
+          ${AUTHOR_EXPR} AS author_display,
+          COALESCE(
+            NULLIF(TRIM(a.last_name), ''),
+            CASE
+              WHEN ${AUTHOR_EXPR} LIKE '%,%' THEN regexp_replace(TRIM(SPLIT_PART(${AUTHOR_EXPR}, ',', 1)), '^.*\\s', '')
+              ELSE NULL
+            END,
+            regexp_replace(${AUTHOR_EXPR}, '^.*\\s', '')
+          ) AS last_sort
+        FROM public.authors a
+        JOIN ids ON ids.author_id = a.id
+        WHERE ($1::text IS NULL OR ${AUTHOR_EXPR} ILIKE $1)
+      ),
+      buckets AS (
+        SELECT
+          CASE
+            WHEN last_sort ~ '^[0-9]' THEN '#0-9'
+            ELSE UPPER(SUBSTRING(last_sort FROM 1 FOR 1))
+          END AS bucket
+        FROM base
+      )
+      SELECT bucket, COUNT(*)::int AS count
+      FROM buckets
+      WHERE bucket IS NOT NULL AND bucket <> ''
+      GROUP BY bucket
+      ORDER BY bucket
+      `,
+      [qLike]
+    );
+
+    res.setHeader("Cache-Control", "no-store");
+    return res.json({ items: rows || [] });
+  } catch (err) {
+    console.error("GET /api/public/authors/overview-letters error", err);
+    return res.status(500).json({ error: "internal_error" });
+  }
+});
 
 /**
  * GET /api/public/authors/:id
@@ -82,12 +362,6 @@ router.get(
 
 /**
  * GET /api/public/authors/top-books?author=<uuid|name>&limit=3&exclude=<bookId>
- * Returns the top N books for an author (within your collection).
- * Ordering preference:
- *  1) books marked as top_book
- *  2) newest top_book_set_at
- *  3) finished books before others
- *  4) newest reading_status_updated_at / registered_at
  */
 router.get("/top-books", async (req, res) => {
   try {
@@ -99,12 +373,13 @@ router.get("/top-books", async (req, res) => {
 
     if (!authorParam) return res.status(400).json({ error: "missing_author" });
 
-    // 1) Resolve author (by id or best matching name)
+    // Resolve author (id or fuzzy name)
     let authorRow = null;
+
     if (isUuid(authorParam)) {
       const { rows } = await pool.query(
         `
-        SELECT id::text AS id, name_display
+        SELECT id::text AS id, ${AUTHOR_COL_EXPR} AS name_display
         FROM public.authors
         WHERE id = $1::uuid
         LIMIT 1
@@ -117,20 +392,21 @@ router.get("/top-books", async (req, res) => {
       const qLike = `%${q}%`;
       const { rows } = await pool.query(
         `
-        SELECT id::text AS id, name_display
+        SELECT id::text AS id, ${AUTHOR_COL_EXPR} AS name_display
         FROM public.authors
         WHERE
-          (${AUTHOR_COL} ILIKE $2)
+          (${AUTHOR_COL_EXPR} ILIKE $2)
           OR (name ILIKE $2)
           OR (full_name ILIKE $2)
+          OR (abbreviation ILIKE $2)
         ORDER BY
           CASE
-            WHEN LOWER(${AUTHOR_COL}) = LOWER($1) THEN 0
+            WHEN LOWER(${AUTHOR_COL_EXPR}) = LOWER($1) THEN 0
             WHEN LOWER(name) = LOWER($1) THEN 1
             WHEN LOWER(full_name) = LOWER($1) THEN 2
             ELSE 3
           END,
-          name_display ASC
+          ${AUTHOR_COL_EXPR} ASC NULLS LAST
         LIMIT 1
         `,
         [q, qLike]
@@ -147,7 +423,6 @@ router.get("/top-books", async (req, res) => {
       excludeSql = `AND b.id <> $${params.length}::uuid`;
     }
 
-    // 2) Fetch top books for that author (supports co-authors via book_authors)
     const { rows: books } = await pool.query(
       `
       SELECT

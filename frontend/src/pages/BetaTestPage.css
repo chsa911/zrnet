@@ -1,0 +1,145 @@
+.beta-page {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.beta-hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(280px, 0.9fr);
+  gap: 18px;
+  align-items: start;
+  background: linear-gradient(135deg, rgba(0, 194, 122, 0.1), rgba(0, 0, 0, 0.02));
+}
+
+.beta-badge,
+.beta-feature__tag {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  padding: 6px 10px;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.01em;
+  background: rgba(0, 194, 122, 0.12);
+  color: #06603d;
+  border: 1px solid rgba(0, 194, 122, 0.2);
+}
+
+.beta-lede {
+  max-width: 68ch;
+}
+
+.beta-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 18px;
+}
+
+.beta-status {
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: 18px;
+  padding: 16px;
+  background: #fff;
+}
+
+.beta-status__label {
+  font-size: 12px;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: rgba(0, 0, 0, 0.56);
+  margin-bottom: 8px;
+}
+
+.beta-status p,
+.beta-feature p,
+.beta-roadmap p,
+.beta-faq p,
+.beta-contactCard p {
+  margin: 0;
+  line-height: 1.65;
+  color: rgba(0, 0, 0, 0.78);
+}
+
+.beta-grid {
+  display: grid;
+  gap: 16px;
+}
+
+.beta-grid--two {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.beta-grid--three {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.beta-grid--four {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.beta-grid--signup {
+  grid-template-columns: minmax(0, 1.4fr) minmax(280px, 0.7fr);
+}
+
+.beta-bullets {
+  margin-top: 0;
+}
+
+.beta-feature h3,
+.beta-faq h3,
+.beta-contactCard h2,
+.beta-roadmap__index {
+  margin-top: 0;
+}
+
+.beta-feature {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.beta-roadmap {
+  display: flex;
+  gap: 14px;
+  align-items: flex-start;
+}
+
+.beta-roadmap__index {
+  flex: 0 0 auto;
+  width: 44px;
+  height: 44px;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 194, 122, 0.12);
+  color: #06603d;
+  font-weight: 900;
+}
+
+.beta-contactCard {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.beta-homeLink {
+  margin-top: auto;
+}
+
+@media (max-width: 920px) {
+  .beta-hero,
+  .beta-grid--two,
+  .beta-grid--three,
+  .beta-grid--four,
+  .beta-grid--signup {
+    grid-template-columns: 1fr;
+  }
+}
+
+.beta-grid--cards .zr-card {
+  height: 100%;
+}

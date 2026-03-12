@@ -117,7 +117,6 @@ export default function TopBar() {
               }}
             >
               <Link to="/info/ueber_mich">{t("nav_about")}</Link>
-              <Link to="/login">{t("nav_admin_login")}</Link>
               <Link to="/info/impressum">{t("nav_impressum")}</Link>
               <Link to="/info/ausruestung">{t("nav_equipment")}</Link>
               <Link to="/info/beschaffung">{t("nav_getting_books")}</Link>

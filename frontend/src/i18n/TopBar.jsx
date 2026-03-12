@@ -102,7 +102,6 @@ export default function TopBar() {
              {/* <Link to="/newsletter.html">Newsletter</Link>
              // <Link to="/merchandise.html">Shop</Link>
              // <Link to="/kontaktformular.html">Contact</Link>*/}
-              <Link to="/login">{t("nav_admin_login")}</Link>
               <Link to="/info/impressum">{t("nav_impressum")}</Link>
             {/*  <Link to="/bookthemes">Book themes</Link> */}
               <Link to="/info/ausruestung">{t("nav_equipment")}</Link>

@@ -3,6 +3,37 @@ import { Link } from "react-router-dom";
 import { useI18n } from "../context/I18nContext";
 import "./home_minimal.css";
 
+const HOME_BETA_HERO_COPY = {
+  de: {
+    badge: "Frühe Pilotphase",
+    title: "Neue Möglichkeit: jetzt als Testnutzer oder Pilotpartner vormerken",
+    text:
+      "Die Software für Bücher ohne Cover geht in die nächste Phase. Wir suchen jetzt erste Leserinnen, Leser und Organisationen, die den mobilen Use Case früh mit uns testen wollen.",
+    bullets: [
+      "funktionierender Software-Kern",
+      "ehrlich als Beta / Pilot kommuniziert",
+      "für Privatnutzer und lesefördernde Organisationen",
+    ],
+    primaryCta: "Jetzt Testzugang anfragen",
+    secondaryCta: "Features der Beta ansehen",
+    note: "Keine offene Massenplattform, sondern frühe Beta mit vorbereitetem Testzugang.",
+  },
+  en: {
+    badge: "Early pilot phase",
+    title: "New: join as an early tester or pilot partner",
+    text:
+      "The software for organizing books without covers is entering its next phase. We are now looking for first readers and organizations who want to test the mobile use case with us early.",
+    bullets: [
+      "working software core",
+      "openly positioned as beta / pilot",
+      "for individual readers and reading-focused organizations",
+    ],
+    primaryCta: "Request early access",
+    secondaryCta: "See beta features",
+    note: "Not a public mass rollout yet, but an honest early beta with prepared test access.",
+  },
+};
+
 function toIntOrNull(v) {
   if (v === null || v === undefined) return null;
   const n = Number(v);
@@ -10,8 +41,9 @@ function toIntOrNull(v) {
 }
 
 export default function Home() {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const year = 2026;
+  const betaHeroCopy = locale?.startsWith("de") ? HOME_BETA_HERO_COPY.de : HOME_BETA_HERO_COPY.en;
 
   const FALLBACK_IMG = "/assets/images/allgemein/hosentasche_link.jpeg";
 
@@ -82,6 +114,34 @@ export default function Home() {
 
   return (
     <>
+      <section className="zr-homeLaunch">
+        <div className="zr-homeLaunch__inner">
+          <div className="zr-homeLaunch__copy">
+            <span className="zr-homeLaunch__badge">{betaHeroCopy.badge}</span>
+            <h2>{betaHeroCopy.title}</h2>
+            <p>{betaHeroCopy.text}</p>
+
+            <div className="zr-homeLaunch__actions">
+              <Link className="zr-btn2 zr-btn2--primary" to="/beta-test#beta-signup">
+                {betaHeroCopy.primaryCta}
+              </Link>
+              <Link className="zr-btn2 zr-btn2--ghost" to="/beta-test">
+                {betaHeroCopy.secondaryCta}
+              </Link>
+            </div>
+          </div>
+
+          <div className="zr-homeLaunch__meta">
+            <ul className="zr-homeLaunch__points">
+              {betaHeroCopy.bullets.map((point) => (
+                <li key={point}>{point}</li>
+              ))}
+            </ul>
+            <p className="zr-homeLaunch__note">{betaHeroCopy.note}</p>
+          </div>
+        </div>
+      </section>
+
       <section className="zr-hero">
         <div className="zr-hero__text">
           <h1>{t("home_hero_title")}</h1>
@@ -102,6 +162,7 @@ export default function Home() {
 
             {/** Admin / Login moved to Topbar → More **/}
           </div>
+
 
           <ul className="zr-bullets">
             <li>{t("home_bullet_1")}</li>
