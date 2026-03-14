@@ -73,7 +73,7 @@ const COPY = {
       "Trag dich ein, wenn du früh dabei sein willst. Du bekommst Updates zur Beta, zu Pilotzugängen und zu neuen Features. Alternativ kannst du direkt per E-Mail anfragen.",
     mailLabel: "Direkt per E-Mail anfragen",
     mailHref:
-      "mailto:info@pagesinline.com?subject=Interesse%20an%20Beta-Test%20PagesInLine&body=Hallo,%20ich%20interessiere%20mich%20f%C3%BCr%20die%20Beta%20als%20Testnutzer%20oder%20Pilotpartner.",
+      "mailto:christian@pagesinline.com?subject=Interesse%20an%20Beta-Test%20PagesInLine&body=Hallo,%20ich%20interessiere%20mich%20f%C3%BCr%20die%20Beta%20als%20Testnutzer%20oder%20Pilotpartner.",
     backHome: "Zur Startseite",
     faqTitle: "Warum diese Beta interessant ist",
     faqs: [
@@ -162,7 +162,7 @@ const COPY = {
       "Sign up if you want early access. You will get updates on the beta, pilot access and upcoming features. You can also reach out directly by email.",
     mailLabel: "Request access by email",
     mailHref:
-      "mailto:info@pagesinline.com?subject=Interest%20in%20PagesInLine%20beta&body=Hello,%20I%20am%20interested%20in%20joining%20the%20beta%20as%20a%20tester%20or%20pilot%20partner.",
+      "mailto:christian@pagesinline.com?subject=Interest%20in%20PagesInLine%20beta&body=Hello,%20I%20am%20interested%20in%20joining%20the%20beta%20as%20a%20tester%20or%20pilot%20partner.",
     backHome: "Back to home",
     faqTitle: "Why this beta matters",
     faqs: [
@@ -290,7 +290,7 @@ export default function BetaTestPage() {
           <div className="zr-card beta-contactCard">
             <h2>{copy.mailLabel}</h2>
             <p>
-              info@pagesinline.com
+              christian@pagesinline.com
             </p>
             <a className="zr-btn2 zr-btn2--ghost" href={copy.mailHref}>
               {copy.mailLabel}
