@@ -19,9 +19,6 @@ import MostReadAuthorsPage from "./pages/MostReadAuthorsPage";
 import AuthorsOverviewPage from "./pages/AuthorsOverviewPage";
 import AuthorPage from "./pages/AuthorPage";
 import BookPage from "./pages/BookPage";
-import MerchPage from "./pages/MerchPage";
-import CheckoutPage from "./pages/CheckoutPage";
-import OrderThanksPage from "./pages/OrderThanksPage";
 import NewsletterPage from "./pages/NewsletterPage";
 import ThemeSubthemesAuthorsPage from "./pages/ThemeSubthemesAuthorsPage";
 import { processUploadQueue } from "./utils/uploadQueue";
@@ -82,11 +79,11 @@ export default function App() {
         {/* analytics */}
         <Route path="analytics/*" element={<AnalyticsPage />} />
 
-        {/* merch */}
-        <Route path="merch" element={<MerchPage />} />
-        <Route path="checkout" element={<CheckoutPage />} />
-        <Route path="order/:orderId" element={<OrderThanksPage />} />
-        <Route path="merchandise.html" element={<Navigate to="/merch" replace />} />
+        {/* removed public merch/equipment pages for the DHDL-facing site */}
+        <Route path="merch" element={<Navigate to="/" replace />} />
+        <Route path="checkout" element={<Navigate to="/" replace />} />
+        <Route path="order/:orderId" element={<Navigate to="/" replace />} />
+        <Route path="merchandise.html" element={<Navigate to="/" replace />} />
 
         {/* newsletter */}
         <Route path="newsletter" element={<NewsletterPage />} />
@@ -97,7 +94,8 @@ export default function App() {
 
         {/* legacy static routes → info/:slug */}
         <Route path="technik.html" element={<Navigate to="/info/technik" replace />} />
-        <Route path="ausruestung.html" element={<Navigate to="/info/ausruestung" replace />} />
+        <Route path="info/ausruestung" element={<Navigate to="/info/technik" replace />} />
+        <Route path="ausruestung.html" element={<Navigate to="/info/technik" replace />} />
         <Route path="beschaffung.html" element={<Navigate to="/info/beschaffung" replace />} />
         <Route path="faq.html" element={<Navigate to="/info/faq" replace />} />
         <Route path="haeufige_fragen.html" element={<Navigate to="/info/faq" replace />} />

@@ -18,44 +18,6 @@ export const INFO_PAGES = {
     ],
   },
 
-  ausruestung: {
-    titleKey: "info.ausruestung.title",
-    blocks: [
-      { type: "p", key: "info.ausruestung.p1" },
-
-      { type: "h2", key: "info.ausruestung.h_markers" },
-      {
-        type: "img",
-        src: "/assets/images/allgemein/markierstifte.jpeg",
-        altKey: "info.ausruestung.img_markers_alt",
-      },
-      { type: "p", key: "info.ausruestung.p_markers" },
-
-      { type: "h2", key: "info.ausruestung.h_ducktape" },
-      {
-        type: "img",
-        src: "/assets/images/allgemein/packband.jpeg",
-        altKey: "info.ausruestung.img_ducktape_alt",
-      },
-      { type: "p", key: "info.ausruestung.p_ducktape" },
-
-      { type: "h2", key: "info.ausruestung.h_bookshelf" },
-      {
-        type: "img",
-        src: "/assets/images/allgemein/buecherschrank.jpeg",
-        altKey: "info.ausruestung.img_bookshelf_alt",
-      },
-      { type: "p", key: "info.ausruestung.p_bookshelf" },
-
-      { type: "h2", key: "info.ausruestung.h_bag" },
-      {
-        type: "img",
-        src: "/assets/images/allgemein/lesetasche.jpeg",
-        altKey: "info.ausruestung.img_bag_alt",
-      },
-      { type: "p", key: "info.ausruestung.p_bag" },
-    ],
-  },
 
   beschaffung: {
     titleKey: "info.beschaffung.title",
@@ -112,7 +74,6 @@ export const INFO_PAGES = {
   datenschutz: {
     titleKey: "info.privacy.title",
     blocks: [
-      { type: "callout", key: "info.privacy.template_note" },
       { type: "h2", key: "info.privacy.controller_h" },
       { type: "p", key: "info.privacy.controller_p" },
       { type: "h2", key: "info.privacy.newsletter_h" },

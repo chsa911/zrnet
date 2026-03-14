@@ -269,7 +269,6 @@
   "info.impressum.email": "Email: christian@pagesinline.com",
   "info.impressum.disclaimer": "Despite careful control, we assume no liability for the content of external links. The operators of linked pages are solely responsible for their content.",
   "info.privacy.title": "Privacy",
-  "info.privacy.template_note": "Note: This page is a starter template. Please review and adapt it to your actual setup (newsletter provider, analytics, hosting, etc.).",
   "info.privacy.controller_h": "Controller",
   "info.privacy.controller_p": "Controller: Christian Kocevar, Landsberger Str. 22a, 82110 Germering. Email: christian@pagesinline.com",
   "info.privacy.newsletter_h": "Newsletter",

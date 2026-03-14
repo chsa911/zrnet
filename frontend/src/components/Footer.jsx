@@ -4,7 +4,6 @@ import { useI18n } from "../context/I18nContext";
 const SOCIALS = [
   { key: "nav_youtube", href: "https://www.youtube.com/@pagesinline" },
   { key: "nav_tiktok", href: "https://www.tiktok.com/@pagesinline" },
-  { key: "nav_instagram", href: "https://www.instagram.com/zenreader26/" },
 ];
 
 export default function Footer() {
