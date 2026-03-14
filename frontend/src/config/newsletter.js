@@ -31,8 +31,8 @@ export const NEWSLETTER = {
   FREQUENCY_HINT: "", // e.g. "1–2×/Monat" or "monthly"
 
   // Links
-  PRIVACY_URL: "/info/datenschutz.html",
-  IMPRINT_URL: "/info/impressum.html",
+  PRIVACY_URL: "/info/datenschutz",
+  IMPRINT_URL: "/info/impressum",
 
   // Version your consent wording so you can prove what users agreed to.
   CONSENT_TEXT_VERSION: "2026-02-16",

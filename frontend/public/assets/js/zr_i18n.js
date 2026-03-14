@@ -4,7 +4,7 @@
 
         const TRANSLATIONS = {
           "en": {
-                    "page_title": "Zenreader",
+                    "page_title": "pagesInLine",
                     "lang_label": "Language",
                     "search_placeholder": "Search books or authors…",
                     "search_aria_label": "Search",
@@ -53,10 +53,10 @@
                     "li5_mid": "with Andreas Bach from the YouTube channel",
                     "li5_link_bookdeckel": "Bookdeckel",
                     "note_html": "And finally, meet <strong>Lili</strong>—my reading companion. She joins me on my reading trips and has become the symbol of my <strong>BookSwipe</strong> promotion activities.",
-                    "logo_alt": "Zenreader logo"
+                    "logo_alt": "pagesInLine logo"
           },
           "de": {
-                    "page_title": "Zenreader",
+                    "page_title": "pagesInLine",
                     "lang_label": "Sprache",
                     "search_placeholder": "Bücher oder Autoren suchen…",
                     "search_aria_label": "Suchen",
@@ -105,10 +105,10 @@
                     "li5_mid": "mit Andreas Bach vom YouTube-Kanal",
                     "li5_link_bookdeckel": "Bookdeckel",
                     "note_html": "Und zum Schluss: Das ist <strong>Lili</strong>—meine Lese-Begleiterin. Sie begleitet mich auf meinen Lesereisen und ist zum Symbol meiner <strong>BookSwipe</strong>-Promotions geworden.",
-                    "logo_alt": "Zenreader-Logo"
+                    "logo_alt": "pagesInLine-Logo"
           },
           "fr": {
-                    "page_title": "Zenreader",
+                    "page_title": "pagesInLine",
                     "lang_label": "Langue",
                     "search_placeholder": "Rechercher des livres ou des auteurs…",
                     "search_aria_label": "Rechercher",
@@ -157,10 +157,10 @@
                     "li5_mid": "avec Andreas Bach de la chaîne YouTube",
                     "li5_link_bookdeckel": "Bookdeckel",
                     "note_html": "Et pour finir, voici <strong>Lili</strong>—ma compagne de lecture. Elle m’accompagne dans mes sorties lecture et est devenue le symbole de mes actions de promotion <strong>BookSwipe</strong>.",
-                    "logo_alt": "Logo Zenreader"
+                    "logo_alt": "Logo pagesInLine"
           },
           "es": {
-                    "page_title": "Zenreader",
+                    "page_title": "pagesInLine",
                     "lang_label": "Idioma",
                     "search_placeholder": "Buscar libros o autores…",
                     "search_aria_label": "Buscar",
@@ -209,10 +209,10 @@
                     "li5_mid": "con Andreas Bach del canal de YouTube",
                     "li5_link_bookdeckel": "Bookdeckel",
                     "note_html": "Y por último, conoce a <strong>Lili</strong>—mi compañera de lectura. Me acompaña en mis rutas de lectura y se ha convertido en el símbolo de mis actividades de promoción de <strong>BookSwipe</strong>.",
-                    "logo_alt": "Logo de Zenreader"
+                    "logo_alt": "Logo de pagesInLine"
           },
           "pt-BR": {
-                    "page_title": "Zenreader",
+                    "page_title": "pagesInLine",
                     "lang_label": "Idioma",
                     "search_placeholder": "Buscar livros ou autores…",
                     "search_aria_label": "Buscar",
@@ -261,7 +261,7 @@
                     "li5_mid": "com Andreas Bach do canal do YouTube",
                     "li5_link_bookdeckel": "Bookdeckel",
                     "note_html": "E por fim, conheça <strong>Lili</strong>—minha companheira de leitura. Ela me acompanha nas minhas jornadas de leitura e se tornou o símbolo das minhas ações de promoção do <strong>BookSwipe</strong>.",
-                    "logo_alt": "Logo do Zenreader"
+                    "logo_alt": "Logo do pagesInLine"
           }
 };
 

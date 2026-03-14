@@ -188,7 +188,6 @@
   "info.impressum.email": "E-mail : christian@pagesinline.com",
   "info.impressum.disclaimer": "Malgré un contrôle attentif, nous n’assumons aucune responsabilité pour le contenu des liens externes. Les opérateurs des pages liées sont seuls responsables.",
   "info.privacy.title": "Confidentialité",
-  "info.privacy.template_note": "Remarque : cette page est un modèle. Merci de l’adapter à votre mise en œuvre réelle (newsletter, analytics, hébergement, etc.).",
   "info.privacy.controller_h": "Responsable",
   "info.privacy.controller_p": "Responsable : Christian Kocevar, Landsberger Str. 22a, 82110 Germering. E-mail : christian@pagesinline.com",
   "info.privacy.newsletter_h": "Newsletter",

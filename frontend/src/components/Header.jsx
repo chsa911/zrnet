@@ -224,7 +224,7 @@ export default function Header({ year = 2026 }) {
             </NavLink>
           ))}
 
-          <a className="zr-btn alt-b" href="https://admin.zenreader.net/">
+          <a className="zr-btn alt-b" href="https://admin.pagesInLine.com/">
             {t("nav_login")}
           </a>
           <a className="zr-btn zr-youtube" href="https://www.youtube.com/@pagesInLine26" target="_blank" rel="noreferrer">
