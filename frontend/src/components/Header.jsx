@@ -233,16 +233,7 @@ export default function Header({ year = 2026 }) {
           <a className="zr-btn zr-tiktok" href="https://www.tiktok.com/@zenreader26" target="_blank" rel="noreferrer">
             {t("nav_tiktok")}
           </a>
-          <a
-            className="zr-btn alt-a zr-instagram"
-            href="https://www.instagram.com/zenreader26/"
-            target="_blank"
-            rel="noreferrer"
-          >
-            {t("nav_instagram")}
-          </a>
-        </nav>
-
+         
         <div className="zr-lang">
           <label className="zr-lang-label" htmlFor="zr-lang-select">
             {t("lang_label")}
