@@ -27,7 +27,7 @@ export const NEWSLETTER = {
   FORM_HIDDEN_FIELDS: {},
 
   // Copy
-  LIST_NAME: "ZenReader Newsletter",
+  LIST_NAME:"PagesInLine Newsletter",
   FREQUENCY_HINT: "", // e.g. "1–2×/Monat" or "monthly"
 
   // Links

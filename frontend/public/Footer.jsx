@@ -14,7 +14,7 @@ export default function Footer() {
     <footer className="zr-footer">
       <div className="zr-footer__inner">
         <div className="zr-footer__left">
-          <div className="zr-footer__copy">© {year} ZenReader</div>
+          <div className="zr-footer__copy">© {year} PagesInLine</div>
           <div className="zr-footer__disclaimer">
             <strong>{t("footer_disclaimer_label")}</strong> {t("footer_disclaimer_text")}
           </div>
