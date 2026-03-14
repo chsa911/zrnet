@@ -227,10 +227,10 @@ export default function Header({ year = 2026 }) {
           <a className="zr-btn alt-b" href="https://admin.zenreader.net/">
             {t("nav_login")}
           </a>
-          <a className="zr-btn zr-youtube" href="https://www.youtube.com/@zenreader2026" target="_blank" rel="noreferrer">
+          <a className="zr-btn zr-youtube" href="https://www.youtube.com/@pagesInLine26" target="_blank" rel="noreferrer">
             {t("nav_youtube")}
           </a>
-          <a className="zr-btn zr-tiktok" href="https://www.tiktok.com/@zenreader26" target="_blank" rel="noreferrer">
+          <a className="zr-btn zr-tiktok" href="https://www.tiktok.com/@pagesInLine" target="_blank" rel="noreferrer">
             {t("nav_tiktok")}
           </a>
          
