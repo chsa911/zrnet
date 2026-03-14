@@ -102,7 +102,7 @@ export default function TopBar() {
           </Link>
           <a
             className="zr-nav__link"
-            href="mailto:info@pagesinline.com?subject=PagesInLine%20Kontakt"
+            href="mailto:christian@pagesinline.com?subject=PagesInLine%20Kontakt"
           >
             {t("nav_contact")}
           </a>
