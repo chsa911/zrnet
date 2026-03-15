@@ -6,180 +6,180 @@ import "./BetaTestPage.css";
 
 const COPY = {
   de: {
-    badge: "Frühe Pilotphase",
-    title: "Testnutzer für die neue Software gesucht",
+    badge: "Frühe Testphase",
+    title: "Testzugang für Vielleser und frühe Nutzer",
     lede:
-      "Wir öffnen eine frühe Beta für Leserinnen und Leser, die Bücher ohne Cover geordnet aufbewahren, schnell auswählen und mobil für unterwegs mitnehmen wollen.",
-    primaryCta: "Jetzt als Testnutzer vormerken",
-    secondaryCta: "Features ansehen",
+      "Wir öffnen erste Testzugänge für Leserinnen und Leser, die Bücher schneller in die Nutzung bringen und ihren Lesefortschritt digital sichtbar machen wollen.",
+    primaryCta: "Zur Anmeldung",
+    secondaryCta: "Funktionsüberblick",
     statusTitle: "Aktueller Stand",
     statusText:
-      "Der Software-Kern funktioniert bereits. Die öffentliche SaaS-Version ist noch nicht live. Genau deshalb suchen wir jetzt erste Testnutzer und Pilotpartner, die den Use Case früh mit uns schärfen.",
+      "Der Software-Kern funktioniert bereits. Die öffentliche Version ist noch nicht live. Genau deshalb öffnen wir jetzt erste Testzugänge, um den Workflow mit echten Nutzerinnen und Nutzern zu schärfen.",
     honestTitle: "Wichtig: ehrlicher Produktstatus",
     honestPoints: [
-      "Keine Massenplattform, sondern eine frühe Beta mit funktionierendem Kern.",
-      "Kein offener Self-Serve-Rollout: Testzugänge werden aktuell vorbereitet.",
-      "Feature-Umfang wird mit echtem Nutzerfeedback priorisiert und erweitert.",
+      "Keine Massenplattform, sondern eine frühe Testphase mit funktionierendem Kern.",
+      "Der Fokus liegt auf einem klaren Workflow: scannen, zuordnen, lesen, Fortschritt festhalten.",
+      "Offener Self-Service-Rollout folgt später; aktuell vergeben wir gezielt erste Testzugänge.",
     ],
-    featuresTitle: "Was die Beta lösen soll",
+    featuresTitle: "Was PagesInLine im Kern löst",
     features: [
       {
-        title: "Bücher ohne Cover identifizierbar halten",
+        title: "Bücher direkt per Smartphone erfassen",
         text:
-          "Nach der Trennung von Cover und Bindung bleibt jedes Buch eindeutig zuordenbar und im System wiederfindbar.",
-        tag: "Kernfunktion",
+          "Neu gekaufte oder bereits vorhandene Bücher kommen ohne Umweg ins System und können direkt für den Lesealltag genutzt werden.",
+        tag: "Scanner",
       },
       {
-        title: "Schnell für Reise und Alltag entnehmen",
+        title: "Immer wissen, welches Buch du liest",
         text:
-          "Leseeinheiten sollen so organisiert werden, dass sie spontan für Pendeln, Wartezeiten oder Reisen mitgenommen werden können.",
-        tag: "Mobilität",
+          "Das Barcode-System und die App sorgen dafür, dass Titel, Zuordnung und aktueller Lesestatus digital sichtbar bleiben.",
+        tag: "Zuordnung",
       },
       {
-        title: "Große Bestände geordnet verwalten",
+        title: "Fortschritt statt Vergessen",
         text:
-          "Gerade bei vielen Büchern wird aus Improvisation schnell Chaos. Die Beta schafft Ordnung, Suche und klare Zuordnung.",
-        tag: "Organisation",
+          "Die App macht sichtbar, was bereits gelesen wurde und wo der Wiedereinstieg ist – gerade dann, wenn im Alltag wenig Zeit bleibt.",
+        tag: "Tracking",
       },
       {
-        title: "Lesen statt Scrollen erleichtern",
+        title: "Freie Minuten schneller zum Lesen nutzen",
         text:
-          "Die Software macht analoge Leseeinheiten alltagstauglich, damit vorhandene Bücher schneller im Moment nutzbar sind.",
+          "Das Ziel ist nicht mehr Smartphone-Nutzung, sondern das passende Papierbuch schneller in echte Nutzung zu bringen.",
         tag: "Alltag",
       },
     ],
     benefitsTitle: "Was Testnutzer konkret bekommen",
     benefits: [
-      "frühe Einblicke in neue Funktionen und Prioritäten",
-      "direkten Draht für Feedback und Use-Case-Wünsche",
-      "die Chance, den Ablauf für Reisen, Pendeln und große Buchbestände mitzugestalten",
+      "Zugang zu einer frühen Version mit Scanner-Funktion und digitaler Buchzuordnung",
+      "direkten Draht für Feedback und Prioritäten aus dem echten Lesealltag",
+      "Einblick in neue Funktionen rund um Nutzung, Fortschritt und Lesefluss",
     ],
     audienceTitle: "Für wen wir Testnutzer suchen",
     audience: [
-      "Menschen mit großem Buchbestand zuhause",
-      "Vielleser, Pendler und Reisende",
-      "Lesefördernde Initiativen, Bildungsträger und Organisationen",
-      "Neugierige Early Adopter, die ungewöhnliche Lesekonzepte testen wollen",
+      "Menschen mit vielen eigenen Büchern zuhause",
+      "Vielleser, Pendler und Menschen mit wenig freier Zeit",
+      "Leserinnen und Leser, die Bücher wirklich nutzen statt nur sammeln wollen",
+      "frühe Nutzer, die ein konkretes Leseprodukt mitgestalten möchten",
     ],
-    roadmapTitle: "Was wir mit der Beta herausfinden wollen",
+    roadmapTitle: "Was wir in der Testphase herausfinden wollen",
     roadmap: [
-      "Welche Funktionen beim schnellen Finden und Entnehmen wirklich entscheidend sind",
-      "Wie stark der Use Case für Reisen, Pendeln und spontane Nutzung ist",
-      "Welche Organisationsansichten und Suchfilter echte Mehrwerte bieten",
-      "Wie ein belastbares SaaS- und Pilotmodell für Privatnutzer und Organisationen aussehen soll",
+      "Welche Schritte Bücher am schnellsten in die tatsächliche Nutzung bringen",
+      "Welche Ansichten und Erinnerungen Lesefortschritt im Alltag am besten sichtbar machen",
+      "Wie stark Scanner, Zuordnung und Tracking zusammen den Leseprozess verbessern",
+      "Welche Erweiterungen als nächste Stufe am meisten Potenzial haben – von normalem Buchlesen bis zu E-Books und Wissens-Workflows",
     ],
-    signupTitle: "Interesse als Testnutzer oder Pilotpartner?",
+    signupTitle: "Interesse an einem frühen Testzugang?",
     signupText:
-      "Trag dich ein, wenn du früh dabei sein willst. Du bekommst Updates zur Beta, zu Pilotzugängen und zu neuen Features. Alternativ kannst du direkt per E-Mail anfragen.",
+      "Trag dich ein, wenn du früh dabei sein willst. Du bekommst Updates zur Testphase, zu neuen Funktionen und zu späteren Zugängen. Alternativ kannst du direkt per E-Mail anfragen.",
     mailLabel: "Direkt per E-Mail anfragen",
     mailHref:
-      "mailto:christian@pagesinline.com?subject=Interesse%20an%20Beta-Test%20PagesInLine&body=Hallo,%20ich%20interessiere%20mich%20f%C3%BCr%20die%20Beta%20als%20Testnutzer%20oder%20Pilotpartner.",
+      "mailto:christian@pagesinline.com?subject=Interesse%20an%20PagesInLine%20Testzugang&body=Hallo,%20ich%20interessiere%20mich%20f%C3%BCr%20einen%20fr%C3%BChen%20Testzugang%20bei%20PagesInLine.",
     backHome: "Zur Startseite",
-    faqTitle: "Warum diese Beta interessant ist",
+    faqTitle: "Warum diese Testphase wichtig ist",
     faqs: [
       {
-        q: "Warum nicht einfach selbst eine Liste führen?",
+        q: "Warum nicht einfach eine Liste führen?",
         a:
-          "Solange nur ein einziges Buch im Einsatz ist, geht das. Bei vielen entbundenen Büchern ohne Cover wird schnelle Zuordnung, Ordnung und spontane Entnahme aber zum eigentlichen Problem.",
+          "Weil Lesen im Alltag schnell an Reibung verliert: Bücher werden gekauft, vergessen oder nicht sauber wieder aufgenommen. PagesInLine soll genau diesen Übergang in die Nutzung vereinfachen.",
       },
       {
-        q: "Warum jetzt schon bewerben?",
+        q: "Warum jetzt schon Testnutzer aufnehmen?",
         a:
-          "Weil gerade frühe Testnutzer helfen, die richtigen Funktionen zuerst zu bauen und harte Anwendungsfälle zu validieren.",
+          "Weil echte Leserinnen und Leser am besten zeigen, welche Schritte wirklich helfen, freie Minuten schneller in Lesezeit zu verwandeln.",
       },
       {
-        q: "Ist die SaaS-Version schon fertig?",
+        q: "Ist die große Vision schon fertig?",
         a:
-          "Noch nicht. Die Beta-Seite dient bewusst dazu, frühes Interesse, Pilotpartner und qualifiziertes Feedback zu sammeln.",
+          "Nein. Der aktuelle Fokus liegt auf einem klaren Start-Use-Case. Erweiterungen für normales Buchlesen, E-Books und spätere Wissens-Workflows gehören zur Perspektive, nicht zum jetzigen Vollumfang.",
       },
     ],
   },
   en: {
-    badge: "Early pilot phase",
-    title: "Looking for early beta testers",
+    badge: "Early test phase",
+    title: "Early access for avid readers and first users",
     lede:
-      "We are opening an early beta for readers who want to store books without covers in an organized way, find them fast, and take them on the go.",
-    primaryCta: "Join the beta list",
-    secondaryCta: "See features",
+      "We are opening first test accesses for readers who want to bring books into use faster and keep reading progress visible digitally.",
+    primaryCta: "Go to signup",
+    secondaryCta: "See feature overview",
     statusTitle: "Current status",
     statusText:
-      "The software core already works. The public SaaS version is not live yet. That is exactly why we are now looking for first testers and pilot partners to sharpen the use case with us.",
+      "The software core already works. The public version is not live yet. That is exactly why we are opening first test accesses now, to sharpen the workflow with real users.",
     honestTitle: "Important: honest product status",
     honestPoints: [
-      "Not a mass-market platform yet, but an early beta with a working core.",
-      "No open self-serve rollout yet: access is currently being prepared.",
-      "Feature scope will be prioritized and expanded with real user feedback.",
+      "Not a mass-market platform yet, but an early test phase with a working core.",
+      "The focus is a clear workflow: scan, assign, read, keep progress.",
+      "Open self-serve rollout comes later; right now we are giving access selectively.",
     ],
-    featuresTitle: "What the beta is meant to solve",
+    featuresTitle: "What PagesInLine solves at its core",
     features: [
       {
-        title: "Keep books identifiable without covers",
+        title: "Capture books directly on a smartphone",
         text:
-          "After separating cover and binding, each book remains clearly assigned and searchable inside the system.",
-        tag: "Core",
+          "Newly bought or already owned books enter the system without friction and can be brought into daily reading directly.",
+        tag: "Scanner",
       },
       {
-        title: "Grab reading units quickly for travel and everyday use",
+        title: "Always know which book you are reading",
         text:
-          "Reading units should be organized so they can be taken along spontaneously for commuting, waiting time, or travel.",
-        tag: "Mobility",
+          "The barcode system and the app keep the title, assignment and current reading status visible digitally.",
+        tag: "Identity",
       },
       {
-        title: "Manage large collections with order",
+        title: "Progress instead of forgetting",
         text:
-          "Improvisation becomes chaos quickly when many books are involved. The beta is meant to create order, search and clear assignment.",
-        tag: "Organization",
+          "The app makes visible what has already been read and where the reader picks up again, especially when time is limited.",
+        tag: "Tracking",
       },
       {
-        title: "Make reading easier than scrolling",
+        title: "Turn spare minutes into reading time faster",
         text:
-          "The software makes analog reading units practical for daily life so existing books can be used in the moment.",
-        tag: "Everyday",
+          "The goal is not more smartphone use, but to bring the right paper book into real use faster.",
+        tag: "Daily life",
       },
     ],
     benefitsTitle: "What testers actually get",
     benefits: [
-      "early visibility into new features and priorities",
-      "a direct line for feedback and use-case requests",
-      "a chance to shape the workflow for travel, commuting and large book collections",
+      "access to an early version with scanner function and digital book identity",
+      "a direct line for feedback and priorities from real reading routines",
+      "visibility into upcoming features around usage, progress and reading flow",
     ],
     audienceTitle: "Who we want as testers",
     audience: [
-      "People with large home book collections",
-      "Avid readers, commuters and travelers",
-      "Reading promotion initiatives, educators and organizations",
-      "Curious early adopters who enjoy testing unusual reading concepts",
+      "people with many books at home",
+      "avid readers, commuters and people with little free time",
+      "readers who want to truly use books instead of just storing them",
+      "early adopters who want to shape a concrete reading product",
     ],
-    roadmapTitle: "What we want to learn from the beta",
+    roadmapTitle: "What we want to learn in the test phase",
     roadmap: [
-      "Which functions matter most for fast finding and removal",
-      "How strong the commuting, travel and spontaneous-use cases really are",
-      "Which organization views and filters deliver real value",
-      "How a robust SaaS and pilot model should look for consumers and organizations",
+      "Which steps bring books into actual use fastest",
+      "Which views and reminders keep reading progress most visible in everyday life",
+      "How strongly scanner, identity and tracking improve the reading process together",
+      "Which extensions have the most potential next — from normal book reading to e-books and knowledge workflows",
     ],
-    signupTitle: "Interested as a tester or pilot partner?",
+    signupTitle: "Interested in early access?",
     signupText:
-      "Sign up if you want early access. You will get updates on the beta, pilot access and upcoming features. You can also reach out directly by email.",
+      "Sign up if you want to get in early. You will receive updates about the test phase, new features and later access waves. You can also reach out directly by email.",
     mailLabel: "Request access by email",
     mailHref:
-      "mailto:christian@pagesinline.com?subject=Interest%20in%20PagesInLine%20beta&body=Hello,%20I%20am%20interested%20in%20joining%20the%20beta%20as%20a%20tester%20or%20pilot%20partner.",
+      "mailto:christian@pagesinline.com?subject=Interest%20in%20PagesInLine%20early%20access&body=Hello,%20I%20am%20interested%20in%20early%20access%20to%20PagesInLine.",
     backHome: "Back to home",
-    faqTitle: "Why this beta matters",
+    faqTitle: "Why this test phase matters",
     faqs: [
       {
-        q: "Why not just keep a manual list?",
+        q: "Why not just keep a list manually?",
         a:
-          "That may work for one single book. With many unbound books without covers, quick assignment, order and spontaneous removal become the real problem.",
+          "Because reading loses momentum quickly in everyday life: books are bought, forgotten or not resumed cleanly. PagesInLine is meant to reduce exactly that friction.",
       },
       {
-        q: "Why recruit now?",
+        q: "Why recruit testers now?",
         a:
-          "Because early testers help us build the right features first and validate concrete use cases with honest feedback.",
+          "Because real readers best reveal which steps truly help turn spare minutes into reading time faster.",
       },
       {
-        q: "Is the SaaS version finished already?",
+        q: "Is the bigger vision finished already?",
         a:
-          "Not yet. This beta page is deliberately meant to collect early interest, pilot partners and qualified feedback.",
+          "No. The current focus is a clear starting use case. Extensions for normal book reading, e-books and later knowledge workflows belong to the roadmap, not the current full scope.",
       },
     ],
   },
@@ -289,9 +289,7 @@ export default function BetaTestPage() {
 
           <div className="zr-card beta-contactCard">
             <h2>{copy.mailLabel}</h2>
-            <p>
-              christian@pagesinline.com
-            </p>
+            <p>christian@pagesinline.com</p>
             <a className="zr-btn2 zr-btn2--ghost" href={copy.mailHref}>
               {copy.mailLabel}
             </a>
