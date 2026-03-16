@@ -22,8 +22,7 @@ export default function Footer() {
 
         <div className="zr-footer__right">
           <nav className="zr-footer__links" aria-label={t("footer_links_label")}>
-            <Link to="/info/ueber_mich">{t("nav_about")}</Link>
-            <a href="mailto:christian@pagesinline.com?subject=PagesInLine%20Kontakt">{t("nav_contact")}</a>
+             <a href="mailto:christian@pagesinline.com?subject=PagesInLine%20Kontakt">{t("nav_contact")}</a>
          {/*   <Link to="/newsletter">{t("nav_newsletter")}</Link>*/}
             <Link to="/info/faq">{t("nav_faq")}</Link>
             <Link to="/info/datenschutz">{t("nav_privacy")}</Link>

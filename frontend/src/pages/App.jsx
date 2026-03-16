@@ -79,8 +79,7 @@ export default function App() {
         <Route path="beta-test" element={<BetaTestPage />} />
 
         {/* analytics */}
-        <Route path="analytics/*" element={<AnalyticsPage />} />
-
+       <Route path="analytics/*" element={<Navigate to="/" replace />} />
         {/* merch */}
         <Route path="merch" element={<MerchPage />} />
         <Route path="checkout" element={<CheckoutPage />} />
@@ -101,7 +100,6 @@ export default function App() {
         <Route path="faq.html" element={<Navigate to="/info/faq" replace />} />
         <Route path="haeufige_fragen.html" element={<Navigate to="/info/faq" replace />} />
         <Route path="haeufige_fragen_d.html" element={<Navigate to="/info/faq" replace />} />
-        <Route path="ueber_mich.html" element={<Navigate to="/info/ueber_mich" replace />} />
         <Route path="impressum.html" element={<Navigate to="/info/impressum" replace />} />
         <Route path="impressum_d.html" element={<Navigate to="/info/impressum" replace />} />
         <Route path="datenschutz.html" element={<Navigate to="/info/datenschutz" replace />} />
@@ -111,7 +109,7 @@ export default function App() {
         <Route path="book/:id" element={<BookPage />} />
 
         {/* author detail */}
-        <Route path="author/:author" element={<AuthorPage />} />
+       <Route path="author/:author" element={<Navigate to="/" replace />} />
         <Route path="bookthemes/:abbr/subthemes" element={<ThemeSubthemesAuthorsPage />} />
         {/* admin */}
         <Route path="admin" element={<AdminPage />} />

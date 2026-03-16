@@ -117,8 +117,6 @@ export default function TopBar() {
                 if (e.target.closest?.("a")) closeMore();
               }}
             >
-              <Link to="/info/ueber_mich">{t("nav_about")}</Link>
-              <Link to="/analytics">{t("nav_diary")}</Link>
               <Link to="/info/impressum">{t("nav_impressum")}</Link>
               <Link to="/info/datenschutz">{t("nav_privacy")}</Link>
             </div>

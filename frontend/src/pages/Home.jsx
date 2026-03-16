@@ -158,15 +158,15 @@ export default function Home() {
           <h2>{t("home_proof_title")}</h2>
         </div>
 
-        <div className="pil-proofGrid">
-          {proofStats.map((item) => (
-            <Link key={item.key} className="pil-proofCard" to={`${item.to}?year=${year}`}>
-              <span className="pil-proofCard__label">{item.label}</span>
-              {item.meta ? <span className="pil-proofCard__meta">{item.meta}</span> : null}
-              <strong className="pil-proofCard__value">{stats[item.key] ?? "—"}</strong>
-            </Link>
-          ))}
-        </div>
+       <div className="pil-proofGrid">
+  {proofStats.map((item) => (
+    <div key={item.key} className="pil-proofCard" aria-label={item.label}>
+      <span className="pil-proofCard__label">{item.label}</span>
+      {item.meta ? <span className="pil-proofCard__meta">{item.meta}</span> : null}
+      <strong className="pil-proofCard__value">{stats[item.key] ?? "—"}</strong>
+    </div>
+  ))}
+</div>
       </section>
 
       <section className="zr-section pil-highlights">

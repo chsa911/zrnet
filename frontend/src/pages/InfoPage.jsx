@@ -66,7 +66,7 @@ export default function InfoPage() {
   if (!page) return <Navigate to="/" replace />;
 
   return (
-    <div className="zr-info">
+  <div className={`zr-info zr-info--${slug}`}>
       <div className="zr-info__card">
         <h1 className="zr-info__title">{t(page.titleKey)}</h1>
 

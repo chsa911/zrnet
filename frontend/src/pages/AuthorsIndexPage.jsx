@@ -1,5 +1,4 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { Link } from "react-router-dom";
 import { getApiRoot } from "../api/apiRoot";
 import { useI18n } from "../context/I18nContext";
 import "./AuthorsIndexPage.css";
@@ -184,10 +183,7 @@ export default function AuthorsIndexPage() {
 
                     return (
                       <li key={id} className="ao-item">
-                        <Link className="ao-link" to={`/author/${encodeURIComponent(id)}`}>
-                          {name}
-                        </Link>
-
+                    <span className="ao-link">{name}</span>
                         <span className="ao-meta">
                           {nat ? <span className="ao-badge">{nat}</span> : null}
                           <span className="ao-badge">

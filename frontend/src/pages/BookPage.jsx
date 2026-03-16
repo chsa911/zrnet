@@ -195,19 +195,9 @@ export default function BookPage() {
             {/* User-facing info */}
             <div className="zr-bookpage__card">
               <h1 className="zr-bookpage__title">{title}</h1>
-              <div className="zr-bookpage__author">
-                {author && author !== "—" ? (
-                  <Link
-                    to={`/author/${encodeURIComponent(authorId || author)}`}
-                    title="See top books by this author"
-                  >
-                    {author}
-                  </Link>
-                ) : (
-                  author
-                )}
-              </div>
-
+            <div className="zr-bookpage__author">
+  {author || "—"}
+</div>
               {/* ✅ Leave a comment (moved up) */}
               <div className="zr-bookpage__leaveBox">
                 <div className="zr-bookpage__leaveHeader">

@@ -43,34 +43,15 @@ export const INFO_PAGES = {
     ],
   },
 
-  ueber_mich: {
-    titleKey: "info.about.title",
-    blocks: [
-      { type: "lede", key: "info.about.lede" },
-      { type: "p", key: "info.about.p1" },
-      { type: "p", key: "info.about.p2" },
-      { type: "p", key: "info.about.p3" },
-      { type: "p", key: "info.about.p4" },
-      {
-        type: "actions",
-        items: [
-          { to: "/info/technik", labelKey: "info.about.cta_technique" },
-          { to: "/", labelKey: "info.about.cta_home" },
-        ],
-      },
-    ],
-  },
-
   impressum: {
-    titleKey: "info.impressum.title",
-    blocks: [
-      { type: "p", key: "info.impressum.owner" },
-      { type: "lines", keys: ["info.impressum.name", "info.impressum.street", "info.impressum.city"] },
-      { type: "p", key: "info.impressum.email" },
-      { type: "p", key: "info.impressum.disclaimer" },
-    ],
-  },
-
+  titleKey: "info.impressum.title",
+  blocks: [
+    { type: "h2", key: "info.impressum.owner" },
+    { type: "lines", keys: ["info.impressum.name", "info.impressum.street", "info.impressum.city"] },
+    { type: "p", key: "info.impressum.email" },
+    { type: "p", key: "info.impressum.disclaimer" },
+  ],
+},
   datenschutz: {
     titleKey: "info.privacy.title",
     blocks: [

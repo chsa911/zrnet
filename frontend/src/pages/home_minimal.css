@@ -208,19 +208,10 @@
 }
 
 .pil-proofCard{
-  text-decoration:none;
-  color:inherit;
   padding:18px;
   display:flex;
   flex-direction:column;
   gap:8px;
-  transition: transform 160ms ease, box-shadow 160ms ease, border-color 160ms ease;
-}
-
-.pil-proofCard:hover{
-  transform: translateY(-2px);
-  box-shadow: 0 12px 28px rgba(0,0,0,0.08);
-  border-color: rgba(0,194,122,0.22);
 }
 
 .pil-proofCard__label{

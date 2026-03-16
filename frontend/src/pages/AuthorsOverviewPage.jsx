@@ -1,5 +1,4 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { Link } from "react-router-dom";
 import { useI18n } from "../context/I18nContext";
 
 function normKey(s) {
@@ -113,7 +112,7 @@ export default function AuthorsOverviewPage() {
                     <td>{last}</td>
                     <td>{first}</td>
                     <td>
-                      {id ? <Link to={`/author/${encodeURIComponent(id)}`}>{name}</Link> : name}
+                      {name}
                     </td>
                     <td style={{ textAlign: "right" }}>{r.completed_books ?? 0}</td>
                     <td style={{ textAlign: "right" }}>{r.not_match_books ?? 0}</td>

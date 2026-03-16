@@ -140,11 +140,7 @@ export default function AdminAuthorsOverviewPage() {
                     <td>{last}</td>
                     <td>{first}</td>
                     <td>
-                      {id ? (
-                        <Link to={`/author/${encodeURIComponent(id)}`}>{name}</Link>
-                      ) : (
-                        name
-                      )}
+                    {name}
                     </td>
                     <td style={{ textAlign: "right" }}>{completed}</td>
                     <td style={{ textAlign: "right" }}>{notMatch}</td>

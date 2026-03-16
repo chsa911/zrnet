@@ -339,7 +339,7 @@ export default function ThemeSubthemesAuthorsPage() {
                 title={a.name}
                 count={a.count}
                 active={false}
-                onClick={() => navigate("/author/" + encodeURIComponent(a.name))}
+               onClick={undefined}
               />
             ))}
           </div>

@@ -101,7 +101,6 @@ export default function App() {
         <Route path="faq.html" element={<Navigate to="/info/faq" replace />} />
         <Route path="haeufige_fragen.html" element={<Navigate to="/info/faq" replace />} />
         <Route path="haeufige_fragen_d.html" element={<Navigate to="/info/faq" replace />} />
-        <Route path="ueber_mich.html" element={<Navigate to="/info/ueber_mich" replace />} />
         <Route path="impressum.html" element={<Navigate to="/info/impressum" replace />} />
         <Route path="impressum_d.html" element={<Navigate to="/info/impressum" replace />} />
         <Route path="datenschutz.html" element={<Navigate to="/info/datenschutz" replace />} />
