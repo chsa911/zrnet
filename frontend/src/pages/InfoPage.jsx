@@ -32,14 +32,26 @@ function Block({ block, t }) {
           ))}
         </div>
       );
+    case "cards":
+      return (
+        <div className="zr-info__grid zr-info__grid--cards">
+          {block.items.map((item) => (
+            <article key={item.titleKey} className="zr-info__panel">
+              {item.eyebrowKey ? <div className="zr-info__panelEyebrow">{t(item.eyebrowKey)}</div> : null}
+              <h2 className="zr-info__panelTitle">{t(item.titleKey)}</h2>
+              <p className="zr-info__panelText">{t(item.textKey)}</p>
+            </article>
+          ))}
+        </div>
+      );
     case "qa":
       return (
-        <div className="zr-info__qa">
-          {block.items.map((it, idx) => (
-            <div key={idx} className="zr-info__qaItem">
-              <div className="zr-info__q">{t(it.qKey)}</div>
-              <div className="zr-info__a">{t(it.aKey)}</div>
-            </div>
+        <div className="zr-info__grid zr-info__grid--faq">
+          {block.items.map((it) => (
+            <article key={it.qKey} className="zr-info__qaItem">
+              <h2 className="zr-info__q">{t(it.qKey)}</h2>
+              <p className="zr-info__a">{t(it.aKey)}</p>
+            </article>
           ))}
         </div>
       );
@@ -62,13 +74,45 @@ export default function InfoPage() {
   const { slug } = useParams();
   const { t } = useI18n();
 
-  const page = INFO_PAGES[slug];
-  if (!page) return <Navigate to="/" replace />;
+  const resolvedSlug = slug === "so-funktionierts" ? "technik" : slug;
+const page = INFO_PAGES[resolvedSlug];
+if (!page) return <Navigate to="/" replace />;
+  const isLegal = resolvedSlug === "impressum" || resolvedSlug === "datenschutz";
+  if (isLegal) {
+    return (
+      <div className={`zr-info zr-info--${slug}`}>
+        <div className="zr-info__card">
+          <h1 className="zr-info__title">{t(page.titleKey)}</h1>
+
+          <div className="zr-info__content">
+            {page.blocks.map((b, i) => (
+              <Block key={i} block={b} t={t} />
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
-  <div className={`zr-info zr-info--${slug}`}>
-      <div className="zr-info__card">
-        <h1 className="zr-info__title">{t(page.titleKey)}</h1>
+    <div className={`zr-info zr-info--${slug}`}>
+      <div className="zr-info__shell">
+        <section className="zr-infoHero">
+          <div className="zr-infoHero__copy">
+            {page.eyebrowKey ? <div className="zr-infoBadge">{t(page.eyebrowKey)}</div> : null}
+            <h1 className="zr-infoHero__title">{t(page.titleKey)}</h1>
+            {page.ledeKey ? <p className="zr-infoHero__lede">{t(page.ledeKey)}</p> : null}
+          </div>
+
+          {page.sideNoteKey ? (
+            <aside className="zr-infoHero__aside">
+              {page.sideLabelKey ? (
+                <div className="zr-infoHero__asideLabel">{t(page.sideLabelKey)}</div>
+              ) : null}
+              <p>{t(page.sideNoteKey)}</p>
+            </aside>
+          ) : null}
+        </section>
 
         <div className="zr-info__content">
           {page.blocks.map((b, i) => (

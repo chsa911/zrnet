@@ -1,15 +1,185 @@
 .zr-info{
-  padding: 32px 16px 72px;
+  padding: 24px 16px 72px;
 }
 
-.zr-info__card{
-  max-width: 860px;
+.zr-info__shell{
+  max-width: 1120px;
   margin: 0 auto;
+  display: grid;
+  gap: 28px;
+}
+
+.zr-infoHero{
+  display: grid;
+  grid-template-columns: minmax(0, 1.18fr) minmax(260px, 0.82fr);
+  gap: 24px;
+  align-items: start;
+}
+
+.zr-infoBadge,
+.zr-info__panelEyebrow,
+.zr-infoHero__asideLabel{
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  padding: 6px 10px;
+  font-size: 12px;
+  font-weight: 900;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.zr-infoBadge,
+.zr-info__panelEyebrow{
+  background: rgba(0, 194, 122, 0.12);
+  color: #06603d;
+  border: 1px solid rgba(0, 194, 122, 0.18);
+}
+
+.zr-infoHero__copy{
+  display: grid;
+  gap: 12px;
+}
+
+.zr-infoHero__title{
+  margin: 0;
+  font-family: Arial, sans-serif;
+  font-size: clamp(36px, 4.8vw, 62px);
+  font-weight: 950;
+  line-height: 1.02;
+  letter-spacing: -0.04em;
+  color: #111111;
+}
+
+.zr-infoHero__lede{
+  margin: 0;
+  max-width: 72ch;
+  font-size: 18px;
+  line-height: 1.72;
+  color: rgba(0, 0, 0, 0.72);
+}
+
+.zr-infoHero__aside,
+.zr-info__panel,
+.zr-info__qaItem,
+.zr-info__callout,
+.zr-info__card{
+  border: 1px solid rgba(17, 17, 17, 0.08);
+  border-radius: 22px;
   background: #ffffff;
-  border: 1px solid rgba(17,17,17,0.08);
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.05);
+}
+
+.zr-infoHero__aside{
+  padding: 18px;
+  display: grid;
+  gap: 10px;
+}
+
+.zr-infoHero__asideLabel{
+  width: max-content;
+  background: rgba(0, 0, 0, 0.04);
+  color: rgba(0, 0, 0, 0.62);
+  border: 1px solid rgba(0, 0, 0, 0.07);
+}
+
+.zr-infoHero__aside p,
+.zr-info__panelText,
+.zr-info__a,
+.zr-info__p,
+.zr-info__callout,
+.zr-info__lines{
+  margin: 0;
+  color: rgba(0, 0, 0, 0.82);
+  line-height: 1.75;
+}
+
+.zr-info__content{
+  display: grid;
+  gap: 24px;
+  font-family: Arial, sans-serif;
+}
+
+.zr-info__figure{
+  margin: 0;
+}
+
+.zr-info__img{
+  width: 100%;
+  max-width: 760px;
+  display: block;
   border-radius: 24px;
-  box-shadow: 0 14px 40px rgba(0,0,0,0.06);
-  padding: clamp(24px, 4vw, 44px);
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  box-shadow: 0 14px 36px rgba(0, 0, 0, 0.08);
+}
+
+.zr-info__caption{
+  margin-top: 8px;
+  font-size: 14px;
+  color: rgba(0, 0, 0, 0.56);
+}
+
+.zr-info__grid{
+  display: grid;
+  gap: 16px;
+}
+
+.zr-info__grid--cards{
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.zr-info__grid--faq{
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.zr-info__panel,
+.zr-info__qaItem{
+  padding: 20px;
+  display: grid;
+  gap: 10px;
+}
+
+.zr-info__panelTitle,
+.zr-info__q{
+  margin: 0;
+  font-size: 22px;
+  font-weight: 950;
+  letter-spacing: -0.02em;
+  color: #111111;
+}
+
+.zr-info__q{
+  font-size: 20px;
+  line-height: 1.25;
+}
+
+.zr-info__callout{
+  padding: 16px 18px;
+  background: rgba(0, 194, 122, 0.1);
+  font-weight: 800;
+}
+
+.zr-info__actions{
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.zr-info__btn{
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 10px 16px;
+  border-radius: 999px;
+  font-weight: 900;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  background: rgba(0, 194, 122, 0.12);
+  color: #0b1a12;
+}
+
+.zr-info__btn:hover{
+  filter: brightness(0.98);
 }
 
 .zr-info__title{
@@ -32,15 +202,10 @@
   line-height: 1.75;
 }
 
-.zr-info__content{
-  font-family: Arial, sans-serif;
-}
-
-.zr-info__p{
-  font-size: 17px;
-  line-height: 1.8;
-  margin: 0 0 16px;
-  color: rgba(0,0,0,0.84);
+.zr-info__card{
+  max-width: 860px;
+  margin: 0 auto;
+  padding: clamp(24px, 4vw, 44px);
 }
 
 .zr-info__h2{
@@ -51,98 +216,16 @@
   color: #111111;
 }
 
-.zr-info__figure{
-  margin: 14px 0 18px;
-  display:flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 8px;
-}
-
-.zr-info__img{
-  width: min(520px, 100%);
-  height: auto;
-  border-radius: 16px;
-  border: 1px solid rgba(0,0,0,0.08);
-  box-shadow: 0 10px 22px rgba(0,0,0,0.10);
-}
-
-.zr-info__caption{
-  font-size: 14px;
-  opacity: 0.75;
-}
-
-.zr-info__callout{
-  margin: 16px 0 4px;
-  padding: 14px 16px;
-  border-radius: 14px;
-  background: rgba(0, 194, 122, 0.10);
-  border: 1px solid rgba(0,0,0,0.06);
-  font-weight: 800;
-  text-align: left;
-}
-
 .zr-info__lines{
   margin: 0 0 6px;
   text-align: left;
   font-size: 20px;
-  line-height: 1.8;
   padding: 18px 20px;
   border-radius: 18px;
   background: #f7f7f7;
   border: 1px solid rgba(17,17,17,0.08);
-  color: #111111;
 }
 
-.zr-info__qa{
-  display:flex;
-  flex-direction: column;
-  gap: 14px;
-  margin-top: 8px;
-}
-
-.zr-info__qaItem{
-  padding: 16px;
-  border-radius: 16px;
-  border: 1px solid rgba(0,0,0,0.08);
-  background: #ffffff;
-}
-
-.zr-info__q{
-  font-weight: 900;
-  margin-bottom: 6px;
-}
-
-.zr-info__a{
-  opacity: 0.92;
-}
-
-.zr-info__actions{
-  display:flex;
-  justify-content: flex-start;
-  gap: 10px;
-  flex-wrap: wrap;
-  margin-top: 18px;
-}
-
-.zr-info__btn{
-  text-decoration: none;
-  display:inline-flex;
-  align-items:center;
-  justify-content:center;
-  padding: 10px 16px;
-  border-radius: 999px;
-  font-weight: 900;
-  border: 1px solid rgba(0,0,0,0.10);
-  background: rgba(0, 194, 122, 0.12);
-  color: #0b1a12;
-}
-
-.zr-info__btn:hover{
-  filter: brightness(0.98);
-}
-
-/* Impressum specific */
 .zr-info--impressum .zr-info__content{
   display: grid;
   gap: 20px;
@@ -155,7 +238,6 @@
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: rgba(0,0,0,0.55);
-  text-align: left;
 }
 
 .zr-info--impressum .zr-info__lines{
@@ -182,22 +264,32 @@
   max-width: 70ch;
 }
 
+@media (max-width: 920px){
+  .zr-infoHero,
+  .zr-info__grid--cards,
+  .zr-info__grid--faq{
+    grid-template-columns: 1fr;
+  }
+}
+
 @media (max-width: 640px){
   .zr-info{
-    padding: 22px 12px 56px;
+    padding: 20px 12px 56px;
   }
 
   .zr-info__card{
-    border-radius: 20px;
     padding: 20px;
+    border-radius: 20px;
   }
 
+  .zr-infoHero__title,
   .zr-info__title{
-    margin-bottom: 22px;
+    font-size: clamp(32px, 11vw, 44px);
   }
 
-  .zr-info__lines{
-    font-size: 18px;
-    padding: 16px;
+  .zr-info__panel,
+  .zr-info__qaItem,
+  .zr-infoHero__aside{
+    padding: 18px;
   }
 }

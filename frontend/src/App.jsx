@@ -94,9 +94,10 @@ export default function App() {
         <Route path="info/:slug" element={<InfoPage />} />
 
         {/* legacy static routes → info/:slug */}
-        <Route path="technik.html" element={<Navigate to="/info/technik" replace />} />
-        <Route path="info/ausruestung" element={<Navigate to="/info/technik" replace />} />
-        <Route path="ausruestung.html" element={<Navigate to="/info/technik" replace />} />
+        <Route path="technik.html" element={<Navigate to="/info/so-funktionierts" replace />} />
+        <Route path="info/technik" element={<Navigate to="/info/so-funktionierts" replace />} />
+        <Route path="info/ausruestung" element={<Navigate to="/info/so-funktionierts" replace />} />
+        <Route path="ausruestung.html" element={<Navigate to="/info/so-funktionierts" replace />} />
         <Route path="beschaffung.html" element={<Navigate to="/info/beschaffung" replace />} />
         <Route path="faq.html" element={<Navigate to="/info/faq" replace />} />
         <Route path="haeufige_fragen.html" element={<Navigate to="/info/faq" replace />} />

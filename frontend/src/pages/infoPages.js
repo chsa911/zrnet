@@ -3,21 +3,40 @@
 
 export const INFO_PAGES = {
   technik: {
+    eyebrowKey: "info.technik.eyebrow",
     titleKey: "info.technik.title",
+    ledeKey: "info.technik.lede",
+    sideLabelKey: "info.technik.side_label",
+    sideNoteKey: "info.technik.side_note",
     blocks: [
-      { type: "p", key: "info.technik.p1" },
-      { type: "p", key: "info.technik.p2" },
-      { type: "p", key: "info.technik.p3" },
       {
         type: "img",
         src: "/assets/images/allgemein/hosentasche.jpeg",
         altKey: "info.technik.img_pocket_alt",
       },
-      { type: "p", key: "info.technik.p4" },
+      {
+        type: "cards",
+        items: [
+          {
+            eyebrowKey: "info.technik.card1.eyebrow",
+            titleKey: "info.technik.card1.title",
+            textKey: "info.technik.card1.text",
+          },
+          {
+            eyebrowKey: "info.technik.card2.eyebrow",
+            titleKey: "info.technik.card2.title",
+            textKey: "info.technik.card2.text",
+          },
+          {
+            eyebrowKey: "info.technik.card3.eyebrow",
+            titleKey: "info.technik.card3.title",
+            textKey: "info.technik.card3.text",
+          },
+        ],
+      },
       { type: "callout", key: "info.technik.callout" },
     ],
   },
-
 
   beschaffung: {
     titleKey: "info.beschaffung.title",
@@ -29,7 +48,11 @@ export const INFO_PAGES = {
   },
 
   faq: {
+    eyebrowKey: "info.faq.eyebrow",
     titleKey: "info.faq.title",
+    ledeKey: "info.faq.lede",
+    sideLabelKey: "info.faq.side_label",
+    sideNoteKey: "info.faq.side_note",
     blocks: [
       {
         type: "qa",
@@ -44,14 +67,15 @@ export const INFO_PAGES = {
   },
 
   impressum: {
-  titleKey: "info.impressum.title",
-  blocks: [
-    { type: "h2", key: "info.impressum.owner" },
-    { type: "lines", keys: ["info.impressum.name", "info.impressum.street", "info.impressum.city"] },
-    { type: "p", key: "info.impressum.email" },
-    { type: "p", key: "info.impressum.disclaimer" },
-  ],
-},
+    titleKey: "info.impressum.title",
+    blocks: [
+      { type: "h2", key: "info.impressum.owner" },
+      { type: "lines", keys: ["info.impressum.name", "info.impressum.street", "info.impressum.city"] },
+      { type: "p", key: "info.impressum.email" },
+      { type: "p", key: "info.impressum.disclaimer" },
+    ],
+  },
+
   datenschutz: {
     titleKey: "info.privacy.title",
     blocks: [

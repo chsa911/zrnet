@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useParams, useSearchParams } from "react-router-dom";
+import { useI18n } from "../context/I18nContext";
 import { getPublicBook } from "../api/books";
 import { createPublicBookComment, listPublicBookComments } from "../api/comments";
 import "./BookPage.css";
@@ -22,10 +23,10 @@ function getHost(url) {
 export default function BookPage() {
   const { id } = useParams();
   const [sp] = useSearchParams();
+  const { t, locale } = useI18n();
 
   const safeId = useMemo(() => String(id || "").trim(), [id]);
 
-  // Optional params (still supported, but DB can also provide)
   const coverFromQS = sp.get("cover") || "";
   const buyFromQS = sp.get("buy") || "";
 
@@ -45,7 +46,6 @@ export default function BookPage() {
     errMsg: "",
   });
 
-  // Full cover: prefer querystring cover; else default to /assets/covers/<id>.jpg
   const coverSrc = useMemo(() => {
     if (coverFromQS) return coverFromQS;
     if (!safeId) return "";
@@ -65,16 +65,15 @@ export default function BookPage() {
         setBook(data);
       } catch (e) {
         if (isAbortError(e)) return;
-        setErr(e?.message || "Failed to load book");
+        setErr(e?.message || t("book.failed_to_load_book"));
       } finally {
         if (!ac.signal.aborted) setLoading(false);
       }
     })();
 
     return () => ac.abort();
-  }, [safeId]);
+  }, [safeId, t]);
 
-  // Load approved comments
   useEffect(() => {
     if (!safeId) return;
     const ac = new AbortController();
@@ -87,14 +86,14 @@ export default function BookPage() {
         setComments(Array.isArray(items) ? items : []);
       } catch (e) {
         if (isAbortError(e)) return;
-        setCommentsErr(e?.message || "Failed to load comments");
+        setCommentsErr(e?.message || t("book.failed_to_load_comments"));
       } finally {
         if (!ac.signal.aborted) setCommentsLoading(false);
       }
     })();
 
     return () => ac.abort();
-  }, [safeId]);
+  }, [safeId, t]);
 
   async function submitComment(e) {
     e.preventDefault();
@@ -104,7 +103,7 @@ export default function BookPage() {
       const body = String(form.body || "").trim();
       const authorName = String(form.authorName || "").trim();
 
-      if (body.length < 3) throw new Error("Comment is too short.");
+      if (body.length < 3) throw new Error(t("book.comment_too_short"));
 
       await createPublicBookComment(safeId, {
         authorName,
@@ -112,39 +111,37 @@ export default function BookPage() {
         website: form.website,
       });
 
-      setForm({ authorName: authorName, body: "", website: "" });
+      setForm({ authorName, body: "", website: "" });
       setSubmitState({
         busy: false,
-        okMsg: "Thanks! Your comment will appear after approval.",
+        okMsg: t("book.comment_submit_success"),
         errMsg: "",
       });
     } catch (e2) {
       setSubmitState({
         busy: false,
         okMsg: "",
-        errMsg: e2?.message || "Failed to submit comment",
+        errMsg: e2?.message || t("book.failed_to_submit_comment"),
       });
     }
   }
 
   const title = book?.title || "—";
   const author = book?.author || "—";
-  const authorId = book?.authorId || book?.author_id || "";
-
-  // ✅ Your personal comment (stored in DB)
   const comment = book?.comment || "";
 
-  // Purchase link:
-  // - prefer querystring (?buy=)
-  // - else use DB fields if provided by API
   const purchaseUrl = buyFromQS || book?.purchase_url || book?.purchase_link || "";
   const purchaseHost = purchaseUrl ? getHost(purchaseUrl) : "";
+
+  const commentsApprovedText = commentsLoading
+    ? t("book.loading")
+    : `${comments.length} ${t("book.approved")}`;
 
   return (
     <div className="zr-bookpage">
       <div className="zr-bookpage__top">
         <Link className="zr-btn2 zr-btn2--ghost" to="/">
-          ← Back
+          ← {t("book.back")}
         </Link>
 
         {purchaseUrl ? (
@@ -153,63 +150,55 @@ export default function BookPage() {
             href={purchaseUrl}
             target="_blank"
             rel="noopener noreferrer"
-            title="Opens in a new tab"
+            title={t("book.opens_in_new_tab")}
           >
-            Purchase link ↗
+            {t("book.purchase_link")} ↗
           </a>
         ) : (
-          <span className="zr-bookpage__noLink">No purchase link</span>
+          <span className="zr-bookpage__noLink">{t("book.no_purchase_link")}</span>
         )}
       </div>
 
       {loading ? (
-        <div className="zr-bookpage__card">Loading…</div>
+        <div className="zr-bookpage__card">{t("book.loading")}</div>
       ) : err ? (
         <div className="zr-bookpage__card">
-          <strong>Error:</strong> {err}
+          <strong>{t("book.error")}</strong> {err}
         </div>
       ) : (
         <>
           <div className="zr-bookpage__grid">
-            {/* Full cover */}
             <div className="zr-bookpage__coverCard">
               {coverSrc && !coverBroken ? (
                 <img
                   className="zr-bookpage__coverImg"
                   src={coverSrc}
-                  alt={`${title} cover`}
+                  alt={`${title} ${t("book.cover_suffix")}`}
                   onError={() => setCoverBroken(true)}
                 />
               ) : (
                 <div className="zr-bookpage__coverEmpty">
-                  No cover image
+                  {t("book.no_cover_image")}
                   {safeId ? (
                     <div className="zr-bookpage__coverHint">
-                      Expected: <code>/assets/covers/{safeId}.jpg</code>
+                      {t("book.expected")} <code>/assets/covers/{safeId}.jpg</code>
                     </div>
                   ) : null}
                 </div>
               )}
             </div>
 
-            {/* User-facing info */}
             <div className="zr-bookpage__card">
               <h1 className="zr-bookpage__title">{title}</h1>
-            <div className="zr-bookpage__author">
-  {author || "—"}
-</div>
-              {/* ✅ Leave a comment (moved up) */}
+              <div className="zr-bookpage__author">{author || "—"}</div>
+
               <div className="zr-bookpage__leaveBox">
                 <div className="zr-bookpage__leaveHeader">
-                  <h3 className="zr-bookpage__leaveTitle">Leave a comment</h3>
-                  <div className="zr-bookpage__commentsMeta">
-                    {commentsLoading ? "Loading…" : `${comments.length} approved`}
-                  </div>
+                  <h3 className="zr-bookpage__leaveTitle">{t("book.leave_comment")}</h3>
+                  <div className="zr-bookpage__commentsMeta">{commentsApprovedText}</div>
                 </div>
 
-                <div className="zr-bookpage__hint">
-                  No account needed. Comments are visible after approval.
-                </div>
+                <div className="zr-bookpage__hint">{t("book.comment_hint")}</div>
 
                 {submitState.okMsg ? (
                   <div className="zr-bookpage__noticeOk">{submitState.okMsg}</div>
@@ -220,7 +209,7 @@ export default function BookPage() {
 
                 <form className="zr-bookpage__form" onSubmit={submitComment}>
                   <label className="zr-bookpage__label">
-                    Name (optional)
+                    {t("book.name_optional")}
                     <input
                       className="zr-input"
                       value={form.authorName}
@@ -228,11 +217,10 @@ export default function BookPage() {
                         setForm((p) => ({ ...p, authorName: e.target.value }))
                       }
                       maxLength={80}
-                      placeholder="Guest"
+                      placeholder={t("book.guest")}
                     />
                   </label>
 
-                  {/* Honeypot (hidden) */}
                   <input
                     tabIndex={-1}
                     autoComplete="off"
@@ -243,14 +231,14 @@ export default function BookPage() {
                   />
 
                   <label className="zr-bookpage__label">
-                    Comment
+                    {t("book.comment_label")}
                     <textarea
                       className="zr-input"
                       value={form.body}
                       onChange={(e) => setForm((p) => ({ ...p, body: e.target.value }))}
                       rows={6}
                       maxLength={2000}
-                      placeholder="Write your comment…"
+                      placeholder={t("book.comment_placeholder")}
                       required
                     />
                   </label>
@@ -260,15 +248,14 @@ export default function BookPage() {
                     type="submit"
                     disabled={submitState.busy}
                   >
-                    {submitState.busy ? "Sending…" : "Submit"}
+                    {submitState.busy ? t("book.sending") : t("book.submit")}
                   </button>
                 </form>
               </div>
 
-              {/* ✅ My comment */}
               {comment ? (
                 <div className="zr-bookpage__commentBox">
-                  <div className="zr-bookpage__commentTitle">My comment</div>
+                  <div className="zr-bookpage__commentTitle">{t("book.my_comment")}</div>
                   <div
                     className="zr-bookpage__commentText"
                     style={{ whiteSpace: "pre-wrap" }}
@@ -278,15 +265,12 @@ export default function BookPage() {
                 </div>
               ) : null}
 
-              {/* Purchase section */}
               <div className="zr-bookpage__buyBox">
-                <div className="zr-bookpage__buyTitle">Purchase</div>
+                <div className="zr-bookpage__buyTitle">{t("book.purchase")}</div>
 
                 {purchaseUrl ? (
                   <>
-                    <div className="zr-bookpage__buyText">
-                      You stay on this site unless you click the purchase link.
-                    </div>
+                    <div className="zr-bookpage__buyText">{t("book.stay_on_site")}</div>
 
                     <a
                       className="zr-bookpage__buyLink"
@@ -294,23 +278,20 @@ export default function BookPage() {
                       target="_blank"
                       rel="noopener noreferrer"
                     >
-                      Open purchase link {purchaseHost ? `(${purchaseHost})` : ""} ↗
+                      {t("book.open_purchase_link")} {purchaseHost ? `(${purchaseHost})` : ""} ↗
                     </a>
                   </>
                 ) : (
-                  <div className="zr-bookpage__buyText">No purchase link set yet.</div>
+                  <div className="zr-bookpage__buyText">{t("book.no_purchase_link_yet")}</div>
                 )}
               </div>
             </div>
           </div>
 
-          {/* Public comments (list only) */}
           <div className="zr-bookpage__card">
             <div className="zr-bookpage__commentsHeader">
-              <h2 className="zr-bookpage__commentsTitle">Comments</h2>
-              <div className="zr-bookpage__commentsMeta">
-                {commentsLoading ? "Loading…" : `${comments.length} approved`}
-              </div>
+              <h2 className="zr-bookpage__commentsTitle">{t("book.comments")}</h2>
+              <div className="zr-bookpage__commentsMeta">{commentsApprovedText}</div>
             </div>
 
             {commentsErr ? (
@@ -319,16 +300,18 @@ export default function BookPage() {
 
             <div className="zr-bookpage__commentsList">
               {commentsLoading ? (
-                <div className="zr-bookpage__commentsEmpty">Loading…</div>
+                <div className="zr-bookpage__commentsEmpty">{t("book.loading")}</div>
               ) : comments.length ? (
                 comments.map((c) => (
                   <div key={c.id} className="zr-bookpage__comment">
                     <div className="zr-bookpage__commentTop">
                       <div className="zr-bookpage__commentAuthor">
-                        {c.author_name || "Guest"}
+                        {c.author_name || t("book.guest")}
                       </div>
                       <div className="zr-bookpage__commentDate">
-                        {c.created_at ? new Date(c.created_at).toLocaleDateString() : ""}
+                        {c.created_at
+                          ? new Date(c.created_at).toLocaleDateString(locale || undefined)
+                          : ""}
                       </div>
                     </div>
                     <div className="zr-bookpage__commentBody" style={{ whiteSpace: "pre-wrap" }}>
@@ -337,7 +320,7 @@ export default function BookPage() {
                   </div>
                 ))
               ) : (
-                <div className="zr-bookpage__commentsEmpty">No comments yet.</div>
+                <div className="zr-bookpage__commentsEmpty">{t("book.no_comments_yet")}</div>
               )}
             </div>
           </div>

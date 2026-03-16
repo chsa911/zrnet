@@ -91,7 +91,7 @@ export default function TopBar() {
         </Link>
 
         <nav className="zr-nav" aria-label="Main navigation">
-          <Link className="zr-nav__link" to="/info/technik">
+          <Link className="zr-nav__link" to="/info/so-funktionierts">
             {t("nav_technique")}
           </Link>
           <Link className="zr-nav__link" to="/beta-test">
