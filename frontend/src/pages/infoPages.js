@@ -75,15 +75,21 @@ export const INFO_PAGES = {
       { type: "p", key: "info.impressum.disclaimer" },
     ],
   },
-
-  datenschutz: {
-    titleKey: "info.privacy.title",
-    blocks: [
-      { type: "h2", key: "info.privacy.controller_h" },
-      { type: "p", key: "info.privacy.controller_p" },
-      { type: "h2", key: "info.privacy.rights_h" },
-      { type: "p", key: "info.privacy.rights_p" },
-      { type: "callout", key: "info.privacy.contact_callout" },
-    ],
-  },
+datenschutz: {
+  titleKey: "info.privacy.title",
+  blocks: [
+    { type: "h2", key: "info.privacy.controller_h" },
+    {
+      type: "lines",
+      keys: [
+        "info.privacy.controller_name",
+        "info.privacy.controller_street",
+        "info.privacy.controller_city"
+      ]
+    },
+    { type: "p", key: "info.privacy.controller_email" },
+    { type: "h2", key: "info.privacy.rights_h" },
+    { type: "p", key: "info.privacy.rights_p" }
+  ],
+},
 };

@@ -279,7 +279,7 @@
   "info.faq.side_label": "Hinweis",
   "info.faq.side_note": "Für den Einstieg reicht meist zuerst die Seite „So funktioniert’s“. Die FAQ beantwortet danach die häufigsten Rückfragen.",
   "beta.badge": "Frühe Testphase",
-  "beta.title": "Beta-Test für Leserinnen und Leser mit vielen eigenen Büchern",
+  "beta.title": "Beta-Test für Leserinnen und Leser, die jeden freien Moment zum Lesen nutzen wollen",
   "beta.lede": "PagesInLine öffnet erste Testzugänge für Menschen, die Papierbücher besser in den Alltag bringen und ihren Lesefortschritt digital im Blick behalten wollen.",
   "beta.status_title": "Aktueller Stand",
   "beta.status_text": "Der Kern des Produkts funktioniert bereits. Jetzt suchen wir erste Nutzerinnen und Nutzer, um den Ablauf im echten Lesealltag zu prüfen und gezielt zu verbessern.",
@@ -341,5 +341,9 @@
   "book.open_purchase_link": "Kauflink öffnen",
   "book.no_purchase_link_yet": "Es ist noch kein Kauflink hinterlegt.",
   "book.comments": "Kommentare",
-  "book.no_comments_yet": "Noch keine Kommentare."
+  "book.no_comments_yet": "Noch keine Kommentare.",
+"info.privacy.controller_name": "Christian Kocevar",
+"info.privacy.controller_street": "Landsberger Str. 22a",
+"info.privacy.controller_city": "82110 Germering",
+"info.privacy.controller_email": "E-Mail: christian@pagesinline.com"
 }
