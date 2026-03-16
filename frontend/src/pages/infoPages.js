@@ -76,8 +76,6 @@ export const INFO_PAGES = {
     blocks: [
       { type: "h2", key: "info.privacy.controller_h" },
       { type: "p", key: "info.privacy.controller_p" },
-      { type: "h2", key: "info.privacy.newsletter_h" },
-      { type: "p", key: "info.privacy.newsletter_p" },
       { type: "h2", key: "info.privacy.rights_h" },
       { type: "p", key: "info.privacy.rights_p" },
       { type: "callout", key: "info.privacy.contact_callout" },

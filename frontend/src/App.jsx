@@ -19,7 +19,8 @@ import MostReadAuthorsPage from "./pages/MostReadAuthorsPage";
 import AuthorsOverviewPage from "./pages/AuthorsOverviewPage";
 import AuthorPage from "./pages/AuthorPage";
 import BookPage from "./pages/BookPage";
-import NewsletterPage from "./pages/NewsletterPage";
+/*import NewsletterPage from "./pages/NewsletterPage";
+*/
 import ThemeSubthemesAuthorsPage from "./pages/ThemeSubthemesAuthorsPage";
 import { processUploadQueue } from "./utils/uploadQueue";
 import AuthorsIndexPage from "./pages/AuthorsIndexPage";
@@ -86,9 +87,9 @@ export default function App() {
         <Route path="merchandise.html" element={<Navigate to="/" replace />} />
 
         {/* newsletter */}
-        <Route path="newsletter" element={<NewsletterPage />} />
+{    /*    <Route path="newsletter" element={<NewsletterPage />} />
         <Route path="newsletter.html" element={<Navigate to="/newsletter" replace />} />
-
+*/}
         {/* static info pages (React + i18n) */}
         <Route path="info/:slug" element={<InfoPage />} />
 

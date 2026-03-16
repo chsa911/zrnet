@@ -362,15 +362,6 @@
   margin-bottom: 4px;
 }
 
-/* HIDE OLD HEADER ON HOME */
-body:has(.zr-page) .header,
-body:has(.zr-page) .zr-header,
-body:has(.zr-page) #header,
-body:has(.zr-page) .topbar,
-body:has(.zr-page) .nav-bar {
-  display: none !important;
-}
-
 @media (max-width: 1060px){
   .pil-grid--four{
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -397,4 +388,17 @@ body:has(.zr-page) .nav-bar {
     border-right: none;
     border-bottom: 1px solid rgba(255,255,255,0.22);
   }
+}
+.pil-heroText {
+  display: grid;
+  gap: 12px;
+  margin: 0 0 20px;
+}
+
+.pil-heroText p {
+  margin: 0;
+}
+
+.pil-heroText .pil-lede {
+  margin: 0;
 }

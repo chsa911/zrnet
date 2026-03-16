@@ -1,6 +1,6 @@
 import React from "react";
 import { Link } from "react-router-dom";
-import NewsletterSignup from "../components/NewsletterSignup";
+
 import { useI18n } from "../context/I18nContext";
 import "./BetaTestPage.css";
 
@@ -284,7 +284,9 @@ export default function BetaTestPage() {
           <div className="zr-card">
             <h2>{copy.signupTitle}</h2>
             <p className="zr-lede">{copy.signupText}</p>
-            <NewsletterSignup source="beta_test_page" />
+           <a className="zr-btn2 zr-btn2--primary" href={copy.mailHref}>
+    {copy.mailLabel}
+  </a>
           </div>
 
           <div className="zr-card beta-contactCard">
