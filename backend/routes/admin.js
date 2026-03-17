@@ -1,41 +1,50 @@
-  // backend/routes/admin.js
-  const express = require("express");
-  // Use async fs to avoid blocking Node's event loop during uploads.
-  const fs = require("fs/promises");
-  const path = require("path");
-  const multer = require("multer");
-  const router = express.Router();
-  const { adminAuthRequired, adminLogin, adminLogout } = require("../middleware/adminAuth");
-  const { registerExistingBook } = require("../controllers/booksPgController");
+// backend/routes/admin.js
+const express = require("express");
+// Use async fs to avoid blocking Node's event loop during uploads.
+const fs = require("fs/promises");
+const path = require("path");
+const multer = require("multer");
+const router = express.Router();
+const {
+  adminAuthRequired,
+  adminLogin,
+  adminLogout,
+} = require("../middleware/adminAuth");
+const { registerExistingBook } = require("../controllers/booksPgController");
 
-  const upload = multer({ storage: multer.memoryStorage() });
+const upload = multer({ storage: multer.memoryStorage() });
 
-  function cmToMm(v) {
-    const n = Number(String(v).replace(",", "."));
-    if (!Number.isFinite(n)) return null;
-    return Math.round(n * 10);
-  }
+function cmToMm(v) {
+  const n = Number(String(v).replace(",", "."));
+  if (!Number.isFinite(n)) return null;
+  return Math.round(n * 10);
+}
 
-  // pos: d (down), l (left/exact heights), o (oben/high)
-  function posToBand(pos) {
-    if (pos === "l") return "special";
-    if (pos === "d") return "low";
-    return "high"; // pos === "o"
-  }
+function posToBand(pos) {
+  if (pos === "l") return "special";
+  if (pos === "d") return "low";
+  return "high";
+}
 
-  function clampInt(v, { min = 1, max = 200, def = 50 } = {}) {
-    const n = Number(v);
-    if (!Number.isFinite(n)) return def;
-    return Math.max(min, Math.min(max, Math.trunc(n)));
-  }
+function clampInt(v, { min = 1, max = 200, def = 50 } = {}) {
+  const n = Number(v);
+  if (!Number.isFinite(n)) return def;
+  return Math.max(min, Math.min(max, Math.trunc(n)));
+}
 
-  /**
-   * Pick size rule by width/height.
-   * IMPORTANT: do NOT restrict to eq_heights here; eq_heights is used only to decide pos/band.
-   */
-  async function pickSizeRule(pool, widthMm, heightMm) {
-    const r = await pool.query(
-      `
+function clampOffset(v, { min = 0, max = 1000000, def = 0 } = {}) {
+  const n = Number(v);
+  if (!Number.isFinite(n)) return def;
+  return Math.max(min, Math.min(max, Math.trunc(n)));
+}
+
+/**
+ * Pick size rule by width/height.
+ * IMPORTANT: do NOT restrict to eq_heights here; eq_heights is used only to decide pos/band.
+ */
+async function pickSizeRule(pool, widthMm, heightMm) {
+  const r = await pool.query(
+    `
       SELECT id, name, min_height, eq_heights
       FROM public.size_rules
       WHERE $1 BETWEEN min_width AND max_width
@@ -43,34 +52,35 @@
       ORDER BY (max_width - min_width) ASC, min_width ASC
       LIMIT 1
       `,
-      [widthMm, heightMm]
-    );
-    return r.rows[0] || null;
-  }
+    [widthMm, heightMm]
+  );
+  return r.rows[0] || null;
+}
 
-  /**
-   * Decide pos from height and rule:
-   *  - l if height is exactly in eq_heights (default 205/210/215)
-   *  - d if height <= min_height
-   *  - o otherwise
-   */
-  function computePos(rule, heightMm) {
-    const eq = Array.isArray(rule.eq_heights) && rule.eq_heights.length
+/**
+ * Decide pos from height and rule:
+ *  - l if height is exactly in eq_heights (default 205/210/215)
+ *  - d if height <= min_height
+ *  - o otherwise
+ */
+function computePos(rule, heightMm) {
+  const eq =
+    Array.isArray(rule.eq_heights) && rule.eq_heights.length
       ? rule.eq_heights
       : [205, 210, 215];
 
-    if (eq.includes(heightMm)) return "l";
-    if (heightMm <= Number(rule.min_height)) return "d";
-    return "o";
-  }
+  if (eq.includes(heightMm)) return "l";
+  if (heightMm <= Number(rule.min_height)) return "d";
+  return "o";
+}
 
-  /**
-   * Pick lowest-ranked AVAILABLE barcode from inventory for (sizegroup, band).
-   * sizegroup is assumed to equal size_rules.id (your ids are 2..21, matching your CSV).
-   */
-  async function pickBarcode(pool, sizegroup, band) {
-    const r = await pool.query(
-      `
+/**
+ * Pick lowest-ranked AVAILABLE barcode from inventory for (sizegroup, band).
+ * sizegroup is assumed to equal size_rules.id.
+ */
+async function pickBarcode(pool, sizegroup, band) {
+  const r = await pool.query(
+    `
       SELECT bi.barcode, bi.rank_in_inventory
       FROM public.barcode_inventory bi
       LEFT JOIN public.barcode_assignments ba
@@ -84,58 +94,64 @@
       ORDER BY bi.rank_in_inventory
       LIMIT 1
       `,
-      [sizegroup, band]
-    );
-    return r.rows[0] || null;
+    [sizegroup, band]
+  );
+  return r.rows[0] || null;
+}
+
+/* -------------------- auth endpoints (public) -------------------- */
+router.post("/login", adminLogin);
+router.post("/logout", adminLogout);
+
+/* -------------------- protected endpoints -------------------- */
+router.use(adminAuthRequired);
+
+// simple auth check for frontend guards
+router.get("/me", (_req, res) => {
+  res.json({ ok: true });
+});
+
+/* -------------------- cover upload -------------------- */
+
+// POST /api/admin/books/:id/cover  (multipart field: cover)
+router.post("/books/:id/cover", upload.single("cover"), async (req, res) => {
+  const pool = req.app.get("pgPool");
+  if (!pool) return res.status(500).json({ error: "pgPool missing" });
+
+  const id = String(req.params.id || "").trim();
+  if (!id) return res.status(400).json({ error: "missing_id" });
+  if (
+    !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+      id
+    )
+  ) {
+    return res.status(400).json({ error: "invalid_id" });
+  }
+  if (!req.file) return res.status(400).json({ error: "missing_file" });
+
+  const byteLen = req.file?.buffer?.length ?? 0;
+  if (byteLen < 1024) {
+    return res.status(400).json({ error: "empty_file", bytes: byteLen });
   }
 
-  /* -------------------- auth endpoints (public) -------------------- */
-  router.post("/login", adminLogin);
-  router.post("/logout", adminLogout);
+  try {
+    const uploadRoot =
+      process.env.UPLOAD_ROOT || path.resolve(__dirname, "../../uploads");
+    const dir = path.join(uploadRoot, "covers");
+    await fs.mkdir(dir, { recursive: true });
 
-  /* -------------------- protected endpoints -------------------- */
-  router.use(adminAuthRequired);
+    const ts = new Date().toISOString().replace(/[:.]/g, "-");
+    const main = path.join(dir, `${id}.jpg`);
+    const archive = path.join(dir, `${id}-${ts}.jpg`);
 
-  // simple auth check for frontend guards
-  router.get("/me", (_req, res) => {
-    res.json({ ok: true });
-  });
+    await Promise.all([
+      fs.writeFile(main, req.file.buffer),
+      fs.writeFile(archive, req.file.buffer),
+    ]);
 
-  /* -------------------- cover upload -------------------- */
-
-  // POST /api/admin/books/:id/cover  (multipart field: cover)
-  router.post("/books/:id/cover", upload.single("cover"), async (req, res) => {
-    const pool = req.app.get("pgPool");
-    if (!pool) return res.status(500).json({ error: "pgPool missing" });
-
-    const id = String(req.params.id || "").trim();
-    if (!id) return res.status(400).json({ error: "missing_id" });
-    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id)) {
-      return res.status(400).json({ error: "invalid_id" });
-    }
-    if (!req.file) return res.status(400).json({ error: "missing_file" });
-    const byteLen = req.file?.buffer?.length ?? 0;
-    if (byteLen < 1024) {
-      return res.status(400).json({ error: "empty_file", bytes: byteLen });
-    }
-
-    try {
-      // Ensure folder
-      const dir = path.resolve(__dirname, "../public/assets/covers");
-      await fs.mkdir(dir, { recursive: true });
-
-      const ts = new Date().toISOString().replace(/[:.]/g, "-");
-      const main = path.join(dir, `${id}.jpg`);
-      const archive = path.join(dir, `${id}-${ts}.jpg`);
-
-      await Promise.all([
-        fs.writeFile(main, req.file.buffer),
-        fs.writeFile(archive, req.file.buffer),
-      ]);
-
-      // Mark cover presence on the book row (and verify the book exists)
-      const upd = await pool.query(
-        `
+    // Mark cover presence on the book row (and verify the book exists)
+    const upd = await pool.query(
+      `
         UPDATE public.books
         SET raw = jsonb_set(
           coalesce(raw,'{}'::jsonb),
@@ -146,71 +162,82 @@
         WHERE id = $1::uuid
         RETURNING (raw->'capture'->>'coverUploadedAt') AS coveruploadedat
         `,
-        [id]
-      );
+      [id]
+    );
 
-      if (!upd.rowCount) {
-        try { await fs.unlink(main); } catch {}
-        try { await fs.unlink(archive); } catch {}
-        return res.status(404).json({ error: "book_not_found_for_cover", id });
-      }
-
-      return res.json({
-        ok: true,
-        id,
-        bytes: req.file.buffer.length,
-        cover: `/assets/covers/${id}.jpg`,
-        coverUploadedAt: upd.rows?.[0]?.coveruploadedat || null,
-      });
-    } catch (e) {
-      console.error("cover upload failed", e);
-      return res.status(500).json({ error: "cover_upload_failed", detail: String(e?.message || e) });
-    }
-  });
-
-  /* -------------------- draft lookup (by ISBN or code=pages) -------------------- */
-
-  // GET /api/admin/drafts/find?isbn=...  OR  ?code=3847
-  router.get("/drafts/find", async (req, res) => {
-    const pool = req.app.get("pgPool");
-    if (!pool) return res.status(500).json({ error: "pgPool missing" });
-
-    const isbn = String(req.query.isbn || "").trim();
-    const codeRaw = String(req.query.code || "").trim();
-
-    let code = null;
-    if (codeRaw) {
-      if (!/^[0-9]+$/.test(codeRaw)) return res.status(400).json({ error: "invalid_code" });
-      const n = Number(codeRaw);
-      if (!Number.isFinite(n) || n <= 0) return res.status(400).json({ error: "invalid_code" });
-      code = Math.trunc(n);
+    if (!upd.rowCount) {
+      try {
+        await fs.unlink(main);
+      } catch {}
+      try {
+        await fs.unlink(archive);
+      } catch {}
+      return res.status(404).json({ error: "book_not_found_for_cover", id });
     }
 
-    if (!isbn && code == null) return res.status(400).json({ error: "missing_isbn_or_code" });
+    return res.json({
+      ok: true,
+      id,
+      bytes: req.file.buffer.length,
+      cover: `/media/covers/${id}.jpg`,
+      coverUploadedAt: upd.rows?.[0]?.coveruploadedat || null,
+    });
+  } catch (e) {
+    console.error("cover upload failed", e);
+    return res.status(500).json({
+      error: "cover_upload_failed",
+      detail: String(e?.message || e),
+    });
+  }
+});
 
-    try {
-      const params = [];
-      let i = 1;
-      const where = [
-        "b.registered_at IS NULL",
-        // Photo drafts are created as in_stock until barcode registration finalizes them.
-        "b.reading_status = 'in_stock'",
-        "(b.raw->'capture'->>'coverUploadedAt') IS NOT NULL",
-      ];
+/* -------------------- draft lookup (by ISBN or code=pages) -------------------- */
 
-      if (isbn) {
-        where.push(`(b.isbn13 = $${i} OR b.isbn10 = $${i} OR b.isbn13_raw = $${i})`);
-        params.push(isbn);
-        i++;
-      }
-      if (code != null) {
-        // Your flow: the numeric code is stored in pages and should match exactly.
-        where.push(`b.pages = $${i}`);
-        params.push(code);
-        i++;
-      }
+// GET /api/admin/drafts/find?isbn=...  OR  ?code=3847
+router.get("/drafts/find", async (req, res) => {
+  const pool = req.app.get("pgPool");
+  if (!pool) return res.status(500).json({ error: "pgPool missing" });
 
-      const q = `
+  const isbn = String(req.query.isbn || "").trim();
+  const codeRaw = String(req.query.code || "").trim();
+
+  let code = null;
+  if (codeRaw) {
+    if (!/^[0-9]+$/.test(codeRaw)) {
+      return res.status(400).json({ error: "invalid_code" });
+    }
+    const n = Number(codeRaw);
+    if (!Number.isFinite(n) || n <= 0) {
+      return res.status(400).json({ error: "invalid_code" });
+    }
+    code = Math.trunc(n);
+  }
+
+  if (!isbn && code == null) {
+    return res.status(400).json({ error: "missing_isbn_or_code" });
+  }
+
+  try {
+    const params = [];
+    let i = 1;
+    const where = [
+      "b.registered_at IS NULL",
+      "b.reading_status = 'in_stock'",
+      "(b.raw->'capture'->>'coverUploadedAt') IS NOT NULL",
+    ];
+
+    if (isbn) {
+      where.push(`(b.isbn13 = $${i} OR b.isbn10 = $${i} OR b.isbn13_raw = $${i})`);
+      params.push(isbn);
+      i++;
+    }
+    if (code != null) {
+      where.push(`b.pages = $${i}`);
+      params.push(code);
+      i++;
+    }
+
+    const q = `
         SELECT b.id::text AS id, b.added_at, b.pages, b.isbn13, b.isbn10
         FROM public.books b
         WHERE ${where.join(" AND ")}
@@ -218,62 +245,63 @@
         LIMIT 20
       `;
 
-      const r = await pool.query(q, params);
-      const items = (r.rows || []).map((row) => ({
-        ...row,
-        coverUrl: `/assets/covers/${row.id}.jpg`,
-      }));
-      return res.json({ items });
-    } catch (e) {
-      console.error("draft find failed", e);
-      return res.status(500).json({ error: "draft_find_failed", detail: String(e?.message || e) });
-    }
-  });
-
-  /* -------------------- finalize draft (assign barcode + update) -------------------- */
-
-  // POST /api/admin/books/:id/register
-  router.post("/books/:id/register", registerExistingBook);
-
-  /* -------------------- comments moderation -------------------- */
-
-  function clampOffset(v, { min = 0, max = 1000000, def = 0 } = {}) {
-    const n = Number(v);
-    if (!Number.isFinite(n)) return def;
-    return Math.max(min, Math.min(max, Math.trunc(n)));
+    const r = await pool.query(q, params);
+    const items = (r.rows || []).map((row) => ({
+      ...row,
+      coverUrl: `/media/covers/${row.id}.jpg`,
+    }));
+    return res.json({ items });
+  } catch (e) {
+    console.error("draft find failed", e);
+    return res.status(500).json({
+      error: "draft_find_failed",
+      detail: String(e?.message || e),
+    });
   }
+});
 
-  // GET /api/admin/comments?status=pending|approved|rejected|spam&bookId=<uuid>&page=1&limit=50
-  router.get("/comments", async (req, res) => {
-    const pool = req.app.get("pgPool");
-    if (!pool) return res.status(500).json({ error: "pgPool missing" });
+/* -------------------- finalize draft (assign barcode + update) -------------------- */
 
-    const statusRaw = String(req.query?.status || "").trim().toLowerCase();
-    const status = statusRaw && ["pending", "approved", "rejected", "spam"].includes(statusRaw)
+// POST /api/admin/books/:id/register
+router.post("/books/:id/register", registerExistingBook);
+
+/* -------------------- comments moderation -------------------- */
+
+// GET /api/admin/comments?status=pending|approved|rejected|spam&bookId=<uuid>&page=1&limit=50
+router.get("/comments", async (req, res) => {
+  const pool = req.app.get("pgPool");
+  if (!pool) return res.status(500).json({ error: "pgPool missing" });
+
+  const statusRaw = String(req.query?.status || "")
+    .trim()
+    .toLowerCase();
+  const status =
+    statusRaw && ["pending", "approved", "rejected", "spam"].includes(statusRaw)
       ? statusRaw
       : null;
 
-    const bookId = String(req.query?.bookId || req.query?.book_id || "").trim() || null;
+  const bookId =
+    String(req.query?.bookId || req.query?.book_id || "").trim() || null;
 
-    const page = clampInt(req.query?.page, { min: 1, max: 100000, def: 1 });
-    const limit = clampInt(req.query?.limit, { min: 1, max: 200, def: 50 });
-    const offset = (page - 1) * limit;
+  const page = clampInt(req.query?.page, { min: 1, max: 100000, def: 1 });
+  const limit = clampInt(req.query?.limit, { min: 1, max: 200, def: 50 });
+  const offset = (page - 1) * limit;
 
-    try {
-      const countRes = await pool.query(
-        `
+  try {
+    const countRes = await pool.query(
+      `
         SELECT count(*)::int AS total
         FROM public.book_comments c
         WHERE ($1::text IS NULL OR c.status = $1)
           AND ($2::uuid IS NULL OR c.book_id = $2::uuid)
         `,
-        [status, bookId]
-      );
-      const totalItems = countRes.rows?.[0]?.total ?? 0;
-      const pages = Math.max(1, Math.ceil(totalItems / limit));
+      [status, bookId]
+    );
+    const totalItems = countRes.rows?.[0]?.total ?? 0;
+    const pages = Math.max(1, Math.ceil(totalItems / limit));
 
-      const listRes = await pool.query(
-        `
+    const listRes = await pool.query(
+      `
         SELECT
           c.id::text AS id,
           c.book_id::text AS book_id,
@@ -294,83 +322,89 @@
         ORDER BY c.created_at DESC
         LIMIT $3 OFFSET $4
         `,
-        [status, bookId, limit, offset]
-      );
+      [status, bookId, limit, offset]
+    );
 
-      return res.json({
-        items: listRes.rows || [],
-        page,
-        limit,
-        totalItems,
-        pages,
-      });
-    } catch (e) {
-      console.error("GET /api/admin/comments failed:", e);
-      return res.status(500).json({ error: "comments_list_failed", detail: String(e?.message || e) });
-    }
-  });
+    return res.json({
+      items: listRes.rows || [],
+      page,
+      limit,
+      totalItems,
+      pages,
+    });
+  } catch (e) {
+    console.error("GET /api/admin/comments failed:", e);
+    return res.status(500).json({
+      error: "comments_list_failed",
+      detail: String(e?.message || e),
+    });
+  }
+});
 
-  // POST /api/admin/comments/:id/approve
-  router.post("/comments/:id/approve", async (req, res) => {
-    const pool = req.app.get("pgPool");
-    if (!pool) return res.status(500).json({ error: "pgPool missing" });
+// POST /api/admin/comments/:id/approve
+router.post("/comments/:id/approve", async (req, res) => {
+  const pool = req.app.get("pgPool");
+  if (!pool) return res.status(500).json({ error: "pgPool missing" });
 
-    const id = String(req.params.id || "").trim();
-    if (!id) return res.status(400).json({ error: "missing_id" });
+  const id = String(req.params.id || "").trim();
+  if (!id) return res.status(400).json({ error: "missing_id" });
 
-    try {
-      const r = await pool.query(
-        `
+  try {
+    const r = await pool.query(
+      `
         UPDATE public.book_comments
         SET status='approved', approved_at=now(), rejected_at=NULL
         WHERE id = $1::uuid
         RETURNING id::text AS id, status, approved_at
         `,
-        [id]
-      );
-      if (!r.rows?.[0]) return res.status(404).json({ error: "not_found" });
-      return res.json({ ok: true, ...r.rows[0] });
-    } catch (e) {
-      return res.status(500).json({ error: "approve_failed", detail: String(e?.message || e) });
-    }
-  });
+      [id]
+    );
+    if (!r.rows?.[0]) return res.status(404).json({ error: "not_found" });
+    return res.json({ ok: true, ...r.rows[0] });
+  } catch (e) {
+    return res
+      .status(500)
+      .json({ error: "approve_failed", detail: String(e?.message || e) });
+  }
+});
 
-  // POST /api/admin/comments/:id/reject
-  router.post("/comments/:id/reject", async (req, res) => {
-    const pool = req.app.get("pgPool");
-    if (!pool) return res.status(500).json({ error: "pgPool missing" });
+// POST /api/admin/comments/:id/reject
+router.post("/comments/:id/reject", async (req, res) => {
+  const pool = req.app.get("pgPool");
+  if (!pool) return res.status(500).json({ error: "pgPool missing" });
 
-    const id = String(req.params.id || "").trim();
-    if (!id) return res.status(400).json({ error: "missing_id" });
+  const id = String(req.params.id || "").trim();
+  if (!id) return res.status(400).json({ error: "missing_id" });
 
-    try {
-      const r = await pool.query(
-        `
+  try {
+    const r = await pool.query(
+      `
         UPDATE public.book_comments
         SET status='rejected', rejected_at=now()
         WHERE id = $1::uuid
         RETURNING id::text AS id, status, rejected_at
         `,
-        [id]
-      );
-      if (!r.rows?.[0]) return res.status(404).json({ error: "not_found" });
-      return res.json({ ok: true, ...r.rows[0] });
-    } catch (e) {
-      return res.status(500).json({ error: "reject_failed", detail: String(e?.message || e) });
-    }
-  });
+      [id]
+    );
+    if (!r.rows?.[0]) return res.status(404).json({ error: "not_found" });
+    return res.json({ ok: true, ...r.rows[0] });
+  } catch (e) {
+    return res
+      .status(500)
+      .json({ error: "reject_failed", detail: String(e?.message || e) });
+  }
+});
 
-  /* -------------------- barcode dashboard -------------------- */
+/* -------------------- barcode dashboard -------------------- */
 
-  // GET /api/admin/barcodes/summary
-  // Returns counts for dashboard cards.
-  router.get("/barcodes/summary", async (req, res) => {
-    const pool = req.app.get("pgPool");
-    if (!pool) return res.status(500).json({ error: "pgPool missing" });
+// GET /api/admin/barcodes/summary
+router.get("/barcodes/summary", async (req, res) => {
+  const pool = req.app.get("pgPool");
+  if (!pool) return res.status(500).json({ error: "pgPool missing" });
 
-    try {
-      const inv = await pool.query(
-        `
+  try {
+    const inv = await pool.query(
+      `
         SELECT
           count(*)::int AS total,
           sum(CASE WHEN status::text = 'AVAILABLE' THEN 1 ELSE 0 END)::int AS available,
@@ -378,19 +412,18 @@
           sum(CASE WHEN status::text NOT IN ('AVAILABLE','ASSIGNED') THEN 1 ELSE 0 END)::int AS other
         FROM public.barcode_inventory
         `
-      );
+    );
 
-      const open = await pool.query(
-        `
+    const open = await pool.query(
+      `
         SELECT count(*)::int AS open_assigned
         FROM public.barcode_assignments
         WHERE freed_at IS NULL
         `
-      );
+    );
 
-      // Optional consistency checks (helpful when debugging sync triggers)
-      const mismatch = await pool.query(
-        `
+    const mismatch = await pool.query(
+      `
         WITH open_ba AS (
           SELECT DISTINCT lower(barcode) AS bc
           FROM public.barcode_assignments
@@ -402,51 +435,54 @@
         FROM public.barcode_inventory bi
         LEFT JOIN open_ba ob ON ob.bc = lower(bi.barcode)
         `
-      );
+    );
 
-      return res.json({
-        ...inv.rows[0],
-        open_assigned: open.rows[0]?.open_assigned ?? 0,
-        mismatch: mismatch.rows[0] || { assigned_without_open: 0, open_without_assigned: 0 },
-      });
-    } catch (e) {
-      return res
-        .status(500)
-        .json({ error: "barcode_summary_failed", detail: String(e?.message || e) });
-    }
-  });
+    return res.json({
+      ...inv.rows[0],
+      open_assigned: open.rows[0]?.open_assigned ?? 0,
+      mismatch: mismatch.rows[0] || {
+        assigned_without_open: 0,
+        open_without_assigned: 0,
+      },
+    });
+  } catch (e) {
+    return res.status(500).json({
+      error: "barcode_summary_failed",
+      detail: String(e?.message || e),
+    });
+  }
+});
 
-  // GET /api/admin/barcodes
-  // Query: status=AVAILABLE|ASSIGNED|... , q=<search>, page=<n>, limit=<n>
-  router.get("/barcodes", async (req, res) => {
-    const pool = req.app.get("pgPool");
-    if (!pool) return res.status(500).json({ error: "pgPool missing" });
+// GET /api/admin/barcodes
+router.get("/barcodes", async (req, res) => {
+  const pool = req.app.get("pgPool");
+  if (!pool) return res.status(500).json({ error: "pgPool missing" });
 
-    const statusRaw = String(req.query?.status || "").trim();
-    const status = statusRaw ? statusRaw.toUpperCase() : null;
+  const statusRaw = String(req.query?.status || "").trim();
+  const status = statusRaw ? statusRaw.toUpperCase() : null;
 
-    const qRaw = String(req.query?.q || "").trim();
-    const q = qRaw ? qRaw : null;
+  const qRaw = String(req.query?.q || "").trim();
+  const q = qRaw ? qRaw : null;
 
-    const page = clampInt(req.query?.page, { min: 1, max: 100000, def: 1 });
-    const limit = clampInt(req.query?.limit, { min: 1, max: 500, def: 50 });
-    const offset = (page - 1) * limit;
+  const page = clampInt(req.query?.page, { min: 1, max: 100000, def: 1 });
+  const limit = clampInt(req.query?.limit, { min: 1, max: 500, def: 50 });
+  const offset = (page - 1) * limit;
 
-    try {
-      const countRes = await pool.query(
-        `
+  try {
+    const countRes = await pool.query(
+      `
         SELECT count(*)::int AS total
         FROM public.barcode_inventory bi
         WHERE ($1::text IS NULL OR bi.status::text = $1)
           AND ($2::text IS NULL OR bi.barcode ILIKE '%' || $2 || '%')
         `,
-        [status, q]
-      );
-      const totalItems = countRes.rows[0]?.total ?? 0;
-      const pages = Math.max(1, Math.ceil(totalItems / limit));
+      [status, q]
+    );
+    const totalItems = countRes.rows[0]?.total ?? 0;
+    const pages = Math.max(1, Math.ceil(totalItems / limit));
 
-      const listRes = await pool.query(
-        `
+    const listRes = await pool.query(
+      `
         SELECT
           bi.barcode,
           bi.status::text AS status,
@@ -470,78 +506,81 @@
           LIMIT 1
         ) ba ON true
         LEFT JOIN public.books b ON b.id = ba.book_id
+        LEFT JOIN public.authors a ON a.id = b.author_id
         WHERE ($1::text IS NULL OR bi.status::text = $1)
           AND ($2::text IS NULL OR bi.barcode ILIKE '%' || $2 || '%')
         ORDER BY bi.barcode ASC
         LIMIT $3 OFFSET $4
         `,
-        [status, q, limit, offset]
-      );
+      [status, q, limit, offset]
+    );
 
-      return res.json({
-        items: listRes.rows || [],
-        page,
-        limit,
-        totalItems,
-        pages,
-      });
-    } catch (e) {
-      console.error("barcode_list_failed:", e);
-      return res
-        .status(500)
-        .json({ error: "barcode_list_failed", detail: String(e?.message || e) });
-    }
-  });
+    return res.json({
+      items: listRes.rows || [],
+      page,
+      limit,
+      totalItems,
+      pages,
+    });
+  } catch (e) {
+    console.error("barcode_list_failed:", e);
+    return res.status(500).json({
+      error: "barcode_list_failed",
+      detail: String(e?.message || e),
+    });
+  }
+});
 
-  router.post("/register", async (req, res) => {
-    const pool = req.app.get("pgPool");
-    if (!pool) return res.status(500).json({ error: "pgPool missing" });
+router.post("/register", async (req, res) => {
+  const pool = req.app.get("pgPool");
+  if (!pool) return res.status(500).json({ error: "pgPool missing" });
 
-    const widthMm = cmToMm(req.body?.width_cm);
-    const heightMm = cmToMm(req.body?.height_cm);
-    if (widthMm == null || heightMm == null) {
-      return res.status(400).json({ error: "width_cm/height_cm required" });
-    }
+  const widthMm = cmToMm(req.body?.width_cm);
+  const heightMm = cmToMm(req.body?.height_cm);
+  if (widthMm == null || heightMm == null) {
+    return res.status(400).json({ error: "width_cm/height_cm required" });
+  }
 
-    const pages =
-      req.body?.pages === null || req.body?.pages === undefined || req.body?.pages === ""
-        ? null
-        : Number(req.body.pages);
+  const pages =
+    req.body?.pages === null ||
+    req.body?.pages === undefined ||
+    req.body?.pages === ""
+      ? null
+      : Number(req.body.pages);
 
-    const title = req.body?.title ? String(req.body.title) : null;
-    const author = req.body?.author ? String(req.body.author) : null;
-    const publisher = req.body?.publisher ? String(req.body.publisher) : null;
+  const title = req.body?.title ? String(req.body.title) : null;
+  const author = req.body?.author ? String(req.body.author) : null;
+  const publisher = req.body?.publisher ? String(req.body.publisher) : null;
 
-    const sizeRule = await pickSizeRule(pool, widthMm, heightMm);
-    if (!sizeRule) {
-      return res.status(400).json({
-        error: "No size_rule matches these dimensions",
-        width_mm: widthMm,
-        height_mm: heightMm,
-      });
-    }
+  const sizeRule = await pickSizeRule(pool, widthMm, heightMm);
+  if (!sizeRule) {
+    return res.status(400).json({
+      error: "No size_rule matches these dimensions",
+      width_mm: widthMm,
+      height_mm: heightMm,
+    });
+  }
 
-    const pos = computePos(sizeRule, heightMm);
-    const band = posToBand(pos);
+  const pos = computePos(sizeRule, heightMm);
+  const band = posToBand(pos);
 
-    const picked = await pickBarcode(pool, sizeRule.id, band);
-    if (!picked) {
-      return res.status(400).json({
-        error: "No available barcode for this sizegroup/band",
-        size_rule_id: sizeRule.id,
-        size_rule_name: sizeRule.name,
-        band,
-        pos
-      });
-    }
+  const picked = await pickBarcode(pool, sizeRule.id, band);
+  if (!picked) {
+    return res.status(400).json({
+      error: "No available barcode for this sizegroup/band",
+      size_rule_id: sizeRule.id,
+      size_rule_name: sizeRule.name,
+      band,
+      pos,
+    });
+  }
 
-    const client = await pool.connect();
-    try {
-      await client.query("BEGIN");
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
 
-      // 1) Create book
-      const b = await client.query(
-        `
+    const b = await client.query(
+      `
         INSERT INTO public.books (
           width, height, pages,
           full_title, author_display, author, publisher,
@@ -550,116 +589,120 @@
         VALUES ($1,$2,$3,$4,$5,$5,$6,'in_progress', now())
         RETURNING id, registered_at
         `,
-        [widthMm, heightMm, Number.isFinite(pages) ? pages : null, title, author, publisher]
-      );
+      [
+        widthMm,
+        heightMm,
+        Number.isFinite(pages) ? pages : null,
+        title,
+        author,
+        publisher,
+      ]
+    );
 
-      const bookId = b.rows[0].id;
-      const registeredAt = b.rows[0].registered_at;
+    const bookId = b.rows[0].id;
+    const registeredAt = b.rows[0].registered_at;
 
-      // 2) Mark inventory assigned (and stamp size_rule_id for traceability)
-      const upd = await client.query(
-        `
+    const upd = await client.query(
+      `
         UPDATE public.barcode_inventory
         SET status='ASSIGNED', updated_at=now(), size_rule_id=$2
         WHERE barcode=$1
         `,
-        [picked.barcode, sizeRule.id]
-      );
+      [picked.barcode, sizeRule.id]
+    );
 
-      if (upd.rowCount !== 1) {
-        throw new Error("barcode_inventory_update_failed");
-      }
+    if (upd.rowCount !== 1) {
+      throw new Error("barcode_inventory_update_failed");
+    }
 
-      // 3) Create open assignment period (freed_at NULL = currently assigned)
-      await client.query(
-        `
+    await client.query(
+      `
         INSERT INTO public.barcode_assignments (barcode, book_id, assigned_at, freed_at)
         VALUES ($1,$2,$3,NULL)
         `,
-        [picked.barcode, bookId, registeredAt]
-      );
+      [picked.barcode, bookId, registeredAt]
+    );
 
-      await client.query("COMMIT");
+    await client.query("COMMIT");
 
-      return res.json({
-        ok: true,
-        book_id: bookId,
-        barcode: picked.barcode,
-        rank: picked.rank_in_inventory,
-        size_rule: { id: sizeRule.id, name: sizeRule.name },
-        band,
-        pos,
-        width_mm: widthMm,
-        height_mm: heightMm,
-      });
-    } catch (e) {
-      try { await client.query("ROLLBACK"); } catch {}
-      return res.status(500).json({ error: "register_failed", detail: String(e?.message || e) });
-    } finally {
-      client.release();
-    }
-  });
-
-  /* -------------------- needs_review (mobile app) -------------------- */
-
-  /**
-   * List items that were written by the mobile app with status = needs_review.
-   *
-   * GET /api/admin/needs-review?issue_status=open|resolved|discarded|all&page=1&limit=50&q=...
-   */
-  router.get("/needs-review", async (req, res) => {
-    const pool = req.app.get("pgPool");
-    if (!pool) return res.status(500).json({ error: "pgPool missing" });
-
-    const page = clampInt(req.query.page, { min: 1, max: 100000, def: 1 });
-    const limit = clampInt(req.query.limit, { min: 1, max: 200, def: 50 });
-    const offset = (page - 1) * limit;
-
-    const issueStatus = String(req.query.issue_status || "open").trim().toLowerCase();
-    const q = String(req.query.q || "").trim();
-
-    // If the mobile_sync tables were never created yet (no mobile sync happened), return empty list.
-    // (Avoid hard failing on fresh installs.)
+    return res.json({
+      ok: true,
+      book_id: bookId,
+      barcode: picked.barcode,
+      rank: picked.rank_in_inventory,
+      size_rule: { id: sizeRule.id, name: sizeRule.name },
+      band,
+      pos,
+      width_mm: widthMm,
+      height_mm: heightMm,
+    });
+  } catch (e) {
     try {
-      const where = [];
-      const params = [];
-      let i = 1;
+      await client.query("ROLLBACK");
+    } catch {}
+    return res.status(500).json({
+      error: "register_failed",
+      detail: String(e?.message || e),
+    });
+  } finally {
+    client.release();
+  }
+});
 
-      where.push("r.status = 'needs_review'");
+/* -------------------- needs_review (mobile app) -------------------- */
 
-      if (issueStatus && issueStatus !== "all") {
-        // issue may be NULL if receipt has no issue_id; treat as open
-        where.push(`COALESCE(LOWER(i.status), 'open') = $${i}`);
-        params.push(issueStatus);
-        i += 1;
-      }
+router.get("/needs-review", async (req, res) => {
+  const pool = req.app.get("pgPool");
+  if (!pool) return res.status(500).json({ error: "pgPool missing" });
 
-      if (q) {
-        where.push(
-          `(
+  const page = clampInt(req.query.page, { min: 1, max: 100000, def: 1 });
+  const limit = clampInt(req.query.limit, { min: 1, max: 200, def: 50 });
+  const offset = (page - 1) * limit;
+
+  const issueStatus = String(req.query.issue_status || "open")
+    .trim()
+    .toLowerCase();
+  const q = String(req.query.q || "").trim();
+
+  try {
+    const where = [];
+    const params = [];
+    let i = 1;
+
+    where.push("r.status = 'needs_review'");
+
+    if (issueStatus && issueStatus !== "all") {
+      where.push(`COALESCE(LOWER(i.status), 'open') = $${i}`);
+      params.push(issueStatus);
+      i += 1;
+    }
+
+    if (q) {
+      where.push(
+        `(
             r.barcode ILIKE $${i}
             OR i.reason ILIKE $${i}
             OR i.client_change_id ILIKE $${i}
           )`
-        );
-        params.push(`%${q}%`);
-        i += 1;
-      }
+      );
+      params.push(`%${q}%`);
+      i += 1;
+    }
 
-      const whereSql = where.length ? `WHERE ${where.join(" AND ")}` : "";
+    const whereSql = where.length ? `WHERE ${where.join(" AND ")}` : "";
 
-      const countRes = await pool.query(
-        `
+    const countRes = await pool.query(
+      `
         SELECT count(*)::int AS total
         FROM mobile_sync.receipts r
         LEFT JOIN mobile_sync.issues i ON i.id = r.issue_id
         ${whereSql}
         `,
-        params
-      );
+      params
+    );
 
-      const itemsRes = await pool.query(
-        `
+    const itemsRes = await pool.query(
+      `
         SELECT
           r.id AS receipt_id,
           r.client_change_id,
@@ -686,45 +729,51 @@
         ORDER BY r.received_at DESC
         LIMIT $${i} OFFSET $${i + 1}
         `,
-        [...params, limit, offset]
-      );
+      [...params, limit, offset]
+    );
 
-      return res.json({
-        items: itemsRes.rows,
-        total: countRes.rows[0]?.total ?? 0,
-        page,
-        limit,
-      });
-    } catch (e) {
-      // Fresh DB: schema/table might not exist yet.
-      const msg = String(e?.message || e);
-      if (/mobile_sync\./i.test(msg) && /(does not exist|undefined table|relation)/i.test(msg)) {
-        return res.json({ items: [], total: 0, page, limit });
-      }
-      return res.status(500).json({ error: "needs_review_failed", detail: msg });
+    return res.json({
+      items: itemsRes.rows,
+      total: countRes.rows[0]?.total ?? 0,
+      page,
+      limit,
+    });
+  } catch (e) {
+    const msg = String(e?.message || e);
+    if (
+      /mobile_sync\./i.test(msg) &&
+      /(does not exist|undefined table|relation)/i.test(msg)
+    ) {
+      return res.json({ items: [], total: 0, page, limit });
     }
-  });
+    return res
+      .status(500)
+      .json({ error: "needs_review_failed", detail: msg });
+  }
+});
 
-  /**
-   * Resolve / discard a mobile_sync issue.
-   *
-   * POST /api/admin/needs-review/:issueId/resolve
-   * Body: { status?: "resolved"|"discarded", note?: string }
-   */
-  router.post("/needs-review/:issueId/resolve", async (req, res) => {
-    const pool = req.app.get("pgPool");
-    if (!pool) return res.status(500).json({ error: "pgPool missing" });
+/**
+ * Resolve / discard a mobile_sync issue.
+ *
+ * POST /api/admin/needs-review/:issueId/resolve
+ * Body: { status?: "resolved"|"discarded", note?: string }
+ */
+router.post("/needs-review/:issueId/resolve", async (req, res) => {
+  const pool = req.app.get("pgPool");
+  if (!pool) return res.status(500).json({ error: "pgPool missing" });
 
-    const issueId = String(req.params.issueId || "").trim();
-    if (!issueId) return res.status(400).json({ error: "issue_id_required" });
+  const issueId = String(req.params.issueId || "").trim();
+  if (!issueId) return res.status(400).json({ error: "issue_id_required" });
 
-    const statusRaw = String(req.body?.status || "resolved").trim().toLowerCase();
-    const status = statusRaw === "discarded" ? "discarded" : "resolved";
-    const note = req.body?.note ? String(req.body.note) : null;
+  const statusRaw = String(req.body?.status || "resolved")
+    .trim()
+    .toLowerCase();
+  const status = statusRaw === "discarded" ? "discarded" : "resolved";
+  const note = req.body?.note ? String(req.body.note) : null;
 
-    try {
-      const r = await pool.query(
-        `
+  try {
+    const r = await pool.query(
+      `
         UPDATE mobile_sync.issues
         SET
           status = $2,
@@ -734,15 +783,20 @@
         WHERE id = $1::uuid
         RETURNING id, status, resolved_at, note
         `,
-        [issueId, status, note]
-      );
+      [issueId, status, note]
+    );
 
-      if (r.rowCount !== 1) return res.status(404).json({ error: "issue_not_found" });
-
-      return res.json({ ok: true, issue: r.rows[0] });
-    } catch (e) {
-      return res.status(500).json({ error: "issue_update_failed", detail: String(e?.message || e) });
+    if (r.rowCount !== 1) {
+      return res.status(404).json({ error: "issue_not_found" });
     }
-  });
 
-  module.exports = router;
+    return res.json({ ok: true, issue: r.rows[0] });
+  } catch (e) {
+    return res.status(500).json({
+      error: "issue_update_failed",
+      detail: String(e?.message || e),
+    });
+  }
+});
+
+module.exports = router;

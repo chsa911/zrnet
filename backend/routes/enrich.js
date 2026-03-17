@@ -168,6 +168,142 @@ function pickFirst(...vals) {
   }
   return null;
 }
+function normText(s) {
+  return String(s || "")
+    .toLowerCase()
+    .replace(/[^a-z0-9äöüß]+/gi, " ")
+    .trim();
+}
+
+function scoreText(hay, needle) {
+  const h = normText(hay);
+  const n = normText(needle);
+  if (!h || !n) return 0;
+  if (h === n) return 8;
+  if (h.includes(n) || n.includes(h)) return 5;
+
+  let hits = 0;
+  for (const token of n.split(/\s+/)) {
+    if (token.length >= 3 && h.includes(token)) hits += 1;
+  }
+  return Math.min(hits, 4);
+}
+
+async function searchGoogleByText({ q, title, author, publisher }) {
+  const terms = [
+    title ? `intitle:${title}` : "",
+    author ? `inauthor:${author}` : "",
+    publisher ? `inpublisher:${publisher}` : "",
+  ].filter(Boolean);
+
+  const query = terms.join(" ") || q;
+  if (!query) return [];
+
+  const url = new URL("https://www.googleapis.com/books/v1/volumes");
+  url.searchParams.set("q", query);
+  url.searchParams.set("maxResults", "5");
+
+  if (process.env.GOOGLE_BOOKS_API_KEY) {
+    url.searchParams.set("key", process.env.GOOGLE_BOOKS_API_KEY);
+  }
+
+  const j = await fetchJson(url.toString(), 3500);
+  const items = Array.isArray(j?.items) ? j.items : [];
+
+  return items.map((it) => {
+    const v = it?.volumeInfo || {};
+    return {
+      source: "google-search",
+      title: v.title || null,
+      authors: Array.isArray(v.authors) ? v.authors : [],
+      publisher: v.publisher || null,
+      pages: Number.isFinite(v.pageCount) ? v.pageCount : null,
+      language: v.language || null,
+    };
+  });
+}
+
+async function searchOpenLibraryByText({ q, title, author }) {
+  const url = new URL("https://openlibrary.org/search.json");
+
+  if (title) url.searchParams.set("title", title);
+  if (author) url.searchParams.set("author", author);
+  if (!title && !author && q) url.searchParams.set("q", q);
+
+  url.searchParams.set("limit", "5");
+  url.searchParams.set(
+    "fields",
+    "title,title_suggest,author_name,publisher,number_of_pages_median,language"
+  );
+
+  const j = await fetchJson(url.toString(), 3500);
+  const docs = Array.isArray(j?.docs) ? j.docs : [];
+
+  return docs.map((d) => ({
+    source: "openlibrary-search",
+    title: d.title || d.title_suggest || null,
+    authors: Array.isArray(d.author_name) ? d.author_name : [],
+    publisher: Array.isArray(d.publisher) ? d.publisher[0] || null : null,
+    pages: Number.isFinite(d.number_of_pages_median) ? d.number_of_pages_median : null,
+    language: Array.isArray(d.language) ? d.language[0] || null : null,
+  }));
+}
+
+function chooseBestHit(hits, { q, title, author }) {
+  return [...hits].sort((a, b) => {
+    const sa =
+      scoreText(a.title, title) +
+      scoreText(a.authors?.[0], author) +
+      scoreText(`${a.title || ""} ${a.authors?.join(" ") || ""}`, q);
+
+    const sb =
+      scoreText(b.title, title) +
+      scoreText(b.authors?.[0], author) +
+      scoreText(`${b.title || ""} ${b.authors?.join(" ") || ""}`, q);
+
+    return sb - sa;
+  })[0] || null;
+}
+router.get("/search", async (req, res, next) => {
+  try {
+    const q = String(req.query.q || "").trim();
+    const title = String(req.query.title || "").trim();
+    const author = String(req.query.author || "").trim();
+    const publisher = String(req.query.publisher || "").trim();
+
+    if (!q && !title && !author) {
+      return res.status(400).json({ error: "missing_query" });
+    }
+
+    const [googleHits, openHits] = await Promise.all([
+      searchGoogleByText({ q, title, author, publisher }).catch(() => []),
+      searchOpenLibraryByText({ q, title, author }).catch(() => []),
+    ]);
+
+    const hits = [...googleHits, ...openHits];
+    const best = chooseBestHit(hits, { q, title, author });
+
+    const bestAuthor = best?.authors?.[0] || author || null;
+
+    const suggested = {
+      title_display: best?.title || title || null,
+      BVerlag: best?.publisher || publisher || null,
+      BSeiten: best?.pages != null ? String(best.pages) : null,
+      original_language: best?.language || null,
+      name_display: bestAuthor,
+      author_name: bestAuthor,
+      BKw: best?.title || title || null,
+      BKP: best?.title || title ? "0" : null,
+    };
+
+    res.json({
+      suggested,
+      hits: hits.slice(0, 5),
+    });
+  } catch (e) {
+    next(e);
+  }
+});
 
 // Preferred endpoint used by the frontend: GET /api/enrich/lookup?isbn=...
 router.get("/lookup", async (req, res, next) => {
@@ -213,6 +349,46 @@ router.get("/lookup", async (req, res, next) => {
       suggested,
       sources: { google: g, openlibrary: ol, db: meta },
       purchase,
+    });
+  } catch (e) {
+    next(e);
+  }
+});
+router.get("/search", async (req, res, next) => {
+  try {
+    const q = String(req.query.q || "").trim();
+    const title = String(req.query.title || "").trim();
+    const author = String(req.query.author || "").trim();
+    const publisher = String(req.query.publisher || "").trim();
+
+    if (!q && !title && !author) {
+      return res.status(400).json({ error: "missing_query" });
+    }
+
+    const [googleHits, openHits] = await Promise.all([
+      searchGoogleByText({ q, title, author, publisher }).catch(() => []),
+      searchOpenLibraryByText({ q, title, author }).catch(() => []),
+    ]);
+
+    const hits = [...googleHits, ...openHits];
+    const best = chooseBestHit(hits, { q, title, author });
+
+    const bestAuthor = best?.authors?.[0] || author || null;
+
+    const suggested = {
+      title_display: best?.title || title || null,
+      BVerlag: best?.publisher || publisher || null,
+      BSeiten: best?.pages != null ? String(best.pages) : null,
+      original_language: best?.language || null,
+      name_display: bestAuthor,
+      author_name: bestAuthor,
+      BKw: best?.title || title || null,
+      BKP: best?.title || title ? "0" : null,
+    };
+
+    res.json({
+      suggested,
+      hits: hits.slice(0, 5),
     });
   } catch (e) {
     next(e);

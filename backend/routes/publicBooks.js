@@ -38,7 +38,6 @@ async function resolveAuthorByKey(pool, key) {
   const k = normStr(key);
   if (!k) return null;
 
-  // UUID is already an author id.
   if (isUuid(k)) {
     const { rows } = await pool.query(
       `
@@ -54,7 +53,6 @@ async function resolveAuthorByKey(pool, key) {
 
   const kNorm = normKey(k);
 
-  // Try exact matches first (abbr / display / name). Fallback stays in handler.
   const { rows } = await pool.query(
     `
     SELECT id::text AS id, name_display, abbreviation, published_titles
@@ -102,9 +100,9 @@ function countLinks(text) {
 
 // single sources of truth for public display
 const AUTHOR_EXPR = "a.name_display";
-const TITLE_EXPR = "COALESCE(NULLIF(b.title_display,''), NULLIF(b.title_keyword,''))";
+const TITLE_EXPR =
+  "COALESCE(NULLIF(b.title_display,''), NULLIF(b.title_keyword,''))";
 const PUBLISHER_EXPR = "COALESCE(p.name, b.publisher)";
-
 
 // purchase providers (optional) — compute best link from isbn + templates
 function applyTemplate(tpl, { isbn13, isbn10, bookId }) {
@@ -140,7 +138,6 @@ async function buildPurchaseLinks(pool, { isbn13, isbn10, bookId }) {
         url,
       };
     })
-    // skip broken templates (still contains placeholders) or empty urls
     .filter((c) => c.url && !c.url.includes("{isbn") && !c.url.includes("{book_"));
 
   return { best: candidates[0] || null, candidates };
@@ -157,7 +154,9 @@ router.get("/", async (req, res) => {
     const limit = clampInt(req.query.limit, 50, 1, 2000);
     const offset = clampInt(req.query.offset, 0, 0, 1_000_000);
     const yearRaw = normStr(req.query.year);
-    const year = yearRaw ? clampInt(yearRaw, new Date().getFullYear(), 1970, 2100) : null;
+    const year = yearRaw
+      ? clampInt(yearRaw, new Date().getFullYear(), 1970, 2100)
+      : null;
 
     const author = normStr(req.query.author);
     const title = normStr(req.query.title);
@@ -166,7 +165,6 @@ router.get("/", async (req, res) => {
     const where = [];
     const params = [];
 
-    // Join for open barcode assignment (physical on-shelf)
     const fromSql = `
       FROM public.books b
       LEFT JOIN public.authors a ON a.id = b.author_id
@@ -187,42 +185,46 @@ router.get("/", async (req, res) => {
       ) open_ba ON true
     `;
 
-    // Bucket filters + ordering
     let orderBy = "b.registered_at DESC NULLS LAST, b.id ASC";
     if (bucket === "top") {
       where.push("b.top_book = true");
-      orderBy = "b.top_book_set_at DESC NULLS LAST, b.registered_at DESC NULLS LAST, b.id ASC";
+      orderBy =
+        "b.top_book_set_at DESC NULLS LAST, b.registered_at DESC NULLS LAST, b.id ASC";
       if (year) {
         params.push(`${year}-01-01`);
         params.push(`${year + 1}-01-01`);
-        where.push(`b.top_book_set_at >= $${params.length - 1}::timestamptz AND b.top_book_set_at < $${params.length}::timestamptz`);
+        where.push(
+          `b.top_book_set_at >= $${params.length - 1}::timestamptz AND b.top_book_set_at < $${params.length}::timestamptz`
+        );
       }
     } else if (bucket === "finished") {
       where.push("b.reading_status = 'finished'");
-      orderBy = "b.reading_status_updated_at DESC NULLS LAST, b.registered_at DESC NULLS LAST, b.id ASC";
+      orderBy =
+        "b.reading_status_updated_at DESC NULLS LAST, b.registered_at DESC NULLS LAST, b.id ASC";
       if (year) {
         params.push(`${year}-01-01`);
         params.push(`${year + 1}-01-01`);
-        where.push(`b.reading_status_updated_at >= $${params.length - 1}::timestamptz AND b.reading_status_updated_at < $${params.length}::timestamptz`);
+        where.push(
+          `b.reading_status_updated_at >= $${params.length - 1}::timestamptz AND b.reading_status_updated_at < $${params.length}::timestamptz`
+        );
       }
     } else if (bucket === "abandoned") {
       where.push("b.reading_status = 'abandoned'");
-      orderBy = "b.reading_status_updated_at DESC NULLS LAST, b.registered_at DESC NULLS LAST, b.id ASC";
+      orderBy =
+        "b.reading_status_updated_at DESC NULLS LAST, b.registered_at DESC NULLS LAST, b.id ASC";
       if (year) {
         params.push(`${year}-01-01`);
         params.push(`${year + 1}-01-01`);
-        where.push(`b.reading_status_updated_at >= $${params.length - 1}::timestamptz AND b.reading_status_updated_at < $${params.length}::timestamptz`);
+        where.push(
+          `b.reading_status_updated_at >= $${params.length - 1}::timestamptz AND b.reading_status_updated_at < $${params.length}::timestamptz`
+        );
       }
     } else if (bucket === "stock" || bucket === "in_stock") {
-      // “Stock” on the public stats pages = physically on shelf
       where.push("open_ba.barcode IS NOT NULL");
-      orderBy = "open_ba.assigned_at DESC NULLS LAST, b.registered_at DESC NULLS LAST, b.id ASC";
+      orderBy =
+        "open_ba.assigned_at DESC NULLS LAST, b.registered_at DESC NULLS LAST, b.id ASC";
     }
 
-    // Author filter:
-    // - allow UUID (author_id) from AuthorPage
-    // - allow abbreviations (e.g. "Mann.")
-    // - fallback to fuzzy substring match
     if (author) {
       const resolved = await resolveAuthorByKey(pool, author);
       if (resolved?.id && isUuid(resolved.id)) {
@@ -278,7 +280,6 @@ router.get("/", async (req, res) => {
 
     const whereSql = where.length ? `WHERE ${where.join(" AND ")}` : "";
 
-    // total count (for pagination)
     const { rows: countRows } = await pool.query(
       `SELECT COUNT(*)::int AS total ${fromSql} ${whereSql}`,
       params
@@ -306,7 +307,7 @@ router.get("/", async (req, res) => {
         a.published_titles,
         COALESCE(open_ba.barcode, bb.barcode) AS barcode,
         (open_ba.barcode IS NOT NULL) AS is_in_stock,
-        ('/assets/covers/' || b.id::text || '.jpg') AS cover
+        ('/media/covers/' || b.id::text || '.jpg') AS cover
       ${fromSql}
       ${whereSql}
       ORDER BY ${orderBy}
@@ -321,11 +322,9 @@ router.get("/", async (req, res) => {
       author_id: r.author_id || null,
       authorId: r.author_id || null,
 
-      // new names
       authorNameDisplay: r.author_name_display || "",
       bookTitleDisplay: r.book_title_display || "",
 
-      // legacy names (keep for now)
       author: r.author_name_display || "",
       title: r.book_title_display || "",
 
@@ -348,11 +347,11 @@ router.get("/", async (req, res) => {
       cover: r.cover,
     }));
 
-    // Backwards compatibility:
-    // If meta=1 (frontend default) or offset is provided, return {items,total}.
-    // Otherwise, keep returning a bare array.
-    const wantsMeta = String(req.query.meta || "").trim() === "1" || offset > 0;
-    return wantsMeta ? res.json({ items, total, limit, offset }) : res.json(items);
+    const wantsMeta =
+      String(req.query.meta || "").trim() === "1" || offset > 0;
+    return wantsMeta
+      ? res.json({ items, total, limit, offset })
+      : res.json(items);
   } catch (err) {
     console.error("GET /api/public/books error", err);
     return res.status(500).json({ error: "internal_error" });
@@ -410,8 +409,9 @@ router.get("/stats", async (req, res) => {
       [start, end]
     );
 
-    const out = rows[0] || { in_stock: 0, finished: 0, abandoned: 0, top: 0 };
-    out.instock = out.in_stock; // compatibility
+    const out =
+      rows[0] || { in_stock: 0, finished: 0, abandoned: 0, top: 0 };
+    out.instock = out.in_stock;
     return res.json(out);
   } catch (err) {
     console.error("GET /api/public/books/stats error", err);
@@ -512,14 +512,9 @@ router.get("/most-read-authors", async (req, res) => {
     const pool = getPool(req);
     const limit = clampInt(req.query.limit, 50, 1, 500);
 
-    // NOTE:
-    // - If an author has > 10 titles in the DB, return the top 3 titles.
-    // - If an author has <= 10 titles, return 1 favorite title.
-    // Favorite/top ordering preference matches /api/public/authors/top-books.
     const { rows } = await pool.query(
       `
       WITH author_books AS (
-        -- Primary author
         SELECT
           a.id AS author_id,
           a.name_display AS author,
@@ -530,7 +525,6 @@ router.get("/most-read-authors", async (req, res) => {
 
         UNION
 
-        -- Co-authors (if present)
         SELECT
           a.id AS author_id,
           a.name_display AS author,
@@ -561,12 +555,10 @@ router.get("/most-read-authors", async (req, res) => {
           ROW_NUMBER() OVER (
             PARTITION BY s.author_id
             ORDER BY
-              -- Admin-controlled featured slots (preferred)
               CASE
                 WHEN s.books_total > 10 THEN
                   CASE WHEN b.featured_rank BETWEEN 1 AND 3 THEN 0 ELSE 1 END
                 ELSE
-                  -- for authors with <= 10 titles we only want #1; demote #2/#3
                   CASE
                     WHEN b.featured_rank = 1 THEN 0
                     WHEN b.featured_rank IS NULL THEN 1
@@ -644,15 +636,12 @@ router.get("/most-read-authors", async (req, res) => {
           books_read: r.books_read,
           booksRead: r.books_read,
 
-          // keep legacy naming used in UI (this is total titles in DB for that author)
           books_in_stock: r.books_total,
           booksInStock: r.books_total,
 
-          // backward compat
           best_title: best,
           bestTitle: best,
 
-          // new fields
           titles,
           featured_titles: titles,
           featuredTitles: titles,
@@ -661,7 +650,6 @@ router.get("/most-read-authors", async (req, res) => {
           featured_purchase_urls: r.featured_purchase_urls || [],
           featuredPurchaseUrls: r.featured_purchase_urls || [],
 
-          // legacy
           count: r.books_read,
         };
       })
@@ -704,7 +692,6 @@ router.get("/:id/comments", async (req, res) => {
 
     return res.json({ items: rows || [] });
   } catch (err) {
-    // If table doesn't exist yet, fail gracefully for public pages.
     if (String(err?.message || "").toLowerCase().includes("book_comments")) {
       return res.json({ items: [] });
     }
@@ -715,11 +702,7 @@ router.get("/:id/comments", async (req, res) => {
 
 /**
  * POST /api/public/books/:id/comments
- * Guest: creates a pending comment (moderation recommended).
- * Basic anti-spam:
- *  - honeypot field "website" (must be empty)
- *  - link limit
- *  - rate limiting by ip_hash (DB-based)
+ * Guest: creates a pending comment.
  */
 router.post("/:id/comments", async (req, res) => {
   try {
@@ -732,24 +715,26 @@ router.post("/:id/comments", async (req, res) => {
     const parentId = normStr(req.body?.parentId ?? req.body?.parent_id);
     const website = normStr(req.body?.website);
 
-    // Honeypot: bots often fill it
     if (website) return res.json({ ok: true, status: "pending" });
 
     if (body.length < 3) return res.status(400).json({ error: "comment_too_short" });
     if (body.length > 2000) return res.status(400).json({ error: "comment_too_long" });
     if (authorName.length > 80) return res.status(400).json({ error: "name_too_long" });
-    if (parentId && !isUuid(parentId)) return res.status(400).json({ error: "invalid_parent_id" });
+    if (parentId && !isUuid(parentId)) {
+      return res.status(400).json({ error: "invalid_parent_id" });
+    }
     if (countLinks(body) > 2) return res.status(400).json({ error: "too_many_links" });
 
-    // Ensure book exists (avoid comment spam on random uuids)
-    const exists = await pool.query(`SELECT 1 FROM public.books WHERE id = $1::uuid LIMIT 1`, [bookId]);
+    const exists = await pool.query(
+      `SELECT 1 FROM public.books WHERE id = $1::uuid LIMIT 1`,
+      [bookId]
+    );
     if (!exists.rows?.[0]) return res.status(404).json({ error: "book_not_found" });
 
     const ip = getClientIp(req);
     const ipHash = hashIp(ip);
     const ua = normStr(req.headers["user-agent"]) || null;
 
-    // Rate limit: max 5 per 10 min + max 1 per 30 sec
     try {
       const recent10 = await pool.query(
         `
@@ -776,9 +761,8 @@ router.post("/:id/comments", async (req, res) => {
       if ((recent30.rows?.[0]?.c ?? 0) >= 1) {
         return res.status(429).json({ error: "rate_limited" });
       }
-    } catch (e) {
-      // If table doesn't exist yet, we still allow posting to avoid hard failures in dev.
-      // (But the INSERT will fail anyway.)
+    } catch {
+      // ignore
     }
 
     const id = crypto.randomUUID();
@@ -847,9 +831,6 @@ router.get("/:id", async (req, res) => {
 
     const r = rows[0];
 
-    // Purchase link resolution
-    // 1) manual link on books.purchase_url
-    // 2) otherwise: best provider template (purchase_providers) using isbn
     let purchase = { best: null, candidates: [] };
     try {
       purchase = await buildPurchaseLinks(pool, {
@@ -858,28 +839,27 @@ router.get("/:id", async (req, res) => {
         bookId: r.id,
       });
     } catch (e) {
-      // If purchase_providers doesn't exist / isn't configured, keep it silent for public endpoints
-      console.warn('purchase_providers not available or query failed:', e?.message || e);
+      console.warn("purchase_providers not available or query failed:", e?.message || e);
     }
 
-    const manualUrl = normStr(r.purchase_url) || '';
-    const bestUrl = normStr(purchase?.best?.url) || '';
+    const manualUrl = normStr(r.purchase_url) || "";
+    const bestUrl = normStr(purchase?.best?.url) || "";
     const finalUrl = manualUrl || bestUrl;
 
-    const bestVendor = purchase?.best?.provider_name || purchase?.best?.provider_code || '';
-    const finalVendor = manualUrl ? (normStr(r.purchase_source) || 'manual') : bestVendor;
+    const bestVendor =
+      purchase?.best?.provider_name || purchase?.best?.provider_code || "";
+    const finalVendor = manualUrl
+      ? normStr(r.purchase_source) || "manual"
+      : bestVendor;
 
     return res.json({
       id: r.id,
 
-      // stable ids
       authorId: r.author_id || null,
 
-      // new names
       authorNameDisplay: r.author_name_display || "",
       bookTitleDisplay: r.book_title_display || "",
 
-      // legacy names (keep for now)
       author: r.author_name_display || "",
       title: r.book_title_display || "",
 

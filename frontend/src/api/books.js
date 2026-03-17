@@ -188,7 +188,10 @@ export async function lookupIsbn(isbn) {
   const qs = toQuery({ isbn });
   return http(`/enrich/lookup?${qs}`);
 }
-
+export async function lookupCoverText({ q, title, author, publisher } = {}) {
+  const qs = toQuery({ q, title, author, publisher });
+  return http(`/enrich/search?${qs}`);
+}
 // Upload cover image (multipart). Backend stores as /assets/covers/<book_id>.jpg
 export async function uploadCover(bookId, file) {
   if (!bookId) throw new Error("Missing book id");

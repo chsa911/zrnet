@@ -39,3 +39,7 @@ Thumbs.db
 *.pid
 *.pid.lock
 *.seed
+
+# Uploaded cover images
+backend/public/assets/covers/*
+!backend/public/assets/covers/.gitkeep

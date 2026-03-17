@@ -40,27 +40,6 @@ const TITLE_EXPR = "COALESCE(NULLIF(b.title_display,''), NULLIF(b.title_keyword,
 
 /**
  * GET /api/public/authors/overview
- *
- * Alphabetical author index for *your* DB:
- * - includes authors referenced by books.author_id or book_authors.author_id
- * - includes wishlist books
- *
- * Query params:
- *   q=<substring search>
- *   startsWith=<A..Z|#0-9>     (optional letter filter)
- *   limit=5000 (default 5000)
- *   offset=0
- *
- * Item fields:
- *   id
- *   last, name_addition, first
- *   author (formatted: "Last [addition] First")
- *   nationality_abbr
- *   on_hand, finished, wishlist, total, not_match
- *
- * Compatibility aliases (if your frontend expects older names):
- *   completed == finished
- *   last_name/first_name/name_display provided
  */
 router.get("/overview", async (req, res) => {
   try {
@@ -73,7 +52,6 @@ router.get("/overview", async (req, res) => {
 
     const qLike = q ? `%${q}%` : null;
 
-    // startsWith supports: "A".."Z" or "#0-9"
     let startsWith = null;
     let startsIsDigits = false;
     if (startsWithRaw) {
@@ -123,12 +101,9 @@ router.get("/overview", async (req, res) => {
           a.author_nationality,
           COALESCE(a.published_titles, 0)::int AS total,
 
-          -- Parse display "von Goethe, Johann" into:
-          -- left_part="von Goethe", right_part="Johann"
           TRIM(SPLIT_PART(${AUTHOR_EXPR}, ',', 1)) AS left_part,
           NULLIF(TRIM(SPLIT_PART(${AUTHOR_EXPR}, ',', 2)), '') AS right_part,
 
-          -- last_sort: prefer authors.last_name, else last token of left_part, else last token of full display
           COALESCE(
             NULLIF(TRIM(a.last_name), ''),
             CASE
@@ -138,20 +113,17 @@ router.get("/overview", async (req, res) => {
             regexp_replace(${AUTHOR_EXPR}, '^.*\\s', '')
           ) AS last_sort,
 
-          -- name_addition: everything in left_part except the last token (e.g. "von" from "von Goethe")
           CASE
             WHEN ${AUTHOR_EXPR} LIKE '%,%' THEN NULLIF(TRIM(regexp_replace(TRIM(SPLIT_PART(${AUTHOR_EXPR}, ',', 1)), '\\s+[^\\s]+$', '')), '')
             ELSE NULL
           END AS name_addition_sort,
 
-          -- first_sort: prefer authors.first_name, else right_part, else everything except last token
           COALESCE(
             NULLIF(TRIM(a.first_name), ''),
             NULLIF(TRIM(SPLIT_PART(${AUTHOR_EXPR}, ',', 2)), ''),
             NULLIF(TRIM(regexp_replace(${AUTHOR_EXPR}, '\\s+[^\\s]+$', '')), '')
           ) AS first_sort,
 
-          -- nationality_abbr heuristic (best-effort):
           CASE
             WHEN a.author_nationality ~ '^[A-Za-z]{2,3}$' THEN UPPER(a.author_nationality)
             ELSE NULL
@@ -226,13 +198,12 @@ router.get("/overview", async (req, res) => {
 
         on_hand: r.on_hand ?? 0,
         finished: r.finished ?? 0,
-        completed: r.finished ?? 0, // alias
+        completed: r.finished ?? 0,
         wishlist: r.wishlist ?? 0,
 
         total: r.total ?? 0,
         not_match: r.not_match ?? 0,
 
-        // aliases (in case your frontend expects these)
         last_name: last,
         first_name: first,
         name_display: author,
@@ -248,9 +219,7 @@ router.get("/overview", async (req, res) => {
 });
 
 /**
- * Optional helper for A-Z navigation:
  * GET /api/public/authors/overview-letters?q=<search>
- * Returns counts per first letter of last name (A..Z and "#0-9").
  */
 router.get("/overview-letters", async (req, res) => {
   try {
@@ -316,8 +285,6 @@ router.get("/overview-letters", async (req, res) => {
 
 /**
  * GET /api/public/authors/:id
- * Minimal author lookup used by the public AuthorPage when the URL contains a UUID.
- * Returns snake_case fields matching DB column names.
  */
 router.get(
   "/:id([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12})",
@@ -325,7 +292,9 @@ router.get(
     try {
       const pool = getPool(req);
       const id = normStr(req.params.id);
-      if (!id || !isUuid(id)) return res.status(400).json({ error: "invalid_author_id" });
+      if (!id || !isUuid(id)) {
+        return res.status(400).json({ error: "invalid_author_id" });
+      }
 
       const { rows } = await pool.query(
         `
@@ -373,7 +342,6 @@ router.get("/top-books", async (req, res) => {
 
     if (!authorParam) return res.status(400).json({ error: "missing_author" });
 
-    // Resolve author (id or fuzzy name)
     let authorRow = null;
 
     if (isUuid(authorParam)) {
@@ -436,7 +404,7 @@ router.get("/top-books", async (req, res) => {
         b.top_book_set_at,
         b.registered_at,
         b.purchase_url,
-        ('/assets/covers/' || b.id::text || '.jpg') AS cover
+        ('/media/covers/' || b.id::text || '.jpg') AS cover
       FROM public.books b
       LEFT JOIN public.authors a ON a.id = $1::uuid
       WHERE
