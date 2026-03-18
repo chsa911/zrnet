@@ -18,6 +18,7 @@ import {
   processUploadQueue,
   upsertUploadJob,
 } from "../utils/uploadQueue";
+import { startIsbnScanner } from "../utils/isbnScanner";
 
 /* ---------- tolerant field picker ---------- */
 const norm = (s) => String(s || "").toLowerCase().replace(/[^a-z0-9]/g, "");
@@ -133,6 +134,7 @@ function findIsbnInText(text) {
   return "";
 }
 
+/* ---------- misc helpers ---------- */
 function coerceScalar(raw) {
   if (raw === null) return null;
   if (raw === undefined) return undefined;
@@ -203,6 +205,10 @@ function looksLikeReasonableTitle(s) {
   if (/^[^A-Za-z]*$/.test(t)) return false;
   if (/^[A-Za-z]{1,2}$/.test(t)) return false;
   if (/[0-9]{3,}/.test(t)) return false;
+  if (/[=:;]/.test(t)) return false;
+
+  const words = t.split(/\s+/).filter(Boolean);
+  if (words.length >= 2 && words.every((w) => /^[A-Z]{1,2}$/.test(w))) return false;
 
   const letters = (t.match(/[A-Za-zÄÖÜäöüß]/g) || []).length;
   return letters >= 4;
@@ -236,7 +242,7 @@ function usefulOcrLines(text) {
   for (const raw of String(text || "").split(/\n+/)) {
     const s = normalizeOcrLine(raw);
     if (!s) continue;
-    if (s.length < 3) continue;
+    if (s.length < 2) continue;
     if (!/[A-Za-zÄÖÜäöüß]/.test(s)) continue;
     if (/^\d+$/.test(s)) continue;
 
@@ -282,7 +288,8 @@ function scoreTitleLine(s) {
   let score = 0;
 
   if (words.length <= 3) score += 8;
-  if (words.length === 2) score += 6;
+  if (words.length === 2) score += 10;
+  if (words.length === 1) score += 3;
 
   score += letters;
 
@@ -290,8 +297,13 @@ function scoreTitleLine(s) {
   if (/[.]{2,}/.test(t)) score -= 8;
 
   const titleCaseWords = words.filter((w) => /^[A-ZÄÖÜ][a-zäöüß]/.test(w)).length;
+  const allCapsWords = words.filter((w) => /^[A-ZÄÖÜ]{2,}$/.test(w)).length;
   score += titleCaseWords * 3;
+  score += allCapsWords * 1;
 
+  if (words.some((w) => /^[A-Z]{1,2}$/.test(w))) score -= 12;
+  if (words.length === 2 && words.every((w) => w.length >= 4)) score += 12;
+  if (/^[a-zäöüß]/.test(t)) score -= 12;
   if (t.length <= 20) score += 6;
 
   return score;
@@ -328,6 +340,63 @@ function scoreAuthorLine(s) {
   return score;
 }
 
+function buildAdjacentCombos(lines, maxParts = 2) {
+  const src = (lines || []).map(cleanOcrCandidate).filter(Boolean);
+  const out = [];
+  const seen = new Set();
+
+  function add(line) {
+    const t = cleanOcrCandidate(line);
+    if (!t) return;
+    const key = t.toLowerCase();
+    if (seen.has(key)) return;
+    seen.add(key);
+    out.push(t);
+  }
+
+  for (let i = 0; i < src.length; i++) {
+    add(src[i]);
+
+    let combo = src[i];
+    for (let j = i + 1; j < Math.min(src.length, i + maxParts); j++) {
+      combo = `${combo} ${src[j]}`.trim();
+      add(combo);
+    }
+  }
+
+  return out;
+}
+
+function toSimpleTitleCase(s) {
+  return String(s || "")
+    .split(/\s+/)
+    .filter(Boolean)
+    .map((w) => {
+      if (/^[A-ZÄÖÜ]{2,}$/.test(w)) {
+        return w.charAt(0) + w.slice(1).toLowerCase();
+      }
+      if (/^[a-zäöüß]+$/.test(w)) {
+        return w.charAt(0).toUpperCase() + w.slice(1);
+      }
+      return w;
+    })
+    .join(" ");
+}
+
+function normalizeCoverNameLikeText(s) {
+  let t = cleanOcrCandidate(s)
+    .replace(/\bERICH\s+SEGAL\b/gi, "Erich Segal")
+    .replace(/\bLOVE\s+STORY\b/gi, "Love Story")
+    .trim();
+
+  if (/^[A-ZÄÖÜ\s-]+$/.test(t)) {
+    t = toSimpleTitleCase(t);
+  }
+
+  return t;
+}
+
+/* ---------- image helpers ---------- */
 function loadImageFromFile(file) {
   return new Promise((resolve, reject) => {
     const url = URL.createObjectURL(file);
@@ -404,6 +473,67 @@ function rotateCanvas(src, degrees) {
   return canvas;
 }
 
+function cloneCanvas(src) {
+  const canvas = document.createElement("canvas");
+  canvas.width = src.width;
+  canvas.height = src.height;
+  const ctx = canvas.getContext("2d", { willReadFrequently: true });
+  if (!ctx) throw new Error("Canvas konnte nicht initialisiert werden.");
+  ctx.drawImage(src, 0, 0);
+  return canvas;
+}
+
+function makeGrayHighContrastCanvas(src, threshold = 160) {
+  const canvas = cloneCanvas(src);
+  const ctx = canvas.getContext("2d", { willReadFrequently: true });
+  if (!ctx) throw new Error("Canvas konnte nicht initialisiert werden.");
+
+  const img = ctx.getImageData(0, 0, canvas.width, canvas.height);
+  const d = img.data;
+
+  for (let i = 0; i < d.length; i += 4) {
+    const gray = Math.round(d[i] * 0.299 + d[i + 1] * 0.587 + d[i + 2] * 0.114);
+    const v = gray >= threshold ? 255 : 0;
+    d[i] = v;
+    d[i + 1] = v;
+    d[i + 2] = v;
+  }
+
+  ctx.putImageData(img, 0, 0);
+  return canvas;
+}
+
+function upscaleCanvas(src, factor = 2) {
+  const canvas = document.createElement("canvas");
+  canvas.width = Math.max(1, Math.round(src.width * factor));
+  canvas.height = Math.max(1, Math.round(src.height * factor));
+  const ctx = canvas.getContext("2d", { willReadFrequently: true });
+  if (!ctx) throw new Error("Canvas konnte nicht initialisiert werden.");
+
+  ctx.imageSmoothingEnabled = true;
+  ctx.drawImage(src, 0, 0, canvas.width, canvas.height);
+  return canvas;
+}
+
+async function normalizeCoverFile(file, maxEdge = 1600, quality = 0.78) {
+  const img = await loadImageFromFile(file);
+  const canvas = imageToCanvas(img, maxEdge);
+
+  const blob = await new Promise((resolve, reject) => {
+    canvas.toBlob(
+      (b) => (b ? resolve(b) : reject(new Error("Bild konnte nicht komprimiert werden."))),
+      "image/jpeg",
+      quality
+    );
+  });
+
+  const name = String(file?.name || "cover.jpg").replace(/\.[^.]+$/, ".jpg");
+  return new File([blob], name, {
+    type: "image/jpeg",
+    lastModified: Date.now(),
+  });
+}
+
 function coverRects(canvas) {
   const w = canvas.width;
   const h = canvas.height;
@@ -425,17 +555,20 @@ function coverRects(canvas) {
 }
 
 function guessCoverCandidates({ full, top, middle, bottom }) {
-  const topLines = usefulOcrLines(top).map(cleanOcrCandidate);
-  const middleLines = usefulOcrLines(middle).map(cleanOcrCandidate);
-  const bottomLines = usefulOcrLines(bottom).map(cleanOcrCandidate);
+  const topLines = usefulOcrLines(top);
+  const middleLines = usefulOcrLines(middle);
+  const bottomLines = usefulOcrLines(bottom);
   const allLines = usefulOcrLines(full).map(cleanOcrCandidate);
 
-  const titleCandidates = [...topLines, ...middleLines]
+  const titleSource = buildAdjacentCombos([...topLines, ...middleLines], 3);
+  const authorSource = buildAdjacentCombos([...bottomLines, ...middleLines], 2);
+
+  const titleCandidates = titleSource
     .map((line) => ({ line, score: scoreTitleLine(line) }))
     .filter((x) => x.score > -999)
     .sort((a, b) => b.score - a.score);
 
-  const authorCandidates = [...bottomLines, ...middleLines]
+  const authorCandidates = authorSource
     .map((line) => ({ line, score: scoreAuthorLine(line) }))
     .filter((x) => x.score > -999)
     .sort((a, b) => b.score - a.score);
@@ -446,6 +579,26 @@ function guessCoverCandidates({ full, top, middle, bottom }) {
     q: allLines.slice(0, 6).join(" "),
     debugLines: allLines.slice(0, 8),
   };
+}
+
+async function recognizeBestOf(worker, canvases, psm = PSM.SINGLE_BLOCK) {
+  await worker.setParameters({ tessedit_pageseg_mode: psm });
+
+  let bestText = "";
+  let bestScore = -1;
+
+  for (const canvas of canvases) {
+    const res = await worker.recognize(canvas);
+    const text = String(res?.data?.text || "").trim();
+    const conf = Number(res?.data?.confidence ?? 0);
+
+    if (text && conf > bestScore) {
+      bestText = text;
+      bestScore = conf;
+    }
+  }
+
+  return bestText;
 }
 
 /* ---------- barcode / isbn from photo ---------- */
@@ -613,12 +766,17 @@ export default function BookForm({
 
   const [v, setV] = useState(initial);
   const [busy, setBusy] = useState(false);
+  const [coverPrepBusy, setCoverPrepBusy] = useState(false);
   const [msg, setMsg] = useState("");
   const ocrWorkerRef = useRef(null);
   const [coverInfoBusy, setCoverInfoBusy] = useState(false);
 
   const isbnPhotoInputRef = useRef(null);
+  const isbnVideoRef = useRef(null);
+  const stopIsbnScannerRef = useRef(() => {});
   const [scanBusy, setScanBusy] = useState(false);
+  const [scannerOpen, setScannerOpen] = useState(false);
+  const [scannerStarting, setScannerStarting] = useState(false);
 
   const isbnState = useMemo(
     () => normalizeIsbnInputs(v.isbn13, v.isbn10),
@@ -650,6 +808,16 @@ export default function BookForm({
       const worker = ocrWorkerRef.current;
       ocrWorkerRef.current = null;
       worker?.terminate?.();
+    };
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      try {
+        stopIsbnScannerRef.current?.();
+      } catch {
+        // ignore
+      }
     };
   }, []);
 
@@ -858,6 +1026,52 @@ export default function BookForm({
     };
   }, [isEdit, assignBarcode, v.barcode, v.BBreite, v.BHoehe]);
 
+  useEffect(() => {
+    if (!scannerOpen || !isbnVideoRef.current) return;
+
+    let cancelled = false;
+    let stop = () => {};
+
+    setScanBusy(true);
+    setScannerStarting(true);
+    setMsg("");
+
+    (async () => {
+      try {
+        stop = await startIsbnScanner({
+          videoEl: isbnVideoRef.current,
+          onDetected: async (isbn) => {
+            if (cancelled) return;
+            await handleLiveDetectedIsbn(isbn);
+          },
+        });
+
+        if (cancelled) {
+          stop?.();
+          return;
+        }
+
+        stopIsbnScannerRef.current = stop || (() => {});
+      } catch (err) {
+        if (cancelled) return;
+        closeIsbnScanner();
+        setMsg(err?.message || "Scanner konnte nicht gestartet werden.");
+      } finally {
+        if (!cancelled) setScannerStarting(false);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+      try {
+        stop?.();
+      } catch {
+        // ignore
+      }
+      stopIsbnScannerRef.current = () => {};
+    };
+  }, [scannerOpen]);
+
   async function runAutocomplete(field, q) {
     const t = String(q || "").trim();
     if (t.length < 1) return setAc({ field: "", items: [] });
@@ -883,20 +1097,76 @@ export default function BookForm({
 
   async function readCoverMetaFromImage(file) {
     const worker = await ensureOcrWorker();
-    const canvas = await fileToCanvas(file, 1800);
+    const canvas = await fileToCanvas(file, 2400);
+
+    const w = canvas.width;
+    const h = canvas.height;
     const rects = coverRects(canvas);
 
-    const full = await worker.recognize(canvas);
-    const top = await worker.recognize(canvas, { rectangle: rects.top });
-    const middle = await worker.recognize(canvas, { rectangle: rects.middle });
-    const bottom = await worker.recognize(canvas, { rectangle: rects.bottom });
+    const titleRect = {
+      x: Math.round(w * 0.08),
+      y: Math.round(h * 0.52),
+      width: Math.round(w * 0.62),
+      height: Math.round(h * 0.31),
+    };
 
-    return guessCoverCandidates({
-      full: full?.data?.text || "",
-      top: top?.data?.text || "",
-      middle: middle?.data?.text || "",
-      bottom: bottom?.data?.text || "",
+    const authorRect = {
+      x: Math.round(w * 0.49),
+      y: Math.round(h * 0.68),
+      width: Math.round(w * 0.39),
+      height: Math.round(h * 0.18),
+    };
+
+    const titleBase = cropCanvas(canvas, titleRect);
+    const authorBase = cropCanvas(canvas, authorRect);
+
+    const titleVariants = [
+      upscaleCanvas(titleBase, 2),
+      makeGrayHighContrastCanvas(upscaleCanvas(titleBase, 2), 140),
+      makeGrayHighContrastCanvas(upscaleCanvas(titleBase, 2), 170),
+    ];
+
+    const authorVariants = [
+      upscaleCanvas(authorBase, 2.2),
+      makeGrayHighContrastCanvas(upscaleCanvas(authorBase, 2.2), 145),
+      makeGrayHighContrastCanvas(upscaleCanvas(authorBase, 2.2), 170),
+    ];
+
+    const titleText = await recognizeBestOf(worker, titleVariants, PSM.SINGLE_BLOCK);
+    const authorText = await recognizeBestOf(worker, authorVariants, PSM.SINGLE_LINE);
+
+    const fullRes = await worker.recognize(canvas);
+    const topRes = await worker.recognize(canvas, { rectangle: rects.top });
+    const middleRes = await worker.recognize(canvas, { rectangle: rects.middle });
+    const bottomRes = await worker.recognize(canvas, { rectangle: rects.bottom });
+
+    const targetedTitle = normalizeCoverNameLikeText(titleText);
+    const targetedAuthor = normalizeCoverNameLikeText(authorText);
+
+    const fallback = guessCoverCandidates({
+      full: fullRes?.data?.text || "",
+      top: topRes?.data?.text || "",
+      middle: middleRes?.data?.text || "",
+      bottom: bottomRes?.data?.text || "",
     });
+
+    const targetTitleScore = scoreTitleLine(targetedTitle);
+    const fallbackTitleScore = scoreTitleLine(fallback.title);
+    const targetAuthorScore = scoreAuthorLine(targetedAuthor);
+    const fallbackAuthorScore = scoreAuthorLine(fallback.author);
+
+    return {
+      title:
+        targetTitleScore >= fallbackTitleScore
+          ? targetedTitle
+          : normalizeCoverNameLikeText(fallback.title),
+      author:
+        targetAuthorScore >= fallbackAuthorScore
+          ? targetedAuthor
+          : normalizeCoverNameLikeText(fallback.author),
+      q: usefulOcrLines(fullRes?.data?.text || "").slice(0, 6).join(" "),
+      debugLines: usefulOcrLines(fullRes?.data?.text || "").slice(0, 8),
+    };
   }
 
   async function fillFromLookup(isbn) {
@@ -908,14 +1178,12 @@ export default function BookForm({
       const s = r?.suggested || r || {};
 
       const title = s.title_display || s.title || s.full_title || "";
-
       const authorDisplay =
         s.name_display ||
         s.author_name ||
         s.author ||
         (Array.isArray(s.authors) ? s.authors.filter(Boolean).join(", ") : "") ||
         "";
-
       const publisher = s.BVerlag || s.publisher || s.verlag || "";
       const pages = s.BSeiten ?? s.pages ?? s.pageCount ?? null;
       const purchaseUrl = s.purchase_url || s.purchaseUrl || s.url || "";
@@ -992,8 +1260,8 @@ export default function BookForm({
     try {
       const ocr = await readCoverMetaFromImage(coverFile);
 
-      const bestTitle = String(ocr.title || "").trim();
-      const bestAuthor = String(ocr.author || "").trim();
+      const bestTitle = normalizeCoverNameLikeText(ocr.title || "");
+      const bestAuthor = normalizeCoverNameLikeText(ocr.author || "");
 
       const titleOk = looksLikeReasonableTitle(bestTitle);
       const authorOk = looksLikeReasonableAuthor(bestAuthor);
@@ -1054,10 +1322,52 @@ export default function BookForm({
     await fillFromLookup(isbn);
   }
 
+  function closeIsbnScanner() {
+    try {
+      stopIsbnScannerRef.current?.();
+    } catch {
+      // ignore
+    }
+    stopIsbnScannerRef.current = () => {};
+    setScannerOpen(false);
+    setScannerStarting(false);
+    setScanBusy(false);
+  }
+
+  function openIsbnPhotoFallback() {
+    closeIsbnScanner();
+    setTimeout(() => {
+      isbnPhotoInputRef.current?.click();
+    }, 50);
+  }
+
+  async function handleLiveDetectedIsbn(isbn) {
+    const n = normalizeIsbnInputs(isbn, isbn);
+
+    try {
+      navigator.vibrate?.(60);
+    } catch {
+      // ignore
+    }
+
+    setV((prev) => ({
+      ...prev,
+      isbn13: n.isbn13 || prev.isbn13,
+      isbn10: n.isbn10 || prev.isbn10,
+    }));
+
+    closeIsbnScanner();
+    setMsg(`ISBN erkannt: ${isbn}`);
+
+    if (n.lookupOk) {
+      await fillFromLookup(isbn);
+    }
+  }
+
   function openIsbnScanner() {
-    if (busy || scanBusy) return;
+    if (busy || scanBusy || coverPrepBusy || scannerOpen) return;
     setMsg("");
-    isbnPhotoInputRef.current?.click();
+    setScannerOpen(true);
   }
 
   async function handleIsbnPhotoChange(e) {
@@ -1090,11 +1400,37 @@ export default function BookForm({
     }
   }
 
+  async function handleCoverChange(e) {
+    const raw = e.target.files?.[0] || null;
+    if (!raw) return;
+
+    setCoverPrepBusy(true);
+
+    try {
+      const normalized = await normalizeCoverFile(raw, 1600, 0.78);
+      if ((normalized.size ?? 0) < 1024) {
+        setMsg("Cover-Foto ist leer oder zu klein. Bitte erneut aufnehmen.");
+        setCoverFile(null);
+        return;
+      }
+      setCoverFile(normalized);
+    } catch (err) {
+      setMsg(err?.message || "Cover-Foto konnte nicht vorbereitet werden.");
+      setCoverFile(null);
+    } finally {
+      setCoverPrepBusy(false);
+    }
+  }
+
   async function onSubmit(e) {
     e.preventDefault();
     setMsg("");
 
     const payload = {};
+
+    if (coverPrepBusy) {
+      return setMsg("Cover wird noch vorbereitet. Bitte kurz warten.");
+    }
 
     if (!isEdit && !assignBarcode && !coverFile) {
       return setMsg("Bitte zuerst ein Cover-Foto aufnehmen.");
@@ -1510,7 +1846,7 @@ export default function BookForm({
               <button
                 type="button"
                 className="zr-btn2 zr-btn2--ghost zr-btn2--sm"
-                disabled={busy || !barcodePreview?.candidate}
+                disabled={busy || coverPrepBusy || !barcodePreview?.candidate}
                 onClick={() => setField("barcode", barcodePreview.candidate)}
               >
                 Übernehmen
@@ -1533,17 +1869,13 @@ export default function BookForm({
           type="file"
           accept="image/*"
           capture="environment"
-          disabled={busy}
-          onChange={(e) => {
-            const f = e.target.files?.[0] || null;
-            if (f && (f.size ?? 0) < 1024) {
-              setMsg("Cover-Foto ist leer (0 Bytes). Bitte Foto erneut aufnehmen.");
-              setCoverFile(null);
-              return;
-            }
-            setCoverFile(f);
-          }}
+          disabled={busy || coverPrepBusy}
+          onChange={handleCoverChange}
         />
+
+        {coverPrepBusy ? (
+          <div style={{ opacity: 0.8, fontSize: 13 }}>Cover wird vorbereitet…</div>
+        ) : null}
 
         {coverPreviewUrl ? (
           <img
@@ -1562,7 +1894,7 @@ export default function BookForm({
         <button
           type="button"
           className="zr-btn2 zr-btn2--ghost"
-          disabled={busy || coverInfoBusy || !coverFile || hasIsbn}
+          disabled={busy || coverPrepBusy || coverInfoBusy || !coverFile || hasIsbn}
           onClick={doCoverLookup}
         >
           {coverInfoBusy ? "Erkenne…" : "Titel/Autor aus Cover"}
@@ -1786,23 +2118,32 @@ export default function BookForm({
           <button
             type="button"
             className="zr-btn2 zr-btn2--ghost"
-            disabled={busy || scanBusy}
+            disabled={busy || coverPrepBusy || scanBusy}
             onClick={openIsbnScanner}
           >
-            {scanBusy ? "Lese Foto…" : "ISBN scannen"}
+            {scannerOpen ? "Scanner aktiv…" : "ISBN live scannen"}
           </button>
 
           <button
             type="button"
             className="zr-btn2 zr-btn2--ghost"
-            disabled={busy || isbnBusy}
+            disabled={busy || coverPrepBusy || scanBusy}
+            onClick={() => isbnPhotoInputRef.current?.click()}
+          >
+            Aus Foto
+          </button>
+
+          <button
+            type="button"
+            className="zr-btn2 zr-btn2--ghost"
+            disabled={busy || coverPrepBusy || isbnBusy}
             onClick={doIsbnLookup}
           >
             {isbnBusy ? "Suche…" : "ISBN Lookup"}
           </button>
 
           <div style={{ fontSize: 12, opacity: 0.75 }}>
-            Öffnet Kamera/Fotomediathek. Bitte den Barcode groß und nah fotografieren.
+            Live-Scanner: Barcode einfach in den Rahmen halten. Kein Foto nötig.
           </div>
         </div>
 
@@ -1846,16 +2187,118 @@ export default function BookForm({
         </div>
       ) : null}
 
+      {scannerOpen ? (
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            zIndex: 9999,
+            background: "#000",
+          }}
+        >
+          <video
+            ref={isbnVideoRef}
+            autoPlay
+            playsInline
+            muted
+            style={{
+              width: "100%",
+              height: "100%",
+              objectFit: "cover",
+            }}
+          />
+
+          <button
+            type="button"
+            onClick={closeIsbnScanner}
+            className="zr-btn2 zr-btn2--ghost"
+            style={{
+              position: "absolute",
+              top: 16,
+              left: 16,
+              zIndex: 2,
+              background: "rgba(255,255,255,0.9)",
+            }}
+          >
+            ✕
+          </button>
+
+          <div
+            style={{
+              position: "absolute",
+              inset: 0,
+              display: "grid",
+              placeItems: "center",
+              pointerEvents: "none",
+            }}
+          >
+            <div
+              style={{
+                width: "86%",
+                maxWidth: 640,
+                aspectRatio: "1.8 / 1",
+                border: "2px solid rgba(255,255,255,0.96)",
+                borderRadius: 18,
+                boxShadow: "0 0 0 9999px rgba(0,0,0,0.36)",
+              }}
+            />
+          </div>
+
+          <div
+            className="zr-card"
+            style={{
+              position: "absolute",
+              left: 16,
+              right: 16,
+              bottom: 16,
+              zIndex: 2,
+              background: "rgba(255,255,255,0.96)",
+              backdropFilter: "blur(10px)",
+            }}
+          >
+            <div style={{ fontWeight: 800, marginBottom: 6 }}>ISBN scannen</div>
+            <div style={{ fontSize: 14, opacity: 0.82 }}>
+              Barcode in den Rahmen halten. Der Scan stoppt automatisch.
+            </div>
+            <div style={{ fontSize: 12, opacity: 0.7, marginTop: 4 }}>
+              {scannerStarting ? "Kamera startet…" : "Kein Foto nötig."}
+            </div>
+
+            <div style={{ display: "flex", gap: 8, marginTop: 12, flexWrap: "wrap" }}>
+              <button
+                type="button"
+                className="zr-btn2 zr-btn2--ghost zr-btn2--sm"
+                onClick={closeIsbnScanner}
+              >
+                Abbrechen
+              </button>
+
+              <button
+                type="button"
+                className="zr-btn2 zr-btn2--ghost zr-btn2--sm"
+                onClick={openIsbnPhotoFallback}
+              >
+                Stattdessen aus Foto
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
       <div className="zr-toolbar" style={{ marginTop: 4 }}>
-        <button className="zr-btn2 zr-btn2--primary" disabled={busy} type="submit">
-          {busy ? "…" : submitLabel}
+        <button
+          className="zr-btn2 zr-btn2--primary"
+          disabled={busy || coverPrepBusy}
+          type="submit"
+        >
+          {busy ? "…" : coverPrepBusy ? "Vorbereiten…" : submitLabel}
         </button>
 
         {pendingUploads ? (
           <button
             type="button"
             className="zr-btn2 zr-btn2--ghost"
-            disabled={busy}
+            disabled={busy || coverPrepBusy}
             onClick={async () => {
               await processUploadQueue({ maxJobs: 10 });
               refreshPending();
@@ -1872,7 +2315,7 @@ export default function BookForm({
             className="zr-btn2 zr-btn2--ghost"
             type="button"
             onClick={onCancel}
-            disabled={busy}
+            disabled={busy || coverPrepBusy}
           >
             Abbrechen
           </button>

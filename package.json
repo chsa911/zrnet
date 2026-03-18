@@ -20,5 +20,8 @@
   "dependencies": {
     "cookie-parser": "^1.4.7",
     "dotenv": "^17.2.3"
+  },
+  "overrides": {
+    "vite": "7.3.1"
   }
 }

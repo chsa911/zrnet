@@ -4,21 +4,18 @@ import react from '@vitejs/plugin-react';
 export default defineConfig({
   plugins: [react()],
   build: {
-    // Keep `/assets` for legacy static pages and emit Vite bundles under `/spa`
     assetsDir: 'spa',
   },
   server: {
-    host: '0.0.0.0', // listen on all interfaces so your phone can connect
+    host: '0.0.0.0',
+    port: 5173,
+    strictPort: true,
+    allowedHosts: true,
     proxy: {
       '/api': {
         target: 'http://127.0.0.1:4000',
-        //target: 'http://localhost:4000',
         changeOrigin: true,
       },
-   /*   '/assets': {
-        target: 'http://localhost:4000',
-        changeOrigin: true,
-      },
-    */},
+    },
   },
 });

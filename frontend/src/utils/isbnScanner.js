@@ -12,11 +12,9 @@ function cleanCode(raw) {
 function extractIsbnCandidate(raw) {
   const s = cleanCode(raw);
 
-  // Prefer real Bookland ISBN-13
   const bookland = s.match(/97[89]\d{10}/);
   if (bookland) return bookland[0];
 
-  // Fallbacks
   const ean13 = s.match(/\d{13}/);
   if (ean13) return ean13[0];
 
@@ -34,15 +32,104 @@ function stopVideo(videoEl) {
   if (videoEl) videoEl.srcObject = null;
 }
 
-async function startNativeDetector(videoEl, onDetected) {
-  const stream = await navigator.mediaDevices.getUserMedia({
-    video: { facingMode: { ideal: "environment" } },
-    audio: false,
-  });
+function waitForVideoReady(videoEl, timeoutMs = 4000) {
+  return new Promise((resolve, reject) => {
+    if (!videoEl) {
+      reject(new Error("Scanner-Videoelement fehlt."));
+      return;
+    }
 
+    if (videoEl.readyState >= 2) {
+      resolve();
+      return;
+    }
+
+    let done = false;
+    const finish = (fn, value) => {
+      if (done) return;
+      done = true;
+      clearTimeout(timer);
+      videoEl.removeEventListener("loadedmetadata", onReady);
+      videoEl.removeEventListener("canplay", onReady);
+      fn(value);
+    };
+
+    const onReady = () => finish(resolve);
+
+    const timer = setTimeout(() => {
+      finish(reject, new Error("Kamera konnte nicht initialisiert werden."));
+    }, timeoutMs);
+
+    videoEl.addEventListener("loadedmetadata", onReady, { once: true });
+    videoEl.addEventListener("canplay", onReady, { once: true });
+  });
+}
+
+function cameraErrorMessage(err) {
+  const name = String(err?.name || "");
+  const msg = String(err?.message || "").trim();
+
+  if (!window.isSecureContext) {
+    return "Live-Scanner braucht HTTPS oder localhost.";
+  }
+
+  if (name === "NotAllowedError" || name === "PermissionDeniedError") {
+    return "Kamerazugriff verweigert. Bitte Kamera im Browser erlauben.";
+  }
+
+  if (name === "NotFoundError" || name === "DevicesNotFoundError") {
+    return "Keine Kamera gefunden.";
+  }
+
+  if (name === "NotReadableError" || name === "TrackStartError") {
+    return "Kamera ist bereits in Benutzung oder blockiert.";
+  }
+
+  if (name === "OverconstrainedError" || name === "ConstraintNotSatisfiedError") {
+    return "Passende Kamera-Konfiguration nicht verfügbar.";
+  }
+
+  if (name === "AbortError") {
+    return "Kamera-Start wurde abgebrochen.";
+  }
+
+  return msg || "Kamera konnte nicht gestartet werden.";
+}
+
+async function getCameraStream() {
+  try {
+    return await navigator.mediaDevices.getUserMedia({
+      video: {
+        facingMode: { ideal: "environment" },
+        width: { ideal: 1280 },
+        height: { ideal: 720 },
+      },
+      audio: false,
+    });
+  } catch (err) {
+    throw new Error(cameraErrorMessage(err));
+  }
+}
+
+async function attachStreamToVideo(videoEl, stream) {
   videoEl.srcObject = stream;
+  videoEl.muted = true;
+  videoEl.autoplay = true;
   videoEl.setAttribute("playsinline", "true");
-  await videoEl.play();
+  videoEl.setAttribute("webkit-playsinline", "true");
+
+  await waitForVideoReady(videoEl);
+
+  try {
+    await videoEl.play();
+  } catch {
+    // ignore; many browsers still render the stream after metadata is ready
+  }
+}
+
+async function startNativeDetector(videoEl, onDetected) {
+  const stream = await getCameraStream();
+  await attachStreamToVideo(videoEl, stream);
 
   const supported =
     typeof globalThis.BarcodeDetector?.getSupportedFormats === "function"
@@ -87,19 +174,34 @@ async function startNativeDetector(videoEl, onDetected) {
 
 async function startZxingDetector(videoEl, onDetected) {
   const reader = new BrowserMultiFormatReader();
+  let controls = null;
 
-  const controls = await reader.decodeFromConstraints(
-    {
-      audio: false,
-      video: { facingMode: { ideal: "environment" } },
-    },
-    videoEl,
-    (result) => {
-      const raw = result?.getText?.() || result?.text || "";
-      const isbn = extractIsbnCandidate(raw);
-      if (isbn) onDetected(isbn);
+  try {
+    controls = await reader.decodeFromConstraints(
+      {
+        audio: false,
+        video: {
+          facingMode: { ideal: "environment" },
+          width: { ideal: 1280 },
+          height: { ideal: 720 },
+        },
+      },
+      videoEl,
+      (result) => {
+        const raw = result?.getText?.() || result?.text || "";
+        const isbn = extractIsbnCandidate(raw);
+        if (isbn) onDetected(isbn);
+      }
+    );
+  } catch (err) {
+    try {
+      reader.reset?.();
+    } catch {
+      // ignore
     }
-  );
+    stopVideo(videoEl);
+    throw new Error(cameraErrorMessage(err));
+  }
 
   return () => {
     try {
@@ -121,8 +223,16 @@ export async function startIsbnScanner({ videoEl, onDetected }) {
     throw new Error("Scanner-Videoelement fehlt.");
   }
 
+  if (!window.isSecureContext) {
+    throw new Error(
+      `Live-Scanner braucht HTTPS oder localhost. Aktuelle URL: ${location.href}`
+    );
+  }
+
   if (!navigator.mediaDevices?.getUserMedia) {
-    throw new Error("Kamera wird in diesem Browser nicht unterstützt.");
+    throw new Error(
+      `getUserMedia fehlt. URL=${location.href} | secure=${window.isSecureContext}`
+    );
   }
 
   let handled = false;
@@ -131,19 +241,37 @@ export async function startIsbnScanner({ videoEl, onDetected }) {
   const finish = (isbn) => {
     if (handled) return;
     handled = true;
-    stopInner();
-    Promise.resolve(onDetected(isbn)).catch(() => {});
+
+    try {
+      stopInner();
+    } catch {
+      // ignore
+    }
+
+    Promise.resolve(onDetected?.(isbn)).catch(() => {});
   };
 
   if ("BarcodeDetector" in globalThis) {
     try {
       stopInner = await startNativeDetector(videoEl, finish);
-      return () => stopInner();
+      return () => {
+        try {
+          stopInner();
+        } catch {
+          // ignore
+        }
+      };
     } catch {
       stopVideo(videoEl);
     }
   }
 
   stopInner = await startZxingDetector(videoEl, finish);
-  return () => stopInner();
+  return () => {
+    try {
+      stopInner();
+    } catch {
+      // ignore
+    }
+  };
 }
