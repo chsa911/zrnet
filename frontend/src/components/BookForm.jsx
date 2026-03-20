@@ -743,8 +743,17 @@ export default function BookForm({
       BAutor: toStr(pick(b, ["BAutor", "author", "author_lastname", "Autor"])),
       author_firstname: toStr(pick(b, ["author_firstname", "authorFirstname"])),
       name_display: toStr(pick(b, ["name_display", "author_name_display"])),
+      author_full_name: toStr(pick(b, ["author_full_name", "full_name"])),
+      author_abbreviation: toStr(pick(b, ["author_abbreviation", "abbreviation"])),
+      published_titles: toStr(pick(b, ["published_titles"])),
+      number_of_millionsellers: toStr(pick(b, ["number_of_millionsellers"])),
+      author_nationality: toStr(pick(b, ["author_nationality"])),
+      place_of_birth: toStr(pick(b, ["place_of_birth"])),
+      male_female: toStr(pick(b, ["male_female"])),
 
-      BVerlag: toStr(pick(b, ["BVerlag", "publisher"])),
+      BVerlag: toStr(pick(b, ["publisher_name_display", "BVerlag", "publisher"])),
+      publisher_name_display: toStr(pick(b, ["publisher_name_display", "BVerlag", "publisher"])),
+      publisher_abbr: toStr(pick(b, ["publisher_abbr", "publisher_abbreviation"])),
       BKw: toStr(pick(b, ["BKw", "title_keyword", "keyword"])),
       BKP: toStr(pick(b, ["BKP", "title_keyword_position"])),
       BKw1: toStr(pick(b, ["BKw1", "title_keyword2"])),
@@ -761,6 +770,8 @@ export default function BookForm({
       isbn10: toStr(pick(b, ["isbn10"])),
       original_language: toStr(pick(b, ["original_language"])),
       title_display: toStr(pick(b, ["title_display", "titleDisplay", "title"])),
+      subtitle_display: toStr(pick(b, ["subtitle_display"])),
+      comment: toStr(pick(b, ["comment"])),
     };
   }, [initialBook]);
 
@@ -828,19 +839,40 @@ export default function BookForm({
   const [draftCandidates, setDraftCandidates] = useState([]);
   const [draftSelectedId, setDraftSelectedId] = useState("");
 
+  const selectedDraft = useMemo(
+    () => draftCandidates.find((d) => d.id === draftSelectedId) || null,
+    [draftCandidates, draftSelectedId]
+  );
+
+  function draftTitle(d) {
+    return [d?.title_display, d?.subtitle_display].filter(Boolean).join(": ") || d?.title_keyword || "";
+  }
+
+  function draftAuthor(d) {
+    return d?.author_name_display || d?.name_display || d?.author_full_name || [d?.author_first_name, d?.author_last_name].filter(Boolean).join(" ") || "";
+  }
+
   useEffect(() => {
     if (isEdit) return;
     if (!assignBarcode) return;
-    if (draftSelectedId) return;
 
     const n = normalizeIsbnInputs(v.isbn13, v.isbn10);
     const isbn = n.isbn13 || n.isbn10 || "";
     const pagesRaw = String(v.BSeiten || "").trim();
     const code = /^[0-9]+$/.test(pagesRaw) ? pagesRaw : "";
+    const titleDisplay = String(v.title_display || "").trim();
+    const subtitleDisplay = String(v.subtitle_display || "").trim();
+    const titleKeyword = String(v.BKw || "").trim();
+    const authorLast = String(v.BAutor || "").trim();
+    const authorFirst = String(v.author_firstname || "").trim();
+    const authorDisplay = String(v.name_display || "").trim();
+    const publisherDisplay = String(v.publisher_name_display || "").trim();
+    const publisherAbbr = String(v.publisher_abbr || "").trim();
 
-    const hasKey = !!isbn || !!code;
+    const hasKey = !!isbn || !!code || !!titleDisplay || !!subtitleDisplay || !!titleKeyword || !!authorLast || !!authorFirst || !!authorDisplay || !!publisherDisplay || !!publisherAbbr;
     if (!hasKey) {
       setDraftCandidates([]);
+      setDraftSelectedId("");
       return;
     }
 
@@ -852,6 +884,14 @@ export default function BookForm({
           const r = await findDraft({
             isbn: isbn || undefined,
             code: code || undefined,
+            title_display: titleDisplay || undefined,
+            subtitle_display: subtitleDisplay || undefined,
+            title_keyword: titleKeyword || undefined,
+            author_lastname: authorLast || undefined,
+            author_firstname: authorFirst || undefined,
+            name_display: authorDisplay || undefined,
+            publisher_name_display: publisherDisplay || undefined,
+            publisher_abbr: publisherAbbr || undefined,
           });
           if (!alive) return;
           const items = Array.isArray(r?.items)
@@ -860,7 +900,11 @@ export default function BookForm({
             ? r
             : [];
           setDraftCandidates(items);
-          if (items.length >= 1) setDraftSelectedId((prev) => prev || items[0].id);
+          setDraftSelectedId((prev) => {
+            if (prev && items.some((x) => x.id === prev)) return prev;
+            if (items.length === 1) return items[0].id;
+            return "";
+          });
         } catch {
           if (!alive) return;
           setDraftCandidates([]);
@@ -875,7 +919,47 @@ export default function BookForm({
       alive = false;
       clearTimeout(t);
     };
-  }, [isEdit, assignBarcode, v.isbn13, v.isbn10, v.BSeiten, draftSelectedId]);
+  }, [
+    isEdit,
+    assignBarcode,
+    v.isbn13,
+    v.isbn10,
+    v.BSeiten,
+    v.title_display,
+    v.subtitle_display,
+    v.BKw,
+    v.BAutor,
+    v.author_firstname,
+    v.name_display,
+    v.publisher_name_display,
+    v.publisher_abbr,
+  ]);
+
+  useEffect(() => {
+    if (!selectedDraft) return;
+    setV((prev) => ({
+      ...prev,
+      BAutor: prev.BAutor || selectedDraft.author_last_name || "",
+      author_firstname: prev.author_firstname || selectedDraft.author_first_name || "",
+      name_display: prev.name_display || selectedDraft.author_name_display || "",
+      author_full_name: prev.author_full_name || selectedDraft.author_full_name || "",
+      author_abbreviation: prev.author_abbreviation || selectedDraft.author_abbreviation || "",
+      title_display: prev.title_display || selectedDraft.title_display || "",
+      subtitle_display: prev.subtitle_display || selectedDraft.subtitle_display || "",
+      BKw: prev.BKw || selectedDraft.title_keyword || "",
+      BVerlag: prev.BVerlag || selectedDraft.publisher_name_display || "",
+      publisher_name_display: prev.publisher_name_display || selectedDraft.publisher_name_display || "",
+      publisher_abbr: prev.publisher_abbr || selectedDraft.publisher_abbr || "",
+      BSeiten: prev.BSeiten || toStr(selectedDraft.pages),
+      BBreite: prev.BBreite || toStr(selectedDraft.width_cm),
+      BHoehe: prev.BHoehe || toStr(selectedDraft.height_cm),
+      isbn13: prev.isbn13 || selectedDraft.isbn13 || "",
+      isbn10: prev.isbn10 || selectedDraft.isbn10 || "",
+      original_language: prev.original_language || selectedDraft.original_language || "",
+      purchase_url: prev.purchase_url || selectedDraft.purchase_url || "",
+      comment: prev.comment || selectedDraft.comment || "",
+    }));
+  }, [selectedDraft]);
 
   useEffect(() => {
     if (!coverFile) {
@@ -906,7 +990,6 @@ export default function BookForm({
         "reading_status",
         "reading_status_updated_at",
         "themes",
-        "full_title",
 
         "barcode",
         "bmark",
@@ -918,9 +1001,14 @@ export default function BookForm({
         "author_firstname",
         "name_display",
         "author_name_display",
+        "author_full_name",
+        "author_abbreviation",
         "bverlag",
         "publisher",
+        "publisher_name_display",
+        "publisher_abbr",
         "title_display",
+        "subtitle_display",
         "title",
         "titledisplay",
         "bkw",
@@ -932,6 +1020,7 @@ export default function BookForm({
         "bseiten",
         "pages",
         "purchase_url",
+        "comment",
         "isbn10",
         "isbn13",
         "original_language",
@@ -1177,14 +1266,14 @@ export default function BookForm({
       const r = await lookupIsbn(isbn);
       const s = r?.suggested || r || {};
 
-      const title = s.title_display || s.title || s.full_title || "";
+      const title = s.title_display || s.title || "";
       const authorDisplay =
         s.name_display ||
         s.author_name ||
         s.author ||
         (Array.isArray(s.authors) ? s.authors.filter(Boolean).join(", ") : "") ||
         "";
-      const publisher = s.BVerlag || s.publisher || s.verlag || "";
+      const publisher = s.publisher_name_display || s.publisher || s.verlag || s.BVerlag || "";
       const pages = s.BSeiten ?? s.pages ?? s.pageCount ?? null;
       const purchaseUrl = s.purchase_url || s.purchaseUrl || s.url || "";
       const originalLanguage = s.original_language || s.language || "";
@@ -1198,7 +1287,8 @@ export default function BookForm({
         next.title_display = String(title);
       }
 
-      if (!String(v.BVerlag || "").trim() && publisher) {
+      if (!String(v.publisher_name_display || "").trim() && publisher) {
+        next.publisher_name_display = String(publisher);
         next.BVerlag = String(publisher);
       }
 
@@ -1436,10 +1526,6 @@ export default function BookForm({
       return setMsg("Bitte zuerst ein Cover-Foto aufnehmen.");
     }
 
-    if (!isEdit && assignBarcode && draftCandidates.length > 1 && !draftSelectedId) {
-      return setMsg("Mehrere Drafts gefunden – bitte zuerst den richtigen auswählen.");
-    }
-
     if (!isEdit) payload.assign_barcode = !!assignBarcode;
 
     const addIfChanged = (key, next, prev) => {
@@ -1479,13 +1565,21 @@ export default function BookForm({
       ["BAutor", v.BAutor, initial.BAutor],
       ["author_firstname", v.author_firstname, initial.author_firstname],
       ["name_display", v.name_display, initial.name_display],
-      ["BVerlag", v.BVerlag, initial.BVerlag],
+      ["author_full_name", v.author_full_name, initial.author_full_name],
+      ["author_abbreviation", v.author_abbreviation, initial.author_abbreviation],
+      ["author_nationality", v.author_nationality, initial.author_nationality],
+      ["place_of_birth", v.place_of_birth, initial.place_of_birth],
+      ["male_female", v.male_female, initial.male_female],
+      ["publisher_name_display", v.publisher_name_display, initial.publisher_name_display],
+      ["publisher_abbr", v.publisher_abbr, initial.publisher_abbr],
       ["title_display", v.title_display, initial.title_display],
+      ["subtitle_display", v.subtitle_display, initial.subtitle_display],
       ["BKw", v.BKw, initial.BKw],
       ["BKw1", v.BKw1, initial.BKw1],
       ["BKw2", v.BKw2, initial.BKw2],
       ["purchase_url", v.purchase_url, initial.purchase_url],
       ["original_language", v.original_language, initial.original_language],
+      ["comment", v.comment, initial.comment],
     ];
 
     for (const [k, nextRaw, prevRaw] of strPairs) {
@@ -1520,6 +1614,8 @@ export default function BookForm({
       ["BK1P", v.BK1P, initial.BK1P],
       ["BK2P", v.BK2P, initial.BK2P],
       ["BSeiten", v.BSeiten, initial.BSeiten],
+      ["published_titles", v.published_titles, initial.published_titles],
+      ["number_of_millionsellers", v.number_of_millionsellers, initial.number_of_millionsellers],
     ];
 
     for (const [k, nextRaw, prevRaw] of intPairs) {
@@ -1725,11 +1821,20 @@ export default function BookForm({
           <div className="zr-card" style={{ display: "grid", gap: 10 }}>
             <div style={{ fontWeight: 600 }}>
               {draftCandidates.length === 1
-                ? "✅ Draft mit Foto gefunden – Registrierung aktualisiert diesen Eintrag"
-                : "Mehrere Drafts gefunden – bitte auswählen"}
+                ? "✅ Vorhandener Eintrag gefunden – Registrierung aktualisiert diesen Eintrag"
+                : "Mehrere vorhandene Einträge gefunden – bitte auswählen"}
             </div>
 
             <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+              <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
+                <button
+                  type="button"
+                  className="zr-btn2 zr-btn2--ghost zr-btn2--sm"
+                  onClick={() => setDraftSelectedId("")}
+                >
+                  Als neuen Eintrag anlegen
+                </button>
+              </div>
               {draftCandidates.slice(0, 6).map((d) => (
                 <button
                   key={d.id}
@@ -1743,24 +1848,60 @@ export default function BookForm({
                       d.id === draftSelectedId
                         ? "rgba(0,0,0,0.35)"
                         : "rgba(0,0,0,0.12)",
+                    width: 220,
+                    textAlign: "left",
                   }}
                 >
-                  <img
-                    src={d.coverUrl || `/media/covers/${d.id}.jpg`}
-                    alt="cover"
-                    style={{
-                      width: 72,
-                      height: 96,
-                      objectFit: "cover",
-                      display: "block",
-                    }}
-                  />
-                  <div style={{ marginTop: 6, fontSize: 12, opacity: 0.8 }}>
-                    {String(d.added_at || "").slice(0, 10)}
+                  <div style={{ display: "flex", gap: 8, alignItems: "flex-start" }}>
+                    <img
+                      src={d.coverUrl || `/media/covers/${d.id}.jpg`}
+                      alt="cover"
+                      style={{
+                        width: 72,
+                        height: 96,
+                        objectFit: "cover",
+                        display: "block",
+                      }}
+                    />
+                    <div style={{ display: "grid", gap: 2, fontSize: 12 }}>
+                      <div style={{ fontWeight: 700 }}>{draftTitle(d) || "Ohne Titel"}</div>
+                      <div>{draftAuthor(d) || "—"}</div>
+                      <div>{d.publisher_name_display || "—"}</div>
+                      <div>Verlags-Abk.: {d.publisher_abbr || "—"}</div>
+                      <div>Autor-Abk.: {d.author_abbreviation || "—"}</div>
+                      <div>{d.isbn13 || d.isbn10 ? `ISBN: ${d.isbn13 || d.isbn10}` : "ohne ISBN"}</div>
+                      <div>{String(d.added_at || "").slice(0, 10)}</div>
+                    </div>
                   </div>
                 </button>
               ))}
             </div>
+
+            {selectedDraft ? (
+              <div className="zr-card" style={{ display: "grid", gap: 6 }}>
+                <div style={{ fontWeight: 700 }}>Übernommener vorhandener Eintrag</div>
+                <div><strong>Titel:</strong> {selectedDraft.title_display || "—"}</div>
+                <div><strong>Untertitel:</strong> {selectedDraft.subtitle_display || "—"}</div>
+                <div><strong>Stichwort:</strong> {selectedDraft.title_keyword || "—"}</div>
+                <div><strong>Autor Vorname:</strong> {selectedDraft.author_first_name || "—"}</div>
+                <div><strong>Autor Nachname:</strong> {selectedDraft.author_last_name || "—"}</div>
+                <div><strong>Autor Anzeigename:</strong> {selectedDraft.author_name_display || "—"}</div>
+                <div><strong>Autor Vollname:</strong> {selectedDraft.author_full_name || "—"}</div>
+                <div><strong>Autor Abkürzung:</strong> {selectedDraft.author_abbreviation || "—"}</div>
+                <div><strong>Verlag Anzeigename:</strong> {selectedDraft.publisher_name_display || "—"}</div>
+                <div><strong>Verlag Abkürzung:</strong> {selectedDraft.publisher_abbr || "—"}</div>
+                <div><strong>ISBN-13:</strong> {selectedDraft.isbn13 || "—"}</div>
+                <div><strong>ISBN-10:</strong> {selectedDraft.isbn10 || "—"}</div>
+                <div><strong>Seiten:</strong> {selectedDraft.pages ?? "—"}</div>
+                <div><strong>Breite:</strong> {selectedDraft.width_cm ?? "—"}</div>
+                <div><strong>Höhe:</strong> {selectedDraft.height_cm ?? "—"}</div>
+                <div><strong>Sprache:</strong> {selectedDraft.original_language || "—"}</div>
+                <div><strong>Kommentar:</strong> {selectedDraft.comment || "—"}</div>
+                <div><strong>added_at:</strong> {selectedDraft.added_at || "—"}</div>
+                <div><strong>registered_at:</strong> {selectedDraft.registered_at || "—"}</div>
+                <div><strong>Status:</strong> {selectedDraft.reading_status || "—"}</div>
+              </div>
+            ) : null}
           </div>
         ) : null
       ) : null}
@@ -1946,7 +2087,17 @@ export default function BookForm({
                   }}
                   onMouseDown={(e) => e.preventDefault()}
                   onClick={() => {
-                    setField("BAutor", it);
+                    const picked = String(it || "").trim();
+                    const parts = picked.split(/\s+/).filter(Boolean);
+                    const maybeLast = parts.length > 1 ? parts[parts.length - 1] : picked;
+                    const maybeFirst = parts.length > 1 ? parts.slice(0, -1).join(" ") : "";
+                    setField("BAutor", maybeLast);
+                    if (maybeFirst && !String(v.author_firstname || "").trim()) {
+                      setField("author_firstname", maybeFirst);
+                    }
+                    if (picked && !String(v.name_display || "").trim()) {
+                      setField("name_display", picked);
+                    }
                     setAc({ field: "", items: [] });
                   }}
                 >
@@ -1976,14 +2127,93 @@ export default function BookForm({
         />
       </label>
 
-      <label style={{ display: "grid", gap: 6 }}>
-        <span>Titel anzeigen (title_display) (optional)</span>
-        <input
-          className="zr-input"
-          value={v.title_display}
-          onChange={(e) => setField("title_display", e.target.value)}
-        />
-      </label>
+      <div className="zr-toolbar">
+        <label style={{ display: "grid", gap: 6, flex: 1 }}>
+          <span>Autor Vollname (author_full_name) (optional)</span>
+          <input
+            className="zr-input"
+            value={v.author_full_name}
+            onChange={(e) => setField("author_full_name", e.target.value)}
+          />
+        </label>
+        <label style={{ display: "grid", gap: 6, flex: 1 }}>
+          <span>Autor Abkürzung (author_abbreviation) (optional)</span>
+          <input
+            className="zr-input"
+            value={v.author_abbreviation}
+            onChange={(e) => setField("author_abbreviation", e.target.value)}
+          />
+        </label>
+      </div>
+
+      <div className="zr-toolbar">
+        <label style={{ display: "grid", gap: 6, flex: 1 }}>
+          <span>Nationalität (author_nationality) (optional)</span>
+          <input
+            className="zr-input"
+            value={v.author_nationality}
+            onChange={(e) => setField("author_nationality", e.target.value)}
+          />
+        </label>
+        <label style={{ display: "grid", gap: 6, flex: 1 }}>
+          <span>Geburtsort (place_of_birth) (optional)</span>
+          <input
+            className="zr-input"
+            value={v.place_of_birth}
+            onChange={(e) => setField("place_of_birth", e.target.value)}
+          />
+        </label>
+        <label style={{ display: "grid", gap: 6, flex: 1 }}>
+          <span>Geschlecht (male_female) (optional)</span>
+          <input
+            className="zr-input"
+            value={v.male_female}
+            onChange={(e) => setField("male_female", e.target.value)}
+          />
+        </label>
+      </div>
+
+      <div className="zr-toolbar">
+        <label style={{ display: "grid", gap: 6, flex: 1 }}>
+          <span>Veröffentlichte Titel (published_titles) (optional)</span>
+          <input
+            className="zr-input"
+            type="text"
+            inputMode="numeric"
+            value={v.published_titles}
+            onChange={(e) => setField("published_titles", e.target.value)}
+          />
+        </label>
+        <label style={{ display: "grid", gap: 6, flex: 1 }}>
+          <span>Millionenseller (number_of_millionsellers) (optional)</span>
+          <input
+            className="zr-input"
+            type="text"
+            inputMode="numeric"
+            value={v.number_of_millionsellers}
+            onChange={(e) => setField("number_of_millionsellers", e.target.value)}
+          />
+        </label>
+      </div>
+
+      <div className="zr-toolbar">
+        <label style={{ display: "grid", gap: 6, flex: 1 }}>
+          <span>Titel anzeigen (title_display) (optional)</span>
+          <input
+            className="zr-input"
+            value={v.title_display}
+            onChange={(e) => setField("title_display", e.target.value)}
+          />
+        </label>
+        <label style={{ display: "grid", gap: 6, flex: 1 }}>
+          <span>Untertitel (subtitle_display) (optional)</span>
+          <input
+            className="zr-input"
+            value={v.subtitle_display}
+            onChange={(e) => setField("subtitle_display", e.target.value)}
+          />
+        </label>
+      </div>
 
       <div className="zr-toolbar">
         <label style={{ display: "grid", gap: 6, flex: 1 }}>
@@ -2056,15 +2286,25 @@ export default function BookForm({
 
       <div className="zr-toolbar">
         <label style={{ display: "grid", gap: 6, flex: 1 }}>
-          <span>Verlag (BVerlag)</span>
+          <span>Verlag Anzeigename (publisher_name_display)</span>
           <input
             className="zr-input"
-            value={v.BVerlag}
+            value={v.publisher_name_display}
             onChange={(e) => {
+              setField("publisher_name_display", e.target.value);
               setField("BVerlag", e.target.value);
               runAutocomplete("BVerlag", e.target.value);
             }}
             onBlur={() => setTimeout(() => setAc({ field: "", items: [] }), 150)}
+          />
+        </label>
+
+        <label style={{ display: "grid", gap: 6, flex: 1 }}>
+          <span>Verlag Abkürzung (publisher_abbr)</span>
+          <input
+            className="zr-input"
+            value={v.publisher_abbr}
+            onChange={(e) => setField("publisher_abbr", e.target.value)}
           />
         </label>
 
@@ -2079,6 +2319,16 @@ export default function BookForm({
           />
         </label>
       </div>
+
+      <label style={{ display: "grid", gap: 6 }}>
+        <span>Kommentar (optional)</span>
+        <textarea
+          className="zr-input"
+          rows={3}
+          value={v.comment}
+          onChange={(e) => setField("comment", e.target.value)}
+        />
+      </label>
 
       <div className="zr-card" style={{ display: "grid", gap: 10 }}>
         <div style={{ fontWeight: 900 }}>ISBN & Kauf-Link (optional)</div>

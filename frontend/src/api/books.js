@@ -1,12 +1,9 @@
 // frontend/src/api/books.js
 import { API_BASE } from "./config";
 
-// Production default: same-origin behind Caddy (/api -> api container)
-// For local dev: set VITE_API_BASE_URL=http://localhost:4000/api
 const ENV_BASE = (import.meta?.env?.VITE_API_BASE_URL || import.meta?.env?.VITE_API_BASE || "").trim();
 const BASE = String(ENV_BASE || API_BASE || "/api").replace(/\/$/, "");
 
-/** Build an absolute URL against BASE while avoiding /api/api duplication */
 function buildUrl(path) {
   if (/^https?:\/\//i.test(path)) return path;
   const p = path.startsWith("/") ? path : `/${path}`;
@@ -16,18 +13,19 @@ function buildUrl(path) {
   return `${BASE}${p}`;
 }
 
-/** Low-level HTTP helper returning JSON when possible */
-async function http(path, { method = "GET", json, signal } = {}) {
-  const opts = {
+async function http(path, { method = "GET", json, body, headers, signal } = {}) {
+  const res = await fetch(buildUrl(path), {
     method,
     cache: "no-store",
-    headers: json ? { "Content-Type": "application/json" } : undefined,
-    body: json ? JSON.stringify(json) : undefined,
-    signal,
     credentials: "include",
-  };
+    headers:
+      json
+        ? { "Content-Type": "application/json", ...(headers || {}) }
+        : headers,
+    body: json ? JSON.stringify(json) : body,
+    signal,
+  });
 
-  const res = await fetch(buildUrl(path), opts);
   const text = await res.text();
 
   if (!res.ok) {
@@ -39,283 +37,187 @@ async function http(path, { method = "GET", json, signal } = {}) {
     throw new Error(msg);
   }
 
+  if (!text) return null;
+
   try {
-    return text ? JSON.parse(text) : null;
+    return JSON.parse(text);
   } catch {
     return text;
   }
 }
 
-/** Normalize varied API response shapes into { items, total } */
-function normalize(d) {
-  let items =
-    d?.items ??
-    d?.data ??
-    d?.results ??
-    d?.rows ??
-    d?.docs ??
-    d?.books ??
-    (Array.isArray(d) ? d : []);
-
-  if (!Array.isArray(items)) items = [];
-
-  const total = Number(d?.total ?? d?.count ?? d?.totalCount ?? d?.hits ?? items.length);
-  return { items, total };
-}
-
-function toQuery(params = {}) {
-  const s = new URLSearchParams();
-  for (const [k, v] of Object.entries(params)) {
+function qsFromObject(obj = {}) {
+  const sp = new URLSearchParams();
+  for (const [k, v] of Object.entries(obj)) {
     if (v === undefined || v === null || v === "") continue;
-    s.append(k, String(v));
+    sp.set(k, String(v));
   }
-  return s.toString();
+  return sp.toString();
 }
 
-/* =========================
-   ADMIN / PRIVATE BOOKS API
-   ========================= */
+/* ---------------- admin books ---------------- */
 
-function buildListQS(params = {}) {
-  const {
-    page = 1,
-    limit = 20,
-    sortBy = "BEind",
-    order = "desc",
-    q,
-    pages,
-    BSeiten,
-    status,
-    reading_status,
-    theme,
-  } = params;
-  const base = {
-    page,
-    limit,
-    sortBy,
-    order,
-    direction: order,
-    dir: order === "asc" ? 1 : -1,
-  };
-  if (q && String(q).trim()) base.q = String(q).trim();
-  // Optional filters supported by backend (ignored if unknown)
-  if (pages !== undefined && pages !== null && pages !== "") base.pages = pages;
-  if (BSeiten !== undefined && BSeiten !== null && BSeiten !== "") base.BSeiten = BSeiten;
-  const st = status ?? reading_status;
-  if (st !== undefined && st !== null && st !== "") base.status = st;
-  if (theme !== undefined && theme !== null && String(theme).trim()) base.theme = String(theme).trim();
-  return toQuery(base);
+export async function listBooks(params = {}, opts = {}) {
+  const query =
+    typeof params === "string"
+      ? { q: params }
+      : { ...params };
+
+  const qs = qsFromObject(query);
+  return http(`/books${qs ? `?${qs}` : ""}`, { signal: opts.signal });
 }
 
-/** Convenience helper: list books by exact pages (for Sync-Issues candidate dropdown) */
-export async function listBooksByPages(pages, { limit = 200, page = 1 } = {}) {
-  const p = Number(pages);
-  if (!Number.isFinite(p)) return { items: [], total: 0 };
+export const fetchBooks = listBooks;
 
-  // Use the same endpoint resolution as listBooks()
-  const res = await listBooks({ page, limit, pages: p, sortBy: "BEind", order: "desc" });
-  return { items: res.items || [], total: res.total || 0 };
+export async function listBooksByPages(pages, { page = 1, limit = 200, signal } = {}) {
+  return listBooks({ pages, page, limit }, { signal });
 }
 
-async function tryList(pathBase, params) {
-  const qs = buildListQS(params);
-  const data = await http(`${pathBase}?${qs}`);
-  const { items, total } = normalize(data);
-  return { items, total, raw: data };
+export async function getBook(id, { signal } = {}) {
+  if (!id) throw new Error("Missing book id");
+  return http(`/books/${encodeURIComponent(id)}`, { signal });
 }
 
-/**
- * Existing function used by your app (admin/books).
- * Tries a few endpoints for backward-compat.
- */
-export async function listBooks(params = {}) {
-  const attempts = ["/books", "/books/list", "/api/books"];
-  for (const base of attempts) {
-    try {
-      const res = await tryList(base, params);
-      return { items: res.items, total: res.total, raw: res.raw, endpoint: base };
-    } catch {}
+export async function autocomplete(field, q, { limit = 10, signal } = {}) {
+  const qs = qsFromObject({ field, q, limit });
+  const data = await http(`/books/autocomplete?${qs}`, { signal });
+  return Array.isArray(data) ? data : [];
+}
+
+export async function registerBook(payload, { signal } = {}) {
+  return http(`/books`, { method: "POST", json: payload, signal });
+}
+
+export async function registerExistingBook(id, payload, { signal } = {}) {
+  if (!id) throw new Error("Missing book id");
+  return http(`/admin/books/${encodeURIComponent(id)}/register`, {
+    method: "POST",
+    json: payload,
+    signal,
+  });
+}
+
+export async function updateBook(id, payload, { signal } = {}) {
+  if (!id) throw new Error("Missing book id");
+  return http(`/books/${encodeURIComponent(id)}`, {
+    method: "PATCH",
+    json: payload,
+    signal,
+  });
+}
+
+export async function deleteBook(id, { signal } = {}) {
+  if (!id) throw new Error("Missing book id");
+  return http(`/books/${encodeURIComponent(id)}`, {
+    method: "DELETE",
+    signal,
+  });
+}
+
+export async function setTop(id, top, { signal } = {}) {
+  return updateBook(id, { BTop: !!top }, { signal });
+}
+
+export async function setStatus(id, status, { signal } = {}) {
+  return updateBook(id, { status }, { signal });
+}
+
+/* ---------------- admin helpers ---------------- */
+
+export async function findDraft(params = {}, { signal } = {}) {
+  const qs = qsFromObject(params);
+  return http(`/admin/drafts/find?${qs}`, { signal });
+}
+
+export async function lookupIsbn(isbn, { signal } = {}) {
+  const qs = qsFromObject({ isbn });
+
+  try {
+    return await http(`/enrich/lookup?${qs}`, { signal });
+  } catch {
+    return http(`/enrich/isbn?${qs}`, { signal });
   }
-  const raw = await http(`/books`);
-  const { items, total } = normalize(raw);
-  return { items, total, raw, endpoint: "/books (no params)" };
 }
 
-export { listBooks as fetchBooks };
-
-export async function updateBook(id, patch) {
+export async function uploadCover(id, file, { signal } = {}) {
   if (!id) throw new Error("Missing book id");
-  return http(`/books/${encodeURIComponent(id)}`, { method: "PATCH", json: patch || {} });
-}
-// Delete a book (admin)
-export async function deleteBook(id) {
-  if (!id) throw new Error("Missing book id");
-  return http(`/books/${encodeURIComponent(id)}`, { method: "DELETE" });
-}
-// Read one full book record (used to prefill the edit form)
-export async function getBook(id) {
-  if (!id) throw new Error("Missing book id");
-  return http(`/books/${encodeURIComponent(id)}`);
-}
-
-export async function autocomplete(field, value) {
-  const qs = toQuery({ field, q: value });
-  return http(`/books/autocomplete?${qs}`);
-}
-
-export async function registerBook(payload) {
-  return http(`/books`, { method: "POST", json: payload });
-}
-
-// Find existing photo draft by ISBN or by 4-digit code stored in pages.
-export async function findDraft({ isbn, code } = {}) {
-  const qs = toQuery({ isbn, code });
-  return http(`/admin/drafts/find?${qs}`);
-}
-
-// Finalize an existing draft: assign/pick a barcode and save metadata (UPDATE, not CREATE)
-export async function registerExistingBook(bookId, payload) {
-  if (!bookId) throw new Error("Missing book id");
-  return http(`/admin/books/${encodeURIComponent(bookId)}/register`, { method: "POST", json: payload || {} });
-}
-
-/* =========================
-   ENRICHMENT / MEDIA
-   ========================= */
-
-// ISBN lookup (Google Books + Open Library + DNB + Wikidata, merged on backend)
-export async function lookupIsbn(isbn) {
-  const qs = toQuery({ isbn });
-  return http(`/enrich/lookup?${qs}`);
-}
-export async function lookupCoverText({ q, title, author, publisher } = {}) {
-  const qs = toQuery({ q, title, author, publisher });
-  return http(`/enrich/search?${qs}`);
-}
-// Upload cover image (multipart). Backend stores as /assets/covers/<book_id>.jpg
-export async function uploadCover(bookId, file) {
-  if (!bookId) throw new Error("Missing book id");
-  if (!file) throw new Error("Missing file");
-  if ((file.size ?? 0) < 1024) throw new Error("Cover file is empty (0 bytes). Please retake the photo.");
+  if (!file) throw new Error("Missing cover file");
 
   const fd = new FormData();
   fd.append("cover", file);
 
-  const res = await fetch(buildUrl(`/admin/books/${encodeURIComponent(bookId)}/cover`), {
+  return http(`/admin/books/${encodeURIComponent(id)}/cover`, {
     method: "POST",
     body: fd,
-    credentials: "include",
+    signal,
   });
-
-  const text = await res.text();
-  if (!res.ok) {
-    let msg = text || `HTTP ${res.status}`;
-    try {
-      const j = text ? JSON.parse(text) : null;
-      msg = j?.message || j?.error || msg;
-    } catch {}
-    throw new Error(msg);
-  }
-
-  try {
-    return text ? JSON.parse(text) : null;
-  } catch {
-    return text;
-  }
 }
 
-/* =========================
-   PUBLIC BOOKS / STATS API
-   ========================= */
+/* ---------------- public books ---------------- */
 
-/**
- * Get homepage stats.
- * GET /api/public/books/stats?year=2026
- */
-export async function getPublicBookStats(year = 2026, { signal } = {}) {
-  const qs = toQuery({ year });
-  return http(`/public/books/stats?${qs}`, { signal });
-}
-
-/**
- * List public books for stats pages.
- * Expected backend: GET /api/public/books?bucket=stock|finished|abandoned|top&year=2026&q=...&limit=...&offset=...&author=...
- *
- * Returns { items, total, raw, endpoint }
- */
-export async function listPublicBooks(params = {}) {
-  const {
-    bucket, // stock | finished | abandoned | top
+export async function listPublicBooks(
+  {
+    bucket,
     year,
     q,
     author,
-    limit = 200,
-    offset = 0,
-    page, // optional convenience
-  } = params;
+    title,
+    limit = 50,
+    page,
+    offset,
+    signal,
+  } = {}
+) {
+  const finalOffset =
+    offset !== undefined
+      ? Number(offset) || 0
+      : page !== undefined
+        ? Math.max(0, (Number(page) - 1) * Number(limit || 50))
+        : 0;
 
-  const effOffset = page ? (Math.max(1, Number(page)) - 1) * Number(limit) : Number(offset) || 0;
-
-  const qs = toQuery({
+  const qs = qsFromObject({
     bucket,
     year,
-    q: q && String(q).trim() ? String(q).trim() : undefined,
-    author: author && String(author).trim() ? String(author).trim() : undefined,
+    q,
+    author,
+    title,
     limit,
-    offset: effOffset,
-    // meta=1 is optional if your backend supports it; harmless if ignored
+    offset: finalOffset,
     meta: 1,
   });
 
-  // allow some endpoint flexibility
-  const attempts = ["/public/books", "/public/books/list"];
-  let lastErr = null;
+  const data = await http(`/public/books?${qs}`, { signal });
 
-  for (const base of attempts) {
-    try {
-      const raw = await http(`${base}?${qs}`);
-      const { items, total } = normalize(raw);
-      return { items, total, raw, endpoint: base };
-    } catch (e) {
-      lastErr = e;
-    }
+  if (Array.isArray(data)) {
+    return {
+      items: data,
+      total: data.length,
+      limit: Number(limit) || data.length,
+      offset: finalOffset,
+    };
   }
 
-  // fall back (no params)
-  try {
-    const raw = await http(`/public/books`);
-    const { items, total } = normalize(raw);
-    return { items, total, raw, endpoint: "/public/books (no params)" };
-  } catch (e) {
-    throw lastErr || e;
-  }
+  return {
+    items: Array.isArray(data?.items) ? data.items : [],
+    total: Number.isFinite(data?.total) ? data.total : 0,
+    limit: Number.isFinite(data?.limit) ? data.limit : Number(limit) || 50,
+    offset: Number.isFinite(data?.offset) ? data.offset : finalOffset,
+  };
 }
 
-export { listPublicBooks as fetchPublicBooks };
-
-/**
- * Stock authors ranking:
- * GET /api/public/books/stock-authors?limit=80
- */
-export async function listStockAuthors({ limit = 80, signal } = {}) {
-  const qs = toQuery({ limit });
-  return http(`/public/books/stock-authors?${qs}`, { signal });
-}
-
-export async function listMostReadAuthors({ limit = 200, signal } = {}) {
-  const qs = toQuery({ limit });
-  return http(`/public/books/most-read-authors?${qs}`, { signal });
-}
-
-// Fetch a single public book by id
 export async function getPublicBook(id, { signal } = {}) {
   if (!id) throw new Error("Missing book id");
   return http(`/public/books/${encodeURIComponent(id)}`, { signal });
 }
 
-// Fetch related books (same author + same theme tokens)
-export async function getPublicRelatedBooks(id, { limit = 12, signal } = {}) {
-  if (!id) throw new Error("Missing book id");
-  const qs = toQuery({ limit });
-  return http(`/public/books/${encodeURIComponent(id)}/related?${qs}`, { signal });
+export async function listStockAuthors({ limit = 80, signal } = {}) {
+  const qs = qsFromObject({ limit });
+  const data = await http(`/public/books/stock-authors?${qs}`, { signal });
+  return Array.isArray(data) ? data : [];
+}
+
+export async function listMostReadAuthors({ limit = 50, signal } = {}) {
+  const qs = qsFromObject({ limit });
+  const data = await http(`/public/books/most-read-authors?${qs}`, { signal });
+  return Array.isArray(data) ? data : [];
 }

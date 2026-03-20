@@ -1,16 +1,19 @@
 // frontend/src/utils/uploadQueue.js
 // IndexedDB upload queue (iPhone-safe).
 //
-// Supports two job shapes:
+// Supports three job shapes:
 //  1) Legacy request-based jobs:
 //     job.request = { url, method, bodyType, json, form, fileBlob, fileField, fileName }
-//  2) PagesInLine "create" jobs (current UI):
-//     { flow:"create", step:"create"|"cover", payload:{...}, cover:File, coverName, draftId, skipIsbn? }
+//  2) PagesInLine "create" jobs:
+//     { flow:"create", step:"create"|"cover", payload:{...}, cover:File, coverName, savedId? }
+//  3) Existing-draft "finalize" jobs:
+//     { flow:"finalize", draftId:"<book uuid>", step:"create"|"cover", payload:{...}, cover?:File }
 //
 // Key goals:
 //  - Never leave jobs stuck on "uploading" forever (uploadingAt watchdog).
-//  - For create-jobs: create book ONCE, store server book id in draftId, then upload cover.
-//  - Provide helpers expected by UploadQueueManager (retryUploadJob, retryUploadJobWithoutIsbn, deleteUploadJob).
+//  - For create/finalize jobs: perform the save step ONCE, then upload cover only if a file exists.
+//  - Deduplicate repeated submit attempts so one bad save does not create a pile of identical queued jobs.
+//  - Provide helpers expected by UploadQueueManager.
 //
 // Notes:
 //  - DO NOT run any IDB actions at module top-level (no top-level await).
@@ -19,7 +22,7 @@
 const DB_NAME = "zrnet_upload_queue";
 const DB_VERSION = 1;
 const STORE = "jobs";
-const UPLOADING_TTL_MS = 60_000; // if uploading longer than this, consider "stuck"
+const UPLOADING_TTL_MS = 60_000;
 const MIN_FILE_BYTES = 1024;
 
 let _processing = false;
@@ -50,7 +53,6 @@ function openDb() {
       }
     };
     req.onsuccess = () => resolve(req.result);
-    // iOS sometimes gives tx.error === null; never hard reject, keep app alive
     req.onerror = () => resolve(null);
   });
 }
@@ -77,28 +79,156 @@ async function withStore(mode, fn) {
   });
 }
 
+function stripIsbnFields(obj) {
+  const p = obj && typeof obj === "object" ? { ...obj } : {};
+  delete p.isbn;
+  delete p.isbn13;
+  delete p.isbn10;
+  delete p.isbn13_raw;
+  delete p.isbn13Raw;
+  delete p.isbn_raw;
+  return p;
+}
+
+function safeStr(v) {
+  return typeof v === "string" ? v.trim() : v == null ? "" : String(v).trim();
+}
+
+function normalizeForKey(v) {
+  return safeStr(v).toLowerCase().replace(/\s+/g, " ").trim();
+}
+
+function fingerprintForJob(job) {
+  const p = job?.payload && typeof job.payload === "object" ? job.payload : {};
+  const flow = safeStr(job?.flow || "create") || "create";
+
+  if (flow === "finalize") {
+    const draftId = safeStr(job?.draftId || job?.savedId);
+    if (draftId) return `finalize:${draftId}`;
+  }
+
+  const isbn = normalizeForKey(p.isbn13 || p.isbn10 || p.isbn13_raw || p.isbn13Raw || p.isbn_raw || p.isbn);
+  if (isbn) return `${flow}:isbn:${isbn}`;
+
+  const title = normalizeForKey(p.title_display || p.BTitel || p.BKw || p.title_keyword || p.title);
+  const author = normalizeForKey(p.name_display || p.author_name_display || p.author_display || p.BAutor || p.author);
+  const publisher = normalizeForKey(p.publisher_name_display || p.BVerlag || p.publisher);
+
+  if (title && author) return `${flow}:title-author:${title}|${author}`;
+  if (title && publisher) return `${flow}:title-publisher:${title}|${publisher}`;
+  if (title) return `${flow}:title:${title}`;
+  return null;
+}
+
+function jobRank(job) {
+  return (
+    (job?.savedId ? 100 : 0) +
+    (job?.draftId ? 30 : 0) +
+    (job?.step === "cover" ? 20 : 0) +
+    (job?.cover ? 10 : 0) +
+    Number(job?.createdAt || 0) / 1e13
+  );
+}
+
+async function squashDuplicateJobs() {
+  return withStore("readwrite", (store) => {
+    if (!store) return 0;
+
+    return new Promise((resolve) => {
+      const req = store.getAll();
+      req.onsuccess = () => {
+        const items = req.result || [];
+        const buckets = new Map();
+
+        for (const job of items) {
+          const fp = fingerprintForJob(job);
+          if (!fp) continue;
+          if (!buckets.has(fp)) buckets.set(fp, []);
+          buckets.get(fp).push(job);
+        }
+
+        let removed = 0;
+        for (const list of buckets.values()) {
+          if (list.length < 2) continue;
+
+          list.sort((a, b) => jobRank(b) - jobRank(a));
+          const keep = list[0];
+
+          for (const dup of list.slice(1)) {
+            const merged = {
+              ...keep,
+              payload: { ...(dup?.payload || {}), ...(keep?.payload || {}) },
+              cover: keep?.cover || dup?.cover || null,
+              coverName: keep?.coverName || dup?.coverName || null,
+              savedId: keep?.savedId || dup?.savedId || null,
+              draftId: keep?.draftId || dup?.draftId || null,
+              retries: Math.max(Number(keep?.retries || 0), Number(dup?.retries || 0)),
+              createdAt: Math.min(Number(keep?.createdAt || Date.now()), Number(dup?.createdAt || Date.now())),
+              status: keep?.status === "error" && dup?.status === "pending" ? "pending" : keep?.status,
+              lastError: keep?.lastError || dup?.lastError || null,
+            };
+            store.put(merged);
+            store.delete(dup.id);
+            removed++;
+          }
+        }
+
+        resolve(removed);
+      };
+      req.onerror = () => resolve(0);
+    });
+  });
+}
+
 export async function enqueueUploadJob(job) {
-  const j = {
+  const incoming = {
     id: job?.id || genId(),
     createdAt: job?.createdAt || Date.now(),
-    status: job?.status || "pending", // pending | uploading | error
+    status: job?.status || "pending",
     retries: job?.retries || 0,
     lastError: job?.lastError || null,
     uploadingAt: job?.uploadingAt || null,
     ...job,
   };
 
-  await withStore("readwrite", (store) => {
-    if (!store) return;
-    store.put(j);
-  });
+  return withStore("readwrite", (store) => {
+    if (!store) return incoming.id;
 
-  return j.id;
+    return new Promise((resolve) => {
+      const req = store.getAll();
+      req.onsuccess = () => {
+        const items = req.result || [];
+        const fp = fingerprintForJob(incoming);
+        const existing = fp ? items.find((j) => j?.id !== incoming.id && fingerprintForJob(j) === fp) : null;
+
+        const next = existing
+          ? {
+              ...existing,
+              ...incoming,
+              id: existing.id,
+              createdAt: Math.min(Number(existing.createdAt || Date.now()), Number(incoming.createdAt || Date.now())),
+              payload: { ...(existing.payload || {}), ...(incoming.payload || {}) },
+              cover: incoming.cover || existing.cover || null,
+              coverName: incoming.coverName || existing.coverName || null,
+              savedId: incoming.savedId || existing.savedId || null,
+              draftId: incoming.draftId || existing.draftId || null,
+              status: incoming.status || existing.status || "pending",
+            }
+          : incoming;
+
+        store.put(next);
+        resolve(next.id);
+      };
+      req.onerror = () => {
+        store.put(incoming);
+        resolve(incoming.id);
+      };
+    });
+  });
 }
 
-// BookForm.jsx expects this name:
 export async function upsertUploadJob(job) {
-  return enqueueUploadJob(job); // put() already "upserts" in IndexedDB
+  return enqueueUploadJob(job);
 }
 
 export async function getPendingUploadCount() {
@@ -181,19 +311,7 @@ export async function resetStuckUploadingJobs({ maxAgeMs = UPLOADING_TTL_MS } = 
   });
 }
 
-/* -------------------------- upload implementations ------------------------- */
-
-function stripIsbnFields(obj) {
-  const p = obj && typeof obj === "object" ? { ...obj } : {};
-  delete p.isbn;
-  delete p.isbn13;
-  delete p.isbn10;
-  delete p.isbn13_raw;
-  return p;
-}
-
 async function fetchJson(url, opts) {
-  // Always include credentials so /api/admin cookies work across ports (same host).
   const resp = await fetch(url, { credentials: "include", ...opts });
   const text = await resp.text().catch(() => "");
   let json = null;
@@ -212,9 +330,7 @@ async function fetchJson(url, opts) {
 async function uploadCreateStep(job) {
   const rawPayload = job?.payload && typeof job.payload === "object" ? job.payload : {};
   const payload = job?.skipIsbn ? stripIsbnFields(rawPayload) : rawPayload;
-
-  // Idempotency hint: use job id as requestId (backend supports it if books.request_id exists)
-  const body = { ...payload, requestId: job.id };
+  const body = { ...payload, requestId: payload.requestId || job.id };
 
   const book = await fetchJson("/api/books", {
     method: "POST",
@@ -225,18 +341,35 @@ async function uploadCreateStep(job) {
   const bookId = book?.id || book?._id;
   if (!bookId) throw new Error("create_missing_book_id");
 
-  // Persist server book id and advance to cover step
-  await updateJob(job.id, { draftId: bookId, step: "cover", lastError: null });
+  await updateJob(job.id, { savedId: bookId, step: "cover", lastError: null });
+  return { bookId };
+}
+
+async function uploadFinalizeStep(job) {
+  const targetId = job?.draftId || job?.savedId;
+  if (!targetId) throw new Error("missing_draft_id");
+
+  const rawPayload = job?.payload && typeof job.payload === "object" ? job.payload : {};
+  const payload = job?.skipIsbn ? stripIsbnFields(rawPayload) : rawPayload;
+
+  const book = await fetchJson(`/api/admin/books/${encodeURIComponent(targetId)}/register`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+
+  const bookId = book?.id || book?._id || targetId;
+  await updateJob(job.id, { savedId: bookId, step: "cover", lastError: null });
   return { bookId };
 }
 
 async function uploadCoverStep(job, bookIdOverride) {
-  const bookId = bookIdOverride || job?.draftId;
+  const bookId = bookIdOverride || job?.savedId || job?.draftId;
   if (!bookId) throw new Error("missing_book_id_for_cover");
 
   const file = job?.cover;
   const sz = file?.size ?? 0;
-  if (!file) throw new Error("missing_file");
+  if (!file) return false;
   if (sz < MIN_FILE_BYTES) throw new Error(`empty_file_${sz}`);
 
   const fd = new FormData();
@@ -250,7 +383,6 @@ async function uploadCoverStep(job, bookIdOverride) {
   return true;
 }
 
-// Legacy generic uploader (request-based jobs)
 async function legacyUploader(job) {
   const req = job?.request;
   if (!req?.url) throw new Error("upload_job_missing_request_url");
@@ -290,7 +422,27 @@ async function legacyUploader(job) {
   return true;
 }
 
-/* --------------------------------- public --------------------------------- */
+async function processCreateOrFinalizeJob(job) {
+  const flow = safeStr(job?.flow || "create") || "create";
+  const hasCover = !!job?.cover;
+  const step = safeStr(job?.step || "create") || "create";
+
+  let bookId = job?.savedId || job?.draftId || null;
+
+  if (step !== "cover") {
+    if (flow === "finalize") {
+      const out = await uploadFinalizeStep(job);
+      bookId = out?.bookId || bookId;
+    } else {
+      const out = await uploadCreateStep(job);
+      bookId = out?.bookId || bookId;
+    }
+  }
+
+  if (!hasCover) return true;
+  await uploadCoverStep(job, bookId);
+  return true;
+}
 
 export async function processUploadQueue({ maxJobs = 5 } = {}) {
   if (!hasIDB()) return { processed: 0, failed: 0 };
@@ -298,11 +450,10 @@ export async function processUploadQueue({ maxJobs = 5 } = {}) {
 
   _processing = true;
   try {
-    // Auto-reset stuck "uploading" jobs so they become visible/retryable.
     await resetStuckUploadingJobs({ maxAgeMs: UPLOADING_TTL_MS });
+    await squashDuplicateJobs();
 
     const jobs = await listUploadJobs();
-
     const pending = jobs
       .filter((j) => j?.status === "pending" || j?.status === "error")
       .sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0))
@@ -313,22 +464,12 @@ export async function processUploadQueue({ maxJobs = 5 } = {}) {
 
     for (const job of pending) {
       const id = job.id;
-
-      // Mark uploading with timestamp so we can reset if Safari kills fetch
       await updateJob(id, { status: "uploading", uploadingAt: Date.now(), lastError: null });
 
       try {
-        // PagesInLine "create" jobs
-        if (job.flow === "create" || job.step === "create" || job.step === "cover" || job.payload || job.cover) {
-          if (!job.draftId || job.step === "create" || !job.step) {
-            const { bookId } = await uploadCreateStep(job);
-            // IMPORTANT: use the bookId we just got; do not depend on re-reading job from IDB
-            await uploadCoverStep(job, bookId);
-          } else {
-            await uploadCoverStep(job);
-          }
+        if (job.flow === "create" || job.flow === "finalize" || job.step === "create" || job.step === "cover" || job.payload || job.cover) {
+          await processCreateOrFinalizeJob(job);
         } else {
-          // Legacy request-based jobs
           await legacyUploader(job);
         }
 
@@ -351,13 +492,11 @@ export async function processUploadQueue({ maxJobs = 5 } = {}) {
   }
 }
 
-// --- Exports expected by UploadQueueManager.jsx ---
 export async function retryUploadJob(id) {
   return updateJob(id, { status: "pending", uploadingAt: null, lastError: null });
 }
 
 export async function retryUploadJobWithoutIsbn(id) {
-  // Mark as skipIsbn; also remove isbn fields from payload if present
   return withStore("readwrite", (store) => {
     if (!store) return false;
 
@@ -384,10 +523,10 @@ export async function retryUploadJobWithoutIsbn(id) {
   });
 }
 
-// Convenience "drop" helpers
 export async function dropUploadJob(id) {
   return deleteUploadJob(id);
 }
+
 export async function dropAllUploadJobs() {
   const jobs = await listUploadJobs();
   for (const j of jobs) {
@@ -396,6 +535,5 @@ export async function dropAllUploadJobs() {
   return true;
 }
 
-// Common aliases some components expect:
 export const getUploadJobs = listUploadJobs;
 export const removeUploadJob = deleteUploadJob;

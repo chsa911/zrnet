@@ -94,7 +94,7 @@ function bookHay(b) {
   // include author fields too, so subthemes can be keyed by author names (e.g. Mahmoody, Hofmann)
   return [
     b && (b.title_display || b.titleDisplay || b.title),
-    b && b.full_title,
+    b && [b.title_display, b.subtitle_display].filter(Boolean).join(": "),
     b && b.comment,
     b && b.title_en,
     b && b.BKw,

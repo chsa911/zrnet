@@ -82,16 +82,34 @@ async function buildPurchase(pool, { isbn13, isbn10 }) {
   return { best: candidates[0] || null, candidates };
 }
 
-/* --- DB-only meta (because you said ISBN must exist in DB) --- */
+/* --- DB meta: canonical author/publisher values win --- */
 async function metaFromDb(pool, { isbn13, isbn10 }) {
   const { rows } = await pool.query(
     `
-    SELECT id, full_title, author_display, author, publisher, isbn13, isbn10
-    FROM public.books
-    WHERE ($1 IS NOT NULL AND isbn13 = $1)
-       OR ($2 IS NOT NULL AND isbn10 = $2)
-       OR ($1 IS NOT NULL AND isbn13_raw = $1)
-    ORDER BY registered_at DESC
+    SELECT
+      b.id,
+      b.title_display,
+      b.subtitle_display,
+      b.title_keyword,
+      b.pages,
+      b.original_language,
+      b.purchase_url,
+      b.isbn13,
+      b.isbn10,
+      a.first_name AS author_first_name,
+      a.last_name AS author_last_name,
+      a.name_display AS author_name_display,
+      a.abbreviation AS author_abbreviation,
+      p.name AS publisher_name,
+      p.name_display AS publisher_name_display,
+      p.abbr AS publisher_abbr
+    FROM public.books b
+    LEFT JOIN public.authors a ON a.id = b.author_id
+    LEFT JOIN public.publishers p ON p.id = b.publisher_id
+    WHERE ($1 IS NOT NULL AND b.isbn13 = $1)
+       OR ($2 IS NOT NULL AND b.isbn10 = $2)
+       OR ($1 IS NOT NULL AND b.isbn13_raw = $1)
+    ORDER BY b.registered_at DESC NULLS LAST, b.added_at DESC NULLS LAST
     LIMIT 1
     `,
     [isbn13 || null, isbn10 || null]
@@ -103,9 +121,17 @@ async function metaFromDb(pool, { isbn13, isbn10 }) {
   return {
     source: "db",
     book_id: b.id,
-    title: b.title_display || null,
-    author_display: b.author_display || b.author || null,
-    publisher: b.publisher || null,
+    title: b.title_display || b.title_keyword || null,
+    subtitle_display: b.subtitle_display || null,
+    pages: b.pages ?? null,
+    original_language: b.original_language || null,
+    purchase_url: b.purchase_url || null,
+    author_first_name: b.author_first_name || null,
+    author_last_name: b.author_last_name || null,
+    author_name_display: b.author_name_display || null,
+    author_abbreviation: b.author_abbreviation || null,
+    publisher_name_display: b.publisher_name_display || b.publisher_name || null,
+    publisher_abbr: b.publisher_abbr || null,
   };
 }
 
@@ -264,6 +290,7 @@ function chooseBestHit(hits, { q, title, author }) {
     return sb - sa;
   })[0] || null;
 }
+
 router.get("/search", async (req, res, next) => {
   try {
     const q = String(req.query.q || "").trim();
@@ -323,72 +350,39 @@ router.get("/lookup", async (req, res, next) => {
       metaFromDb(pool, n).catch(() => null),
     ]);
 
-    const title = pickFirst(g?.title, ol?.title, meta?.title);
-    const authorName = pickFirst(g?.authors?.[0], ol?.authors?.[0], meta?.author_display);
-    const publisher = pickFirst(g?.publisher, ol?.publisher, meta?.publisher);
-    const pages = g?.pages ?? ol?.pages ?? null;
-    const lang = pickFirst(g?.language, ol?.language);
+    const title = pickFirst(meta?.title, g?.title, ol?.title);
+    const subtitle = meta?.subtitle_display || null;
+    const authorDisplay = pickFirst(meta?.author_name_display, g?.authors?.[0], ol?.authors?.[0]);
+    const publisherDisplay = pickFirst(meta?.publisher_name_display, g?.publisher, ol?.publisher);
+    const pages = meta?.pages ?? g?.pages ?? ol?.pages ?? null;
+    const lang = pickFirst(meta?.original_language, g?.language, ol?.language);
 
-    // Return the shape BookForm.jsx expects.
     const suggested = {
       isbn13: n.isbn13 || null,
       isbn10: n.isbn10 || null,
       title_display: title,
-      BVerlag: publisher,
+      subtitle_display: subtitle,
+      author_firstname: meta?.author_first_name || null,
+      author_lastname: meta?.author_last_name || null,
+      name_display: authorDisplay || null,
+      author_name_display: authorDisplay || null,
+      author_name: authorDisplay || null,
+      author_abbreviation: meta?.author_abbreviation || null,
+      publisher_name_display: publisherDisplay || null,
+      publisher_abbr: meta?.publisher_abbr || null,
+      BVerlag: publisherDisplay || null,
       BSeiten: pages != null ? String(pages) : null,
-      purchase_url: purchase?.best?.url || null,
+      pages,
+      purchase_url: meta?.purchase_url || purchase?.best?.url || null,
       original_language: lang,
-      name_display: authorName,
-      author_name: authorName,
-      // keyword hint (frontend can derive better)
       BKw: title,
-      BKP: "0",
+      BKP: title ? "0" : null,
     };
 
     res.json({
       suggested,
       sources: { google: g, openlibrary: ol, db: meta },
       purchase,
-    });
-  } catch (e) {
-    next(e);
-  }
-});
-router.get("/search", async (req, res, next) => {
-  try {
-    const q = String(req.query.q || "").trim();
-    const title = String(req.query.title || "").trim();
-    const author = String(req.query.author || "").trim();
-    const publisher = String(req.query.publisher || "").trim();
-
-    if (!q && !title && !author) {
-      return res.status(400).json({ error: "missing_query" });
-    }
-
-    const [googleHits, openHits] = await Promise.all([
-      searchGoogleByText({ q, title, author, publisher }).catch(() => []),
-      searchOpenLibraryByText({ q, title, author }).catch(() => []),
-    ]);
-
-    const hits = [...googleHits, ...openHits];
-    const best = chooseBestHit(hits, { q, title, author });
-
-    const bestAuthor = best?.authors?.[0] || author || null;
-
-    const suggested = {
-      title_display: best?.title || title || null,
-      BVerlag: best?.publisher || publisher || null,
-      BSeiten: best?.pages != null ? String(best.pages) : null,
-      original_language: best?.language || null,
-      name_display: bestAuthor,
-      author_name: bestAuthor,
-      BKw: best?.title || title || null,
-      BKP: best?.title || title ? "0" : null,
-    };
-
-    res.json({
-      suggested,
-      hits: hits.slice(0, 5),
     });
   } catch (e) {
     next(e);
@@ -403,7 +397,6 @@ router.get("/isbn", async (req, res, next) => {
     const n = normalizeIsbn(raw);
     if (!n) return res.status(400).json({ error: "invalid_isbn" });
 
-    // Delegate to /lookup implementation
     req.url = `/lookup?isbn=${encodeURIComponent(raw)}`;
     return router.handle(req, res, next);
   } catch (e) {

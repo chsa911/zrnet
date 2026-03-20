@@ -1,4 +1,3 @@
-// backend/routes/books.js
 const express = require("express");
 const router = express.Router();
 
@@ -8,7 +7,7 @@ const {
   autocomplete,
   registerBook,
   updateBook,
-  dropBook, // ✅ add this
+  dropBook,
 } = require("../controllers/booksPgController");
 
 // List + search
@@ -27,7 +26,7 @@ router.post("/", registerBook);
 // Patch
 router.patch("/:id", updateBook);
 
-// ✅ Drop / delete
+// Delete
 router.delete("/:id", dropBook);
 
 module.exports = router;

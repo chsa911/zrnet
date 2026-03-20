@@ -117,7 +117,8 @@ function rowToApi(row) {
   const authorDisplay = authorNameDisplay || computeAuthorDisplay(authorFirst, authorLast);
 
   const publisherName = normalizeStr(row.publisher_name) || null;
-  const publisherNameDisplay = normalizeStr(row.publisher_name_display) || normalizeStr(row.publisher) || null;
+  const publisherNameDisplay = normalizeStr(row.publisher_name_display) || null;
+  const publisherAbbr = normalizeStr(row.publisher_abbr) || null;
 
   return {
     id: row.id,
@@ -125,9 +126,14 @@ function rowToApi(row) {
 
     barcode: row.barcode ?? null,
     BMarkb: row.barcode ?? null,
-    BMark: row.barcode ?? null,    author_lastname: authorLast,
+    BMark: row.barcode ?? null,
+
+    author_lastname: authorLast,
     author_firstname: authorFirst,
     name_display: authorNameDisplay || null,
+    author_name_display: authorNameDisplay || null,
+    author_full_name: row.author_full_name ?? row.full_name ?? authorDisplay ?? null,
+    author_abbreviation: row.author_abbreviation ?? row.abbreviation ?? null,
     male_female: row.male_female ?? null,
     author_nationality: row.author_nationality ?? null,
     place_of_birth: row.place_of_birth ?? null,
@@ -135,17 +141,18 @@ function rowToApi(row) {
     number_of_millionsellers: row.number_of_millionsellers ?? null,
 
     // legacy aliases used in UI
-    // (UI labels are German, but key names are legacy)
-    BAutor: authorDisplay,
+    BAutor: authorLast || null,
     Autor: authorDisplay,
+
     publisher_name: publisherName,
     publisher_name_display: publisherNameDisplay,
+    publisher_abbr: publisherAbbr,
 
     BVerlag: publisherNameDisplay,
     publisher: publisherNameDisplay,
 
-    // Display title (for admin list columns / future UI)
     title_display: row.title_display ?? null,
+    subtitle_display: row.subtitle_display ?? null,
     titleDisplay: row.title_display ?? null,
     BTitel: row.title_display ?? null,
     title: row.title_display ?? null,
@@ -165,7 +172,6 @@ function rowToApi(row) {
     status: row.reading_status ?? null,
     reading_status: row.reading_status ?? null,
 
-    // Status change timestamp (finished/abandoned). Fallback to created/registered.
     reading_status_updated_at: row.reading_status_updated_at ?? null,
     status_changed_at:
       row.reading_status_updated_at ?? row.registered_at ?? row.added_at ?? row.created_at ?? null,
@@ -176,11 +182,8 @@ function rowToApi(row) {
     createdAt: row.registered_at ?? row.created_at ?? null,
     registered_at: row.registered_at ?? null,
 
-    // Keep for compatibility, but prefer authorDisplay above.
     author_display: authorDisplay ?? row.author_display ?? null,
 
-    // ✅ add these for BookThemesPage / candidate dropdown
-    full_title: row.full_title ?? null,
     themes: row.themes ?? null,
     purchase_url: row.purchase_url ?? null,
     isbn13: row.isbn13 ?? null,
@@ -223,14 +226,29 @@ function pickKnownColumns(colsSet, obj) {
   return out;
 }
 
-
-
 /* ------------------------- author / publisher helpers ---------------------- */
 
 function normalizeKey(v) {
   const s = normalizeStr(v);
   if (!s) return null;
   return s.toLowerCase().replace(/\s+/g, " ").trim();
+}
+
+function normalizeCompactKey(v) {
+  const s = normalizeStr(v);
+  if (!s) return null;
+  return s.toLowerCase().replace(/[^a-z0-9]+/g, "");
+}
+
+function normalizePublisherNameForMatch(v) {
+  const s = normalizeStr(v);
+  if (!s) return null;
+  return s
+    .toLowerCase()
+    .replace(/\bvlg\b/g, "verlag")
+    .replace(/[^a-z0-9]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
 }
 
 function splitNameDisplay(display) {
@@ -241,57 +259,352 @@ function splitNameDisplay(display) {
   return { first: parts.slice(0, -1).join(" "), last: parts[parts.length - 1] };
 }
 
-async function upsertAuthor(db, { key, firstName, lastName, nameDisplay }) {
-  const k = normalizeKey(key || lastName || nameDisplay);
-  if (!k) return null;
-
+async function upsertAuthor(
+  db,
+  {
+    key,
+    firstName,
+    lastName,
+    nameDisplay,
+    fullName,
+    abbreviation,
+    publishedTitles,
+    numberOfMillionSellers,
+    maleFemale,
+    authorNationality,
+    placeOfBirth,
+  }
+) {
   const disp = normalizeStr(nameDisplay);
   const first = normalizeStr(firstName);
   const last = normalizeStr(lastName);
   const guessed = splitNameDisplay(disp);
 
-  // If last/first missing, fall back to parsing name_display.
   const effFirst = first ?? guessed.first;
   const effLast = last ?? guessed.last;
+  const effFull = normalizeStr(fullName) || disp || computeAuthorDisplay(effFirst, effLast);
+  const effAbbr = normalizeStr(abbreviation);
+  const effPublished = normalizeInt(publishedTitles);
+  const effMillions = normalizeInt(numberOfMillionSellers);
+  const effMaleFemale = normalizeStr(maleFemale);
+  const effNationality = normalizeStr(authorNationality);
+  const effPlaceOfBirth = normalizeStr(placeOfBirth);
 
-  const full = disp || computeAuthorDisplay(effFirst, effLast);
-
-  const { rows } = await db.query(
-    `
-    INSERT INTO public.authors (name, name_display, first_name, last_name, full_name)
-    VALUES ($1, $2, $3, $4, $5)
-    ON CONFLICT (name) DO UPDATE SET
-      name_display = COALESCE(EXCLUDED.name_display, public.authors.name_display),
-      first_name   = COALESCE(EXCLUDED.first_name,   public.authors.first_name),
-      last_name    = COALESCE(EXCLUDED.last_name,    public.authors.last_name),
-      full_name    = COALESCE(EXCLUDED.full_name,    public.authors.full_name)
-    RETURNING id, name, name_display, first_name, last_name
-    `,
-    [k, disp, effFirst, effLast, full]
-  );
-
-  return rows[0] || null;
-}
-
-async function upsertPublisher(db, { key, nameDisplay }) {
-  const k = normalizeKey(key || nameDisplay);
+  const fullDisplay = effFull || computeAuthorDisplay(effFirst, effLast) || disp;
+  const k = normalizeKey(key || fullDisplay || effLast);
   if (!k) return null;
 
-  const disp = normalizeStr(nameDisplay);
+  const kNorm = normalizeCompactKey(k);
+  const dispNorm = normalizeCompactKey(disp);
+  const fullNorm = normalizeCompactKey(effFull);
+  const fullDisplayNorm = normalizeCompactKey(fullDisplay);
+  const abbrNorm = normalizeCompactKey(effAbbr);
 
-  const { rows } = await db.query(
+  const mergeAuthor = async (row) => {
+    if (!row?.id) return null;
+    const { rows } = await db.query(
+      `
+      UPDATE public.authors
+      SET
+        name_display = COALESCE($2, name_display),
+        first_name = COALESCE($3, first_name),
+        last_name = COALESCE($4, last_name),
+        full_name = COALESCE($5, full_name),
+        abbreviation = COALESCE(abbreviation, $6),
+        published_titles = COALESCE($7, published_titles),
+        number_of_millionsellers = COALESCE($8, number_of_millionsellers),
+        male_female = COALESCE($9, male_female),
+        author_nationality = COALESCE($10, author_nationality),
+        place_of_birth = COALESCE($11, place_of_birth)
+      WHERE id = $1::uuid
+      RETURNING id, name, name_display, first_name, last_name, full_name, abbreviation,
+                published_titles, number_of_millionsellers, male_female, author_nationality, place_of_birth
+      `,
+      [
+        row.id,
+        disp,
+        effFirst,
+        effLast,
+        effFull,
+        effAbbr,
+        effPublished,
+        effMillions,
+        effMaleFemale,
+        effNationality,
+        effPlaceOfBirth,
+      ]
+    );
+    return rows[0] || null;
+  };
+
+  if (abbrNorm) {
+    const byAbbr = await db.query(
+      `
+      SELECT id, name, name_display, first_name, last_name, full_name, abbreviation,
+             published_titles, number_of_millionsellers, male_female, author_nationality, place_of_birth
+      FROM public.authors
+      WHERE regexp_replace(lower(coalesce(abbreviation, '')), '[^a-z0-9]+', '', 'g') = $1
+      LIMIT 1
+      `,
+      [abbrNorm]
+    );
+    if (byAbbr.rows[0]) return mergeAuthor(byAbbr.rows[0]);
+  }
+
+  const aliasNeedle = fullNorm || dispNorm || fullDisplayNorm;
+  if (aliasNeedle) {
+    const byAlias = await db.query(
+      `
+      SELECT a.id, a.name, a.name_display, a.first_name, a.last_name, a.full_name, a.abbreviation,
+             a.published_titles, a.number_of_millionsellers, a.male_female, a.author_nationality, a.place_of_birth
+      FROM public.author_aliases aa
+      JOIN public.authors a
+        ON regexp_replace(lower(coalesce(a.abbreviation, '')), '[^a-z0-9]+', '', 'g') = aa.abbr_norm
+      WHERE regexp_replace(lower(coalesce(aa.full_name, '')), '[^a-z0-9]+', '', 'g') = $1
+      LIMIT 1
+      `,
+      [aliasNeedle]
+    );
+    if (byAlias.rows[0]) return mergeAuthor(byAlias.rows[0]);
+  }
+
+  const byName = await db.query(
     `
-    INSERT INTO public.publishers (name, name_display)
-    VALUES ($1, $2)
-    ON CONFLICT (name) DO UPDATE SET
-      name_display = COALESCE(EXCLUDED.name_display, public.publishers.name_display)
-    RETURNING id, name, name_display
+    SELECT id, name, name_display, first_name, last_name, full_name, abbreviation,
+           published_titles, number_of_millionsellers, male_female, author_nationality, place_of_birth
+    FROM public.authors
+    WHERE ($1::text IS NOT NULL AND regexp_replace(lower(coalesce(name_display, '')), '[^a-z0-9]+', '', 'g') = $1)
+       OR ($2::text IS NOT NULL AND regexp_replace(lower(coalesce(full_name, '')), '[^a-z0-9]+', '', 'g') = $2)
+       OR ($3::text IS NOT NULL AND regexp_replace(lower(concat_ws('', first_name, last_name)), '[^a-z0-9]+', '', 'g') = $3)
+       OR ($4::text IS NOT NULL AND regexp_replace(lower(coalesce(name, '')), '[^a-z0-9]+', '', 'g') = $4)
+    ORDER BY
+      CASE
+        WHEN $1::text IS NOT NULL AND regexp_replace(lower(coalesce(name_display, '')), '[^a-z0-9]+', '', 'g') = $1 THEN 1
+        WHEN $2::text IS NOT NULL AND regexp_replace(lower(coalesce(full_name, '')), '[^a-z0-9]+', '', 'g') = $2 THEN 2
+        WHEN $3::text IS NOT NULL AND regexp_replace(lower(concat_ws('', first_name, last_name)), '[^a-z0-9]+', '', 'g') = $3 THEN 3
+        WHEN $4::text IS NOT NULL AND regexp_replace(lower(coalesce(name, '')), '[^a-z0-9]+', '', 'g') = $4 THEN 4
+        ELSE 99
+      END
+    LIMIT 1
     `,
-    [k, disp]
+    [dispNorm, fullNorm, fullDisplayNorm, kNorm]
   );
+  if (byName.rows[0]) return mergeAuthor(byName.rows[0]);
 
-  return rows[0] || null;
+  try {
+    const { rows } = await db.query(
+      `
+      INSERT INTO public.authors (
+        name, name_display, first_name, last_name, full_name,
+        abbreviation, published_titles, number_of_millionsellers,
+        male_female, author_nationality, place_of_birth
+      )
+      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
+      ON CONFLICT (name) DO UPDATE SET
+        name_display = COALESCE(EXCLUDED.name_display, public.authors.name_display),
+        first_name = COALESCE(EXCLUDED.first_name, public.authors.first_name),
+        last_name = COALESCE(EXCLUDED.last_name, public.authors.last_name),
+        full_name = COALESCE(EXCLUDED.full_name, public.authors.full_name),
+        abbreviation = COALESCE(public.authors.abbreviation, EXCLUDED.abbreviation),
+        published_titles = COALESCE(EXCLUDED.published_titles, public.authors.published_titles),
+        number_of_millionsellers = COALESCE(EXCLUDED.number_of_millionsellers, public.authors.number_of_millionsellers),
+        male_female = COALESCE(EXCLUDED.male_female, public.authors.male_female),
+        author_nationality = COALESCE(EXCLUDED.author_nationality, public.authors.author_nationality),
+        place_of_birth = COALESCE(EXCLUDED.place_of_birth, public.authors.place_of_birth)
+      RETURNING id, name, name_display, first_name, last_name, full_name, abbreviation,
+                published_titles, number_of_millionsellers, male_female, author_nationality, place_of_birth
+      `,
+      [
+        k,
+        disp,
+        effFirst,
+        effLast,
+        effFull,
+        effAbbr,
+        effPublished,
+        effMillions,
+        effMaleFemale,
+        effNationality,
+        effPlaceOfBirth,
+      ]
+    );
+    return rows[0] || null;
+  } catch (err) {
+    if (String(err?.code) !== "23505") throw err;
+
+    if (abbrNorm) {
+      const byAbbr = await db.query(
+        `
+        SELECT id, name, name_display, first_name, last_name, full_name, abbreviation,
+               published_titles, number_of_millionsellers, male_female, author_nationality, place_of_birth
+        FROM public.authors
+        WHERE regexp_replace(lower(coalesce(abbreviation, '')), '[^a-z0-9]+', '', 'g') = $1
+        LIMIT 1
+        `,
+        [abbrNorm]
+      );
+      if (byAbbr.rows[0]) return mergeAuthor(byAbbr.rows[0]);
+    }
+
+    const byRetry = await db.query(
+      `
+      SELECT id, name, name_display, first_name, last_name, full_name, abbreviation,
+             published_titles, number_of_millionsellers, male_female, author_nationality, place_of_birth
+      FROM public.authors
+      WHERE ($1::text IS NOT NULL AND regexp_replace(lower(coalesce(name_display, '')), '[^a-z0-9]+', '', 'g') = $1)
+         OR ($2::text IS NOT NULL AND regexp_replace(lower(coalesce(full_name, '')), '[^a-z0-9]+', '', 'g') = $2)
+         OR ($3::text IS NOT NULL AND regexp_replace(lower(concat_ws('', first_name, last_name)), '[^a-z0-9]+', '', 'g') = $3)
+         OR ($4::text IS NOT NULL AND regexp_replace(lower(coalesce(name, '')), '[^a-z0-9]+', '', 'g') = $4)
+      LIMIT 1
+      `,
+      [dispNorm, fullNorm, fullDisplayNorm, kNorm]
+    );
+    if (byRetry.rows[0]) return mergeAuthor(byRetry.rows[0]);
+
+    throw err;
+  }
 }
+
+function normalizePublisherAbbr(v) {
+  const s = normalizeStr(v);
+  return s ? s.replace(/\s+/g, " ").trim() : null;
+}
+
+async function upsertPublisher(db, { key, nameDisplay, abbr }) {
+  const disp = normalizeStr(nameDisplay);
+  const ab = normalizePublisherAbbr(abbr);
+
+  const kRaw = normalizeStr(key || disp || ab);
+  const k = normalizeKey(kRaw);
+  if (!k) return null;
+
+  const kNorm = normalizeCompactKey(k);
+  const abNorm = normalizeCompactKey(ab);
+  const dispNorm = normalizeCompactKey(disp);
+  const dispNameNorm = normalizeCompactKey(normalizePublisherNameForMatch(disp));
+  const keyNameNorm = normalizeCompactKey(normalizePublisherNameForMatch(kRaw));
+
+  const mergePublisher = async (row) => {
+    if (!row?.id) return null;
+    const { rows } = await db.query(
+      `
+      UPDATE public.publishers
+      SET
+        name = CASE
+          WHEN regexp_replace(lower(coalesce(name, '')), '[^a-z0-9]+', '', 'g') =
+               regexp_replace(lower(coalesce(abbr, '')), '[^a-z0-9]+', '', 'g')
+               AND $2::text IS NOT NULL
+          THEN $2
+          ELSE COALESCE(NULLIF(name, ''), $2)
+        END,
+        name_display = COALESCE($3, name_display),
+        abbr = COALESCE(abbr, $4)
+      WHERE id = $1::uuid
+      RETURNING id, name, name_display, abbr
+      `,
+      [row.id, k, disp, ab]
+    );
+    return rows[0] || null;
+  };
+
+  if (abNorm) {
+    const byAbbr = await db.query(
+      `
+      SELECT id, name, name_display, abbr
+      FROM public.publishers
+      WHERE regexp_replace(lower(coalesce(abbr, '')), '[^a-z0-9]+', '', 'g') = $1
+      LIMIT 1
+      `,
+      [abNorm]
+    );
+    if (byAbbr.rows[0]) return mergePublisher(byAbbr.rows[0]);
+  }
+
+  const aliasNeedle = dispNameNorm || keyNameNorm || dispNorm || kNorm;
+  if (aliasNeedle) {
+    const byAlias = await db.query(
+      `
+      SELECT p.id, p.name, p.name_display, p.abbr
+      FROM public.publisher_aliases pa
+      JOIN public.publishers p
+        ON regexp_replace(lower(coalesce(p.abbr, '')), '[^a-z0-9]+', '', 'g') = pa.abbr_norm
+      WHERE regexp_replace(lower(coalesce(pa.full_name, '')), '[^a-z0-9]+', '', 'g') = $1
+      LIMIT 1
+      `,
+      [aliasNeedle]
+    );
+    if (byAlias.rows[0]) return mergePublisher(byAlias.rows[0]);
+  }
+
+  const byName = await db.query(
+    `
+    SELECT id, name, name_display, abbr
+    FROM public.publishers
+    WHERE ($1::text IS NOT NULL AND regexp_replace(lower(coalesce(name_display, '')), '[^a-z0-9]+', '', 'g') = $1)
+       OR ($2::text IS NOT NULL AND regexp_replace(lower(coalesce(name, '')), '[^a-z0-9]+', '', 'g') = $2)
+       OR ($3::text IS NOT NULL AND regexp_replace(lower(replace(replace(coalesce(name_display, ''), 'vlg.', 'verlag'), 'vlg', 'verlag')), '[^a-z0-9]+', '', 'g') = $3)
+       OR ($4::text IS NOT NULL AND regexp_replace(lower(replace(replace(coalesce(name, ''), 'vlg.', 'verlag'), 'vlg', 'verlag')), '[^a-z0-9]+', '', 'g') = $4)
+    ORDER BY
+      CASE
+        WHEN $1::text IS NOT NULL AND regexp_replace(lower(coalesce(name_display, '')), '[^a-z0-9]+', '', 'g') = $1 THEN 1
+        WHEN $2::text IS NOT NULL AND regexp_replace(lower(coalesce(name, '')), '[^a-z0-9]+', '', 'g') = $2 THEN 2
+        WHEN $3::text IS NOT NULL AND regexp_replace(lower(replace(replace(coalesce(name_display, ''), 'vlg.', 'verlag'), 'vlg', 'verlag')), '[^a-z0-9]+', '', 'g') = $3 THEN 3
+        WHEN $4::text IS NOT NULL AND regexp_replace(lower(replace(replace(coalesce(name, ''), 'vlg.', 'verlag'), 'vlg', 'verlag')), '[^a-z0-9]+', '', 'g') = $4 THEN 4
+        ELSE 99
+      END
+    LIMIT 1
+    `,
+    [dispNorm, kNorm, dispNameNorm, keyNameNorm]
+  );
+  if (byName.rows[0]) return mergePublisher(byName.rows[0]);
+
+  try {
+    const { rows } = await db.query(
+      `
+      INSERT INTO public.publishers (name, name_display, abbr)
+      VALUES ($1, $2, $3)
+      ON CONFLICT (name) DO UPDATE SET
+        name_display = COALESCE(EXCLUDED.name_display, public.publishers.name_display),
+        abbr = COALESCE(public.publishers.abbr, EXCLUDED.abbr)
+      RETURNING id, name, name_display, abbr
+      `,
+      [k, disp, ab]
+    );
+    return rows[0] || null;
+  } catch (err) {
+    if (String(err?.code) !== "23505") throw err;
+
+    if (abNorm) {
+      const byAbbr = await db.query(
+        `
+        SELECT id, name, name_display, abbr
+        FROM public.publishers
+        WHERE regexp_replace(lower(coalesce(abbr, '')), '[^a-z0-9]+', '', 'g') = $1
+        LIMIT 1
+        `,
+        [abNorm]
+      );
+      if (byAbbr.rows[0]) return mergePublisher(byAbbr.rows[0]);
+    }
+
+    const byRetry = await db.query(
+      `
+      SELECT id, name, name_display, abbr
+      FROM public.publishers
+      WHERE ($1::text IS NOT NULL AND regexp_replace(lower(coalesce(name_display, '')), '[^a-z0-9]+', '', 'g') = $1)
+         OR ($2::text IS NOT NULL AND regexp_replace(lower(coalesce(name, '')), '[^a-z0-9]+', '', 'g') = $2)
+         OR ($3::text IS NOT NULL AND regexp_replace(lower(replace(replace(coalesce(name_display, ''), 'vlg.', 'verlag'), 'vlg', 'verlag')), '[^a-z0-9]+', '', 'g') = $3)
+         OR ($4::text IS NOT NULL AND regexp_replace(lower(replace(replace(coalesce(name, ''), 'vlg.', 'verlag'), 'vlg', 'verlag')), '[^a-z0-9]+', '', 'g') = $4)
+      LIMIT 1
+      `,
+      [dispNorm, kNorm, dispNameNorm, keyNameNorm]
+    );
+    if (byRetry.rows[0]) return mergePublisher(byRetry.rows[0]);
+
+    throw err;
+  }
+}
+
 /* ------------------------- barcode / size helpers -------------------------- */
 
 /**
@@ -377,7 +690,9 @@ async function assignBarcodeTx(pool, { bookId, barcode, expectedSizeRuleId, expe
   if (String(row.status).toUpperCase() !== "AVAILABLE") throw new Error("barcode_not_available");
 
   if (expectedSizeRuleId) {
-    const ok = String(row.size_rule_id || "") === String(expectedSizeRuleId) || String(row.sizegroup || "") === String(expectedSizeRuleId);
+    const ok =
+      String(row.size_rule_id || "") === String(expectedSizeRuleId) ||
+      String(row.sizegroup || "") === String(expectedSizeRuleId);
     if (!ok) throw new Error("barcode_wrong_series");
   }
   if (expectedPos) {
@@ -413,15 +728,18 @@ async function fetchBookWithBarcode(pool, bookId) {
   const { rows } = await pool.query(
     `
     SELECT
-      b.*, 
+      b.*,
       bb.barcode,
       a.name_display AS author_name_display,
       a.first_name   AS author_first_name,
       a.last_name    AS author_last_name,
+      a.full_name    AS author_full_name,
+      a.abbreviation AS author_abbreviation,
       p.name         AS publisher_name,
-      p.name_display AS publisher_name_display
+      p.name_display AS publisher_name_display,
+      p.abbr         AS publisher_abbr
     FROM public.books b
-    LEFT JOIN public.authors a   ON a.id = b.author_id
+    LEFT JOIN public.authors a ON a.id = b.author_id
     LEFT JOIN public.publishers p ON p.id = b.publisher_id
     LEFT JOIN LATERAL (
       SELECT barcode FROM public.book_barcodes bb WHERE bb.book_id = b.id LIMIT 1
@@ -441,7 +759,7 @@ function mapSort(sortByRaw) {
     BEind: "b.registered_at",
     createdAt: "b.registered_at",
     BAutor: "a.name_display",
-    BVerlag: "COALESCE(p.name_display, b.publisher)",
+    BVerlag: "COALESCE(p.name_display, p.name)",
     BKw: "b.title_keyword",
     statusChangedAt: "COALESCE(b.reading_status_updated_at, b.registered_at)",
     status_changed_at: "COALESCE(b.reading_status_updated_at, b.registered_at)",
@@ -455,7 +773,7 @@ async function listBooks(req, res) {
     const pool = getPool(req);
 
     const page = clampInt(req.query.page, 1, 1, 500000);
-    const limit = clampInt(req.query.limit, 20, 1, 500); // ✅ allow bigger result set for dropdown
+    const limit = clampInt(req.query.limit, 20, 1, 500);
     const offset = (page - 1) * limit;
 
     const order =
@@ -465,7 +783,6 @@ async function listBooks(req, res) {
     const where = [];
     const params = [];
 
-    // q (freitext)
     const q = normalizeStr(req.query.q);
     if (q) {
       params.push(`%${q}%`);
@@ -475,7 +792,8 @@ async function listBooks(req, res) {
           b.title_display ILIKE ${p} OR
           a.name_display ILIKE ${p} OR
           p.name_display ILIKE ${p} OR
-          b.publisher ILIKE ${p} OR
+          p.abbr ILIKE ${p} OR
+          p.name ILIKE ${p} OR
           b.title_keyword ILIKE ${p} OR
           b.title_keyword2 ILIKE ${p} OR
           b.title_keyword3 ILIKE ${p} OR
@@ -486,53 +804,49 @@ async function listBooks(req, res) {
       );
     }
 
-    // ✅ pages exakt (unabhängig von q)
     const pagesEq = normalizeInt(req.query.pages ?? req.query.BSeiten);
     if (pagesEq !== null) {
       params.push(pagesEq);
       where.push(`b.pages = $${params.length}`);
     }
-// status filter (supports single value or CSV like "finished,abandoned")
-const statusRaw = normalizeStr(req.query.status || req.query.reading_status);
-if (statusRaw) {
-  const parts = String(statusRaw)
-    .split(",")
-    .map((s) => mapReadingStatus(String(s || "").trim()))
-    .filter(Boolean);
 
-  const uniq = Array.from(new Set(parts));
+    const statusRaw = normalizeStr(req.query.status || req.query.reading_status);
+    if (statusRaw) {
+      const parts = String(statusRaw)
+        .split(",")
+        .map((s) => mapReadingStatus(String(s || "").trim()))
+        .filter(Boolean);
 
-  if (uniq.length === 1) {
-    params.push(uniq[0]);
-    where.push(`b.reading_status = $${params.length}`);
-  } else if (uniq.length > 1) {
-    params.push(uniq);
-    where.push(`b.reading_status = ANY($${params.length}::text[])`);
-  }
-}
-const topOnly = normalizeBool(req.query.topOnly ?? req.query.top);
+      const uniq = Array.from(new Set(parts));
+
+      if (uniq.length === 1) {
+        params.push(uniq[0]);
+        where.push(`b.reading_status = $${params.length}`);
+      } else if (uniq.length > 1) {
+        params.push(uniq);
+        where.push(`b.reading_status = ANY($${params.length}::text[])`);
+      }
+    }
+
+    const topOnly = normalizeBool(req.query.topOnly ?? req.query.top);
     if (topOnly === true) {
       where.push(`b.top_book = true`);
     }
 
     const since = normalizeStr(req.query.since);
     if (since) {
-      // Accept YYYY-MM-DD; let PG cast
       params.push(since);
       where.push(`b.registered_at >= $${params.length}::date`);
     }
 
-
-
-// ✅ theme filter (CSV field b.themes, exact token match like "mt.")
-const theme = normalizeStr(req.query.theme);
-if (theme) {
-  params.push(String(theme).toLowerCase().trim());
-  const p = `$${params.length}`;
-  where.push(
-    `regexp_split_to_array(lower(coalesce(b.themes,'')), '\\s*,\\s*') @> ARRAY[${p}]`
-  );
-}
+    const theme = normalizeStr(req.query.theme);
+    if (theme) {
+      params.push(String(theme).toLowerCase().trim());
+      const p = `$${params.length}`;
+      where.push(
+        `regexp_split_to_array(lower(coalesce(b.themes,'')), '\\s*,\\s*') @> ARRAY[${p}]`
+      );
+    }
 
     const whereSql = where.length ? `WHERE ${where.join(" AND ")}` : "";
 
@@ -554,13 +868,16 @@ if (theme) {
     const listRes = await pool.query(
       `
       SELECT
-        b.*, 
+        b.*,
         bb.barcode,
         a.name_display AS author_name_display,
         a.first_name   AS author_first_name,
         a.last_name    AS author_last_name,
+        a.full_name    AS author_full_name,
+        a.abbreviation AS author_abbreviation,
         p.name         AS publisher_name,
-        p.name_display AS publisher_name_display
+        p.name_display AS publisher_name_display,
+        p.abbr         AS publisher_abbr
       FROM public.books b
       LEFT JOIN public.authors a ON a.id = b.author_id
       LEFT JOIN public.publishers p ON p.id = b.publisher_id
@@ -586,8 +903,6 @@ if (theme) {
 
 /* ------------------------------ read one ---------------------------------- */
 
-// Return a full book record (all columns) plus UI-friendly alias fields.
-// Used by the edit form to prefill every field.
 async function getBook(req, res) {
   try {
     const pool = getPool(req);
@@ -602,8 +917,11 @@ async function getBook(req, res) {
         a.name_display AS author_name_display,
         a.first_name   AS author_first_name,
         a.last_name    AS author_last_name,
+        a.full_name    AS author_full_name,
+        a.abbreviation AS author_abbreviation,
         p.name         AS publisher_name,
-        p.name_display AS publisher_name_display
+        p.name_display AS publisher_name_display,
+        p.abbr         AS publisher_abbr
       FROM public.books b
       LEFT JOIN public.authors a ON a.id = b.author_id
       LEFT JOIN public.publishers p ON p.id = b.publisher_id
@@ -619,8 +937,6 @@ async function getBook(req, res) {
     if (!rows.length) return res.status(404).json({ error: "not_found" });
 
     const row = rows[0];
-    // Merge the raw DB row with the legacy/UI alias keys.
-    // This way the edit form can show *all* fields and still reuse existing pick() logic.
     return res.json({ ...row, ...rowToApi(row) });
   } catch (err) {
     console.error("getBook error", err);
@@ -641,8 +957,6 @@ async function autocomplete(req, res) {
     const max = clampInt(req.query.limit, 10, 1, 50);
     const like = `${q}%`;
 
-    // Whitelist -> SQL fragment.
-    // For BKw we search across all 3 keyword columns.
     const columns = await getColumns(pool, "books");
 
     const runSimple = async (col) => {
@@ -662,17 +976,16 @@ async function autocomplete(req, res) {
     };
 
     if (field === "BAutor") {
-      // Author suggestions must come from public.authors (not from legacy books.author)
       const { rows } = await pool.query(
         `
-        SELECT DISTINCT
-          COALESCE(NULLIF(name_display,''), NULLIF(concat_ws(' ', first_name, last_name), '')) AS v
+        SELECT DISTINCT NULLIF(last_name, '') AS v
         FROM public.authors
         WHERE (
-          name_display ILIKE $1
+          last_name ILIKE $1
+          OR name_display ILIKE $1
           OR concat_ws(' ', first_name, last_name) ILIKE $1
-          OR last_name ILIKE $1
         )
+          AND NULLIF(last_name, '') IS NOT NULL
         ORDER BY v
         LIMIT $2
         `,
@@ -685,7 +998,7 @@ async function autocomplete(req, res) {
         `
         SELECT DISTINCT COALESCE(NULLIF(name_display,''), NULLIF(name,'')) AS v
         FROM public.publishers
-        WHERE name_display ILIKE $1 OR name ILIKE $1
+        WHERE name_display ILIKE $1 OR name ILIKE $1 OR abbr ILIKE $1
         ORDER BY v
         LIMIT $2
         `,
@@ -694,7 +1007,6 @@ async function autocomplete(req, res) {
       return res.json(rows.map((r) => r.v).filter(Boolean));
     }
     if (field === "BKw") {
-      // union over title_keyword/2/3 if present
       const selects = [];
       if (columns.has("title_keyword")) selects.push("SELECT title_keyword AS v FROM public.books");
       if (columns.has("title_keyword2")) selects.push("SELECT title_keyword2 AS v FROM public.books");
@@ -718,7 +1030,6 @@ async function autocomplete(req, res) {
       return res.json(rows.map((r) => r.v).filter(Boolean));
     }
 
-    // Unknown field => empty list (safe)
     return res.json([]);
   } catch (err) {
     console.error("autocomplete error", err);
@@ -731,8 +1042,6 @@ async function autocomplete(req, res) {
 async function registerBook(req, res) {
   const body = req.body || {};
 
-  // Whether to assign/pick a barcode immediately.
-  // Default is true (existing behavior). RegistrationForm can set assign_barcode=false.
   const assignBarcodeFlag = body.assign_barcode ?? body.assignBarcode;
   const assignBarcodeNow = assignBarcodeFlag === false ? false : true;
 
@@ -741,27 +1050,31 @@ async function registerBook(req, res) {
   const widthCm = toNum(body.BBreite ?? body.width);
   const heightCm = toNum(body.BHoehe ?? body.height);
 
-  // Only require width/height when we want to auto-pick a barcode (assign now AND no barcode provided).
   if (assignBarcodeNow && !requestedBarcode) {
     if (!Number.isFinite(widthCm) || !Number.isFinite(heightCm) || widthCm <= 0 || heightCm <= 0) {
       return res.status(400).json({ error: "width_and_height_required" });
     }
   }
 
-  // All metadata fields are optional; ISBN lookup can fill them later.
   const kw = normalizeStr(body.BKw ?? body.title_keyword);
 
-  // Author (canonical) – optional
-  const authorLastRaw = normalizeStr(body.author_lastname ?? body.BAutor ?? body.author_lastname ?? body.author);
-  const authorFirstRaw = normalizeStr(body.author_firstname ?? body.authorFirstname ?? body.author_firstname);
+  const authorLastRaw = normalizeStr(body.author_lastname ?? body.BAutor ?? body.author);
+  const authorFirstRaw = normalizeStr(body.author_firstname ?? body.authorFirstname);
   const authorDispRaw = normalizeStr(body.name_display ?? body.author_name_display ?? body.author_display);
+  const authorFullNameRaw = normalizeStr(body.author_full_name ?? body.full_name);
+  const authorAbbrRaw = normalizeStr(body.author_abbreviation ?? body.abbreviation);
+  const authorPublishedTitlesRaw = normalizeInt(body.published_titles);
+  const authorMillionsRaw = normalizeInt(body.number_of_millionsellers);
+  const authorNationalityRaw = normalizeStr(body.author_nationality);
+  const authorPlaceOfBirthRaw = normalizeStr(body.place_of_birth);
+  const authorMaleFemaleRaw = normalizeStr(body.male_female);
 
-  // Publisher (canonical)
-  const publisherKeyRaw = normalizeStr(body.publisher_name);
   const publisherDispRaw = normalizeStr(body.publisher_name_display ?? body.BVerlag ?? body.publisher);
+  const publisherAbbrRaw = normalizePublisherAbbr(body.publisher_abbr ?? body.publisher_abbreviation);
+  const publisherKeyRaw =
+    normalizeStr(body.publisher_name) || publisherDispRaw || publisherAbbrRaw || null;
 
   const pool = getPool(req);
-  // Only resolve size rule when we need to pick a barcode from dimensions.
   const rule = assignBarcodeNow && !requestedBarcode ? await resolveRuleAndPos(pool, widthCm, heightCm) : null;
   if (assignBarcodeNow && !requestedBarcode && !rule) return res.status(422).json({ error: "no_series_for_size" });
   const requestId = normalizeStr(body.requestId ?? body.request_id);
@@ -769,9 +1082,6 @@ async function registerBook(req, res) {
   const wMm = cmToMm(widthCm);
   const hMm = cmToMm(heightCm);
 
-  // If we assign a barcode now, the book must be in_progress (DB invariant for open assignments).
-  // Drafts (assign_barcode=false) are always created as in_stock so we can later find them reliably
-  // via (pages/code) and/or ISBN during registration.
   const status = assignBarcodeNow ? "in_progress" : "in_stock";
   const nowIso = new Date().toISOString();
   const statusTs = status === "finished" || status === "abandoned" ? nowIso : null;
@@ -785,7 +1095,6 @@ async function registerBook(req, res) {
       body.isbn13_raw ?? body.isbn13Raw ?? body.isbn_raw ?? body.isbn
     );
 
-    // Idempotency (optional): if request_id exists, return the existing book.
     if (requestId && cols.has("request_id")) {
       const exists = await pool.query(`SELECT id FROM public.books WHERE request_id = $1 LIMIT 1`, [requestId]);
       const existingId = exists.rows[0]?.id;
@@ -799,17 +1108,24 @@ async function registerBook(req, res) {
     try {
       await client.query("BEGIN");
 
-      // Upsert author + publisher and link via *_id columns
       const authorRow = await upsertAuthor(client, {
-        key: authorLastRaw || authorDispRaw,
+        key: authorFullNameRaw || authorDispRaw || computeAuthorDisplay(authorFirstRaw, authorLastRaw) || authorLastRaw,
         firstName: authorFirstRaw,
         lastName: authorLastRaw,
         nameDisplay: authorDispRaw,
+        fullName: authorFullNameRaw,
+        abbreviation: authorAbbrRaw,
+        publishedTitles: authorPublishedTitlesRaw,
+        numberOfMillionSellers: authorMillionsRaw,
+        maleFemale: authorMaleFemaleRaw,
+        authorNationality: authorNationalityRaw,
+        placeOfBirth: authorPlaceOfBirthRaw,
       });
 
       const publisherRow = await upsertPublisher(client, {
-        key: publisherKeyRaw || publisherDispRaw,
+        key: publisherKeyRaw,
         nameDisplay: publisherDispRaw,
+        abbr: publisherAbbrRaw,
       });
 
       const bookInsert = {
@@ -832,10 +1148,10 @@ async function registerBook(req, res) {
 
         reading_status: status,
         reading_status_updated_at: statusTs,
-        // Drafts (assign_barcode=false) should NOT set registered_at.
         registered_at: assignBarcodeNow ? nowIso : null,
 
         title_display: normalizeStr(body.title_display),
+        subtitle_display: normalizeStr(body.subtitle_display),
         title_en: normalizeStr(body.title_en),
         isbn13: isbnInfo.isbn13,
         isbn10: isbnInfo.isbn10,
@@ -843,19 +1159,7 @@ async function registerBook(req, res) {
         purchase_url: normalizeStr(body.purchase_url),
         comment: normalizeStr(body.comment),
 
-        full_title: computeFullTitle({
-          kw,
-          pos: body.BKP ?? body.title_keyword_position,
-          kw1: body.BKw1 ?? body.title_keyword2,
-          pos1: body.BK1P ?? body.title_keyword2_position,
-          kw2: body.BKw2 ?? body.title_keyword3,
-          pos2: body.BK2P ?? body.title_keyword3_position,
-        }),
-
         request_id: requestId,
-
-        // legacy denorm for compatibility (search/sort) if column exists
-        publisher: publisherRow?.name_display ?? publisherDispRaw ?? null,
       };
 
       const insertObj = pickKnownColumns(cols, bookInsert);
@@ -878,8 +1182,6 @@ async function registerBook(req, res) {
       const bookId = insertedRow?.id;
       if (!bookId) throw new Error("book_insert_failed");
 
-      // If we explicitly do NOT want a barcode right now (e.g. "Neu im Bestand"),
-      // finish here and allow barcode assignment later.
       if (!assignBarcodeNow) {
         await client.query("COMMIT");
         const full = await fetchBookWithBarcode(pool, bookId);
@@ -949,7 +1251,6 @@ async function registerExistingBook(req, res) {
   const widthCm = toNum(body.BBreite ?? body.width);
   const heightCm = toNum(body.BHoehe ?? body.height);
 
-  // Need either an explicit barcode OR size for auto-pick.
   if (!requestedBarcode) {
     if (!Number.isFinite(widthCm) || !Number.isFinite(heightCm) || widthCm <= 0 || heightCm <= 0) {
       return res.status(400).json({ error: "width_and_height_required" });
@@ -982,7 +1283,6 @@ async function registerExistingBook(req, res) {
   try {
     await client.query("BEGIN");
 
-    // Lock book row
     const curRes = await client.query(
       `SELECT id, registered_at, reading_status FROM public.books WHERE id=$1::uuid FOR UPDATE`,
       [id]
@@ -992,7 +1292,6 @@ async function registerExistingBook(req, res) {
       return res.status(404).json({ error: "not_found" });
     }
 
-    // Prevent double-registration if barcode already open
     const open = await client.query(
       `SELECT 1 FROM public.barcode_assignments WHERE book_id=$1::uuid AND freed_at IS NULL LIMIT 1`,
       [id]
@@ -1002,42 +1301,56 @@ async function registerExistingBook(req, res) {
       return res.status(409).json({ error: "already_registered" });
     }
 
-    // Upsert author/publisher if provided
-    const authorLastRaw = normalizeStr(body.author_lastname ?? body.BAutor ?? body.author_lastname ?? body.author);
-    const authorFirstRaw = normalizeStr(body.author_firstname ?? body.authorFirstname ?? body.author_firstname);
+    const authorLastRaw = normalizeStr(body.author_lastname ?? body.BAutor ?? body.author);
+    const authorFirstRaw = normalizeStr(body.author_firstname ?? body.authorFirstname);
     const authorDispRaw = normalizeStr(body.name_display ?? body.author_name_display ?? body.author_display);
+    const authorFullNameRaw = normalizeStr(body.author_full_name ?? body.full_name);
+    const authorAbbrRaw = normalizeStr(body.author_abbreviation ?? body.abbreviation);
+    const authorPublishedTitlesRaw = normalizeInt(body.published_titles);
+    const authorMillionsRaw = normalizeInt(body.number_of_millionsellers);
+    const authorNationalityRaw = normalizeStr(body.author_nationality);
+    const authorPlaceOfBirthRaw = normalizeStr(body.place_of_birth);
+    const authorMaleFemaleRaw = normalizeStr(body.male_female);
 
-    const publisherKeyRaw = normalizeStr(body.publisher_name);
     const publisherDispRaw = normalizeStr(body.publisher_name_display ?? body.BVerlag ?? body.publisher);
+    const publisherAbbrRaw = normalizePublisherAbbr(body.publisher_abbr ?? body.publisher_abbreviation);
+    const publisherKeyRaw =
+      normalizeStr(body.publisher_name) || publisherDispRaw || publisherAbbrRaw || null;
 
     const updates = {
-      // must be in_progress to allow an open barcode assignment
       reading_status: "in_progress",
       registered_at: nowIso,
       reading_status_updated_at: null,
     };
 
-    if ((authorLastRaw || authorFirstRaw || authorDispRaw) && cols.has("author_id")) {
+    if ((authorLastRaw || authorFirstRaw || authorDispRaw || authorFullNameRaw || authorAbbrRaw) && cols.has("author_id")) {
       const authorRow = await upsertAuthor(client, {
-        key: authorLastRaw || authorDispRaw,
+        key: authorFullNameRaw || authorDispRaw || computeAuthorDisplay(authorFirstRaw, authorLastRaw) || authorLastRaw,
         firstName: authorFirstRaw,
         lastName: authorLastRaw,
         nameDisplay: authorDispRaw,
+        fullName: authorFullNameRaw,
+        abbreviation: authorAbbrRaw,
+        publishedTitles: authorPublishedTitlesRaw,
+        numberOfMillionSellers: authorMillionsRaw,
+        maleFemale: authorMaleFemaleRaw,
+        authorNationality: authorNationalityRaw,
+        placeOfBirth: authorPlaceOfBirthRaw,
       });
       if (authorRow?.id) updates.author_id = authorRow.id;
     }
 
-    if ((publisherKeyRaw || publisherDispRaw) && cols.has("publisher_id")) {
+    if ((publisherKeyRaw || publisherDispRaw || publisherAbbrRaw) && cols.has("publisher_id")) {
       const publisherRow = await upsertPublisher(client, {
-        key: publisherKeyRaw || publisherDispRaw,
+        key: publisherKeyRaw,
         nameDisplay: publisherDispRaw,
+        abbr: publisherAbbrRaw,
       });
       if (publisherRow?.id) updates.publisher_id = publisherRow.id;
-      if (cols.has("publisher")) updates.publisher = publisherRow?.name_display ?? publisherDispRaw ?? null;
     }
 
-    // Apply basic metadata updates (all optional)
     if (body.title_display !== undefined && cols.has("title_display")) updates.title_display = normalizeStr(body.title_display);
+    if (body.subtitle_display !== undefined && cols.has("subtitle_display")) updates.subtitle_display = normalizeStr(body.subtitle_display);
     if (body.title_en !== undefined && cols.has("title_en")) updates.title_en = normalizeStr(body.title_en);
     if (body.purchase_url !== undefined && cols.has("purchase_url")) updates.purchase_url = normalizeStr(body.purchase_url);
     if (isbnInfo && cols.has("isbn13")) updates.isbn13 = isbnInfo.isbn13;
@@ -1045,7 +1358,6 @@ async function registerExistingBook(req, res) {
     if (isbnInfo && cols.has("isbn13_raw")) updates.isbn13_raw = isbnInfo.isbn13_raw;
     if (body.comment !== undefined && cols.has("comment")) updates.comment = normalizeStr(body.comment);
 
-    // keywords
     if (body.BKw !== undefined || body.title_keyword !== undefined) updates.title_keyword = normalizeStr(body.BKw ?? body.title_keyword);
     if (body.BKP !== undefined || body.title_keyword_position !== undefined) updates.title_keyword_position = normalizeInt(body.BKP ?? body.title_keyword_position);
     if (body.BKw1 !== undefined || body.title_keyword2 !== undefined) updates.title_keyword2 = normalizeStr(body.BKw1 ?? body.title_keyword2);
@@ -1053,10 +1365,8 @@ async function registerExistingBook(req, res) {
     if (body.BKw2 !== undefined || body.title_keyword3 !== undefined) updates.title_keyword3 = normalizeStr(body.BKw2 ?? body.title_keyword3);
     if (body.BK2P !== undefined || body.title_keyword3_position !== undefined) updates.title_keyword3_position = normalizeInt(body.BK2P ?? body.title_keyword3_position);
 
-    // pages
     if (body.BSeiten !== undefined || body.pages !== undefined) updates.pages = normalizeInt(body.BSeiten ?? body.pages);
 
-    // width/height (cm)
     if (body.BBreite !== undefined || body.width !== undefined) {
       const w = toNum(body.BBreite ?? body.width);
       updates.width = Number.isFinite(w) ? cmToMm(w) : null;
@@ -1064,19 +1374,6 @@ async function registerExistingBook(req, res) {
     if (body.BHoehe !== undefined || body.height !== undefined) {
       const h = toNum(body.BHoehe ?? body.height);
       updates.height = Number.isFinite(h) ? cmToMm(h) : null;
-    }
-
-    // recompute full_title if possible
-    if (cols.has("full_title")) {
-      const kw = normalizeStr(updates.title_keyword ?? body.BKw ?? body.title_keyword);
-      updates.full_title = computeFullTitle({
-        kw,
-        pos: updates.title_keyword_position ?? body.BKP ?? body.title_keyword_position,
-        kw1: updates.title_keyword2 ?? body.BKw1 ?? body.title_keyword2,
-        pos1: updates.title_keyword2_position ?? body.BK1P ?? body.title_keyword2_position,
-        kw2: updates.title_keyword3 ?? body.BKw2 ?? body.title_keyword3,
-        pos2: updates.title_keyword3_position ?? body.BK2P ?? body.title_keyword3_position,
-      });
     }
 
     const setObj = pickKnownColumns(cols, updates);
@@ -1090,7 +1387,6 @@ async function registerExistingBook(req, res) {
       );
     }
 
-    // Pick or use barcode
     let barcode = requestedBarcode;
     if (!barcode) barcode = await pickBestBarcode(client, rule.sizeRuleId, rule.pos);
     if (!barcode) {
@@ -1149,7 +1445,6 @@ async function updateBook(req, res) {
   try {
     await client.query("BEGIN");
 
-    // Lock current row for timestamp logic
     const curRes = await client.query(
       `SELECT reading_status, reading_status_updated_at, top_book FROM public.books WHERE id=$1::uuid FOR UPDATE`,
       [id]
@@ -1178,37 +1473,70 @@ async function updateBook(req, res) {
         )
       : null;
 
-    // ---------------- Author / Publisher ----------------
-    const authorLastRaw = normalizeStr(patch.author_lastname ?? patch.BAutor ?? patch.author_lastname ?? patch.author);
+    const authorLastRaw = normalizeStr(patch.author_lastname ?? patch.BAutor ?? patch.author);
     const authorFirstRaw = normalizeStr(patch.author_firstname);
     const authorDispRaw = normalizeStr(patch.name_display ?? patch.author_name_display ?? patch.author_display);
+    const authorFullNameRaw = normalizeStr(patch.author_full_name ?? patch.full_name);
+    const authorAbbrRaw = normalizeStr(patch.author_abbreviation ?? patch.abbreviation);
+    const authorPublishedTitlesRaw = normalizeInt(patch.published_titles);
+    const authorMillionsRaw = normalizeInt(patch.number_of_millionsellers);
+    const authorNationalityRaw = normalizeStr(patch.author_nationality);
+    const authorPlaceOfBirthRaw = normalizeStr(patch.place_of_birth);
+    const authorMaleFemaleRaw = normalizeStr(patch.male_female);
 
-    if (patch.author_lastname !== undefined || patch.author_firstname !== undefined || patch.name_display !== undefined || patch.BAutor !== undefined || patch.author !== undefined) {
+    if (
+      patch.author_lastname !== undefined ||
+      patch.author_firstname !== undefined ||
+      patch.name_display !== undefined ||
+      patch.BAutor !== undefined ||
+      patch.author !== undefined ||
+      patch.author_full_name !== undefined ||
+      patch.author_abbreviation !== undefined ||
+      patch.published_titles !== undefined ||
+      patch.number_of_millionsellers !== undefined ||
+      patch.author_nationality !== undefined ||
+      patch.place_of_birth !== undefined ||
+      patch.male_female !== undefined
+    ) {
       const authorRow = await upsertAuthor(client, {
-        key: authorLastRaw || authorDispRaw,
+        key: authorFullNameRaw || authorDispRaw || computeAuthorDisplay(authorFirstRaw, authorLastRaw) || authorLastRaw,
         firstName: authorFirstRaw,
         lastName: authorLastRaw,
         nameDisplay: authorDispRaw,
+        fullName: authorFullNameRaw,
+        abbreviation: authorAbbrRaw,
+        publishedTitles: authorPublishedTitlesRaw,
+        numberOfMillionSellers: authorMillionsRaw,
+        maleFemale: authorMaleFemaleRaw,
+        authorNationality: authorNationalityRaw,
+        placeOfBirth: authorPlaceOfBirthRaw,
       });
       if (authorRow?.id && cols.has("author_id")) updates.author_id = authorRow.id;
     }
 
-    const publisherKeyRaw = normalizeStr(patch.publisher_name);
     const publisherDispRaw = normalizeStr(patch.publisher_name_display ?? patch.BVerlag ?? patch.publisher);
+    const publisherAbbrRaw = normalizePublisherAbbr(patch.publisher_abbr ?? patch.publisher_abbreviation);
+    const publisherKeyRaw =
+      normalizeStr(patch.publisher_name) || publisherDispRaw || publisherAbbrRaw || null;
 
-    if (patch.publisher_name !== undefined || patch.publisher_name_display !== undefined || patch.BVerlag !== undefined || patch.publisher !== undefined) {
+    if (
+      patch.publisher_name !== undefined ||
+      patch.publisher_name_display !== undefined ||
+      patch.publisher_abbr !== undefined ||
+      patch.publisher_abbreviation !== undefined ||
+      patch.BVerlag !== undefined ||
+      patch.publisher !== undefined
+    ) {
       const publisherRow = await upsertPublisher(client, {
-        key: publisherKeyRaw || publisherDispRaw,
+        key: publisherKeyRaw,
         nameDisplay: publisherDispRaw,
+        abbr: publisherAbbrRaw,
       });
       if (publisherRow?.id && cols.has("publisher_id")) updates.publisher_id = publisherRow.id;
-      if (cols.has("publisher")) updates.publisher = publisherRow?.name_display ?? publisherDispRaw ?? null;
     }
 
-    // ---------------- Simple scalar updates ----------------
-
-    // title / links
     if (patch.title_display !== undefined && cols.has("title_display")) updates.title_display = normalizeStr(patch.title_display);
+    if (patch.subtitle_display !== undefined && cols.has("subtitle_display")) updates.subtitle_display = normalizeStr(patch.subtitle_display);
     if (patch.title_en !== undefined && cols.has("title_en")) updates.title_en = normalizeStr(patch.title_en);
     if (patch.purchase_url !== undefined && cols.has("purchase_url")) updates.purchase_url = normalizeStr(patch.purchase_url);
     if (isbnInfo && cols.has("isbn13")) updates.isbn13 = isbnInfo.isbn13;
@@ -1216,7 +1544,6 @@ async function updateBook(req, res) {
     if (isbnInfo && cols.has("isbn13_raw")) updates.isbn13_raw = isbnInfo.isbn13_raw;
     if (patch.comment !== undefined && cols.has("comment")) updates.comment = normalizeStr(patch.comment);
 
-    // keywords
     if (patch.BKw !== undefined || patch.title_keyword !== undefined) updates.title_keyword = normalizeStr(patch.BKw ?? patch.title_keyword);
     if (patch.BKP !== undefined || patch.title_keyword_position !== undefined) updates.title_keyword_position = normalizeInt(patch.BKP ?? patch.title_keyword_position);
 
@@ -1226,10 +1553,8 @@ async function updateBook(req, res) {
     if (patch.BKw2 !== undefined || patch.title_keyword3 !== undefined) updates.title_keyword3 = normalizeStr(patch.BKw2 ?? patch.title_keyword3);
     if (patch.BK2P !== undefined || patch.title_keyword3_position !== undefined) updates.title_keyword3_position = normalizeInt(patch.BK2P ?? patch.title_keyword3_position);
 
-    // pages
     if (patch.BSeiten !== undefined || patch.pages !== undefined) updates.pages = normalizeInt(patch.BSeiten ?? patch.pages);
 
-    // width/height
     if (patch.BBreite !== undefined || patch.width !== undefined) {
       const w = toNum(patch.BBreite ?? patch.width);
       updates.width = Number.isFinite(w) ? cmToMm(w) : null;
@@ -1239,7 +1564,6 @@ async function updateBook(req, res) {
       updates.height = Number.isFinite(h) ? cmToMm(h) : null;
     }
 
-    // top_book + timestamp
     if (patch.BTop !== undefined || patch.top_book !== undefined) {
       const nextTop = normalizeBool(patch.BTop ?? patch.top_book);
       if (nextTop !== null && nextTop !== undefined) {
@@ -1251,7 +1575,6 @@ async function updateBook(req, res) {
       }
     }
 
-    // reading_status + timestamp
     if (patch.status !== undefined || patch.reading_status !== undefined) {
       const nextStatus = mapReadingStatus(patch.status ?? patch.reading_status);
       if (nextStatus) {
@@ -1265,37 +1588,6 @@ async function updateBook(req, res) {
           }
         }
       }
-    }
-
-    // Recompute full_title if keywords changed and column exists
-    const titleChanged =
-      updates.title_keyword !== undefined ||
-      updates.title_keyword_position !== undefined ||
-      updates.title_keyword2 !== undefined ||
-      updates.title_keyword2_position !== undefined ||
-      updates.title_keyword3 !== undefined ||
-      updates.title_keyword3_position !== undefined;
-
-    if (titleChanged && cols.has("full_title")) {
-      const current = await client.query(
-        `
-        SELECT title_keyword, title_keyword_position,
-               title_keyword2, title_keyword2_position,
-               title_keyword3, title_keyword3_position
-        FROM public.books WHERE id=$1::uuid
-        `,
-        [id]
-      );
-      const curT = current.rows[0] || {};
-      const next = {
-        kw: updates.title_keyword !== undefined ? updates.title_keyword : curT.title_keyword,
-        pos: updates.title_keyword_position !== undefined ? updates.title_keyword_position : curT.title_keyword_position,
-        kw1: updates.title_keyword2 !== undefined ? updates.title_keyword2 : curT.title_keyword2,
-        pos1: updates.title_keyword2_position !== undefined ? updates.title_keyword2_position : curT.title_keyword2_position,
-        kw2: updates.title_keyword3 !== undefined ? updates.title_keyword3 : curT.title_keyword3,
-        pos2: updates.title_keyword3_position !== undefined ? updates.title_keyword3_position : curT.title_keyword3_position,
-      };
-      updates.full_title = computeFullTitle(next);
     }
 
     const setObj = pickKnownColumns(cols, updates);
@@ -1339,7 +1631,6 @@ async function dropBook(req, res) {
   try {
     await client.query("BEGIN");
 
-    // Ensure the book exists and lock it so concurrent drops/updates don't race.
     const exists = await client.query(
       `SELECT id FROM public.books WHERE id = $1::uuid FOR UPDATE`,
       [id]
@@ -1349,7 +1640,6 @@ async function dropBook(req, res) {
       return res.status(404).json({ error: "not_found" });
     }
 
-    // 1) Free active barcode assignment(s)
     await client.query(
       `
       UPDATE public.barcode_assignments
@@ -1360,10 +1650,8 @@ async function dropBook(req, res) {
       [id]
     );
 
-    // 2) Remove current barcode mapping (book_barcodes is the canonical mapping table)
     await client.query(`DELETE FROM public.book_barcodes WHERE book_id = $1::uuid`, [id]);
 
-    // 3) Delete the book itself
     await client.query(`DELETE FROM public.books WHERE id = $1::uuid`, [id]);
 
     await client.query("COMMIT");
@@ -1373,7 +1661,6 @@ async function dropBook(req, res) {
       await client.query("ROLLBACK");
     } catch {}
 
-    // FK conflict (book referenced by other tables)
     if (String(e?.code) === "23503") {
       return res.status(409).json({
         error: "conflict_foreign_key",
@@ -1381,7 +1668,6 @@ async function dropBook(req, res) {
       });
     }
 
-    // Permissions
     if (String(e?.code) === "42501") {
       return res.status(403).json({
         error: "permission_denied",
@@ -1396,7 +1682,6 @@ async function dropBook(req, res) {
   }
 }
 
-
 module.exports = {
   listBooks,
   getBook,
@@ -1404,5 +1689,5 @@ module.exports = {
   registerBook,
   registerExistingBook,
   updateBook,
-  dropBook, // ✅ wichtig
+  dropBook,
 };

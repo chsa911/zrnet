@@ -191,15 +191,23 @@ router.post("/books/:id/cover", upload.single("cover"), async (req, res) => {
   }
 });
 
-/* -------------------- draft lookup (by ISBN or code=pages) -------------------- */
+/* -------------------- draft lookup (photo/manual placeholders) -------------------- */
 
-// GET /api/admin/drafts/find?isbn=...  OR  ?code=3847
+// GET /api/admin/drafts/find?isbn=...&code=...&title_display=...&author_lastname=...&publisher_name_display=...
 router.get("/drafts/find", async (req, res) => {
   const pool = req.app.get("pgPool");
   if (!pool) return res.status(500).json({ error: "pgPool missing" });
 
   const isbn = String(req.query.isbn || "").trim();
   const codeRaw = String(req.query.code || "").trim();
+  const titleDisplay = String(req.query.title_display || "").trim();
+  const subtitleDisplay = String(req.query.subtitle_display || "").trim();
+  const titleKeyword = String(req.query.title_keyword || "").trim();
+  const authorLast = String(req.query.author_lastname || req.query.author || "").trim();
+  const authorFirst = String(req.query.author_firstname || "").trim();
+  const authorDisplay = String(req.query.name_display || req.query.author_name_display || "").trim();
+  const publisherDisplay = String(req.query.publisher_name_display || req.query.publisher || "").trim();
+  const publisherAbbr = String(req.query.publisher_abbr || req.query.publisher_abbreviation || "").trim();
 
   let code = null;
   if (codeRaw) {
@@ -213,41 +221,121 @@ router.get("/drafts/find", async (req, res) => {
     code = Math.trunc(n);
   }
 
-  if (!isbn && code == null) {
-    return res.status(400).json({ error: "missing_isbn_or_code" });
+  if (!isbn && code == null && !titleDisplay && !subtitleDisplay && !titleKeyword && !authorLast && !authorFirst && !authorDisplay && !publisherDisplay && !publisherAbbr) {
+    return res.status(400).json({ error: "missing_search_params" });
   }
 
   try {
     const params = [];
-    let i = 1;
-    const where = [
-      "b.registered_at IS NULL",
-      "b.reading_status = 'in_stock'",
-      "(b.raw->'capture'->>'coverUploadedAt') IS NOT NULL",
-    ];
+    const matches = [];
 
     if (isbn) {
-      where.push(`(b.isbn13 = $${i} OR b.isbn10 = $${i} OR b.isbn13_raw = $${i})`);
       params.push(isbn);
-      i++;
+      const p = `$${params.length}`;
+      matches.push(`(b.isbn13 = ${p} OR b.isbn10 = ${p} OR b.isbn13_raw = ${p})`);
     }
     if (code != null) {
-      where.push(`b.pages = $${i}`);
       params.push(code);
-      i++;
+      matches.push(`b.pages = $${params.length}`);
+    }
+
+    for (const value of [titleDisplay, subtitleDisplay, titleKeyword]) {
+      if (!value) continue;
+      params.push(`%${value}%`);
+      const p = `$${params.length}`;
+      matches.push(`(
+        b.title_display ILIKE ${p}
+        OR b.subtitle_display ILIKE ${p}
+        OR b.title_keyword ILIKE ${p}
+        OR concat_ws(' ', b.title_display, b.subtitle_display) ILIKE ${p}
+      )`);
+    }
+
+    if (authorLast) {
+      params.push(`%${authorLast}%`);
+      const p = `$${params.length}`;
+      matches.push(`(
+        a.last_name ILIKE ${p}
+        OR a.name_display ILIKE ${p}
+        OR concat_ws(' ', a.first_name, a.last_name) ILIKE ${p}
+      )`);
+    }
+    if (authorFirst) {
+      params.push(`%${authorFirst}%`);
+      const p = `$${params.length}`;
+      matches.push(`(
+        a.first_name ILIKE ${p}
+        OR concat_ws(' ', a.first_name, a.last_name) ILIKE ${p}
+      )`);
+    }
+    if (authorDisplay) {
+      params.push(`%${authorDisplay}%`);
+      const p = `$${params.length}`;
+      matches.push(`(
+        a.name_display ILIKE ${p}
+        OR concat_ws(' ', a.first_name, a.last_name) ILIKE ${p}
+      )`);
+    }
+
+    if (publisherDisplay) {
+      params.push(`%${publisherDisplay}%`);
+      const p = `$${params.length}`;
+      matches.push(`(
+        p.name_display ILIKE ${p}
+        OR p.name ILIKE ${p}
+      )`);
+    }
+    if (publisherAbbr) {
+      params.push(`%${publisherAbbr}%`);
+      const p = `$${params.length}`;
+      matches.push(`p.abbr ILIKE ${p}`);
     }
 
     const q = `
-        SELECT b.id::text AS id, b.added_at, b.pages, b.isbn13, b.isbn10
-        FROM public.books b
-        WHERE ${where.join(" AND ")}
-        ORDER BY b.added_at DESC
-        LIMIT 20
-      `;
+      SELECT
+        b.id::text AS id,
+        b.added_at,
+        b.registered_at,
+        b.reading_status,
+        b.pages,
+        b.width,
+        b.height,
+        b.isbn13,
+        b.isbn10,
+        b.isbn13_raw,
+        b.title_display,
+        b.subtitle_display,
+        b.title_keyword,
+        b.purchase_url,
+        b.comment,
+        b.original_language,
+        a.first_name AS author_first_name,
+        a.last_name AS author_last_name,
+        a.name_display AS author_name_display,
+        a.full_name AS author_full_name,
+        a.abbreviation AS author_abbreviation,
+        a.author_nationality,
+        a.place_of_birth,
+        a.male_female,
+        a.published_titles,
+        a.number_of_millionsellers,
+        p.name AS publisher_name,
+        p.name_display AS publisher_name_display,
+        p.abbr AS publisher_abbr
+      FROM public.books b
+      LEFT JOIN public.authors a ON a.id = b.author_id
+      LEFT JOIN public.publishers p ON p.id = b.publisher_id
+      WHERE b.reading_status = 'in_stock'
+        AND (${matches.join(" OR ")})
+      ORDER BY (b.registered_at IS NULL) DESC, b.added_at DESC NULLS LAST, b.registered_at DESC NULLS LAST
+      LIMIT 20
+    `;
 
     const r = await pool.query(q, params);
     const items = (r.rows || []).map((row) => ({
       ...row,
+      width_cm: row.width != null ? row.width / 10 : null,
+      height_cm: row.height != null ? row.height / 10 : null,
       coverUrl: `/media/covers/${row.id}.jpg`,
     }));
     return res.json({ items });
@@ -550,7 +638,8 @@ router.post("/register", async (req, res) => {
 
   const title = req.body?.title ? String(req.body.title) : null;
   const author = req.body?.author ? String(req.body.author) : null;
-  const publisher = req.body?.publisher ? String(req.body.publisher) : null;
+  const publisherNameDisplay = req.body?.publisher_name_display ? String(req.body.publisher_name_display).trim() : null;
+  const publisherAbbr = req.body?.publisher_abbr ? String(req.body.publisher_abbr).trim() : null;
 
   const sizeRule = await pickSizeRule(pool, widthMm, heightMm);
   if (!sizeRule) {
@@ -579,11 +668,28 @@ router.post("/register", async (req, res) => {
   try {
     await client.query("BEGIN");
 
+    let publisherId = null;
+    if (publisherNameDisplay || publisherAbbr) {
+      const publisherKey = String((publisherNameDisplay || publisherAbbr || '')).trim().toLowerCase().replace(/\s+/g, ' ');
+      const pub = await client.query(
+        `
+          INSERT INTO public.publishers (name, name_display, abbr)
+          VALUES ($1, $2, $3)
+          ON CONFLICT (name) DO UPDATE SET
+            name_display = COALESCE(EXCLUDED.name_display, public.publishers.name_display),
+            abbr = COALESCE(EXCLUDED.abbr, public.publishers.abbr)
+          RETURNING id
+        `,
+        [publisherKey || null, publisherNameDisplay || null, publisherAbbr || null]
+      );
+      publisherId = pub.rows?.[0]?.id || null;
+    }
+
     const b = await client.query(
       `
         INSERT INTO public.books (
           width, height, pages,
-          full_title, author_display, author, publisher,
+          title_display, author_display, author, publisher_id,
           reading_status, registered_at
         )
         VALUES ($1,$2,$3,$4,$5,$5,$6,'in_progress', now())
@@ -595,7 +701,7 @@ router.post("/register", async (req, res) => {
         Number.isFinite(pages) ? pages : null,
         title,
         author,
-        publisher,
+        publisherId,
       ]
     );
 
