@@ -309,6 +309,7 @@ router.get("/drafts/find", async (req, res) => {
         b.purchase_url,
         b.comment,
         b.original_language,
+        a.id::text AS author_id,
         a.first_name AS author_first_name,
         a.last_name AS author_last_name,
         a.name_display AS author_name_display,
@@ -319,6 +320,7 @@ router.get("/drafts/find", async (req, res) => {
         a.male_female,
         a.published_titles,
         a.number_of_millionsellers,
+        p.id::text AS publisher_id,
         p.name AS publisher_name,
         p.name_display AS publisher_name_display,
         p.abbr AS publisher_abbr

@@ -1,6 +1,6 @@
 // frontend/src/pages/SearchUpdatePage.jsx
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { listBooks, updateBook, deleteBook } from "../api/books";
+import { listBooks, getBook, updateBook, deleteBook } from "../api/books";
 import AdminNavRow from "../components/AdminNavRow";
 import BookForm from "../components/BookForm"; // <-- make sure this exists (shared form used by register + edit)
 
@@ -71,6 +71,7 @@ export default function SearchUpdatePage() {
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState("");
   const [updating, setUpdating] = useState(() => new Set());
+  const [refreshTick, setRefreshTick] = useState(0);
 
   // editor state (reuses the same form as register)
   const [editingBook, setEditingBook] = useState(null);
@@ -117,7 +118,7 @@ export default function SearchUpdatePage() {
     return () => {
       cancelled = true;
     };
-  }, [q.page, q.limit, q.sortBy, q.order, q.q, q.status]);
+  }, [q.page, q.limit, q.sortBy, q.order, q.q, q.status, refreshTick]);
 
   const idOf = (b) => b?._id || b?.id || getBarcodeRaw(b) || b?.code || "";
 
@@ -204,13 +205,24 @@ export default function SearchUpdatePage() {
 
   const statusOf = (b) => String(b?.status || "").toLowerCase();
 
-  function openEditor(b) {
-    setEditingBook(b);
-    setTimeout(() => {
-      try {
-        document.getElementById("edit-book-form")?.scrollIntoView({ behavior: "smooth", block: "start" });
-      } catch {}
-    }, 0);
+  async function openEditor(b) {
+    const id = idOf(b);
+    if (!id) return alert("Kein Datensatz-ID gefunden.");
+
+    setUpdatingOn(id, true);
+    try {
+      const full = await getBook(id);
+      setEditingBook(full && typeof full === "object" ? full : b);
+      setTimeout(() => {
+        try {
+          document.getElementById("edit-book-form")?.scrollIntoView({ behavior: "smooth", block: "start" });
+        } catch {}
+      }, 0);
+    } catch (e) {
+      alert(e?.message || "Buchdetails konnten nicht geladen werden.");
+    } finally {
+      setUpdatingOn(id, false);
+    }
   }
 
   function closeEditor() {
@@ -472,10 +484,15 @@ export default function SearchUpdatePage() {
                 onCancel={closeEditor}
                 onSuccess={({ payload, saved }) => {
                   const patch = saved && typeof saved === "object" ? saved : payload;
+                  const currentId = idOf(editingBook);
 
-                  patchRow(idOf(editingBook), patch);
+                  patchRow(currentId, patch);
                   setEditingBook((prev) => ({ ...(prev || {}), ...patch }));
                   closeEditor();
+
+                  // Author/publisher changes can affect other rows that share the same canonical record.
+                  // Re-fetch the current page so the list does not keep stale metadata.
+                  setRefreshTick((n) => n + 1);
                 }}
               />
             </div>
