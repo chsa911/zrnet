@@ -742,10 +742,9 @@ export default function BookForm({
       author_id: toStr(pick(b, ["author_id"])),
       publisher_id: toStr(pick(b, ["publisher_id"])),
 
-      BAutor: toStr(pick(b, ["BAutor", "author", "author_lastname", "Autor"])),
-      author_firstname: toStr(pick(b, ["author_firstname", "authorFirstname"])),
+      author_lastname: toStr(pick(b, ["author_lastname"])),
+      author_firstname: toStr(pick(b, ["author_firstname"])),
       name_display: toStr(pick(b, ["name_display", "author_name_display"])),
-      author_full_name: toStr(pick(b, ["author_full_name", "full_name"])),
       author_abbreviation: toStr(pick(b, ["author_abbreviation", "abbreviation"])),
       published_titles: toStr(pick(b, ["published_titles"])),
       number_of_millionsellers: toStr(pick(b, ["number_of_millionsellers"])),
@@ -753,19 +752,18 @@ export default function BookForm({
       place_of_birth: toStr(pick(b, ["place_of_birth"])),
       male_female: toStr(pick(b, ["male_female"])),
 
-      BVerlag: toStr(pick(b, ["publisher_name_display", "BVerlag", "publisher"])),
-      publisher_name_display: toStr(pick(b, ["publisher_name_display", "BVerlag", "publisher"])),
-      publisher_abbr: toStr(pick(b, ["publisher_abbr", "publisher_abbreviation"])),
-      BKw: toStr(pick(b, ["BKw", "title_keyword", "keyword"])),
-      BKP: toStr(pick(b, ["BKP", "title_keyword_position"])),
-      BKw1: toStr(pick(b, ["BKw1", "title_keyword2"])),
-      BK1P: toStr(pick(b, ["BK1P", "title_keyword2_position"])),
-      BKw2: toStr(pick(b, ["BKw2", "title_keyword3"])),
-      BK2P: toStr(pick(b, ["BK2P", "title_keyword3_position"])),
-      BSeiten: toStr(pick(b, ["BSeiten", "pages"])),
+      publisher_name_display: toStr(pick(b, ["publisher_name_display"])),
+      publisher_abbr: toStr(pick(b, ["publisher_abbr"])),
+      title_keyword: toStr(pick(b, ["title_keyword", "keyword"])),
+      title_keyword_position: toStr(pick(b, ["title_keyword_position"])),
+      title_keyword2: toStr(pick(b, ["title_keyword2"])),
+      title_keyword2_position: toStr(pick(b, ["title_keyword2_position"])),
+      title_keyword3: toStr(pick(b, ["title_keyword3"])),
+      title_keyword3_position: toStr(pick(b, ["title_keyword3_position"])),
+      pages: toStr(pick(b, ["pages"])),
 
-      BBreite: toStr(pick(b, ["BBreite", "width"])),
-      BHoehe: toStr(pick(b, ["BHoehe", "height"])),
+      width_cm: toStr(pick(b, ["width_cm", "width"])),
+      height_cm: toStr(pick(b, ["height_cm", "height"])),
 
       purchase_url: toStr(pick(b, ["purchase_url"])),
       isbn13: toStr(pick(b, ["isbn13"])),
@@ -851,7 +849,6 @@ export default function BookForm({
   }
 
   function draftAuthor(d) {
-    return d?.author_name_display || d?.name_display || d?.author_full_name || [d?.author_first_name, d?.author_last_name].filter(Boolean).join(" ") || "";
   }
 
   useEffect(() => {
@@ -860,12 +857,12 @@ export default function BookForm({
 
     const n = normalizeIsbnInputs(v.isbn13, v.isbn10);
     const isbn = n.isbn13 || n.isbn10 || "";
-    const pagesRaw = String(v.BSeiten || "").trim();
+    const pagesRaw = String(v.pages || "").trim();
     const code = /^[0-9]+$/.test(pagesRaw) ? pagesRaw : "";
     const titleDisplay = String(v.title_display || "").trim();
     const subtitleDisplay = String(v.subtitle_display || "").trim();
-    const titleKeyword = String(v.BKw || "").trim();
-    const authorLast = String(v.BAutor || "").trim();
+    const titleKeyword = String(v.title_keyword || "").trim();
+    const authorLast = String(v.author_lastname || "").trim();
     const authorFirst = String(v.author_firstname || "").trim();
     const authorDisplay = String(v.name_display || "").trim();
     const publisherDisplay = String(v.publisher_name_display || "").trim();
@@ -926,11 +923,11 @@ export default function BookForm({
     assignBarcode,
     v.isbn13,
     v.isbn10,
-    v.BSeiten,
+    v.pages,
     v.title_display,
     v.subtitle_display,
-    v.BKw,
-    v.BAutor,
+    v.title_keyword,
+    v.author_lastname,
     v.author_firstname,
     v.name_display,
     v.publisher_name_display,
@@ -943,10 +940,9 @@ export default function BookForm({
       ...prev,
       author_id: prev.author_id || selectedDraft.author_id || "",
       publisher_id: prev.publisher_id || selectedDraft.publisher_id || "",
-      BAutor: prev.BAutor || selectedDraft.author_last_name || "",
+      author_lastname: prev.author_lastname || selectedDraft.author_last_name || "",
       author_firstname: prev.author_firstname || selectedDraft.author_first_name || "",
       name_display: prev.name_display || selectedDraft.author_name_display || "",
-      author_full_name: prev.author_full_name || selectedDraft.author_full_name || "",
       author_abbreviation: prev.author_abbreviation || selectedDraft.author_abbreviation || "",
       author_nationality: prev.author_nationality || selectedDraft.author_nationality || "",
       place_of_birth: prev.place_of_birth || selectedDraft.place_of_birth || "",
@@ -956,13 +952,12 @@ export default function BookForm({
         prev.number_of_millionsellers || toStr(selectedDraft.number_of_millionsellers),
       title_display: prev.title_display || selectedDraft.title_display || "",
       subtitle_display: prev.subtitle_display || selectedDraft.subtitle_display || "",
-      BKw: prev.BKw || selectedDraft.title_keyword || "",
-      BVerlag: prev.BVerlag || selectedDraft.publisher_name_display || "",
+      title_keyword: prev.title_keyword || selectedDraft.title_keyword || "",
       publisher_name_display: prev.publisher_name_display || selectedDraft.publisher_name_display || "",
       publisher_abbr: prev.publisher_abbr || selectedDraft.publisher_abbr || "",
-      BSeiten: prev.BSeiten || toStr(selectedDraft.pages),
-      BBreite: prev.BBreite || toStr(selectedDraft.width_cm),
-      BHoehe: prev.BHoehe || toStr(selectedDraft.height_cm),
+      pages: prev.pages || toStr(selectedDraft.pages),
+      width_cm: prev.width_cm || toStr(selectedDraft.width_cm),
+      height_cm: prev.height_cm || toStr(selectedDraft.height_cm),
       isbn13: prev.isbn13 || selectedDraft.isbn13 || "",
       isbn10: prev.isbn10 || selectedDraft.isbn10 || "",
       original_language: prev.original_language || selectedDraft.original_language || "",
@@ -1013,7 +1008,6 @@ export default function BookForm({
         "author_firstname",
         "name_display",
         "author_name_display",
-        "author_full_name",
         "author_abbreviation",
         "author_nationality",
         "place_of_birth",
@@ -1077,7 +1071,16 @@ export default function BookForm({
   }, [initial, initialBook, showUnknownFields, excludeKey, knownKeys]);
 
   function setField(key, val) {
-    setV((p) => ({ ...p, [key]: val }));
+    setV((prev) => {
+      const next = { ...prev, [key]: val };
+      if (["author_lastname", "author_firstname", "name_display", "author_abbreviation"].includes(key)) {
+        next.author_id = "";
+      }
+      if (["publisher_name_display", "publisher_abbr"].includes(key)) {
+        next.publisher_id = "";
+      }
+      return next;
+    });
   }
 
   function setExtra(key, val) {
@@ -1087,7 +1090,7 @@ export default function BookForm({
   function authorSuggestionLabel(it) {
     if (!it || typeof it === "string") return String(it || "");
     const display =
-      String(it.name_display || it.full_name || "").trim() ||
+      String(it.name_display || "").trim() ||
       [it.first_name, it.last_name].filter(Boolean).join(" ").trim() ||
       String(it.last_name || "").trim();
     const abbr = String(it.abbreviation || "").trim();
@@ -1112,26 +1115,20 @@ export default function BookForm({
       const last = String(match.last_name || match.author_last_name || "").trim();
       const first = String(match.first_name || match.author_first_name || "").trim();
       const display =
-        String(match.name_display || match.author_name_display || match.full_name || match.author_full_name || "").trim() ||
+        String(match.name_display || match.author_name_display || "").trim() ||
         [first, last].filter(Boolean).join(" ").trim();
       const next = { ...prev };
       if (String(match.id || match.author_id || "").trim()) {
         next.author_id = String(match.id || match.author_id).trim();
       }
       if (overwriteIdentity) {
-        if (last) next.BAutor = last;
+        if (last) next.author_lastname = last;
         if (first) next.author_firstname = first;
         if (display) next.name_display = display;
-        if (String(match.full_name || match.author_full_name || "").trim()) {
-          next.author_full_name = String(match.full_name || match.author_full_name).trim();
-        }
       } else {
-        if (!String(prev.BAutor || "").trim() && last) next.BAutor = last;
+        if (!String(prev.author_lastname || "").trim() && last) next.author_lastname = last;
         if (!String(prev.author_firstname || "").trim() && first) next.author_firstname = first;
         if (!String(prev.name_display || "").trim() && display) next.name_display = display;
-        if (!String(prev.author_full_name || "").trim() && String(match.full_name || match.author_full_name || "").trim()) {
-          next.author_full_name = String(match.full_name || match.author_full_name).trim();
-        }
       }
 
       const meta = {
@@ -1166,11 +1163,11 @@ export default function BookForm({
       if (overwriteIdentity) {
         if (display) {
           next.publisher_name_display = display;
-          next.BVerlag = display;
+          next.publisher_name_display = display;
         }
       } else if (!String(prev.publisher_name_display || "").trim() && display) {
         next.publisher_name_display = display;
-        next.BVerlag = display;
+        next.publisher_name_display = display;
       }
       if (abbr && (!fillOnly || !String(prev.publisher_abbr || "").trim())) {
         next.publisher_abbr = abbr;
@@ -1183,12 +1180,11 @@ export default function BookForm({
     setV((prev) => ({ ...prev, author_id: "", [key]: value }));
   }
 
-  function setPublisherIdentityFields(value) {
+  function setPublisherIdentityField(key, value) {
     setV((prev) => ({
       ...prev,
       publisher_id: "",
-      publisher_name_display: value,
-      BVerlag: value,
+      [key]: value,
     }));
   }
 
@@ -1210,8 +1206,8 @@ export default function BookForm({
       return;
     }
 
-    const w = parseFloatOrNull(v.BBreite);
-    const h = parseFloatOrNull(v.BHoehe);
+    const w = parseFloatOrNull(v.width_cm);
+    const h = parseFloatOrNull(v.height_cm);
     if (!(Number.isFinite(w) && w > 0 && Number.isFinite(h) && h > 0)) {
       setBarcodePreview(null);
       setBarcodePreviewErr("");
@@ -1238,7 +1234,7 @@ export default function BookForm({
       alive = false;
       clearTimeout(t);
     };
-  }, [isEdit, assignBarcode, v.barcode, v.BBreite, v.BHoehe]);
+  }, [isEdit, assignBarcode, v.barcode, v.width_cm, v.height_cm]);
 
   useEffect(() => {
     if (!scannerOpen || !isbnVideoRef.current) return;
@@ -1392,15 +1388,14 @@ export default function BookForm({
       const s = r?.suggested || r || {};
 
       const title = s.title_display || s.title || "";
+      const subtitle = s.subtitle_display || "";
       const authorDisplay =
         s.name_display ||
         s.author_name_display ||
-        s.author_name ||
-        s.author ||
         (Array.isArray(s.authors) ? s.authors.filter(Boolean).join(", ") : "") ||
         "";
-      const publisher = s.publisher_name_display || s.publisher || s.verlag || s.BVerlag || "";
-      const pages = s.BSeiten ?? s.pages ?? s.pageCount ?? null;
+      const publisherDisplay = s.publisher_name_display || "";
+      const pages = s.pages ?? null;
       const purchaseUrl = s.purchase_url || s.purchaseUrl || s.url || "";
       const originalLanguage = s.original_language || s.language || "";
 
@@ -1425,8 +1420,8 @@ export default function BookForm({
           next.subtitle_display = String(s.subtitle_display).trim();
           changed = true;
         }
-        if (!String(prev.BSeiten || "").trim() && pages != null) {
-          next.BSeiten = String(pages);
+        if (!String(prev.pages || "").trim() && pages != null) {
+          next.pages = String(pages);
           changed = true;
         }
         if (!String(prev.purchase_url || "").trim() && purchaseUrl) {
@@ -1441,9 +1436,8 @@ export default function BookForm({
           next.publisher_id = String(s.publisher_id).trim();
           changed = true;
         }
-        if (!String(prev.publisher_name_display || "").trim() && publisher) {
-          next.publisher_name_display = String(publisher);
-          next.BVerlag = String(publisher);
+        if (!String(prev.publisher_name_display || "").trim() && publisherDisplay) {
+          next.publisher_name_display = String(publisherDisplay);
           changed = true;
         }
         if (!String(prev.publisher_abbr || "").trim() && String(s.publisher_abbr || "").trim()) {
@@ -1456,20 +1450,16 @@ export default function BookForm({
           next.author_id = String(s.author_id).trim();
           changed = true;
         }
-        if (!String(prev.BAutor || "").trim() && last) {
-          next.BAutor = last;
+        if (!String(prev.author_lastname || "").trim() && (s.author_lastname || last)) {
+          next.author_lastname = String(s.author_lastname || last).trim();
           changed = true;
         }
-        if (!String(prev.author_firstname || "").trim() && first) {
-          next.author_firstname = first;
+        if (!String(prev.author_firstname || "").trim() && (s.author_firstname || first)) {
+          next.author_firstname = String(s.author_firstname || first).trim();
           changed = true;
         }
-        if (!String(prev.name_display || "").trim() && display) {
-          next.name_display = display;
-          changed = true;
-        }
-        if (!String(prev.author_full_name || "").trim() && String(s.author_full_name || "").trim()) {
-          next.author_full_name = String(s.author_full_name).trim();
+        if (!String(prev.name_display || "").trim() && (s.name_display || display)) {
+          next.name_display = String(s.name_display || display).trim();
           changed = true;
         }
         if (!String(prev.author_abbreviation || "").trim() && String(s.author_abbreviation || "").trim()) {
@@ -1498,14 +1488,14 @@ export default function BookForm({
         }
 
         const titleForKeyword = title || prev.title_display;
-        if (!String(prev.BKw || "").trim() && titleForKeyword) {
+        if (!String(prev.title_keyword || "").trim() && titleForKeyword) {
           const { keyword, pos } = computeKeywordFromTitle(titleForKeyword);
           if (keyword) {
-            next.BKw = keyword;
+            next.title_keyword = keyword;
             changed = true;
           }
-          if (!String(prev.BKP || "").trim() && pos) {
-            next.BKP = pos;
+          if (!String(prev.title_keyword_position || "").trim() && pos) {
+            next.title_keyword_position = pos;
             changed = true;
           }
         }
@@ -1518,8 +1508,6 @@ export default function BookForm({
       } else {
         setMsg("ISBN gefunden, aber es kamen nur wenige Metadaten zurück.");
       }
-
-      console.log("lookupIsbn response:", r);
     } catch (e) {
       setMsg(e?.message || "ISBN Lookup fehlgeschlagen");
     } finally {
@@ -1560,16 +1548,16 @@ export default function BookForm({
       if (titleOk && !String(v.title_display || "").trim()) {
         next.title_display = bestTitle;
 
-        if (!String(v.BKw || "").trim()) {
+        if (!String(v.title_keyword || "").trim()) {
           const { keyword, pos } = computeKeywordFromTitle(bestTitle);
-          if (keyword) next.BKw = keyword;
-          if (!String(v.BKP || "").trim() && pos) next.BKP = pos;
+          if (keyword) next.title_keyword = keyword;
+          if (!String(v.title_keyword_position || "").trim() && pos) next.title_keyword_position = pos;
         }
       }
 
       if (authorOk) {
         const { first, last, display } = splitAuthorName(bestAuthor);
-        if (!String(v.BAutor || "").trim() && last) next.BAutor = last;
+        if (!String(v.author_lastname || "").trim() && last) next.author_lastname = last;
         if (!String(v.author_firstname || "").trim() && first) next.author_firstname = first;
         if (!String(v.name_display || "").trim() && display) next.name_display = display;
       }
@@ -1731,8 +1719,8 @@ export default function BookForm({
     const suggestedBarcode = String(barcodePreview?.candidate || "").trim();
     const finalBarcode = nextBarcode || suggestedBarcode;
 
-    const wCm = parseFloatOrNull(v.BBreite);
-    const hCm = parseFloatOrNull(v.BHoehe);
+    const wCm = parseFloatOrNull(v.width_cm);
+    const hCm = parseFloatOrNull(v.height_cm);
 
     if (!isEdit && assignBarcode && !finalBarcode) {
       const ok =
@@ -1750,16 +1738,15 @@ export default function BookForm({
     if (!lockBarcode && !isEdit && assignBarcode && finalBarcode) {
       payload.barcode = finalBarcode;
     }
-    if (!isEdit && Number.isFinite(wCm) && wCm > 0) payload.BBreite = wCm;
-    if (!isEdit && Number.isFinite(hCm) && hCm > 0) payload.BHoehe = hCm;
+    if (!isEdit && Number.isFinite(wCm) && wCm > 0) payload.width_cm = wCm;
+    if (!isEdit && Number.isFinite(hCm) && hCm > 0) payload.height_cm = hCm;
 
     const isbnN = normalizeIsbnInputs(v.isbn13, v.isbn10);
 
     const strPairs = [
-      ["BAutor", v.BAutor, initial.BAutor],
+      ["author_lastname", v.author_lastname, initial.author_lastname],
       ["author_firstname", v.author_firstname, initial.author_firstname],
       ["name_display", v.name_display, initial.name_display],
-      ["author_full_name", v.author_full_name, initial.author_full_name],
       ["author_abbreviation", v.author_abbreviation, initial.author_abbreviation],
       ["author_nationality", v.author_nationality, initial.author_nationality],
       ["place_of_birth", v.place_of_birth, initial.place_of_birth],
@@ -1768,9 +1755,9 @@ export default function BookForm({
       ["publisher_abbr", v.publisher_abbr, initial.publisher_abbr],
       ["title_display", v.title_display, initial.title_display],
       ["subtitle_display", v.subtitle_display, initial.subtitle_display],
-      ["BKw", v.BKw, initial.BKw],
-      ["BKw1", v.BKw1, initial.BKw1],
-      ["BKw2", v.BKw2, initial.BKw2],
+      ["title_keyword", v.title_keyword, initial.title_keyword],
+      ["title_keyword2", v.title_keyword2, initial.title_keyword2],
+      ["title_keyword3", v.title_keyword3, initial.title_keyword3],
       ["purchase_url", v.purchase_url, initial.purchase_url],
       ["original_language", v.original_language, initial.original_language],
       ["comment", v.comment, initial.comment],
@@ -1816,10 +1803,10 @@ export default function BookForm({
     }
 
     const intPairs = [
-      ["BKP", v.BKP, initial.BKP],
-      ["BK1P", v.BK1P, initial.BK1P],
-      ["BK2P", v.BK2P, initial.BK2P],
-      ["BSeiten", v.BSeiten, initial.BSeiten],
+      ["title_keyword_position", v.title_keyword_position, initial.title_keyword_position],
+      ["title_keyword2_position", v.title_keyword2_position, initial.title_keyword2_position],
+      ["title_keyword3_position", v.title_keyword3_position, initial.title_keyword3_position],
+      ["pages", v.pages, initial.pages],
       ["published_titles", v.published_titles, initial.published_titles],
       ["number_of_millionsellers", v.number_of_millionsellers, initial.number_of_millionsellers],
     ];
@@ -1971,7 +1958,7 @@ export default function BookForm({
       if (!coverUploadFailed) setMsg(isEdit ? "Gespeichert." : "Gespeichert ✔");
 
       if (!isEdit) {
-        setV({ ...initial, barcode: "", BBreite: "", BHoehe: "" });
+        setV({ ...initial, barcode: "", width_cm: "", height_cm: "" });
         setExtras({});
         setAc({ field: "", items: [] });
         setBarcodePreview(null);
@@ -2092,7 +2079,6 @@ export default function BookForm({
                 <div><strong>Autor Vorname:</strong> {selectedDraft.author_first_name || "—"}</div>
                 <div><strong>Autor Nachname:</strong> {selectedDraft.author_last_name || "—"}</div>
                 <div><strong>Autor Anzeigename:</strong> {selectedDraft.author_name_display || "—"}</div>
-                <div><strong>Autor Vollname:</strong> {selectedDraft.author_full_name || "—"}</div>
                 <div><strong>Autor Abkürzung:</strong> {selectedDraft.author_abbreviation || "—"}</div>
                 <div><strong>Verlag Anzeigename:</strong> {selectedDraft.publisher_name_display || "—"}</div>
                 <div><strong>Verlag Abkürzung:</strong> {selectedDraft.publisher_abbr || "—"}</div>
@@ -2139,34 +2125,34 @@ export default function BookForm({
 
           <div className="zr-toolbar">
             <label style={{ display: "grid", gap: 6, flex: 1 }}>
-              <span>Breite (cm) (BBreite)</span>
+              <span>Breite (cm) (width_cm)</span>
               <input
                 className="zr-input"
-                name="BBreite"
+                name="width_cm"
                 type="text"
                 inputMode="decimal"
                 autoComplete="off"
                 pattern="[0-9]*[\\.,]?[0-9]*"
-                value={v.BBreite}
-                onChange={(e) => setField("BBreite", e.target.value)}
-                onInput={(e) => setField("BBreite", e.currentTarget.value)}
+                value={v.width_cm}
+                onChange={(e) => setField("width_cm", e.target.value)}
+                onInput={(e) => setField("width_cm", e.currentTarget.value)}
                 placeholder="z.B. 13,5"
                 style={{ width: "100%" }}
               />
             </label>
 
             <label style={{ display: "grid", gap: 6, flex: 1 }}>
-              <span>Höhe (cm) (BHoehe)</span>
+              <span>Höhe (cm) (height_cm)</span>
               <input
                 className="zr-input"
-                name="BHoehe"
+                name="height_cm"
                 type="text"
                 inputMode="decimal"
                 autoComplete="off"
                 pattern="[0-9]*[\\.,]?[0-9]*"
-                value={v.BHoehe}
-                onChange={(e) => setField("BHoehe", e.target.value)}
-                onInput={(e) => setField("BHoehe", e.currentTarget.value)}
+                value={v.height_cm}
+                onChange={(e) => setField("height_cm", e.target.value)}
+                onInput={(e) => setField("height_cm", e.currentTarget.value)}
                 placeholder="z.B. 21"
                 style={{ width: "100%" }}
               />
@@ -2256,17 +2242,17 @@ export default function BookForm({
 
       <div className="zr-toolbar">
         <label style={{ display: "grid", gap: 6, flex: 1, position: "relative" }}>
-          <span>Autor (BAutor)</span>
+          <span>Autor (author_lastname)</span>
           <input
             className="zr-input"
-            value={v.BAutor}
+            value={v.author_lastname}
             onChange={(e) => {
-              setAuthorIdentityField("BAutor", e.target.value);
-              runAutocomplete("BAutor", e.target.value);
+              setAuthorIdentityField("author_lastname", e.target.value);
+              runAutocomplete("author_lastname", e.target.value);
             }}
             onBlur={() => setTimeout(() => setAc({ field: "", items: [] }), 150)}
           />
-          {ac.field === "BAutor" && ac.items.length ? (
+          {ac.field === "author_lastname" && ac.items.length ? (
             <div
               style={{
                 position: "absolute",
@@ -2305,7 +2291,7 @@ export default function BookForm({
                       setV((prev) => ({
                         ...prev,
                         author_id: "",
-                        BAutor: maybeLast,
+                        author_lastname: maybeLast,
                         author_firstname: prev.author_firstname || maybeFirst,
                         name_display: prev.name_display || picked,
                       }));
@@ -2345,14 +2331,6 @@ export default function BookForm({
       </label>
 
       <div className="zr-toolbar">
-        <label style={{ display: "grid", gap: 6, flex: 1 }}>
-          <span>Autor Vollname (author_full_name) (optional)</span>
-          <input
-            className="zr-input"
-            value={v.author_full_name}
-            onChange={(e) => setAuthorIdentityField("author_full_name", e.target.value)}
-          />
-        </label>
         <label style={{ display: "grid", gap: 6, flex: 1 }}>
           <span>Autor Abkürzung (author_abbreviation) (optional)</span>
           <input
@@ -2434,25 +2412,25 @@ export default function BookForm({
 
       <div className="zr-toolbar">
         <label style={{ display: "grid", gap: 6, flex: 1 }}>
-          <span>Stichwort (BKw)</span>
+          <span>Stichwort (title_keyword)</span>
           <input
             className="zr-input"
-            value={v.BKw}
+            value={v.title_keyword}
             onChange={(e) => {
-              setField("BKw", e.target.value);
-              runAutocomplete("BKw", e.target.value);
+              setField("title_keyword", e.target.value);
+              runAutocomplete("title_keyword", e.target.value);
             }}
             onBlur={() => setTimeout(() => setAc({ field: "", items: [] }), 150)}
           />
         </label>
         <label style={{ display: "grid", gap: 6 }}>
-          <span>Position (BKP)</span>
+          <span>Position (title_keyword_position)</span>
           <input
             className="zr-input"
             type="text"
             inputMode="numeric"
-            value={v.BKP}
-            onChange={(e) => setField("BKP", e.target.value)}
+            value={v.title_keyword_position}
+            onChange={(e) => setField("title_keyword_position", e.target.value)}
           />
         </label>
       </div>
@@ -2461,41 +2439,41 @@ export default function BookForm({
         <div style={{ fontWeight: 900 }}>Weitere Stichworte (optional)</div>
         <div className="zr-toolbar">
           <label style={{ display: "grid", gap: 6, flex: 1 }}>
-            <span>BKw1</span>
+            <span>title_keyword2</span>
             <input
               className="zr-input"
-              value={v.BKw1}
-              onChange={(e) => setField("BKw1", e.target.value)}
+              value={v.title_keyword2}
+              onChange={(e) => setField("title_keyword2", e.target.value)}
             />
           </label>
           <label style={{ display: "grid", gap: 6 }}>
-            <span>BK1P</span>
+            <span>title_keyword2_position</span>
             <input
               className="zr-input"
               type="text"
               inputMode="numeric"
-              value={v.BK1P}
-              onChange={(e) => setField("BK1P", e.target.value)}
+              value={v.title_keyword2_position}
+              onChange={(e) => setField("title_keyword2_position", e.target.value)}
             />
           </label>
         </div>
         <div className="zr-toolbar">
           <label style={{ display: "grid", gap: 6, flex: 1 }}>
-            <span>BKw2</span>
+            <span>title_keyword3</span>
             <input
               className="zr-input"
-              value={v.BKw2}
-              onChange={(e) => setField("BKw2", e.target.value)}
+              value={v.title_keyword3}
+              onChange={(e) => setField("title_keyword3", e.target.value)}
             />
           </label>
           <label style={{ display: "grid", gap: 6 }}>
-            <span>BK2P</span>
+            <span>title_keyword3_position</span>
             <input
               className="zr-input"
               type="text"
               inputMode="numeric"
-              value={v.BK2P}
-              onChange={(e) => setField("BK2P", e.target.value)}
+              value={v.title_keyword3_position}
+              onChange={(e) => setField("title_keyword3_position", e.target.value)}
             />
           </label>
         </div>
@@ -2508,12 +2486,12 @@ export default function BookForm({
             className="zr-input"
             value={v.publisher_name_display}
             onChange={(e) => {
-              setPublisherIdentityFields(e.target.value);
-              runAutocomplete("BVerlag", e.target.value);
+              setPublisherIdentityField("publisher_name_display", e.target.value);
+              runAutocomplete("publisher_name_display", e.target.value);
             }}
             onBlur={() => setTimeout(() => setAc({ field: "", items: [] }), 150)}
           />
-          {ac.field === "BVerlag" && ac.items.length ? (
+          {ac.field === "publisher_name_display" && ac.items.length ? (
             <div
               style={{
                 position: "absolute",
@@ -2546,7 +2524,7 @@ export default function BookForm({
                       applyPublisherMatch(it, { overwriteIdentity: true, fillOnly: false });
                     } else {
                       const picked = String(it || "").trim();
-                      setPublisherIdentityFields(picked);
+                      setPublisherIdentityField("publisher_name_display", picked);
                     }
                     setAc({ field: "", items: [] });
                   }}
@@ -2566,18 +2544,18 @@ export default function BookForm({
           <input
             className="zr-input"
             value={v.publisher_abbr}
-            onChange={(e) => setV((prev) => ({ ...prev, publisher_id: "", publisher_abbr: e.target.value }))}
+            onChange={(e) => setPublisherIdentityField("publisher_abbr", e.target.value)}
           />
         </label>
 
         <label style={{ display: "grid", gap: 6 }}>
-          <span>Seiten (BSeiten)</span>
+          <span>Seiten (pages)</span>
           <input
             className="zr-input"
             type="text"
             inputMode="numeric"
-            value={v.BSeiten}
-            onChange={(e) => setField("BSeiten", e.target.value)}
+            value={v.pages}
+            onChange={(e) => setField("pages", e.target.value)}
           />
         </label>
       </div>

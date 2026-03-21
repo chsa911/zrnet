@@ -10,7 +10,7 @@ const {
   adminLogin,
   adminLogout,
 } = require("../middleware/adminAuth");
-const { registerExistingBook } = require("../controllers/booksPgController");
+const { registerBook, registerExistingBook } = require("../controllers/booksPgController");
 
 const upload = multer({ storage: multer.memoryStorage() });
 
@@ -203,11 +203,11 @@ router.get("/drafts/find", async (req, res) => {
   const titleDisplay = String(req.query.title_display || "").trim();
   const subtitleDisplay = String(req.query.subtitle_display || "").trim();
   const titleKeyword = String(req.query.title_keyword || "").trim();
-  const authorLast = String(req.query.author_lastname || req.query.author || "").trim();
+  const authorLast = String(req.query.author_lastname || "").trim();
   const authorFirst = String(req.query.author_firstname || "").trim();
   const authorDisplay = String(req.query.name_display || req.query.author_name_display || "").trim();
-  const publisherDisplay = String(req.query.publisher_name_display || req.query.publisher || "").trim();
-  const publisherAbbr = String(req.query.publisher_abbr || req.query.publisher_abbreviation || "").trim();
+  const publisherDisplay = String(req.query.publisher_name_display || "").trim();
+  const publisherAbbr = String(req.query.publisher_abbr || "").trim();
 
   let code = null;
   if (codeRaw) {
@@ -313,7 +313,7 @@ router.get("/drafts/find", async (req, res) => {
         a.first_name AS author_first_name,
         a.last_name AS author_last_name,
         a.name_display AS author_name_display,
-        a.full_name AS author_full_name,
+        
         a.abbreviation AS author_abbreviation,
         a.author_nationality,
         a.place_of_birth,
@@ -622,139 +622,46 @@ router.get("/barcodes", async (req, res) => {
 });
 
 router.post("/register", async (req, res) => {
-  const pool = req.app.get("pgPool");
-  if (!pool) return res.status(500).json({ error: "pgPool missing" });
-
-  const widthMm = cmToMm(req.body?.width_cm);
-  const heightMm = cmToMm(req.body?.height_cm);
-  if (widthMm == null || heightMm == null) {
-    return res.status(400).json({ error: "width_cm/height_cm required" });
-  }
-
-  const pages =
-    req.body?.pages === null ||
-    req.body?.pages === undefined ||
-    req.body?.pages === ""
-      ? null
-      : Number(req.body.pages);
-
-  const title = req.body?.title ? String(req.body.title) : null;
-  const author = req.body?.author ? String(req.body.author) : null;
-  const publisherNameDisplay = req.body?.publisher_name_display ? String(req.body.publisher_name_display).trim() : null;
-  const publisherAbbr = req.body?.publisher_abbr ? String(req.body.publisher_abbr).trim() : null;
-
-  const sizeRule = await pickSizeRule(pool, widthMm, heightMm);
-  if (!sizeRule) {
-    return res.status(400).json({
-      error: "No size_rule matches these dimensions",
-      width_mm: widthMm,
-      height_mm: heightMm,
-    });
-  }
-
-  const pos = computePos(sizeRule, heightMm);
-  const band = posToBand(pos);
-
-  const picked = await pickBarcode(pool, sizeRule.id, band);
-  if (!picked) {
-    return res.status(400).json({
-      error: "No available barcode for this sizegroup/band",
-      size_rule_id: sizeRule.id,
-      size_rule_name: sizeRule.name,
-      band,
-      pos,
-    });
-  }
-
-  const client = await pool.connect();
-  try {
-    await client.query("BEGIN");
-
-    let publisherId = null;
-    if (publisherNameDisplay || publisherAbbr) {
-      const publisherKey = String((publisherNameDisplay || publisherAbbr || '')).trim().toLowerCase().replace(/\s+/g, ' ');
-      const pub = await client.query(
-        `
-          INSERT INTO public.publishers (name, name_display, abbr)
-          VALUES ($1, $2, $3)
-          ON CONFLICT (name) DO UPDATE SET
-            name_display = COALESCE(EXCLUDED.name_display, public.publishers.name_display),
-            abbr = COALESCE(EXCLUDED.abbr, public.publishers.abbr)
-          RETURNING id
-        `,
-        [publisherKey || null, publisherNameDisplay || null, publisherAbbr || null]
-      );
-      publisherId = pub.rows?.[0]?.id || null;
-    }
-
-    const b = await client.query(
-      `
-        INSERT INTO public.books (
-          width, height, pages,
-          title_display, author_display, author, publisher_id,
-          reading_status, registered_at
-        )
-        VALUES ($1,$2,$3,$4,$5,$5,$6,'in_progress', now())
-        RETURNING id, registered_at
-        `,
-      [
-        widthMm,
-        heightMm,
-        Number.isFinite(pages) ? pages : null,
-        title,
-        author,
-        publisherId,
-      ]
-    );
-
-    const bookId = b.rows[0].id;
-    const registeredAt = b.rows[0].registered_at;
-
-    const upd = await client.query(
-      `
-        UPDATE public.barcode_inventory
-        SET status='ASSIGNED', updated_at=now(), size_rule_id=$2
-        WHERE barcode=$1
-        `,
-      [picked.barcode, sizeRule.id]
-    );
-
-    if (upd.rowCount !== 1) {
-      throw new Error("barcode_inventory_update_failed");
-    }
-
-    await client.query(
-      `
-        INSERT INTO public.barcode_assignments (barcode, book_id, assigned_at, freed_at)
-        VALUES ($1,$2,$3,NULL)
-        `,
-      [picked.barcode, bookId, registeredAt]
-    );
-
-    await client.query("COMMIT");
-
-    return res.json({
-      ok: true,
-      book_id: bookId,
-      barcode: picked.barcode,
-      rank: picked.rank_in_inventory,
-      size_rule: { id: sizeRule.id, name: sizeRule.name },
-      band,
-      pos,
-      width_mm: widthMm,
-      height_mm: heightMm,
-    });
-  } catch (e) {
-    try {
-      await client.query("ROLLBACK");
-    } catch {}
-    return res.status(500).json({
-      error: "register_failed",
-      detail: String(e?.message || e),
-    });
-  } finally {
-    client.release();
-  }
+  const body = req.body || {};
+  req.body = {
+    assign_barcode: body.assign_barcode,
+    barcode: body.barcode,
+    width_cm: body.width_cm,
+    height_cm: body.height_cm,
+    author_id: body.author_id,
+    author_lastname: body.author_lastname,
+    author_firstname: body.author_firstname,
+    name_display: body.name_display,
+    author_abbreviation: body.author_abbreviation,
+    author_nationality: body.author_nationality,
+    place_of_birth: body.place_of_birth,
+    male_female: body.male_female,
+    published_titles: body.published_titles,
+    number_of_millionsellers: body.number_of_millionsellers,
+    publisher_id: body.publisher_id,
+    publisher_name_display: body.publisher_name_display,
+    publisher_abbr: body.publisher_abbr,
+    title_display: body.title_display,
+    subtitle_display: body.subtitle_display,
+    title_keyword: body.title_keyword,
+    title_keyword_position: body.title_keyword_position,
+    title_keyword2: body.title_keyword2,
+    title_keyword2_position: body.title_keyword2_position,
+    title_keyword3: body.title_keyword3,
+    title_keyword3_position: body.title_keyword3_position,
+    pages: body.pages,
+    purchase_url: body.purchase_url,
+    isbn13: body.isbn13,
+    isbn10: body.isbn10,
+    isbn13_raw: body.isbn13_raw,
+    original_language: body.original_language,
+    comment: body.comment,
+    top_book: body.top_book,
+    reading_status: body.reading_status,
+    requestId: body.requestId,
+    request_id: body.request_id,
+  };
+  return registerBook(req, res);
 });
 
 /* -------------------- needs_review (mobile app) -------------------- */

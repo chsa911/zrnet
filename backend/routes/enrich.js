@@ -1,4 +1,3 @@
-// backend/routes/enrich.js
 const express = require("express");
 const router = express.Router();
 
@@ -100,7 +99,6 @@ async function metaFromDb(pool, { isbn13, isbn10 }) {
       a.first_name AS author_first_name,
       a.last_name AS author_last_name,
       a.name_display AS author_name_display,
-      a.full_name AS author_full_name,
       a.abbreviation AS author_abbreviation,
       a.author_nationality,
       a.place_of_birth,
@@ -138,7 +136,6 @@ async function metaFromDb(pool, { isbn13, isbn10 }) {
     author_first_name: b.author_first_name || null,
     author_last_name: b.author_last_name || null,
     author_name_display: b.author_name_display || null,
-    author_full_name: b.author_full_name || null,
     author_abbreviation: b.author_abbreviation || null,
     author_nationality: b.author_nationality || null,
     place_of_birth: b.place_of_birth || null,
@@ -307,6 +304,18 @@ function chooseBestHit(hits, { q, title, author }) {
   })[0] || null;
 }
 
+function splitAuthorName(name) {
+  const s = String(name || "").trim();
+  if (!s) return { first: null, last: null, display: null };
+  const parts = s.split(/\s+/).filter(Boolean);
+  if (parts.length === 1) return { first: null, last: parts[0], display: parts[0] };
+  return {
+    first: parts.slice(0, -1).join(" "),
+    last: parts[parts.length - 1],
+    display: s,
+  };
+}
+
 router.get("/search", async (req, res, next) => {
   try {
     const q = String(req.query.q || "").trim();
@@ -325,18 +334,19 @@ router.get("/search", async (req, res, next) => {
 
     const hits = [...googleHits, ...openHits];
     const best = chooseBestHit(hits, { q, title, author });
-
     const bestAuthor = best?.authors?.[0] || author || null;
+    const split = splitAuthorName(bestAuthor);
 
     const suggested = {
       title_display: best?.title || title || null,
-      BVerlag: best?.publisher || publisher || null,
-      BSeiten: best?.pages != null ? String(best.pages) : null,
+      publisher_name_display: best?.publisher || publisher || null,
+      pages: best?.pages != null ? best.pages : null,
       original_language: best?.language || null,
-      name_display: bestAuthor,
-      author_name: bestAuthor,
-      BKw: best?.title || title || null,
-      BKP: best?.title || title ? "0" : null,
+      author_firstname: split.first || null,
+      author_lastname: split.last || null,
+      name_display: split.display || null,
+      title_keyword: best?.title || title || null,
+      title_keyword_position: best?.title || title ? "0" : null,
     };
 
     res.json({
@@ -348,7 +358,6 @@ router.get("/search", async (req, res, next) => {
   }
 });
 
-// Preferred endpoint used by the frontend: GET /api/enrich/lookup?isbn=...
 router.get("/lookup", async (req, res, next) => {
   try {
     const raw = String(req.query.isbn || "").trim();
@@ -373,34 +382,35 @@ router.get("/lookup", async (req, res, next) => {
     const pages = meta?.pages ?? g?.pages ?? ol?.pages ?? null;
     const lang = pickFirst(meta?.original_language, g?.language, ol?.language);
 
+    const split = splitAuthorName(authorDisplay);
+
     const suggested = {
       isbn13: n.isbn13 || null,
       isbn10: n.isbn10 || null,
       title_display: title,
       subtitle_display: subtitle,
+
       author_id: meta?.author_id || null,
-      author_firstname: meta?.author_first_name || null,
-      author_lastname: meta?.author_last_name || null,
+      author_firstname: meta?.author_first_name || split.first || null,
+      author_lastname: meta?.author_last_name || split.last || null,
       name_display: authorDisplay || null,
       author_name_display: authorDisplay || null,
-      author_full_name: meta?.author_full_name || null,
-      author_name: authorDisplay || null,
       author_abbreviation: meta?.author_abbreviation || null,
       author_nationality: meta?.author_nationality || null,
       place_of_birth: meta?.place_of_birth || null,
       male_female: meta?.male_female || null,
       published_titles: meta?.published_titles ?? null,
       number_of_millionsellers: meta?.number_of_millionsellers ?? null,
+
       publisher_id: meta?.publisher_id || null,
       publisher_name_display: publisherDisplay || null,
       publisher_abbr: meta?.publisher_abbr || null,
-      BVerlag: publisherDisplay || null,
-      BSeiten: pages != null ? String(pages) : null,
+
       pages,
       purchase_url: meta?.purchase_url || purchase?.best?.url || null,
       original_language: lang,
-      BKw: title,
-      BKP: title ? "0" : null,
+      title_keyword: title,
+      title_keyword_position: title ? "0" : null,
     };
 
     res.json({

@@ -1,68 +1,43 @@
-// frontend/src/pages/SearchUpdatePage.jsx
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { listBooks, getBook, updateBook, deleteBook } from "../api/books";
 import AdminNavRow from "../components/AdminNavRow";
-import BookForm from "../components/BookForm"; // <-- make sure this exists (shared form used by register + edit)
+import BookForm from "../components/BookForm";
 
-/* ---------- tolerant field picker ---------- */
-// normalize: lower-case, strip non-alphanum
-const norm = (s) => String(s || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+const getBarcode = (b) => b?.barcode ?? "—";
+const getAuthor = (b) => b?.name_display ?? b?.author_name_display ?? "—";
+const getKeyword = (b) => b?.title_keyword ?? "—";
+const getPublisher = (b) => b?.publisher_name_display ?? "—";
+const getPages = (b) => (b?.pages ?? b?.pages === 0 ? b.pages : "—");
 
-function pick(b, aliases, joinArray = ", ") {
-  if (!b || !aliases?.length) return undefined;
-  const keyMap = new Map(Object.keys(b).map((k) => [norm(k), k]));
-  for (const alias of aliases) {
-    const k = keyMap.get(norm(alias));
-    if (k != null) {
-      const v = b[k];
-      if (Array.isArray(v)) return v.filter(Boolean).join(joinArray);
-      return v;
-    }
-  }
-  return undefined;
-}
-
-// small helpers using pick + aliases
-const getBarcodeRaw = (b) => pick(b, ["barcode", "BMarkb", "BMark", "code", "Barcode"]);
-const getBarcode = (b) => getBarcodeRaw(b) ?? "—";
-const getAuthor = (b) =>
-  pick(b, ["name_display", "author_name_display", "author_display", "BAutor", "Autor", "author", "Author"]) ?? "—";
-const getKeyword = (b) => pick(b, ["BKw", "Stichwort", "Schlagwort", "keyword", "keywords"]) ?? "—";
-const getPublisher = (b) =>
-  pick(b, ["publisher_name_display", "BVerlag", "Verlag", "publisher", "Publisher"]) ?? "—";
-const getPages = (b) => {
-  const raw = pick(b, ["BSeiten", "Seiten", "pages", "Pages", "Seite", "page_count"]);
-  if (raw === undefined || raw === null || raw === "") return "—";
-  const n = Number(raw);
-  return Number.isFinite(n) ? n : String(raw);
-};
 const getCreatedAt = (b) => {
-  const raw = pick(b, ["BEind", "createdAt", "CreatedAt", "created_on", "created"]);
   try {
-    return raw ? new Date(raw).toLocaleString() : "—";
+    return b?.registered_at ? new Date(b.registered_at).toLocaleString() : "—";
   } catch {
     return "—";
   }
 };
-const getStatusChangedAt = (b) => {
-  const raw = pick(b, [
-    "statusChangedAt",
-    "status_changed_at",
-    "reading_status_updated_at",
-    "readingStatusUpdatedAt",
-  ]);
-  try {
-    return raw ? new Date(raw).toLocaleString() : "—";
-  } catch {
-    return "—";
-  }
-};
-const getTop = (b) => !!(pick(b, ["BTop", "top", "Topbook"]) ?? b?.BTop);
 
-/* ------------------------------------------- */
+const getStatusChangedAt = (b) => {
+  try {
+    return b?.reading_status_updated_at
+      ? new Date(b.reading_status_updated_at).toLocaleString()
+      : "—";
+  } catch {
+    return "—";
+  }
+};
+
+const getTop = (b) => !!b?.top_book;
 
 export default function SearchUpdatePage() {
-  const [q, setQ] = useState({ q: "", page: 1, limit: 20, sortBy: "BEind", order: "desc", status: "" });
+  const [q, setQ] = useState({
+    q: "",
+    page: 1,
+    limit: 20,
+    sortBy: "registered_at",
+    order: "desc",
+    status: "",
+  });
   const [searchText, setSearchText] = useState("");
 
   const [items, setItems] = useState([]);
@@ -73,7 +48,6 @@ export default function SearchUpdatePage() {
   const [updating, setUpdating] = useState(() => new Set());
   const [refreshTick, setRefreshTick] = useState(0);
 
-  // editor state (reuses the same form as register)
   const [editingBook, setEditingBook] = useState(null);
   const debounceRef = useRef(null);
 
@@ -81,7 +55,6 @@ export default function SearchUpdatePage() {
   const canNext = useMemo(() => q.page * q.limit < total, [q.page, q.limit, total]);
   const totalPages = useMemo(() => Math.max(1, Math.ceil((total || 0) / q.limit)), [total, q.limit]);
 
-  // debounce search input → query
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
     debounceRef.current = setTimeout(() => setQ((p) => ({ ...p, q: searchText, page: 1 })), 300);
@@ -90,7 +63,6 @@ export default function SearchUpdatePage() {
     };
   }, [searchText]);
 
-  // fetch when query changes
   useEffect(() => {
     let cancelled = false;
 
@@ -120,14 +92,16 @@ export default function SearchUpdatePage() {
     };
   }, [q.page, q.limit, q.sortBy, q.order, q.q, q.status, refreshTick]);
 
-  const idOf = (b) => b?._id || b?.id || getBarcodeRaw(b) || b?.code || "";
+  const idOf = (b) => b?._id || b?.id || "";
 
   function setQuery(patch) {
     setQ((prev) => ({ ...prev, ...patch }));
   }
+
   function nextPage() {
     if (canNext) setQuery({ page: q.page + 1 });
   }
+
   function prevPage() {
     if (canPrev) setQuery({ page: q.page - 1 });
   }
@@ -152,11 +126,11 @@ export default function SearchUpdatePage() {
     if (!id) return alert("Kein Datensatz-ID gefunden.");
 
     setUpdatingOn(id, true);
-    const revert = { BTop: getTop(b) };
+    const revert = { top_book: getTop(b) };
 
     try {
-      patchRow(id, { BTop: !!nextVal });
-      await updateBook(id, { BTop: !!nextVal });
+      patchRow(id, { top_book: !!nextVal });
+      await updateBook(id, { top_book: !!nextVal });
     } catch (e) {
       patchRow(id, revert);
       alert(e?.message || "Update Topbook fehlgeschlagen");
@@ -170,11 +144,11 @@ export default function SearchUpdatePage() {
     if (!id) return alert("Kein Datensatz-ID gefunden.");
 
     setUpdatingOn(id, true);
-    const revert = { status: b?.status ?? null };
+    const revert = { reading_status: b?.reading_status ?? null };
 
     try {
-      patchRow(id, { status: nextStatus });
-      await updateBook(id, { status: nextStatus });
+      patchRow(id, { reading_status: nextStatus });
+      await updateBook(id, { reading_status: nextStatus });
     } catch (e) {
       patchRow(id, revert);
       alert(e?.message || "Update Status fehlgeschlagen");
@@ -194,7 +168,6 @@ export default function SearchUpdatePage() {
       await deleteBook(id);
       setItems((prev) => prev.filter((it) => idOf(it) !== id));
       setTotal((prev) => Math.max(0, (Number(prev) || 0) - 1));
-      // If we deleted the last row on this page, go one page back (if possible)
       if (items.length === 1 && q.page > 1) setQuery({ page: q.page - 1 });
     } catch (e) {
       alert(e?.message || "Löschen fehlgeschlagen");
@@ -203,7 +176,7 @@ export default function SearchUpdatePage() {
     }
   }
 
-  const statusOf = (b) => String(b?.status || "").toLowerCase();
+  const statusOf = (b) => String(b?.reading_status || "").toLowerCase();
 
   async function openEditor(b) {
     const id = idOf(b);
@@ -245,7 +218,6 @@ export default function SearchUpdatePage() {
       </p>
 
       <div className="zr-card">
-        {/* Controls */}
         <div className="zr-toolbar">
           <form
             className="zr-toolbar"
@@ -286,11 +258,10 @@ export default function SearchUpdatePage() {
               value={q.sortBy}
               onChange={(e) => setQuery({ sortBy: e.target.value, page: 1 })}
             >
-              <option value="BEind">BEind</option>
-              <option value="createdAt">Erstellt</option>
-              <option value="BAutor">Autor</option>
-              <option value="BVerlag">Verlag</option>
-              <option value="statusChangedAt">Status geändert</option>
+              <option value="registered_at">Registriert</option>
+              <option value="author_name_display">Autor</option>
+              <option value="publisher_name_display">Verlag</option>
+              <option value="reading_status_updated_at">Status geändert</option>
             </select>
           </label>
 
@@ -303,8 +274,7 @@ export default function SearchUpdatePage() {
               onChange={(e) => {
                 const v = e.target.value || "";
                 if (v) {
-                  // When filtering for finished/abandoned, sort by status change time newest-first.
-                  setQuery({ status: v, page: 1, sortBy: "statusChangedAt", order: "desc" });
+                  setQuery({ status: v, page: 1, sortBy: "reading_status_updated_at", order: "desc" });
                 } else {
                   setQuery({ status: "", page: 1 });
                 }
@@ -363,7 +333,7 @@ export default function SearchUpdatePage() {
                   <th>Abandoned</th>
                   <th>Finished</th>
                   <th>Status geändert</th>
-                  <th>Erstellt</th>
+                  <th>Registriert</th>
                   <th>Aktionen</th>
                 </tr>
               </thead>
@@ -452,7 +422,6 @@ export default function SearchUpdatePage() {
           </div>
         ) : null}
 
-        {/* Pagination */}
         <div className="zr-toolbar" style={{ marginTop: 12 }}>
           <button className="zr-btn2 zr-btn2--ghost zr-btn2--sm" onClick={prevPage} disabled={!canPrev} type="button">
             ← Zurück
@@ -469,7 +438,6 @@ export default function SearchUpdatePage() {
           </button>
         </div>
 
-        {/* Editor (shared form, barcode locked) */}
         {editingBook ? (
           <div id="edit-book-form" style={{ marginTop: 14 }}>
             <div className="zr-card">
@@ -479,7 +447,7 @@ export default function SearchUpdatePage() {
                 initialBook={editingBook}
                 lockBarcode={true}
                 showUnknownFields={false}
-                excludeUnknownKeys={["status"]} // keep your status radios as source of truth
+                excludeUnknownKeys={["reading_status"]}
                 submitLabel="Speichern"
                 onCancel={closeEditor}
                 onSuccess={({ payload, saved }) => {
@@ -489,9 +457,6 @@ export default function SearchUpdatePage() {
                   patchRow(currentId, patch);
                   setEditingBook((prev) => ({ ...(prev || {}), ...patch }));
                   closeEditor();
-
-                  // Author/publisher changes can affect other rows that share the same canonical record.
-                  // Re-fetch the current page so the list does not keep stale metadata.
                   setRefreshTick((n) => n + 1);
                 }}
               />
