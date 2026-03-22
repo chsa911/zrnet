@@ -838,10 +838,11 @@ export default function BookForm({
   const [draftBusy, setDraftBusy] = useState(false);
   const [draftCandidates, setDraftCandidates] = useState([]);
   const [draftSelectedId, setDraftSelectedId] = useState("");
+  const [lockedDraftId, setLockedDraftId] = useState("");
 
   const selectedDraft = useMemo(
-    () => draftCandidates.find((d) => d.id === draftSelectedId) || null,
-    [draftCandidates, draftSelectedId]
+    () => draftCandidates.find((d) => d.id === (lockedDraftId || draftSelectedId)) || null,
+    [draftCandidates, draftSelectedId, lockedDraftId]
   );
 
   function draftTitle(d) {
@@ -849,6 +850,12 @@ export default function BookForm({
   }
 
   function draftAuthor(d) {
+    return (
+      d?.author_name_display ||
+      d?.name_display ||
+      [d?.author_first_name, d?.author_last_name].filter(Boolean).join(" ") ||
+      ""
+    );
   }
 
   useEffect(() => {
@@ -900,9 +907,12 @@ export default function BookForm({
             : [];
           setDraftCandidates(items);
           setDraftSelectedId((prev) => {
+            if (lockedDraftId && items.some((x) => x.id === lockedDraftId)) {
+              return lockedDraftId;
+            }
             if (prev && items.some((x) => x.id === prev)) return prev;
-            if (items.length === 1) return items[0].id;
-            return "";
+            if (!lockedDraftId && items.length === 1) return items[0].id;
+            return lockedDraftId || "";
           });
         } catch {
           if (!alive) return;
@@ -932,6 +942,7 @@ export default function BookForm({
     v.name_display,
     v.publisher_name_display,
     v.publisher_abbr,
+    lockedDraftId,
   ]);
 
   useEffect(() => {
@@ -1073,12 +1084,18 @@ export default function BookForm({
   function setField(key, val) {
     setV((prev) => {
       const next = { ...prev, [key]: val };
-      if (["author_lastname", "author_firstname", "name_display", "author_abbreviation"].includes(key)) {
-        next.author_id = "";
+
+      // In edit mode we are editing the linked author/publisher entity.
+      // Keep the current ids so one change applies to all linked books.
+      if (!isEdit) {
+        if (["author_lastname", "author_firstname", "name_display", "author_abbreviation"].includes(key)) {
+          next.author_id = "";
+        }
+        if (["publisher_name_display", "publisher_abbr"].includes(key)) {
+          next.publisher_id = "";
+        }
       }
-      if (["publisher_name_display", "publisher_abbr"].includes(key)) {
-        next.publisher_id = "";
-      }
+
       return next;
     });
   }
@@ -1163,10 +1180,8 @@ export default function BookForm({
       if (overwriteIdentity) {
         if (display) {
           next.publisher_name_display = display;
-          next.publisher_name_display = display;
         }
       } else if (!String(prev.publisher_name_display || "").trim() && display) {
-        next.publisher_name_display = display;
         next.publisher_name_display = display;
       }
       if (abbr && (!fillOnly || !String(prev.publisher_abbr || "").trim())) {
@@ -1177,15 +1192,17 @@ export default function BookForm({
   }
 
   function setAuthorIdentityField(key, value) {
-    setV((prev) => ({ ...prev, author_id: "", [key]: value }));
+    setV((prev) => {
+      if (isEdit) return { ...prev, [key]: value };
+      return { ...prev, author_id: "", [key]: value };
+    });
   }
 
   function setPublisherIdentityField(key, value) {
-    setV((prev) => ({
-      ...prev,
-      publisher_id: "",
-      [key]: value,
-    }));
+    setV((prev) => {
+      if (isEdit) return { ...prev, [key]: value };
+      return { ...prev, publisher_id: "", [key]: value };
+    });
   }
 
   const [ac, setAc] = useState({ field: "", items: [] });
@@ -1832,6 +1849,16 @@ export default function BookForm({
       addIfChanged(k, next, prev);
     }
 
+    if (isEdit) {
+      const nextWidth = parseFloatOrNull(v.width_cm);
+      const prevWidth = parseFloatOrNull(initial.width_cm);
+      const nextHeight = parseFloatOrNull(v.height_cm);
+      const prevHeight = parseFloatOrNull(initial.height_cm);
+
+      addIfChanged("width_cm", nextWidth, prevWidth);
+      addIfChanged("height_cm", nextHeight, prevHeight);
+    }
+
     if (isEdit && showUnknownFields) {
       for (const [k, nextStr] of Object.entries(extras || {})) {
         if (!k) continue;
@@ -1848,12 +1875,13 @@ export default function BookForm({
       return;
     }
 
+    const targetDraftId = lockedDraftId || draftSelectedId || "";
     let jobId = null;
     if (!isEdit) {
       jobId =
         globalThis.crypto?.randomUUID?.() ||
         `${Date.now()}-${Math.random()}`;
-      const flow = assignBarcode && draftSelectedId ? "finalize" : "create";
+      const flow = assignBarcode && targetDraftId ? "finalize" : "create";
 
       const jobPayload = { ...payload };
       if (flow === "create") jobPayload.requestId = jobId;
@@ -1865,7 +1893,7 @@ export default function BookForm({
         status: "pending",
         retries: 0,
         flow,
-        draftId: flow === "finalize" ? draftSelectedId : null,
+        draftId: flow === "finalize" ? targetDraftId : null,
         payload: jobPayload,
         step: "create",
         cover: coverFile || null,
@@ -1889,10 +1917,10 @@ export default function BookForm({
           bookId || initialBook?._id || initialBook?.id,
           payload
         );
-      } else if (assignBarcode && draftSelectedId) {
+      } else if (assignBarcode && targetDraftId) {
         const p2 = { ...payload };
         delete p2.assign_barcode;
-        saved = await registerExistingBook(draftSelectedId, p2);
+        saved = await registerExistingBook(targetDraftId, p2);
       } else {
         const p2 = jobId ? { ...payload, requestId: jobId } : payload;
         saved = await registerBook(p2);
@@ -1901,13 +1929,13 @@ export default function BookForm({
       const savedId =
         saved?.id ||
         saved?._id ||
-        draftSelectedId ||
+        targetDraftId ||
         bookId ||
         initialBook?._id ||
         initialBook?.id;
 
       if (jobId) {
-        const flow = assignBarcode && draftSelectedId ? "finalize" : "create";
+        const flow = assignBarcode && targetDraftId ? "finalize" : "create";
         const jobPayload =
           flow === "finalize"
             ? (() => {
@@ -1924,7 +1952,7 @@ export default function BookForm({
             status: "pending",
             retries: 0,
             flow,
-            draftId: flow === "finalize" ? draftSelectedId : null,
+            draftId: flow === "finalize" ? targetDraftId : null,
             payload: jobPayload,
             step: "cover",
             savedId,
@@ -1965,6 +1993,7 @@ export default function BookForm({
         setBarcodePreviewErr("");
         setDraftCandidates([]);
         setDraftSelectedId("");
+        setLockedDraftId("");
       }
     } catch (err) {
       setMsg(
@@ -2023,7 +2052,10 @@ export default function BookForm({
                 <button
                   type="button"
                   className="zr-btn2 zr-btn2--ghost zr-btn2--sm"
-                  onClick={() => setDraftSelectedId("")}
+                  onClick={() => {
+                    setDraftSelectedId("");
+                    setLockedDraftId("");
+                  }}
                 >
                   Als neuen Eintrag anlegen
                 </button>
@@ -2032,13 +2064,16 @@ export default function BookForm({
                 <button
                   key={d.id}
                   type="button"
-                  onClick={() => setDraftSelectedId(d.id)}
+                  onClick={() => {
+                    setDraftSelectedId(d.id);
+                    setLockedDraftId(d.id);
+                  }}
                   className="zr-card"
                   style={{
                     padding: 8,
                     cursor: "pointer",
                     borderColor:
-                      d.id === draftSelectedId
+                      d.id === (lockedDraftId || draftSelectedId)
                         ? "rgba(0,0,0,0.35)"
                         : "rgba(0,0,0,0.12)",
                     width: 220,
@@ -2290,7 +2325,7 @@ export default function BookForm({
                       const maybeFirst = parts.length > 1 ? parts.slice(0, -1).join(" ") : "";
                       setV((prev) => ({
                         ...prev,
-                        author_id: "",
+                        author_id: isEdit ? prev.author_id : "",
                         author_lastname: maybeLast,
                         author_firstname: prev.author_firstname || maybeFirst,
                         name_display: prev.name_display || picked,
@@ -2772,6 +2807,16 @@ export default function BookForm({
               </button>
             </div>
           </div>
+        </div>
+      ) : null}
+
+      {lockedDraftId ? (
+        <div className="zr-card" style={{ fontWeight: 700 }}>
+          Vorhandener Eintrag ausgewählt – beim Speichern wird dieser Datensatz aktualisiert:
+          <br />
+          <code>{lockedDraftId}</code>
+          <br />
+          Es wird kein neuer Eintrag angelegt.
         </div>
       ) : null}
 

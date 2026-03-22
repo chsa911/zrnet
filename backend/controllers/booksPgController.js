@@ -99,7 +99,7 @@ function mapReadingStatus(v) {
   if (!s) return null;
   const x = s.toLowerCase();
   if (x === "open" || x === "inprogress" || x === "in-progress") return "in_progress";
-  if (x === "in_progress" || x === "finished" || x === "abandoned" || x === "in_stock") return x;
+  if (x === "in_progress" || x === "finished" || x === "abandoned") return x;
   return s;
 }
 
@@ -261,6 +261,31 @@ function normalizeUuid(v) {
   const s = String(v || "").trim();
   return UUID_RE.test(s) ? s : null;
 }
+
+
+function parseExistingBookIdFromPgDetail(detail) {
+  const m = /existing_id=([0-9a-f-]{36})/i.exec(String(detail || ""));
+  return m?.[1] || null;
+}
+
+function sendKnownPgError(res, err) {
+  const code = String(err?.code || "");
+  const msg = String(err?.message || "");
+  const detail = String(err?.detail || "");
+
+  if (code === "23505" && /near_duplicate_book_blocked/i.test(msg)) {
+    return res.status(409).json({
+      error: "near_duplicate_book_blocked",
+      message:
+        "Ein sehr ähnlicher Bucheintrag wurde gerade eben bereits angelegt. Bitte den vorhandenen Eintrag weiterverwenden.",
+      existing_book_id: parseExistingBookIdFromPgDetail(detail),
+      detail: detail || null,
+    });
+  }
+
+  return null;
+}
+
 
 async function upsertAuthor(
   db,
@@ -1002,6 +1027,7 @@ async function autocomplete(req, res) {
 
 /* --------------------------------- create --------------------------------- */
 
+
 async function registerBook(req, res) {
   const body = req.body || {};
 
@@ -1069,7 +1095,10 @@ async function registerBook(req, res) {
     }
   }
 
-  const rule = assignBarcodeNow && !requestedBarcode ? await resolveRuleAndPos(pool, widthCm, heightCm) : null;
+  const rule =
+    assignBarcodeNow && !requestedBarcode
+      ? await resolveRuleAndPos(pool, widthCm, heightCm)
+      : null;
   if (assignBarcodeNow && !requestedBarcode && !rule) {
     return res.status(422).json({ error: "no_series_for_size" });
   }
@@ -1087,7 +1116,10 @@ async function registerBook(req, res) {
     const cols = await getColumns(pool, "books");
 
     if (requestId && cols.has("request_id")) {
-      const exists = await pool.query(`SELECT id FROM public.books WHERE request_id = $1 LIMIT 1`, [requestId]);
+      const exists = await pool.query(
+        `SELECT id FROM public.books WHERE request_id = $1 LIMIT 1`,
+        [requestId]
+      );
       const existingId = exists.rows[0]?.id;
       if (existingId) {
         const existing = await fetchBookWithBarcode(pool, existingId);
@@ -1226,6 +1258,9 @@ async function registerBook(req, res) {
       client.release();
     }
   } catch (err) {
+    const knownPg = sendKnownPgError(res, err);
+    if (knownPg) return knownPg;
+
     const msg = String(err?.message || err);
     const map = {
       barcode_not_found: [404, "barcode_not_found"],
@@ -1243,6 +1278,7 @@ async function registerBook(req, res) {
     return res.status(500).json({ error: "internal_error" });
   }
 }
+
 
 /* ---------------------------- register existing ---------------------------- */
 
@@ -1465,6 +1501,9 @@ async function registerExistingBook(req, res) {
     try {
       await client.query("ROLLBACK");
     } catch {}
+
+    const knownPg = sendKnownPgError(res, err);
+    if (knownPg) return knownPg;
 
     const msg = String(err?.message || err);
     const map = {
@@ -1691,6 +1730,10 @@ async function updateBook(req, res) {
     try {
       await client.query("ROLLBACK");
     } catch {}
+
+    const knownPg = sendKnownPgError(res, err);
+    if (knownPg) return knownPg;
+
     console.error("updateBook error", err);
     return res.status(500).json({ error: "internal_error" });
   } finally {
