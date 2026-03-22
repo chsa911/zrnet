@@ -1,4 +1,4 @@
-  // backend/routes/mobileSync.js
+    // backend/routes/mobileSync.js
 
   const express = require("express");
   const router = express.Router();
@@ -130,6 +130,36 @@
       ON mobile_sync.receipts (lower(barcode))
     `);
 
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS public.mobile_sync_inbox (
+        client_change_id text PRIMARY KEY,
+        device_id text NULL,
+        barcode text NULL,
+        raw_payload jsonb NOT NULL,
+        status text NOT NULL DEFAULT 'received',
+        error_code text NULL,
+        book_id uuid NULL,
+        received_at timestamptz NOT NULL DEFAULT now(),
+        applied_at timestamptz NULL,
+        reviewed_at timestamptz NULL
+      )
+    `);
+
+    await client.query(`
+      CREATE INDEX IF NOT EXISTS idx_mobile_sync_inbox_received_at
+      ON public.mobile_sync_inbox (received_at DESC)
+    `);
+
+    await client.query(`
+      CREATE INDEX IF NOT EXISTS idx_mobile_sync_inbox_status_received_at
+      ON public.mobile_sync_inbox (status, received_at DESC)
+    `);
+
+    await client.query(`
+      CREATE INDEX IF NOT EXISTS idx_mobile_sync_inbox_barcode
+      ON public.mobile_sync_inbox (lower(barcode))
+    `);
+
     // Make sure books has the columns we need for mobile timestamps
     await client.query(`
       ALTER TABLE public.books
@@ -144,12 +174,68 @@
     ensured = true;
   }
 
-  async function receiptExists(client, clientChangeId) {
+  async function inboxStoreReceived(client, change) {
+    const clientChangeId = String(change.clientChangeId || change.client_change_id || "").trim();
+    const barcode = String(change.barcode || "").trim() || null;
+    const deviceId = String(change.deviceId || change.device_id || "").trim() || null;
+
+    if (!clientChangeId) return null;
+
+    await client.query(
+      `
+      INSERT INTO public.mobile_sync_inbox (
+        client_change_id,
+        device_id,
+        barcode,
+        raw_payload,
+        status
+      )
+      VALUES ($1, $2, $3, $4::jsonb, 'received')
+      ON CONFLICT (client_change_id) DO NOTHING
+      `,
+      [clientChangeId, deviceId, barcode, JSON.stringify(change)]
+    );
+
+    return clientChangeId;
+  }
+
+  async function inboxSetStatus(client, clientChangeId, { status, errorCode = null, bookId = null }) {
+    if (!clientChangeId) return;
+
+    await client.query(
+      `
+      UPDATE public.mobile_sync_inbox
+      SET
+        status = $2,
+        error_code = $3,
+        book_id = COALESCE($4::uuid, book_id),
+        applied_at = CASE WHEN $2 = 'applied' THEN now() ELSE applied_at END,
+        reviewed_at = CASE WHEN $2 = 'needs_review' THEN now() ELSE reviewed_at END
+      WHERE client_change_id = $1
+      `,
+      [clientChangeId, status, errorCode, bookId]
+    );
+  }
+
+  async function syncInboxStatusFromReceipt(client, clientChangeId) {
     const r = await client.query(
-      `SELECT 1 FROM mobile_sync.receipts WHERE client_change_id = $1 LIMIT 1`,
+      `
+      SELECT status, book_id
+      FROM mobile_sync.receipts
+      WHERE client_change_id = $1
+      LIMIT 1
+      `,
       [clientChangeId]
     );
-    return r.rowCount > 0;
+
+    if (r.rowCount !== 1) return false;
+
+    const receipt = r.rows[0];
+    await inboxSetStatus(client, clientChangeId, {
+      status: receipt.status === 'applied' ? 'applied' : 'needs_review',
+      bookId: receipt.book_id || null,
+    });
+    return true;
   }
 
   async function writeIssueAndReceipt(client, change, parsed, reason, details, candidateBookIds) {
@@ -302,14 +388,23 @@
             : null;
 
         const topBookSetAt = parseTs(c.topbook_set_at || c.topBookSetAt || c.top_book_set_at);
+        const storedClientChangeId = await inboxStoreReceived(client, c);
 
         if (!clientChangeId || !barcode || !readingStatus || !rsUpdatedAt) {
-          failed.push({ clientChangeId: clientChangeId || null, error: "INVALID_PAYLOAD" });
+          if (storedClientChangeId) {
+            await inboxSetStatus(client, storedClientChangeId, {
+              status: "invalid_payload",
+              errorCode: "INVALID_PAYLOAD",
+            });
+            applied.push(storedClientChangeId);
+          } else {
+            failed.push({ clientChangeId: clientChangeId || null, error: "INVALID_PAYLOAD" });
+          }
           continue;
         }
 
         // Idempotency
-        if (await receiptExists(client, clientChangeId)) {
+        if (await syncInboxStatusFromReceipt(client, clientChangeId)) {
           applied.push(clientChangeId);
           continue;
         }
@@ -343,6 +438,10 @@
           const bookId = dup.rows[0].book_id;
           await updateBookFromMobile(client, bookId, parsed);
           await writeAppliedReceipt(client, c, parsed, bookId);
+          await inboxSetStatus(client, clientChangeId, {
+            status: "applied",
+            bookId,
+          });
           applied.push(clientChangeId);
           continue;
         }
@@ -371,6 +470,10 @@
             { note: "No active barcode_assignments for barcode" },
             null
           );
+          await inboxSetStatus(client, clientChangeId, {
+            status: "needs_review",
+            errorCode: "barcode_not_found",
+          });
           applied.push(clientChangeId);
           continue;
         }
@@ -400,6 +503,10 @@
               { candidate_count: candidates.length },
               candidates
             );
+            await inboxSetStatus(client, clientChangeId, {
+              status: "needs_review",
+              errorCode: "barcode_ambiguous_missing_pages",
+            });
             applied.push(clientChangeId);
             continue;
           }
@@ -422,6 +529,10 @@
               },
               candidates
             );
+            await inboxSetStatus(client, clientChangeId, {
+              status: "needs_review",
+              errorCode: "barcode_ambiguous_pages_no_unique_match",
+            });
             applied.push(clientChangeId);
             continue;
           }
@@ -442,6 +553,10 @@
             { chosen_book_id: chosenBookId },
             candidates.length > 1 ? candidates : [chosenBookId]
           );
+          await inboxSetStatus(client, clientChangeId, {
+            status: "needs_review",
+            errorCode: "book_not_found",
+          });
           applied.push(clientChangeId);
           continue;
         }
@@ -465,6 +580,10 @@
             },
             candidates.length > 1 ? candidates : [chosenBookId]
           );
+          await inboxSetStatus(client, clientChangeId, {
+            status: "needs_review",
+            errorCode: "pages_mismatch",
+          });
           applied.push(clientChangeId);
           continue;
         }
@@ -480,6 +599,10 @@
             { chosen_book_id: chosenBookId },
             candidates.length > 1 ? candidates : [chosenBookId]
           );
+          await inboxSetStatus(client, clientChangeId, {
+            status: "needs_review",
+            errorCode: "topbook_missing_timestamp",
+          });
           applied.push(clientChangeId);
           continue;
         }
@@ -487,6 +610,10 @@
         // 5) Apply update immediately
         await updateBookFromMobile(client, chosenBookId, parsed);
         await writeAppliedReceipt(client, c, parsed, chosenBookId);
+        await inboxSetStatus(client, clientChangeId, {
+          status: "applied",
+          bookId: chosenBookId,
+        });
 
         applied.push(clientChangeId);
       }
@@ -757,35 +884,36 @@
   const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
   const isUuid = (v) => UUID_RE.test(String(v || "").trim());
 
-  async function freeBarcode(client, barcodeRaw) {
-    const barcode = String(barcodeRaw || "").trim();
-    if (!barcode) return;
+async function freeBarcode(client, barcodeRaw) {
+  const barcode = String(barcodeRaw || "").trim();
+  if (!barcode) return;
 
-    // free active assignment(s) of this barcode
+  await client.query(
+    `UPDATE public.barcode_assignments
+     SET freed_at = now()
+     WHERE lower(barcode) = lower($1)
+       AND freed_at IS NULL`,
+    [barcode]
+  );
+
+  await client.query(
+    `UPDATE public.barcode_inventory
+     SET status = 'AVAILABLE', updated_at = now()
+     WHERE lower(barcode) = lower($1)`,
+    [barcode]
+  );
+
+  try {
     await client.query(
-      `UPDATE public.barcode_assignments
-      SET freed_at = now()
-      WHERE lower(barcode) = lower($1)
-        AND freed_at IS NULL`,
+      `DELETE FROM public.book_barcodes
+       WHERE lower(barcode) = lower($1)`,
       [barcode]
     );
-
-    // best-effort: inventory -> AVAILABLE (your DB has code + barcode)
-    try {
-      await client.query(
-        `UPDATE public.barcode_inventory
-        SET status = 'AVAILABLE', updated_at = now()
-        WHERE lower(code) = lower($1) OR lower(barcode) = lower($1)`,
-        [barcode]
-      );
-    } catch {}
-
-    // legacy mapping (best effort)
-    try {
-      await client.query(`DELETE FROM public.book_barcodes WHERE lower(barcode) = lower($1)`, [barcode]);
-    } catch {}
+  } catch (e) {
+    console.error("freeBarcode book_barcodes cleanup failed:", e.message);
   }
-
+}
+ 
   async function resolveIssueAction(req, res) {
     const pool = req.app.get("pgPool");
     if (!pool) return res.status(500).json({ error: "pgPool missing" });
@@ -806,8 +934,7 @@
     const client = await pool.connect();
     try {
       await client.query("BEGIN");
-      await ensureMobileSyncTables(client);
-
+     
       const rr = await client.query(
         `
         SELECT
