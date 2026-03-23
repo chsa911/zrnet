@@ -12,12 +12,13 @@ const app = require("./app");
 // ✅ Read from env, provide defaults
 const PORT = Number(process.env.PORT || 4000);
 const DATABASE_URL = process.env.DATABASE_URL;
-const u = new URL(DATABASE_URL);
-console.log("[env] DB user:", u.username, "| host:", u.host, "| db:", u.pathname.slice(1));
 if (!DATABASE_URL) {
   console.error("❌ Missing DATABASE_URL in environment (.env)");
   process.exit(1);
 }
+
+const u = new URL(DATABASE_URL);
+console.log("[env] DB user:", u.username, "| host:", u.host, "| db:", u.pathname.slice(1));
 
 // Neon / hosted Postgres typically requires SSL.
 // If your DATABASE_URL contains sslmode=require, enable SSL for node-postgres.
@@ -48,7 +49,8 @@ async function shutdown(signal) {
   if (shuttingDown) return;
   shuttingDown = true;
 
-  console.log(`\n👋 Shutting down (${signal})...`);
+  console.log(`
+👋 Shutting down (${signal})...`);
   try {
     if (server) {
       await new Promise((resolve) => server.close(resolve));
@@ -89,9 +91,9 @@ process.on("SIGTERM", () => shutdown("SIGTERM"));
       }
     }
 
-  server = app.listen(PORT, "0.0.0.0", () => {
-  console.log(`🚀 API listening on http://0.0.0.0:${PORT}`);
-});
+    server = app.listen(PORT, "0.0.0.0", () => {
+      console.log(`🚀 API listening on http://0.0.0.0:${PORT}`);
+    });
   } catch (err) {
     console.error("❌ Postgres connection error:", err);
     try {

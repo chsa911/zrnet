@@ -19,6 +19,7 @@ import MostReadAuthorsPage from "./pages/MostReadAuthorsPage";
 import AuthorsOverviewPage from "./pages/AuthorsOverviewPage";
 import AuthorPage from "./pages/AuthorPage";
 import BookPage from "./pages/BookPage";
+import AbbreviationsAdminPage from "./pages/AbbreviationsAdminPage";
 /*import NewsletterPage from "./pages/NewsletterPage";
 */
 import ThemeSubthemesAuthorsPage from "./pages/ThemeSubthemesAuthorsPage";
@@ -115,6 +116,7 @@ export default function App() {
         <Route path="authors" element={<AuthorsOverviewPage />} />
         <Route path="bookthemes/:abbr/subthemes" element={<ThemeSubthemesAuthorsPage />} />
         {/* admin */}
+<Route path="admin/abbreviations" element={<AbbreviationsAdminPage />} />
         <Route path="admin" element={<AdminPage />} />
         <Route path="admin/register" element={<RegisterPage />} />
         <Route path="admin/authors" element={<AdminAuthorsOverviewPage />} />

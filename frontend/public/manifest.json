@@ -1,7 +1,9 @@
 {
-  "name": "BMark Manager",
-  "short_name": "BMark",
+  "name": "PagesInLine",
+  "short_name": "PagesInLine",
+  "id": "/",
   "start_url": "/",
+  "scope": "/",
   "display": "standalone",
   "background_color": "#ffffff",
   "theme_color": "#0ea5e9",
@@ -15,6 +17,11 @@
     {
       "src": "/icons/icon-512.png",
       "sizes": "512x512",
+      "type": "image/png"
+    },
+    {
+      "src": "/icons/apple-touch-icon.png",
+      "sizes": "180x180",
       "type": "image/png"
     }
   ]

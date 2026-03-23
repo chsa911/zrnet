@@ -2150,16 +2150,14 @@ export default function BookForm({
             }
           />
         </label>
-      </div>
-
-      {!isEdit && assignBarcode ? (
+      </div>      {!isEdit && assignBarcode ? (
         <div className="zr-card" style={{ display: "grid", gap: 10 }}>
           <div style={{ fontWeight: 900 }}>
-            Breite/Höhe für Barcode-Vorschlag (optional)
+            Barcode-Vorschlag / Kurzangaben (optional)
           </div>
 
-          <div className="zr-toolbar">
-            <label style={{ display: "grid", gap: 6, flex: 1 }}>
+          <div className="zr-toolbar" style={{ alignItems: "end", flexWrap: "wrap", gap: 12 }}>
+            <label style={{ display: "grid", gap: 6, flex: "0 0 auto" }}>
               <span>Breite (cm) (width_cm)</span>
               <input
                 className="zr-input"
@@ -2167,16 +2165,16 @@ export default function BookForm({
                 type="text"
                 inputMode="decimal"
                 autoComplete="off"
-                pattern="[0-9]*[\\.,]?[0-9]*"
+                pattern="[0-9]*[\.,]?[0-9]*"
                 value={v.width_cm}
                 onChange={(e) => setField("width_cm", e.target.value)}
                 onInput={(e) => setField("width_cm", e.currentTarget.value)}
-                placeholder="z.B. 13,5"
-                style={{ width: "100%" }}
+                placeholder="13,5"
+                style={{ width: "8ch", minWidth: 0 }}
               />
             </label>
 
-            <label style={{ display: "grid", gap: 6, flex: 1 }}>
+            <label style={{ display: "grid", gap: 6, flex: "0 0 auto" }}>
               <span>Höhe (cm) (height_cm)</span>
               <input
                 className="zr-input"
@@ -2184,12 +2182,47 @@ export default function BookForm({
                 type="text"
                 inputMode="decimal"
                 autoComplete="off"
-                pattern="[0-9]*[\\.,]?[0-9]*"
+                pattern="[0-9]*[\.,]?[0-9]*"
                 value={v.height_cm}
                 onChange={(e) => setField("height_cm", e.target.value)}
                 onInput={(e) => setField("height_cm", e.currentTarget.value)}
-                placeholder="z.B. 21"
-                style={{ width: "100%" }}
+                placeholder="21"
+                style={{ width: "8ch", minWidth: 0 }}
+              />
+            </label>
+
+            <label style={{ display: "grid", gap: 6, flex: "0 0 auto" }}>
+              <span>Seiten (pages)</span>
+              <input
+                className="zr-input"
+                type="text"
+                inputMode="numeric"
+                value={v.pages}
+                onChange={(e) => setField("pages", e.target.value)}
+                placeholder="320"
+                style={{ width: "6ch", minWidth: 0 }}
+              />
+            </label>
+
+            <label style={{ display: "grid", gap: 6, flex: "0 0 auto" }}>
+              <span>Autor Abk. (author_abbreviation)</span>
+              <input
+                className="zr-input"
+                value={v.author_abbreviation}
+                onChange={(e) => setAuthorIdentityField("author_abbreviation", e.target.value)}
+                placeholder="KR"
+                style={{ width: "8ch", minWidth: 0 }}
+              />
+            </label>
+
+            <label style={{ display: "grid", gap: 6, flex: "0 0 auto" }}>
+              <span>Verlag Abk. (publisher_abbr)</span>
+              <input
+                className="zr-input"
+                value={v.publisher_abbr}
+                onChange={(e) => setPublisherIdentityField("publisher_abbr", e.target.value)}
+                placeholder="ROW"
+                style={{ width: "9ch", minWidth: 0 }}
               />
             </label>
           </div>
@@ -2364,17 +2397,6 @@ export default function BookForm({
           onChange={(e) => setAuthorIdentityField("name_display", e.target.value)}
         />
       </label>
-
-      <div className="zr-toolbar">
-        <label style={{ display: "grid", gap: 6, flex: 1 }}>
-          <span>Autor Abkürzung (author_abbreviation) (optional)</span>
-          <input
-            className="zr-input"
-            value={v.author_abbreviation}
-            onChange={(e) => setAuthorIdentityField("author_abbreviation", e.target.value)}
-          />
-        </label>
-      </div>
 
       <div className="zr-toolbar">
         <label style={{ display: "grid", gap: 6, flex: 1 }}>
@@ -2572,26 +2594,6 @@ export default function BookForm({
               ))}
             </div>
           ) : null}
-        </label>
-
-        <label style={{ display: "grid", gap: 6, flex: 1 }}>
-          <span>Verlag Abkürzung (publisher_abbr)</span>
-          <input
-            className="zr-input"
-            value={v.publisher_abbr}
-            onChange={(e) => setPublisherIdentityField("publisher_abbr", e.target.value)}
-          />
-        </label>
-
-        <label style={{ display: "grid", gap: 6 }}>
-          <span>Seiten (pages)</span>
-          <input
-            className="zr-input"
-            type="text"
-            inputMode="numeric"
-            value={v.pages}
-            onChange={(e) => setField("pages", e.target.value)}
-          />
         </label>
       </div>
 

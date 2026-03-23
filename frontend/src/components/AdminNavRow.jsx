@@ -53,6 +53,14 @@ export default function AdminNavRow({ style }) {
       </Link>
 
       <Link
+        to="/admin/abbreviations"
+        className="zr-btn2 zr-btn2--ghost"
+        style={baseBtn(pathname === "/admin/abbreviations")}
+      >
+        🔤 Abbreviations
+      </Link>
+
+      <Link
         to="/admin/sync-issues"
         className="zr-btn2 zr-btn2--ghost"
         style={baseBtn(pathname === "/admin/sync-issues")}

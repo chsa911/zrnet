@@ -27,8 +27,9 @@ function adminLogin(req, res) {
     res.cookie("admin_auth", expected, {
       httpOnly: true,
       sameSite: "lax",
-      secure: process.env.NODE_ENV === "production",         // keep true on https
-      maxAge: 1000 * 60 * 60 * 24 * 30 // 30 days
+      secure: process.env.NODE_ENV === "production",
+      path: "/",
+      maxAge: 1000 * 60 * 60 * 24 * 30, // 30 days
     });
     return res.json({ ok: true });
   }
@@ -36,7 +37,7 @@ function adminLogin(req, res) {
 }
 
 function adminLogout(req, res) {
-  res.clearCookie("admin_auth");
+  res.clearCookie("admin_auth", { path: "/" });
   res.json({ ok: true });
 }
 

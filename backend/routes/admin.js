@@ -111,6 +111,151 @@ router.get("/me", (_req, res) => {
   res.json({ ok: true });
 });
 
+/* -------------------- abbreviations admin -------------------- */
+
+// GET /api/admin/abbreviations?source=abbrev_map|author_aliases|publisher_aliases|authors&type=author|publisher&level=1&q=foo
+router.get("/abbreviations", async (req, res) => {
+  const pool = req.app.get("pgPool");
+  if (!pool) return res.status(500).json({ error: "pgPool missing" });
+
+  const source = String(req.query.source || "all").trim().toLowerCase();
+  const type = String(req.query.type || "all").trim().toLowerCase();
+  const levelRaw = String(req.query.level || "all").trim().toLowerCase();
+  const q = String(req.query.q || "").trim();
+  const limit = clampInt(req.query.limit, { min: 1, max: 2000, def: 500 });
+  const offset = clampOffset(req.query.offset, { min: 0, max: 1000000, def: 0 });
+
+  const validSources = new Set(["all", "abbrev_map", "author_aliases", "publisher_aliases", "authors"]);
+  const validTypes = new Set(["all", "author", "publisher"]);
+
+  if (!validSources.has(source)) {
+    return res.status(400).json({ error: "invalid_source" });
+  }
+  if (!validTypes.has(type)) {
+    return res.status(400).json({ error: "invalid_type" });
+  }
+
+  let level = null;
+  if (levelRaw && levelRaw !== "all") {
+    if (!/^\d+$/.test(levelRaw)) return res.status(400).json({ error: "invalid_level" });
+    level = Math.max(1, Math.trunc(Number(levelRaw)));
+  }
+
+  try {
+    const parts = [];
+
+    if (source === "all" || source === "abbrev_map") {
+      parts.push(`
+        SELECT
+          'abbrev_map'::text AS source_table,
+          am.type::text AS type,
+          am.abbr_raw::text AS abbr_raw,
+          am.abbr_norm::text AS abbr_norm,
+          am.full_name::text AS full_name,
+          am.full::text AS "full",
+          char_length(coalesce(am.abbr_norm, ''))::int AS abbr_len
+        FROM public.abbrev_map am
+      `);
+    }
+
+    if (source === "all" || source === "author_aliases") {
+      parts.push(`
+        SELECT
+          'author_aliases'::text AS source_table,
+          'author'::text AS type,
+          NULL::text AS abbr_raw,
+          aa.abbr_norm::text AS abbr_norm,
+          aa.full_name::text AS full_name,
+          NULL::text AS "full",
+          char_length(coalesce(aa.abbr_norm, ''))::int AS abbr_len
+        FROM public.author_aliases aa
+      `);
+    }
+
+    if (source === "all" || source === "publisher_aliases") {
+      parts.push(`
+        SELECT
+          'publisher_aliases'::text AS source_table,
+          'publisher'::text AS type,
+          NULL::text AS abbr_raw,
+          pa.abbr_norm::text AS abbr_norm,
+          pa.full_name::text AS full_name,
+          NULL::text AS "full",
+          char_length(coalesce(pa.abbr_norm, ''))::int AS abbr_len
+        FROM public.publisher_aliases pa
+      `);
+    }
+
+    if (source === "all" || source === "authors") {
+      parts.push(`
+        SELECT
+          'authors'::text AS source_table,
+          'author'::text AS type,
+          a.abbreviation::text AS abbr_raw,
+          regexp_replace(lower(coalesce(a.abbreviation, '')), '[^a-z0-9]+', '', 'g')::text AS abbr_norm,
+          coalesce(a.name_display, a.name, a.full_name)::text AS full_name,
+          a.full_name::text AS "full",
+          char_length(regexp_replace(lower(coalesce(a.abbreviation, '')), '[^a-z0-9]+', '', 'g'))::int AS abbr_len
+        FROM public.authors a
+        WHERE a.abbreviation IS NOT NULL
+          AND btrim(a.abbreviation) <> ''
+      `);
+    }
+
+    if (!parts.length) return res.json({ items: [], total: 0, limit, offset });
+
+    const params = [];
+    const where = [];
+
+    if (type !== "all") {
+      params.push(type);
+      where.push(`type = $${params.length}`);
+    }
+
+    if (level != null) {
+      params.push(level);
+      where.push(`abbr_len = $${params.length}`);
+    }
+
+    if (q) {
+      params.push(`%${q}%`);
+      const pno = params.length;
+      where.push(`(
+        coalesce(abbr_raw, '') ILIKE $${pno}
+        OR coalesce(abbr_norm, '') ILIKE $${pno}
+        OR coalesce(full_name, '') ILIKE $${pno}
+        OR coalesce("full", '') ILIKE $${pno}
+      )`);
+    }
+
+    params.push(limit);
+    const limitP = params.length;
+    params.push(offset);
+    const offsetP = params.length;
+
+    const sql = `
+      WITH src AS (
+        ${parts.join("\nUNION ALL\n")}
+      )
+      SELECT source_table, type, abbr_raw, abbr_norm, full_name, "full", abbr_len
+      FROM src
+      ${where.length ? `WHERE ${where.join(" AND ")}` : ""}
+      ORDER BY type ASC, abbr_len ASC, abbr_norm ASC, full_name ASC
+      LIMIT $${limitP}
+      OFFSET $${offsetP}
+    `;
+
+    const { rows } = await pool.query(sql, params);
+    return res.json({ items: rows, total: rows.length, limit, offset });
+  } catch (e) {
+    console.error("GET /api/admin/abbreviations failed", e);
+    return res.status(500).json({
+      error: "abbreviations_query_failed",
+      detail: String(e?.message || e),
+    });
+  }
+});
+
 /* -------------------- cover upload -------------------- */
 
 // POST /api/admin/books/:id/cover  (multipart field: cover)

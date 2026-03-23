@@ -8,6 +8,9 @@ const cookieParser = require("cookie-parser");
 
 const app = express();
 
+// Helpful when running behind Cloudflare / reverse proxies
+app.set("trust proxy", 1);
+
 const UPLOAD_ROOT =
   process.env.UPLOAD_ROOT || path.resolve(__dirname, "../uploads");
 const COVERS_DIR = path.join(UPLOAD_ROOT, "covers");
@@ -22,28 +25,56 @@ app.use(express.urlencoded({ extended: true }));
 /**
  * CORS with credentials:
  * - Reads allowed origins from CORS_ORIGIN (comma-separated)
- * - Also allows any http://localhost:<port> (dev convenience)
- * - IMPORTANT: when credentials:true, we must NOT send "*" for origin
+ * - Allows localhost / 127.0.0.1 dev origins
+ * - Allows common LAN IP dev origins
+ * - Allows Cloudflare quick tunnel URLs (*.trycloudflare.com)
+ * IMPORTANT: when credentials:true, we must NOT send "*" for origin
  */
 function makeCorsOptions() {
-  const envList =
-    (process.env.CORS_ORIGIN ||
-      "http://localhost:5173,http://localhost:5174,http://localhost:5175")
-      .split(",")
-      .map((s) => s.trim().toLowerCase())
-      .filter(Boolean);
+  const envList = (
+    process.env.CORS_ORIGIN ||
+    "http://localhost:5173,http://localhost:5174,http://localhost:5175,http://127.0.0.1:5173"
+  )
+    .split(",")
+    .map((s) => s.trim().toLowerCase())
+    .filter(Boolean);
 
   return {
     origin(origin, cb) {
-      if (!origin) return cb(null, true); // server-to-server, curl, tests
+      if (!origin) return cb(null, true); // curl, server-to-server, tests
+
       const o = String(origin).toLowerCase();
-      const isLocalhost = /^http:\/\/localhost:\d{2,5}$/.test(o);
-      if (envList.includes(o) || isLocalhost) return cb(null, true);
+
+      const isExactEnv = envList.includes(o);
+      const isLocalhost = /^http:\/\/(localhost|127\.0\.0\.1):\d{2,5}$/.test(o);
+      const isLan192 = /^http:\/\/192\.168\.\d{1,3}\.\d{1,3}:\d{2,5}$/.test(o);
+      const isLan10 = /^http:\/\/10\.\d{1,3}\.\d{1,3}\.\d{1,3}:\d{2,5}$/.test(o);
+      const isLan172 =
+        /^http:\/\/172\.(1[6-9]|2\d|3[0-1])\.\d{1,3}\.\d{1,3}:\d{2,5}$/.test(o);
+      const isTryCloudflare =
+        /^https:\/\/[a-z0-9-]+\.trycloudflare\.com$/.test(o);
+
+      if (
+        isExactEnv ||
+        isLocalhost ||
+        isLan192 ||
+        isLan10 ||
+        isLan172 ||
+        isTryCloudflare
+      ) {
+        return cb(null, true);
+      }
+
       return cb(new Error(`Not allowed by CORS: ${origin}`));
     },
     credentials: true,
     methods: ["GET", "POST", "PATCH", "PUT", "DELETE", "OPTIONS"],
-    allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With", "Accept"],
+    allowedHeaders: [
+      "Content-Type",
+      "Authorization",
+      "X-Requested-With",
+      "Accept",
+    ],
   };
 }
 
@@ -121,7 +152,7 @@ app.get("/health", async (req, res, next) => {
   }
 });
 
-// ✅ so it works behind reverse proxies that forward /api/*
+// so it works behind reverse proxies that forward /api/*
 app.get("/api/health", async (req, res, next) => {
   try {
     const pool = req.app.get("pgPool");
@@ -134,7 +165,7 @@ app.get("/api/health", async (req, res, next) => {
 
 app.use("/api/themes", require("./routes/themes"));
 
-// ✅ optional: make /api and /api/ not look “broken”
+// optional: make /api and /api/ not look broken
 app.get(["/api", "/api/"], (req, res) => {
   res.json({
     ok: true,
@@ -155,12 +186,10 @@ app.get(["/api", "/api/"], (req, res) => {
 
 /* ---------- routes ---------- */
 app.use("/api/admin", require("./routes/admin"));
-
 app.use("/api/enrich", require("./routes/enrich"));
 app.use("/api/public/books", require("./routes/publicBooks"));
 app.use("/api/public/authors", require("./routes/publicAuthors"));
 app.use("/api/public/newsletter", require("./routes/publicNewsletter"));
-
 app.use("/api/barcodes", require("./routes/api/barcodes/previewBarcode"));
 app.use("/api/books", require("./routes/books"));
 app.use("/api/bmarks", require("./routes/bmarks"));
@@ -170,21 +199,26 @@ app.use("/api/mobile-sync", require("./routes/mobileSync"));
 /* ---------- uploaded media ---------- */
 app.use("/media/covers", express.static(COVERS_DIR));
 
-/* ---------- static public website ---------- */
-const publicDir = path.resolve(__dirname, "public");
-app.use(express.static(publicDir));
+/* ---------- static frontend ---------- */
+const frontendDist = path.resolve(__dirname, "../frontend/dist");
+const legacyPublicDir = path.resolve(__dirname, "public");
+const staticDir = fs.existsSync(path.join(frontendDist, "index.html"))
+  ? frontendDist
+  : legacyPublicDir;
+
+app.use(express.static(staticDir));
 
 app.get("/", (req, res) => {
-  res.sendFile(path.join(publicDir, "index.html"));
+  res.sendFile(path.join(staticDir, "index.html"));
 });
 
-// ✅ SPA fallback for client-side routes (e.g. /admin/register, /admin/needs-review)
-// Only serve index.html for browser navigations (Accept: text/html) and non-API paths.
-app.get(/^\/(?!api\/).*/, (req, res, next) => {
+// SPA fallback for client-side routes (e.g. /admin/register, /admin/needs-review)
+// Only serve index.html for browser navigations (Accept: text/html) and non-API/non-media paths.
+app.get(/^\/(?!api\/|media\/).*/, (req, res, next) => {
   if (req.method !== "GET") return next();
   const accept = String(req.headers.accept || "");
   if (!accept.includes("text/html")) return next();
-  return res.sendFile(path.join(publicDir, "index.html"));
+  return res.sendFile(path.join(staticDir, "index.html"));
 });
 
 /* ---------- error handler ---------- */
