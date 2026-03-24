@@ -113,118 +113,46 @@ router.get("/me", (_req, res) => {
 
 /* -------------------- abbreviations admin -------------------- */
 
-// GET /api/admin/abbreviations?source=abbrev_map|author_aliases|publisher_aliases|authors&type=author|publisher&level=1&q=foo
+// GET /api/admin/abbreviations?level=1&q=foo
 router.get("/abbreviations", async (req, res) => {
   const pool = req.app.get("pgPool");
   if (!pool) return res.status(500).json({ error: "pgPool missing" });
 
-  const source = String(req.query.source || "all").trim().toLowerCase();
-  const type = String(req.query.type || "all").trim().toLowerCase();
   const levelRaw = String(req.query.level || "all").trim().toLowerCase();
   const q = String(req.query.q || "").trim();
-  const limit = clampInt(req.query.limit, { min: 1, max: 2000, def: 500 });
+  const limit = clampInt(req.query.limit, { min: 1, max: 2000, def: 1000 });
   const offset = clampOffset(req.query.offset, { min: 0, max: 1000000, def: 0 });
-
-  const validSources = new Set(["all", "abbrev_map", "author_aliases", "publisher_aliases", "authors"]);
-  const validTypes = new Set(["all", "author", "publisher"]);
-
-  if (!validSources.has(source)) {
-    return res.status(400).json({ error: "invalid_source" });
-  }
-  if (!validTypes.has(type)) {
-    return res.status(400).json({ error: "invalid_type" });
-  }
 
   let level = null;
   if (levelRaw && levelRaw !== "all") {
-    if (!/^\d+$/.test(levelRaw)) return res.status(400).json({ error: "invalid_level" });
+    if (!/^\d+$/.test(levelRaw)) {
+      return res.status(400).json({ error: "invalid_level" });
+    }
     level = Math.max(1, Math.trunc(Number(levelRaw)));
   }
 
   try {
-    const parts = [];
-
-    if (source === "all" || source === "abbrev_map") {
-      parts.push(`
-        SELECT
-          'abbrev_map'::text AS source_table,
-          am.type::text AS type,
-          am.abbr_raw::text AS abbr_raw,
-          am.abbr_norm::text AS abbr_norm,
-          am.full_name::text AS full_name,
-          am.full::text AS "full",
-          char_length(coalesce(am.abbr_norm, ''))::int AS abbr_len
-        FROM public.abbrev_map am
-      `);
-    }
-
-    if (source === "all" || source === "author_aliases") {
-      parts.push(`
-        SELECT
-          'author_aliases'::text AS source_table,
-          'author'::text AS type,
-          NULL::text AS abbr_raw,
-          aa.abbr_norm::text AS abbr_norm,
-          aa.full_name::text AS full_name,
-          NULL::text AS "full",
-          char_length(coalesce(aa.abbr_norm, ''))::int AS abbr_len
-        FROM public.author_aliases aa
-      `);
-    }
-
-    if (source === "all" || source === "publisher_aliases") {
-      parts.push(`
-        SELECT
-          'publisher_aliases'::text AS source_table,
-          'publisher'::text AS type,
-          NULL::text AS abbr_raw,
-          pa.abbr_norm::text AS abbr_norm,
-          pa.full_name::text AS full_name,
-          NULL::text AS "full",
-          char_length(coalesce(pa.abbr_norm, ''))::int AS abbr_len
-        FROM public.publisher_aliases pa
-      `);
-    }
-
-    if (source === "all" || source === "authors") {
-      parts.push(`
-        SELECT
-          'authors'::text AS source_table,
-          'author'::text AS type,
-          a.abbreviation::text AS abbr_raw,
-          regexp_replace(lower(coalesce(a.abbreviation, '')), '[^a-z0-9]+', '', 'g')::text AS abbr_norm,
-          coalesce(a.name_display, a.name, a.full_name)::text AS full_name,
-          a.full_name::text AS "full",
-          char_length(regexp_replace(lower(coalesce(a.abbreviation, '')), '[^a-z0-9]+', '', 'g'))::int AS abbr_len
-        FROM public.authors a
-        WHERE a.abbreviation IS NOT NULL
-          AND btrim(a.abbreviation) <> ''
-      `);
-    }
-
-    if (!parts.length) return res.json({ items: [], total: 0, limit, offset });
-
     const params = [];
-    const where = [];
+    const where = [
+      `a.abbreviation IS NOT NULL`,
+      `btrim(a.abbreviation) <> ''`,
+      `a.last_name IS NOT NULL`,
+      `btrim(a.last_name) <> ''`,
+    ];
 
-    if (type !== "all") {
-      params.push(type);
-      where.push(`type = $${params.length}`);
-    }
+    const abbrNormExpr = `regexp_replace(lower(coalesce(a.abbreviation, '')), '[^a-z0-9]+', '', 'g')`;
 
     if (level != null) {
       params.push(level);
-      where.push(`abbr_len = $${params.length}`);
+      where.push(`char_length(${abbrNormExpr}) = $${params.length}`);
     }
 
     if (q) {
-      params.push(`%${q}%`);
-      const pno = params.length;
+      params.push(`%${q.toLowerCase()}%`);
+      const p = `$${params.length}`;
       where.push(`(
-        coalesce(abbr_raw, '') ILIKE $${pno}
-        OR coalesce(abbr_norm, '') ILIKE $${pno}
-        OR coalesce(full_name, '') ILIKE $${pno}
-        OR coalesce("full", '') ILIKE $${pno}
+        ${abbrNormExpr} ILIKE ${p}
+        OR lower(coalesce(a.last_name, '')) ILIKE ${p}
       )`);
     }
 
@@ -234,19 +162,39 @@ router.get("/abbreviations", async (req, res) => {
     const offsetP = params.length;
 
     const sql = `
-      WITH src AS (
-        ${parts.join("\nUNION ALL\n")}
+      WITH book_counts AS (
+        SELECT b.author_id, count(*)::int AS title_count
+        FROM public.books b
+        WHERE b.author_id IS NOT NULL
+        GROUP BY b.author_id
       )
-      SELECT source_table, type, abbr_raw, abbr_norm, full_name, "full", abbr_len
-      FROM src
-      ${where.length ? `WHERE ${where.join(" AND ")}` : ""}
-      ORDER BY type ASC, abbr_len ASC, abbr_norm ASC, full_name ASC
+      SELECT
+        'authors'::text AS source_table,
+        'author'::text AS type,
+        a.abbreviation::text AS abbr_raw,
+        ${abbrNormExpr}::text AS abbr_norm,
+        (${abbrNormExpr} || '.')::text AS abbr_display,
+        a.last_name::text AS author_last_name,
+        a.last_name::text AS last_name,
+        COALESCE(bc.title_count, 0)::int AS published_titles,
+        COALESCE(bc.title_count, 0)::int AS title_count,
+        char_length(${abbrNormExpr})::int AS abbr_len
+      FROM public.authors a
+      LEFT JOIN book_counts bc ON bc.author_id = a.id
+      WHERE ${where.join(" AND ")}
+      ORDER BY ${abbrNormExpr} ASC, lower(a.last_name) ASC
       LIMIT $${limitP}
       OFFSET $${offsetP}
     `;
 
     const { rows } = await pool.query(sql, params);
-    return res.json({ items: rows, total: rows.length, limit, offset });
+
+    return res.json({
+      items: rows,
+      total: rows.length,
+      limit,
+      offset,
+    });
   } catch (e) {
     console.error("GET /api/admin/abbreviations failed", e);
     return res.status(500).json({

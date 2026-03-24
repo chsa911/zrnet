@@ -2467,6 +2467,23 @@ export default function BookForm({
         </label>
       </div>
 
+      {isEdit ? (
+        <div className="zr-toolbar">
+          <label style={{ display: "grid", gap: 6, flex: "0 0 auto" }}>
+            <span>Seiten (pages)</span>
+            <input
+              className="zr-input"
+              type="text"
+              inputMode="numeric"
+              value={v.pages}
+              onChange={(e) => setField("pages", e.target.value)}
+              placeholder="320"
+              style={{ width: "8ch", minWidth: 0 }}
+            />
+          </label>
+        </div>
+      ) : null}
+
       <div className="zr-toolbar">
         <label style={{ display: "grid", gap: 6, flex: 1 }}>
           <span>Stichwort (title_keyword)</span>

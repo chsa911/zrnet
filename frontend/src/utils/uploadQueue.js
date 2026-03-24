@@ -375,7 +375,7 @@ async function uploadCoverStep(job, bookIdOverride) {
   const fd = new FormData();
   fd.append("cover", file, job?.coverName || file.name || "cover.jpg");
 
-  await fetchJson(`/api/admin/books/${encodeURIComponent(bookId)}/cover`, {
+  await fetchJson(`/api/books/${encodeURIComponent(bookId)}/cover`, {
     method: "POST",
     body: fd,
   });

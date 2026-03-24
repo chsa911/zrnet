@@ -30,11 +30,11 @@ function isUuid(v) {
 
 // Prefer display name, else full_name, else name
 const AUTHOR_EXPR =
-  "COALESCE(NULLIF(a.name_display,''), NULLIF(a.full_name,''), NULLIF(a.name,''))";
+  "COALESCE(NULLIF(a.name_display,''), NULLIF(concat_ws(' ', a.last_name, a.first_name), ''), NULLIF(a.full_name,''), NULLIF(a.name,''), NULLIF(concat_ws(' ', a.first_name, a.last_name), ''))";
 
 // Same, but without table alias (for authors table queries)
 const AUTHOR_COL_EXPR =
-  "COALESCE(NULLIF(name_display,''), NULLIF(full_name,''), NULLIF(name,''))";
+  "COALESCE(NULLIF(name_display,''), NULLIF(concat_ws(' ', last_name, first_name), ''), NULLIF(full_name,''), NULLIF(name,''), NULLIF(concat_ws(' ', first_name, last_name), ''))";
 
 const TITLE_EXPR = "COALESCE(NULLIF(b.title_display,''), NULLIF(b.title_keyword,''))";
 

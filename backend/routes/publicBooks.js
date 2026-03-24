@@ -99,7 +99,11 @@ function countLinks(text) {
 }
 
 // single sources of truth for public display
-const AUTHOR_EXPR = "a.name_display";
+const AUTHOR_EXPR = `COALESCE(
+  NULLIF(a.name_display, ''),
+  NULLIF(concat_ws(' ', a.last_name, a.first_name), ''),
+  NULLIF(concat_ws(' ', a.first_name, a.last_name), '')
+)`;
 const TITLE_EXPR =
   "COALESCE(NULLIF(b.title_display,''), NULLIF(b.title_keyword,''))";
 const PUBLISHER_EXPR = "COALESCE(p.name, b.publisher)";
@@ -517,7 +521,7 @@ router.get("/most-read-authors", async (req, res) => {
       WITH author_books AS (
         SELECT
           a.id AS author_id,
-          a.name_display AS author,
+          ${AUTHOR_EXPR} AS author,
           b.id AS book_id,
           b.reading_status
         FROM public.books b
@@ -527,7 +531,7 @@ router.get("/most-read-authors", async (req, res) => {
 
         SELECT
           a.id AS author_id,
-          a.name_display AS author,
+          ${AUTHOR_EXPR} AS author,
           ba.book_id AS book_id,
           b.reading_status
         FROM public.book_authors ba

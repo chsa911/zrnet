@@ -14,8 +14,9 @@ function normalizeLevelValue(value) {
 
 function compactLabel(row) {
   const abbr = String(row?.abbr_display || row?.abbr_raw || row?.abbr_norm || "").trim().toLowerCase();
-  const lastName = String(row?.author_last_name || "").trim();
-  const titles = Number.isFinite(Number(row?.published_titles)) ? Number(row.published_titles) : null;
+  const lastName = String(row?.author_last_name || row?.last_name || "").trim();
+  const titlesRaw = row?.title_count ?? row?.published_titles;
+  const titles = Number.isFinite(Number(titlesRaw)) ? Number(titlesRaw) : null;
   if (!abbr && !lastName) return "—";
   if (titles == null) return `${abbr} ${lastName}`.trim();
   return `${abbr} ${lastName}, ${titles}`.trim();
@@ -97,7 +98,7 @@ export default function AbbreviationsAdminPage() {
         const lenDiff = normalizeLevelValue(a?.abbr_len) - normalizeLevelValue(b?.abbr_len);
         if (lenDiff !== 0) return lenDiff;
 
-        return normalizeText(a?.author_last_name).localeCompare(normalizeText(b?.author_last_name), "de");
+        return normalizeText(a?.author_last_name || a?.last_name).localeCompare(normalizeText(b?.author_last_name || b?.last_name), "de");
       });
   }, [rows, level]);
 
@@ -194,7 +195,7 @@ export default function AbbreviationsAdminPage() {
             }}
           >
             {sortedRows.map((row, idx) => {
-              const key = `${row.abbr_norm || row.abbr_display || "row"}-${row.author_last_name || ""}-${idx}`;
+              const key = `${row.abbr_norm || row.abbr_display || "row"}-${row.author_last_name || row.last_name || ""}-${idx}`;
               return (
                 <div
                   key={key}

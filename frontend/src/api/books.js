@@ -146,7 +146,7 @@ export async function uploadCover(id, file, { signal } = {}) {
   const fd = new FormData();
   fd.append("cover", file);
 
-  return http(`/admin/books/${encodeURIComponent(id)}/cover`, {
+  return http(`/books/${encodeURIComponent(id)}/cover`, {
     method: "POST",
     body: fd,
     signal,
