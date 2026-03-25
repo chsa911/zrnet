@@ -35,15 +35,9 @@ router.post("/:id/cover", upload.single("cover"), async (req, res) => {
 
   const id = String(req.params.id || "").trim();
   if (!id) return res.status(400).json({ error: "missing_id" });
-
-  if (
-    !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
-      id
-    )
-  ) {
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id)) {
     return res.status(400).json({ error: "invalid_id" });
   }
-
   if (!req.file) return res.status(400).json({ error: "missing_file" });
 
   const byteLen = req.file?.buffer?.length ?? 0;
@@ -52,8 +46,7 @@ router.post("/:id/cover", upload.single("cover"), async (req, res) => {
   }
 
   try {
-    const uploadRoot =
-      process.env.UPLOAD_ROOT || path.resolve(__dirname, "../../uploads");
+    const uploadRoot = process.env.UPLOAD_ROOT || path.resolve(__dirname, "../../uploads");
     const dir = path.join(uploadRoot, "covers");
     await fs.mkdir(dir, { recursive: true });
 

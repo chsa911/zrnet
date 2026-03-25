@@ -73,7 +73,7 @@ function normalizeIsbnForDb(isbn13In, isbn10In, rawIn) {
 function computeAuthorDisplay(first, last) {
   const f = normalizeStr(first);
   const l = normalizeStr(last);
-  if (l && f) return `${l} ${f}`;
+  if (f && l) return `${f} ${l}`;
   return l || f || null;
 }
 
@@ -112,9 +112,7 @@ function rowToApi(row) {
   const authorFirst = row.author_first_name ?? null;
   const authorLast = row.author_last_name ?? null;
   const authorNameDisplay =
-    normalizeStr(row.author_name_display) ||
-    normalizeStr(row.name_display) ||
-    computeAuthorDisplay(authorFirst, authorLast);
+    normalizeStr(row.author_name_display) || computeAuthorDisplay(authorFirst, authorLast);
 
   const publisherName = normalizeStr(row.publisher_name) || null;
   const publisherNameDisplay = normalizeStr(row.publisher_name_display) || publisherName || null;
@@ -172,7 +170,6 @@ function rowToApi(row) {
 
 const AUTHOR_SORT_EXPR = `COALESCE(
   NULLIF(a.name_display, ''),
-  NULLIF(concat_ws(' ', a.last_name, a.first_name), ''),
   NULLIF(concat_ws(' ', a.first_name, a.last_name), '')
 )`;
 
@@ -191,7 +188,7 @@ const PUBLISHER_RESOLVE_JOIN_SQL = `
 
 const AUTHOR_RESOLVE_SELECT_SQL = `
   a.id::text AS author_id,
-  ${AUTHOR_SORT_EXPR} AS author_name_display,
+  a.name_display AS author_name_display,
   a.first_name AS author_first_name,
   a.last_name AS author_last_name,
   a.abbreviation AS author_abbreviation,
@@ -1048,7 +1045,12 @@ async function registerBook(req, res) {
   }
 
   const assignBarcodeFlag = body.assign_barcode ?? body.assignBarcode;
-  const assignBarcodeNow = assignBarcodeFlag === false ? false : true;
+  const assignBarcodeNow = !(
+    assignBarcodeFlag === false ||
+    assignBarcodeFlag === "false" ||
+    assignBarcodeFlag === 0 ||
+    assignBarcodeFlag === "0"
+  );
 
   const requestedBarcode = normalizeStr(body.barcode);
   const widthCm = toNum(body.width_cm);

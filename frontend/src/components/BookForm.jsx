@@ -2191,18 +2191,6 @@ export default function BookForm({
               />
             </label>
 
-            <label style={{ display: "grid", gap: 6, flex: "0 0 auto" }}>
-              <span>Seiten (pages)</span>
-              <input
-                className="zr-input"
-                type="text"
-                inputMode="numeric"
-                value={v.pages}
-                onChange={(e) => setField("pages", e.target.value)}
-                placeholder="320"
-                style={{ width: "6ch", minWidth: 0 }}
-              />
-            </label>
 
             <label style={{ display: "grid", gap: 6, flex: "0 0 auto" }}>
               <span>Autor Abk. (author_abbreviation)</span>
@@ -2467,7 +2455,7 @@ export default function BookForm({
         </label>
       </div>
 
-      {isEdit ? (
+      {!isEdit ? (
         <div className="zr-toolbar">
           <label style={{ display: "grid", gap: 6, flex: "0 0 auto" }}>
             <span>Seiten (pages)</span>
