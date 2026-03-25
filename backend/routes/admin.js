@@ -111,25 +111,18 @@ router.get("/me", (_req, res) => {
   res.json({ ok: true });
 });
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
 /* -------------------- abbreviations admin -------------------- */
 
-// GET /api/admin/abbreviations?level=1&q=foo
+// GET /api/admin/abbreviations?q=foo&limit=1000&offset=0
 router.get("/abbreviations", async (req, res) => {
   const pool = req.app.get("pgPool");
   if (!pool) return res.status(500).json({ error: "pgPool missing" });
 
-  const levelRaw = String(req.query.level || "all").trim().toLowerCase();
-  const q = String(req.query.q || "").trim();
+  const q = String(req.query.q || "").trim().toLowerCase();
   const limit = clampInt(req.query.limit, { min: 1, max: 2000, def: 1000 });
   const offset = clampOffset(req.query.offset, { min: 0, max: 1000000, def: 0 });
-
-  let level = null;
-  if (levelRaw && levelRaw !== "all") {
-    if (!/^\d+$/.test(levelRaw)) {
-      return res.status(400).json({ error: "invalid_level" });
-    }
-    level = Math.max(1, Math.trunc(Number(levelRaw)));
-  }
 
   try {
     const params = [];
@@ -140,18 +133,11 @@ router.get("/abbreviations", async (req, res) => {
       `btrim(a.last_name) <> ''`,
     ];
 
-    const abbrNormExpr = `regexp_replace(lower(coalesce(a.abbreviation, '')), '[^a-z0-9]+', '', 'g')`;
-
-    if (level != null) {
-      params.push(level);
-      where.push(`char_length(${abbrNormExpr}) = $${params.length}`);
-    }
-
     if (q) {
-      params.push(`%${q.toLowerCase()}%`);
+      params.push(`%${q}%`);
       const p = `$${params.length}`;
       where.push(`(
-        ${abbrNormExpr} ILIKE ${p}
+        regexp_replace(lower(coalesce(a.abbreviation, '')), '[^a-z0-9]+', '', 'g') ILIKE ${p}
         OR lower(coalesce(a.last_name, '')) ILIKE ${p}
       )`);
     }
@@ -162,43 +148,88 @@ router.get("/abbreviations", async (req, res) => {
     const offsetP = params.length;
 
     const sql = `
-      WITH book_counts AS (
+      WITH author_counts AS (
         SELECT b.author_id, count(*)::int AS title_count
         FROM public.books b
         WHERE b.author_id IS NOT NULL
         GROUP BY b.author_id
       )
       SELECT
-        'authors'::text AS source_table,
-        'author'::text AS type,
-        a.abbreviation::text AS abbr_raw,
-        ${abbrNormExpr}::text AS abbr_norm,
-        (${abbrNormExpr} || '.')::text AS abbr_display,
+        a.id::text AS author_id,
+        regexp_replace(lower(coalesce(a.abbreviation, '')), '[^a-z0-9]+', '', 'g')::text AS abbr_norm,
+        (regexp_replace(lower(coalesce(a.abbreviation, '')), '[^a-z0-9]+', '', 'g') || '.')::text AS abbr_display,
         a.last_name::text AS author_last_name,
-        a.last_name::text AS last_name,
-        COALESCE(bc.title_count, 0)::int AS published_titles,
-        COALESCE(bc.title_count, 0)::int AS title_count,
-        char_length(${abbrNormExpr})::int AS abbr_len
+        COALESCE(ac.title_count, 0)::int AS title_count
       FROM public.authors a
-      LEFT JOIN book_counts bc ON bc.author_id = a.id
+      LEFT JOIN author_counts ac ON ac.author_id = a.id
       WHERE ${where.join(" AND ")}
-      ORDER BY ${abbrNormExpr} ASC, lower(a.last_name) ASC
+      ORDER BY
+        regexp_replace(lower(coalesce(a.abbreviation, '')), '[^a-z0-9]+', '', 'g') ASC,
+        lower(a.last_name) ASC
       LIMIT $${limitP}
       OFFSET $${offsetP}
     `;
 
     const { rows } = await pool.query(sql, params);
-
-    return res.json({
-      items: rows,
-      total: rows.length,
-      limit,
-      offset,
-    });
+    return res.json({ items: rows, total: rows.length, limit, offset });
   } catch (e) {
     console.error("GET /api/admin/abbreviations failed", e);
     return res.status(500).json({
       error: "abbreviations_query_failed",
+      detail: String(e?.message || e),
+    });
+  }
+});
+
+// GET /api/admin/authors/:authorId/books
+router.get("/authors/:authorId/books", async (req, res) => {
+  const pool = req.app.get("pgPool");
+  if (!pool) return res.status(500).json({ error: "pgPool missing" });
+
+  const authorId = String(req.params.authorId || "").trim();
+  if (!UUID_RE.test(authorId)) {
+    return res.status(400).json({ error: "invalid_author_id" });
+  }
+
+  try {
+    const { rows } = await pool.query(
+      `
+        SELECT
+          b.id::text AS id,
+          COALESCE(NULLIF(b.title_display, ''), NULLIF(b.main_title_display, ''), NULLIF(b.title_keyword, ''), NULLIF(b.title_en, ''), '[ohne Titel]') AS title_display,
+          b.subtitle_display,
+          COALESCE(NULLIF(p.name_display, ''), NULLIF(p.name, ''), '—') AS publisher_name_display,
+          b.pages,
+          b.reading_status,
+          b.registered_at,
+          b.added_at,
+          b.format,
+          b.language,
+          bc.barcode
+        FROM public.books b
+        LEFT JOIN public.publishers p ON p.id = b.publisher_id
+        LEFT JOIN LATERAL (
+          SELECT ba.barcode
+          FROM public.barcode_assignments ba
+          WHERE ba.book_id = b.id
+            AND ba.freed_at IS NULL
+          ORDER BY ba.assigned_at DESC
+          LIMIT 1
+        ) bc ON true
+        WHERE b.author_id = $1::uuid
+        ORDER BY
+          lower(COALESCE(NULLIF(b.title_display, ''), NULLIF(b.main_title_display, ''), NULLIF(b.title_keyword, ''), NULLIF(b.title_en, ''), '')) ASC,
+          b.added_at DESC NULLS LAST,
+          b.registered_at DESC NULLS LAST
+      `,
+      [authorId]
+    );
+
+    return res.json({ items: rows, total: rows.length });
+  } catch (e) {
+    console.error("GET /api/admin/authors/:authorId/books failed", e);
+    return res.status(500).json({
+      error: "author_books_query_failed",
       detail: String(e?.message || e),
     });
   }
