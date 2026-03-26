@@ -1067,7 +1067,7 @@ async function registerBook(req, res) {
   // Second safety: if this ISBN already exists exactly once, finalize that row
   // instead of creating a new duplicate. If it exists multiple times, fail loudly.
   const exactIsbn = isbnInfo.isbn13 || isbnInfo.isbn10 || null;
-  if (exactIsbn) {
+  if (assignBarcodeNow && exactIsbn) {
     const dup = await pool.query(
       `
       SELECT id
