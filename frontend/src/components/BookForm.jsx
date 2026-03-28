@@ -1,4 +1,3 @@
-// frontend/src/components/BookForm.jsx
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { createWorker, PSM } from "tesseract.js";
 import { BrowserMultiFormatReader } from "@zxing/browser";
@@ -1085,8 +1084,6 @@ export default function BookForm({
     setV((prev) => {
       const next = { ...prev, [key]: val };
 
-      // In edit mode we are editing the linked author/publisher entity.
-      // Keep the current ids so one change applies to all linked books.
       if (!isEdit) {
         if (["author_lastname", "author_firstname", "name_display", "author_abbreviation"].includes(key)) {
           next.author_id = "";
@@ -2133,6 +2130,161 @@ export default function BookForm({
         ) : null
       ) : null}
 
+      <div className="zr-card" style={{ display: "grid", gap: 10 }}>
+        <div style={{ fontWeight: 900 }}>Cover Foto (iPhone)</div>
+        <div style={{ opacity: 0.8, fontSize: 13 }}>
+          Tippen → Kamera öffnet sich → Foto wird automatisch als <code>&lt;book_id&gt;.jpg</code>{" "}
+          gespeichert.
+        </div>
+
+        <input
+          type="file"
+          accept="image/*"
+          capture="environment"
+          disabled={busy || coverPrepBusy}
+          onChange={handleCoverChange}
+        />
+
+        {coverPrepBusy ? (
+          <div style={{ opacity: 0.8, fontSize: 13 }}>Cover wird vorbereitet…</div>
+        ) : null}
+
+        {coverPreviewUrl ? (
+          <img
+            src={coverPreviewUrl}
+            alt="Cover preview"
+            style={{
+              width: "100%",
+              borderRadius: 12,
+              border: "1px solid rgba(0,0,0,0.12)",
+            }}
+          />
+        ) : null}
+      </div>
+
+      <div className="zr-card" style={{ display: "grid", gap: 10 }}>
+        <div style={{ fontWeight: 900 }}>ISBN & Kauf-Link (optional)</div>
+
+        <input
+          ref={isbnPhotoInputRef}
+          type="file"
+          accept="image/*"
+          capture="environment"
+          style={{ display: "none" }}
+          onChange={handleIsbnPhotoChange}
+        />
+
+        <div className="zr-toolbar">
+          <label style={{ display: "grid", gap: 6, flex: 1 }}>
+            <span>ISBN-13</span>
+            <input
+              className="zr-input"
+              value={v.isbn13}
+              onChange={(e) => setField("isbn13", e.target.value)}
+            />
+          </label>
+          <label style={{ display: "grid", gap: 6, flex: 1 }}>
+            <span>ISBN-10</span>
+            <input
+              className="zr-input"
+              value={v.isbn10}
+              onChange={(e) => setField("isbn10", e.target.value)}
+            />
+          </label>
+        </div>
+
+        <div
+          className="zr-toolbar"
+          style={{ alignItems: "center", gap: 10, flexWrap: "wrap" }}
+        >
+          <button
+            type="button"
+            className="zr-btn2 zr-btn2--ghost"
+            disabled={busy || coverPrepBusy || scanBusy}
+            onClick={openIsbnScanner}
+          >
+            {scannerOpen ? "Scanner aktiv…" : "ISBN live scannen"}
+          </button>
+
+          <button
+            type="button"
+            className="zr-btn2 zr-btn2--ghost"
+            disabled={busy || coverPrepBusy || scanBusy}
+            onClick={() => isbnPhotoInputRef.current?.click()}
+          >
+            Aus Foto
+          </button>
+
+          <button
+            type="button"
+            className="zr-btn2 zr-btn2--ghost"
+            disabled={busy || coverPrepBusy || isbnBusy}
+            onClick={doIsbnLookup}
+          >
+            {isbnBusy ? "Suche…" : "ISBN Lookup"}
+          </button>
+
+          <div style={{ fontSize: 12, opacity: 0.75 }}>
+            Live-Scanner: Barcode einfach in den Rahmen halten. Kein Foto nötig.
+          </div>
+        </div>
+
+        <div className="zr-toolbar">
+          <label style={{ display: "grid", gap: 6, flex: 1 }}>
+            <span>purchase_url</span>
+            <input
+              className="zr-input"
+              value={v.purchase_url}
+              onChange={(e) => setField("purchase_url", e.target.value)}
+              placeholder="https://…"
+            />
+          </label>
+          <label style={{ display: "grid", gap: 6, width: 220 }}>
+            <span>Originalsprache (original_language)</span>
+            <input
+              className="zr-input"
+              value={v.original_language}
+              onChange={(e) => setField("original_language", e.target.value)}
+              placeholder="z.B. en"
+            />
+          </label>
+        </div>
+      </div>
+
+      <div className="zr-toolbar" style={{ alignItems: "center", gap: 10 }}>
+        <button
+          type="button"
+          className="zr-btn2 zr-btn2--ghost"
+          disabled={busy || coverPrepBusy || coverInfoBusy || !coverFile || hasIsbn}
+          onClick={doCoverLookup}
+        >
+          {coverInfoBusy ? "Erkenne…" : "Titel/Autor aus Cover"}
+        </button>
+
+        <div style={{ fontSize: 12, opacity: 0.75 }}>
+          {hasIsbn
+            ? "ISBN vorhanden – Cover OCR ist deaktiviert."
+            : "Nur für Bücher ohne ISBN."}
+        </div>
+      </div>
+
+      {!isEdit ? (
+        <div className="zr-toolbar">
+          <label style={{ display: "grid", gap: 6, flex: "0 0 auto" }}>
+            <span>Seiten (pages)</span>
+            <input
+              className="zr-input"
+              type="text"
+              inputMode="numeric"
+              value={v.pages}
+              onChange={(e) => setField("pages", e.target.value)}
+              placeholder="320"
+              style={{ width: "8ch", minWidth: 0 }}
+            />
+          </label>
+        </div>
+      ) : null}
+
       <div className="zr-toolbar">
         <label style={{ display: "grid", gap: 6, flex: 1 }}>
           <span>Barcode{lockBarcode ? " (gesperrt)" : ""}</span>
@@ -2150,7 +2302,9 @@ export default function BookForm({
             }
           />
         </label>
-      </div>      {!isEdit && assignBarcode ? (
+      </div>
+
+      {!isEdit && assignBarcode ? (
         <div className="zr-card" style={{ display: "grid", gap: 10 }}>
           <div style={{ fontWeight: 900 }}>
             Barcode-Vorschlag / Kurzangaben (optional)
@@ -2190,7 +2344,6 @@ export default function BookForm({
                 style={{ width: "8ch", minWidth: 0 }}
               />
             </label>
-
 
             <label style={{ display: "grid", gap: 6, flex: "0 0 auto" }}>
               <span>Autor Abk. (author_abbreviation)</span>
@@ -2246,55 +2399,6 @@ export default function BookForm({
           ) : null}
         </div>
       ) : null}
-
-      <div className="zr-card" style={{ display: "grid", gap: 10 }}>
-        <div style={{ fontWeight: 900 }}>Cover Foto (iPhone)</div>
-        <div style={{ opacity: 0.8, fontSize: 13 }}>
-          Tippen → Kamera öffnet sich → Foto wird automatisch als <code>&lt;book_id&gt;.jpg</code>{" "}
-          gespeichert.
-        </div>
-
-        <input
-          type="file"
-          accept="image/*"
-          capture="environment"
-          disabled={busy || coverPrepBusy}
-          onChange={handleCoverChange}
-        />
-
-        {coverPrepBusy ? (
-          <div style={{ opacity: 0.8, fontSize: 13 }}>Cover wird vorbereitet…</div>
-        ) : null}
-
-        {coverPreviewUrl ? (
-          <img
-            src={coverPreviewUrl}
-            alt="Cover preview"
-            style={{
-              width: "100%",
-              borderRadius: 12,
-              border: "1px solid rgba(0,0,0,0.12)",
-            }}
-          />
-        ) : null}
-      </div>
-
-      <div className="zr-toolbar" style={{ alignItems: "center", gap: 10 }}>
-        <button
-          type="button"
-          className="zr-btn2 zr-btn2--ghost"
-          disabled={busy || coverPrepBusy || coverInfoBusy || !coverFile || hasIsbn}
-          onClick={doCoverLookup}
-        >
-          {coverInfoBusy ? "Erkenne…" : "Titel/Autor aus Cover"}
-        </button>
-
-        <div style={{ fontSize: 12, opacity: 0.75 }}>
-          {hasIsbn
-            ? "ISBN vorhanden – Cover OCR ist deaktiviert."
-            : "Nur für Bücher ohne ISBN."}
-        </div>
-      </div>
 
       <div className="zr-toolbar">
         <label style={{ display: "grid", gap: 6, flex: 1, position: "relative" }}>
@@ -2455,23 +2559,6 @@ export default function BookForm({
         </label>
       </div>
 
-      {!isEdit ? (
-        <div className="zr-toolbar">
-          <label style={{ display: "grid", gap: 6, flex: "0 0 auto" }}>
-            <span>Seiten (pages)</span>
-            <input
-              className="zr-input"
-              type="text"
-              inputMode="numeric"
-              value={v.pages}
-              onChange={(e) => setField("pages", e.target.value)}
-              placeholder="320"
-              style={{ width: "8ch", minWidth: 0 }}
-            />
-          </label>
-        </div>
-      ) : null}
-
       <div className="zr-toolbar">
         <label style={{ display: "grid", gap: 6, flex: 1 }}>
           <span>Stichwort (title_keyword)</span>
@@ -2611,95 +2698,6 @@ export default function BookForm({
           onChange={(e) => setField("comment", e.target.value)}
         />
       </label>
-
-      <div className="zr-card" style={{ display: "grid", gap: 10 }}>
-        <div style={{ fontWeight: 900 }}>ISBN & Kauf-Link (optional)</div>
-
-        <input
-          ref={isbnPhotoInputRef}
-          type="file"
-          accept="image/*"
-          capture="environment"
-          style={{ display: "none" }}
-          onChange={handleIsbnPhotoChange}
-        />
-
-        <div className="zr-toolbar">
-          <label style={{ display: "grid", gap: 6, flex: 1 }}>
-            <span>ISBN-13</span>
-            <input
-              className="zr-input"
-              value={v.isbn13}
-              onChange={(e) => setField("isbn13", e.target.value)}
-            />
-          </label>
-          <label style={{ display: "grid", gap: 6, flex: 1 }}>
-            <span>ISBN-10</span>
-            <input
-              className="zr-input"
-              value={v.isbn10}
-              onChange={(e) => setField("isbn10", e.target.value)}
-            />
-          </label>
-        </div>
-
-        <div
-          className="zr-toolbar"
-          style={{ alignItems: "center", gap: 10, flexWrap: "wrap" }}
-        >
-          <button
-            type="button"
-            className="zr-btn2 zr-btn2--ghost"
-            disabled={busy || coverPrepBusy || scanBusy}
-            onClick={openIsbnScanner}
-          >
-            {scannerOpen ? "Scanner aktiv…" : "ISBN live scannen"}
-          </button>
-
-          <button
-            type="button"
-            className="zr-btn2 zr-btn2--ghost"
-            disabled={busy || coverPrepBusy || scanBusy}
-            onClick={() => isbnPhotoInputRef.current?.click()}
-          >
-            Aus Foto
-          </button>
-
-          <button
-            type="button"
-            className="zr-btn2 zr-btn2--ghost"
-            disabled={busy || coverPrepBusy || isbnBusy}
-            onClick={doIsbnLookup}
-          >
-            {isbnBusy ? "Suche…" : "ISBN Lookup"}
-          </button>
-
-          <div style={{ fontSize: 12, opacity: 0.75 }}>
-            Live-Scanner: Barcode einfach in den Rahmen halten. Kein Foto nötig.
-          </div>
-        </div>
-
-        <div className="zr-toolbar">
-          <label style={{ display: "grid", gap: 6, flex: 1 }}>
-            <span>purchase_url</span>
-            <input
-              className="zr-input"
-              value={v.purchase_url}
-              onChange={(e) => setField("purchase_url", e.target.value)}
-              placeholder="https://…"
-            />
-          </label>
-          <label style={{ display: "grid", gap: 6, width: 220 }}>
-            <span>Originalsprache (original_language)</span>
-            <input
-              className="zr-input"
-              value={v.original_language}
-              onChange={(e) => setField("original_language", e.target.value)}
-              placeholder="z.B. en"
-            />
-          </label>
-        </div>
-      </div>
 
       {isEdit && showUnknownFields && Object.keys(extras || {}).length ? (
         <div className="zr-card" style={{ display: "grid", gap: 10 }}>
