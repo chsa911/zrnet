@@ -88,19 +88,23 @@ app.get("/api/public/home-highlights", async (req, res) => {
     const pool = req.app.get("pgPool");
     if (!pool) return res.status(500).json({ error: "pgPool_missing" });
 
+    await pool.query("SELECT public.refresh_home_featured_periods()");
+
     const { rows } = await pool.query(`
       SELECT
-        b.home_featured_slot AS slot,
-        b.id::text AS id,
-        a.name_display AS author_name_display,
-        COALESCE(NULLIF(b.title_display, ''), NULLIF(b.title_keyword, '')) AS title_display,
-        ('/media/covers/' || b.id::text || '-home.jpg') AS cover_home,
-        ('/media/covers/' || b.id::text || '.jpg')      AS cover_full,
-        ('/media/covers/' || b.id::text || '.jpg')      AS cover,
-        b.purchase_url AS buy
-      FROM public.books b
-      LEFT JOIN public.authors a ON a.id = b.author_id
-      WHERE b.home_featured_slot IN ('finished','received')
+        slot,
+        id,
+        author_name_display,
+        title_display,
+        cover_home,
+        cover_full,
+        cover,
+        buy,
+        featured_since,
+        shown_for_seconds,
+        shown_for_days
+      FROM public.home_highlights_current
+      WHERE slot IN ('finished', 'received')
     `);
 
     const empty = {
@@ -111,6 +115,9 @@ app.get("/api/public/home-highlights", async (req, res) => {
       cover_full: "",
       cover: "",
       buy: "",
+      featuredSince: null,
+      shownForSeconds: 0,
+      shownForDays: 0,
     };
 
     const out = {
@@ -124,10 +131,13 @@ app.get("/api/public/home-highlights", async (req, res) => {
         id: r.id,
         authorNameDisplay: r.author_name_display || null,
         titleDisplay: r.title_display || null,
-        cover_home: r.cover_home,
-        cover_full: r.cover_full,
-        cover: r.cover,
-        buy: r.buy,
+        cover_home: r.cover_home || "",
+        cover_full: r.cover_full || "",
+        cover: r.cover || "",
+        buy: r.buy || "",
+        featuredSince: r.featured_since || null,
+        shownForSeconds: Number(r.shown_for_seconds || 0),
+        shownForDays: Number(r.shown_for_days || 0),
       };
       if (r.slot === "finished") out.finished = mapped;
       if (r.slot === "received") out.received = mapped;

@@ -261,6 +261,7 @@
   "home_highlight_title": "Aktuelle Live-Highlights",
   "home_highlight_left": "Top Finished",
   "home_highlight_right": "Top Received",
+  "home_highlight_since": "Seit {date}",
   "info.technik.eyebrow": "Kurz erklärt",
   "info.technik.lede": "PagesInLine hilft dabei, Papierbücher so vorzubereiten, dass sie auch in kurzen freien Momenten direkt zum Lesen bereit sind – unterwegs, platzsparend und mit digitalem Überblick.",
   "info.technik.side_label": "Kernidee",

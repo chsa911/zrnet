@@ -9,8 +9,48 @@ function toIntOrNull(v) {
   return Number.isFinite(n) ? n : null;
 }
 
+function formatFeaturedDate(value, locale) {
+  if (!value) return "";
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return "";
+  try {
+    return new Intl.DateTimeFormat(locale || undefined, {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+    }).format(d);
+  } catch {
+    return d.toISOString().slice(0, 10);
+  }
+}
+
+function formatFeaturedRelativeDays(days, locale) {
+  const n = Number(days);
+  if (!Number.isFinite(n)) return "";
+  try {
+    return new Intl.RelativeTimeFormat(locale || undefined, {
+      numeric: "auto",
+    }).format(-Math.max(0, Math.floor(n)), "day");
+  } catch {
+    return "";
+  }
+}
+
+function buildFeaturedMeta(item, locale, t) {
+  if (!item) return "";
+
+  const parts = [];
+  const sinceText = formatFeaturedDate(item.featuredSince, locale);
+  if (sinceText) parts.push(t("home_highlight_since", { date: sinceText }));
+
+  const relText = formatFeaturedRelativeDays(item.shownForDays, locale);
+  if (relText) parts.push(relText);
+
+  return parts.join(" · ");
+}
+
 export default function Home() {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const year = 2026;
   const FALLBACK_IMG = "/assets/images/allgemein/hosentasche_link.jpeg";
 
@@ -108,6 +148,8 @@ export default function Home() {
 
   const finished = hl?.finished || {};
   const received = hl?.received || {};
+  const finishedMeta = buildFeaturedMeta(finished, locale, t);
+  const receivedMeta = buildFeaturedMeta(received, locale, t);
 
   const pickCover = (x) => x?.cover_home || x?.cover_full || x?.cover || FALLBACK_IMG;
 
@@ -189,6 +231,9 @@ export default function Home() {
               <div className="zr-splitHighlight__value">
                 <strong>{finished.authorNameDisplay || "—"}</strong>
                 <div>{finished.titleDisplay || "—"}</div>
+                {finishedMeta ? (
+                  <div style={{ fontSize: 12, marginTop: 6, opacity: 0.92 }}>{finishedMeta}</div>
+                ) : null}
               </div>
             </div>
           </Link>
@@ -207,6 +252,9 @@ export default function Home() {
               <div className="zr-splitHighlight__value">
                 <strong>{received.authorNameDisplay || "—"}</strong>
                 <div>{received.titleDisplay || "—"}</div>
+                {receivedMeta ? (
+                  <div style={{ fontSize: 12, marginTop: 6, opacity: 0.92 }}>{receivedMeta}</div>
+                ) : null}
               </div>
             </div>
           </Link>

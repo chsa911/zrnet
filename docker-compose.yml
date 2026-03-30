@@ -8,6 +8,8 @@ services:
     expose:
       - "4000"
     restart: unless-stopped
+    networks:
+      - default
 
   web:
     build:
@@ -18,6 +20,8 @@ services:
     depends_on:
       - api
     restart: unless-stopped
+    networks:
+      - default
 
   caddy:
     image: caddy:2
@@ -31,7 +35,17 @@ services:
     depends_on:
       - web
     restart: unless-stopped
+    networks:
+      - default
+      - staging_internal
 
 volumes:
   caddy_data:
   caddy_config:
+
+networks:
+  default:
+    name: zrnet_default
+  staging_internal:
+    external: true
+    name: zrnet-staging_internal

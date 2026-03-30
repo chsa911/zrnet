@@ -307,6 +307,7 @@
   "home_highlight_title": "Current live highlights",
   "home_highlight_left": "Top Finished",
   "home_highlight_right": "Top Received",
+  "home_highlight_since": "Since {date}",
   "info.technik.eyebrow": "Quick overview",
   "info.technik.lede": "PagesInLine helps prepare paper books so they are ready to read in short free moments — on the go, space-saving, and with a digital overview when needed.",
   "info.technik.side_label": "Core idea",
