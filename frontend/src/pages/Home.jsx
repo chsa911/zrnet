@@ -9,53 +9,49 @@ function toIntOrNull(v) {
   return Number.isFinite(n) ? n : null;
 }
 
-function formatFeaturedDate(value, locale) {
-  if (!value) return "";
-  const d = new Date(value);
-  if (Number.isNaN(d.getTime())) return "";
-  try {
-    return new Intl.DateTimeFormat(locale || undefined, {
-      year: "numeric",
-      month: "short",
-      day: "numeric",
-    }).format(d);
-  } catch {
-    return d.toISOString().slice(0, 10);
-  }
-}
+function HighlightCard({ item, label, to, pickCover, fallbackImg }) {
+  const [imgSrc, setImgSrc] = useState(pickCover(item));
 
-function formatFeaturedRelativeDays(days, locale) {
-  const n = Number(days);
-  if (!Number.isFinite(n)) return "";
-  try {
-    return new Intl.RelativeTimeFormat(locale || undefined, {
-      numeric: "auto",
-    }).format(-Math.max(0, Math.floor(n)), "day");
-  } catch {
-    return "";
-  }
-}
+  useEffect(() => {
+    setImgSrc(pickCover(item));
+  }, [item, pickCover]);
 
-function buildFeaturedMeta(item, locale, t) {
-  if (!item) return "";
+  return (
+    <Link className="zr-splitHighlight__half" to={to}>
+      <div className="zr-splitHighlight__copy">
+        <div className="zr-splitHighlight__badge">{label}</div>
 
-  const parts = [];
-  const sinceText = formatFeaturedDate(item.featuredSince, locale);
-  if (sinceText) parts.push(t("home_highlight_since", { date: sinceText }));
+        <div className="zr-splitHighlight__value">
+          <strong>{item?.authorNameDisplay || "—"}</strong>
+          <div>{item?.titleDisplay || "—"}</div>
+        </div>
+      </div>
 
-  const relText = formatFeaturedRelativeDays(item.shownForDays, locale);
-  if (relText) parts.push(relText);
-
-  return parts.join(" · ");
+      <div className="zr-splitHighlight__art">
+        <img
+          src={imgSrc}
+          alt={item?.titleDisplay || item?.authorNameDisplay || ""}
+          loading="lazy"
+          onError={() => {
+            if (imgSrc !== fallbackImg) setImgSrc(fallbackImg);
+          }}
+        />
+      </div>
+    </Link>
+  );
 }
 
 export default function Home() {
-  const { t, locale } = useI18n();
+  const { t } = useI18n();
   const year = 2026;
   const FALLBACK_IMG = "/assets/images/allgemein/hosentasche_link.jpeg";
 
   const [hl, setHl] = useState(null);
-  const [stats, setStats] = useState({ in_stock: null, finished: null, top: null });
+  const [stats, setStats] = useState({
+    in_stock: null,
+    finished: null,
+    top: null,
+  });
 
   const heroParagraphs = useMemo(
     () => [t("home_hero_p1"), t("home_hero_p2"), t("home_hero_p3")].filter(Boolean),
@@ -63,12 +59,13 @@ export default function Home() {
   );
 
   const bullets = useMemo(
-    () => [
-      t("home_bullet_1"),
-      t("home_bullet_2"),
-      t("home_bullet_3"),
-      t("home_bullet_4"),
-    ].filter(Boolean),
+    () =>
+      [
+        t("home_bullet_1"),
+        t("home_bullet_2"),
+        t("home_bullet_3"),
+        t("home_bullet_4"),
+      ].filter(Boolean),
     [t]
   );
 
@@ -101,7 +98,11 @@ export default function Home() {
 
     (async () => {
       try {
-        const res = await fetch("/api/public/home-highlights", { signal: ac.signal });
+        const res = await fetch("/api/public/home-highlights", {
+          signal: ac.signal,
+          cache: "no-store",
+          headers: { Accept: "application/json" },
+        });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const data = await res.json();
         setHl(data);
@@ -133,7 +134,7 @@ export default function Home() {
           top: toIntOrNull(data.top ?? data.top_books ?? data.topBooks),
         });
       } catch {
-        // keep previous values without breaking the home page
+        // keep previous values
       }
     }
 
@@ -148,10 +149,11 @@ export default function Home() {
 
   const finished = hl?.finished || {};
   const received = hl?.received || {};
-  const finishedMeta = buildFeaturedMeta(finished, locale, t);
-  const receivedMeta = buildFeaturedMeta(received, locale, t);
 
-  const pickCover = (x) => x?.cover_home || x?.cover_full || x?.cover || FALLBACK_IMG;
+  const pickCover = useMemo(
+    () => (x) => x?.cover_home || x?.cover_full || x?.cover || FALLBACK_IMG,
+    [FALLBACK_IMG]
+  );
 
   const buildLink = (x) => {
     if (!x?.id) return "/";
@@ -200,15 +202,15 @@ export default function Home() {
           <h2>{t("home_proof_title")}</h2>
         </div>
 
-       <div className="pil-proofGrid">
-  {proofStats.map((item) => (
-    <div key={item.key} className="pil-proofCard" aria-label={item.label}>
-      <span className="pil-proofCard__label">{item.label}</span>
-      {item.meta ? <span className="pil-proofCard__meta">{item.meta}</span> : null}
-      <strong className="pil-proofCard__value">{stats[item.key] ?? "—"}</strong>
-    </div>
-  ))}
-</div>
+        <div className="pil-proofGrid">
+          {proofStats.map((item) => (
+            <div key={item.key} className="pil-proofCard" aria-label={item.label}>
+              <span className="pil-proofCard__label">{item.label}</span>
+              {item.meta ? <span className="pil-proofCard__meta">{item.meta}</span> : null}
+              <strong className="pil-proofCard__value">{stats[item.key] ?? "—"}</strong>
+            </div>
+          ))}
+        </div>
       </section>
 
       <section className="zr-section pil-highlights">
@@ -217,47 +219,21 @@ export default function Home() {
         </div>
 
         <div className="zr-splitHighlight">
-          <Link
-            className="zr-splitHighlight__half zr-splitHighlight__half--left"
+          <HighlightCard
+            item={finished}
+            label={t("home_highlight_left")}
             to={buildLink(finished)}
-            style={{
-              backgroundImage: `url(${pickCover(finished)})`,
-              backgroundSize: "cover",
-              backgroundPosition: "center",
-            }}
-          >
-            <div className="zr-splitHighlight__overlay zr-splitHighlight__overlay--top">
-              <div className="zr-splitHighlight__badge">{t("home_highlight_left")}</div>
-              <div className="zr-splitHighlight__value">
-                <strong>{finished.authorNameDisplay || "—"}</strong>
-                <div>{finished.titleDisplay || "—"}</div>
-                {finishedMeta ? (
-                  <div style={{ fontSize: 12, marginTop: 6, opacity: 0.92 }}>{finishedMeta}</div>
-                ) : null}
-              </div>
-            </div>
-          </Link>
+            pickCover={pickCover}
+            fallbackImg={FALLBACK_IMG}
+          />
 
-          <Link
-            className="zr-splitHighlight__half zr-splitHighlight__half--right"
+          <HighlightCard
+            item={received}
+            label={t("home_highlight_right")}
             to={buildLink(received)}
-            style={{
-              backgroundImage: `url(${pickCover(received)})`,
-              backgroundSize: "cover",
-              backgroundPosition: "center",
-            }}
-          >
-            <div className="zr-splitHighlight__overlay zr-splitHighlight__overlay--top">
-              <div className="zr-splitHighlight__badge">{t("home_highlight_right")}</div>
-              <div className="zr-splitHighlight__value">
-                <strong>{received.authorNameDisplay || "—"}</strong>
-                <div>{received.titleDisplay || "—"}</div>
-                {receivedMeta ? (
-                  <div style={{ fontSize: 12, marginTop: 6, opacity: 0.92 }}>{receivedMeta}</div>
-                ) : null}
-              </div>
-            </div>
-          </Link>
+            pickCover={pickCover}
+            fallbackImg={FALLBACK_IMG}
+          />
         </div>
       </section>
     </>

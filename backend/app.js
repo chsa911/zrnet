@@ -1,4 +1,3 @@
-// backend/app.js
 const express = require("express");
 const cors = require("cors");
 const morgan = require("morgan");
@@ -88,11 +87,9 @@ app.get("/api/public/home-highlights", async (req, res) => {
     const pool = req.app.get("pgPool");
     if (!pool) return res.status(500).json({ error: "pgPool_missing" });
 
-    await pool.query("SELECT public.refresh_home_featured_periods()");
-
     const { rows } = await pool.query(`
       SELECT
-        slot,
+        COALESCE(slot, presented_as) AS slot,
         id,
         author_name_display,
         title_display,
@@ -100,11 +97,10 @@ app.get("/api/public/home-highlights", async (req, res) => {
         cover_full,
         cover,
         buy,
-        featured_since,
-        shown_for_seconds,
-        shown_for_days
+        presented_at,
+        presented_till
       FROM public.home_highlights_current
-      WHERE slot IN ('finished', 'received')
+      WHERE COALESCE(slot, presented_as) IN ('finished', 'received')
     `);
 
     const empty = {
@@ -127,18 +123,24 @@ app.get("/api/public/home-highlights", async (req, res) => {
     };
 
     for (const r of rows) {
+      const since = r.presented_at ? new Date(r.presented_at) : null;
+      const secs = since
+        ? Math.max(0, Math.floor((Date.now() - since.getTime()) / 1000))
+        : 0;
+
       const mapped = {
         id: r.id,
-        authorNameDisplay: r.author_name_display || null,
-        titleDisplay: r.title_display || null,
+        authorNameDisplay: r.author_name_display || "",
+        titleDisplay: r.title_display || "",
         cover_home: r.cover_home || "",
         cover_full: r.cover_full || "",
         cover: r.cover || "",
         buy: r.buy || "",
-        featuredSince: r.featured_since || null,
-        shownForSeconds: Number(r.shown_for_seconds || 0),
-        shownForDays: Number(r.shown_for_days || 0),
+        featuredSince: r.presented_at || null,
+        shownForSeconds: secs,
+        shownForDays: Math.floor(secs / 86400),
       };
+
       if (r.slot === "finished") out.finished = mapped;
       if (r.slot === "received") out.received = mapped;
     }

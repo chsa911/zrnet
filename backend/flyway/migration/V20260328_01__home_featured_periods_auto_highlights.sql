@@ -145,7 +145,7 @@ SELECT
   b.id::text AS id,
   COALESCE(NULLIF(a.name_display, ''), NULLIF(b.author_display, ''), NULLIF(b.author, '')) AS author_name_display,
   COALESCE(NULLIF(b.main_title_display, ''), NULLIF(b.title_display, ''), NULLIF(b.title_keyword, '')) AS title_display,
-  ('/media/covers/' || b.id::text || '-home.jpg') AS cover_home,
+  ('/media/covers/' || b.id::text || '.jpg') AS cover_home,
   ('/media/covers/' || b.id::text || '.jpg') AS cover_full,
   ('/media/covers/' || b.id::text || '.jpg') AS cover,
   b.purchase_url AS buy,
