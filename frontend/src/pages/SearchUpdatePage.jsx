@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { listBooks, getBook, updateBook, deleteBook } from "../api/books";
+import { listBooks, getBook, updateBook, deleteBook, makeHighlight } from "../api/books";
 import AdminNavRow from "../components/AdminNavRow";
 import BookForm from "../components/BookForm";
 
@@ -177,6 +177,39 @@ export default function SearchUpdatePage() {
   }
 
   const statusOf = (b) => String(b?.reading_status || "").toLowerCase();
+
+
+  function highlightLabelForBook(b) {
+    const s = statusOf(b);
+    if (s === "finished") return "✨ Als Finished-Highlight";
+    if (s === "in_stock") return "📦 Als Received-Highlight";
+    return "";
+  }
+
+  async function promoteToHighlight(b) {
+    const id = idOf(b);
+    if (!id) return alert("Kein Datensatz-ID gefunden.");
+
+    const label = highlightLabelForBook(b);
+    if (!label) {
+      return alert("Nur Bücher mit Status finished oder in_stock können direkt als Highlight gesetzt werden.");
+    }
+
+    setUpdatingOn(id, true);
+    try {
+      const result = await makeHighlight(id);
+      alert(
+        result?.noChange
+          ? `Bereits aktuelles ${result.slot}-Highlight.`
+          : `Highlight gesetzt: ${result?.slot || "ok"}`
+      );
+      setRefreshTick((n) => n + 1);
+    } catch (e) {
+      alert(e?.message || "Highlight setzen fehlgeschlagen");
+    } finally {
+      setUpdatingOn(id, false);
+    }
+  }
 
   async function openEditor(b) {
     const id = idOf(b);
@@ -378,6 +411,17 @@ export default function SearchUpdatePage() {
                           >
                             {getTop(b) ? "★ Top entfernen" : "☆ Top setzen"}
                           </button>
+
+                          {highlightLabelForBook(b) ? (
+                            <button
+                              disabled={isBusy}
+                              onClick={() => promoteToHighlight(b)}
+                              className="zr-btn2 zr-btn2--ghost zr-btn2--sm"
+                              type="button"
+                            >
+                              {highlightLabelForBook(b)}
+                            </button>
+                          ) : null}
 
                           <button
                             disabled={isBusy}

@@ -151,7 +151,7 @@ export default function Home() {
   const received = hl?.received || {};
 
   const pickCover = useMemo(
-    () => (x) => x?.cover_home || x?.cover_full || x?.cover || FALLBACK_IMG,
+    () => (x) => x?.cover || FALLBACK_IMG,
     [FALLBACK_IMG]
   );
 

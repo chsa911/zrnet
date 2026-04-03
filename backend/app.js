@@ -82,6 +82,18 @@ app.use(cors(corsOptions));
 app.options("*", cors(corsOptions));
 
 /* ---------- public endpoints (must be after CORS) ---------- */
+function coverPathsForBook(bookId) {
+  const fullAbs = path.join(COVERS_DIR, `${bookId}.jpg`);
+  const hasFull = fs.existsSync(fullAbs);
+  const fullRel = `/media/covers/${bookId}.jpg`;
+
+  return {
+    cover_home: hasFull ? fullRel : "",
+    cover_full: hasFull ? fullRel : "",
+    cover: hasFull ? fullRel : "",
+  };
+}
+
 app.get("/api/public/home-highlights", async (req, res) => {
   try {
     const pool = req.app.get("pgPool");
@@ -93,9 +105,6 @@ app.get("/api/public/home-highlights", async (req, res) => {
         id,
         author_name_display,
         title_display,
-        cover_home,
-        cover_full,
-        cover,
         buy,
         presented_at,
         presented_till
@@ -127,14 +136,13 @@ app.get("/api/public/home-highlights", async (req, res) => {
       const secs = since
         ? Math.max(0, Math.floor((Date.now() - since.getTime()) / 1000))
         : 0;
+      const covers = coverPathsForBook(r.id);
 
       const mapped = {
         id: r.id,
         authorNameDisplay: r.author_name_display || "",
         titleDisplay: r.title_display || "",
-        cover_home: r.cover_home || "",
-        cover_full: r.cover_full || "",
-        cover: r.cover || "",
+        ...covers,
         buy: r.buy || "",
         featuredSince: r.presented_at || null,
         shownForSeconds: secs,

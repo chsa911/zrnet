@@ -113,6 +113,132 @@ router.get("/me", (_req, res) => {
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
+
+// POST /api/admin/books/:id/make-highlight
+router.post("/books/:id/make-highlight", async (req, res) => {
+  const pool = req.app.get("pgPool");
+  if (!pool) return res.status(500).json({ error: "pgPool missing" });
+
+  const id = String(req.params.id || "").trim();
+  if (!UUID_RE.test(id)) return res.status(400).json({ error: "invalid_id" });
+
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+
+    const bookRes = await client.query(
+      `
+        SELECT
+          id,
+          reading_status,
+          received_at,
+          COALESCE(NULLIF(main_title_display, ''), NULLIF(title_display, ''), NULLIF(title_keyword, '')) AS title
+        FROM public.books
+        WHERE id = $1::uuid
+        FOR UPDATE
+      `,
+      [id]
+    );
+
+    if (!bookRes.rowCount) {
+      await client.query("ROLLBACK");
+      return res.status(404).json({ error: "book_not_found" });
+    }
+
+    const book = bookRes.rows[0];
+    const status = String(book.reading_status || "").toLowerCase();
+
+    let slot = null;
+    if (status === "finished") slot = "finished";
+    if (status === "in_stock") slot = "received";
+
+    if (!slot) {
+      await client.query("ROLLBACK");
+      return res.status(400).json({
+        error: "book_not_highlightable",
+        message: "Only books with reading_status = finished or in_stock can be highlighted automatically.",
+      });
+    }
+
+    const currentRes = await client.query(
+      `
+        SELECT book_id
+        FROM public.highlights
+        WHERE presented_as = $1
+          AND presented_till IS NULL
+        FOR UPDATE
+      `,
+      [slot]
+    );
+
+    const currentBookId = currentRes.rows[0]?.book_id || null;
+    if (currentBookId === id) {
+      await client.query("COMMIT");
+      return res.json({
+        ok: true,
+        noChange: true,
+        slot,
+        bookId: id,
+        title: book.title || "",
+      });
+    }
+
+    await client.query(
+      `
+        UPDATE public.highlights
+        SET presented_till = now()
+        WHERE presented_as = $1
+          AND presented_till IS NULL
+      `,
+      [slot]
+    );
+
+    if (slot === "received") {
+      await client.query(
+        `
+          UPDATE public.books
+          SET received_at = COALESCE(received_at, now())
+          WHERE id = $1::uuid
+        `,
+        [id]
+      );
+    }
+
+    await client.query(
+      `
+        INSERT INTO public.highlights (
+          presented_as,
+          book_id,
+          presented_at,
+          source
+        )
+        VALUES ($1, $2::uuid, now(), 'manual')
+      `,
+      [slot, id]
+    );
+
+    await client.query("COMMIT");
+
+    return res.json({
+      ok: true,
+      slot,
+      bookId: id,
+      title: book.title || "",
+    });
+  } catch (e) {
+    try {
+      await client.query("ROLLBACK");
+    } catch {}
+    console.error("POST /api/admin/books/:id/make-highlight failed", e);
+    return res.status(500).json({
+      error: "make_highlight_failed",
+      detail: String(e?.message || e),
+    });
+  } finally {
+    client.release();
+  }
+});
+
 /* -------------------- abbreviations admin -------------------- */
 
 // GET /api/admin/abbreviations?q=foo&limit=1000&offset=0

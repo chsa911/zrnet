@@ -139,6 +139,15 @@ export async function lookupIsbn(isbn, { signal } = {}) {
   }
 }
 
+export async function makeHighlight(id, { signal } = {}) {
+  if (!id) throw new Error("Missing book id");
+  return http(`/admin/books/${encodeURIComponent(id)}/make-highlight`, {
+    method: "POST",
+    json: {},
+    signal,
+  });
+}
+
 export async function uploadCover(id, file, { signal } = {}) {
   if (!id) throw new Error("Missing book id");
   if (!file) throw new Error("Missing cover file");
