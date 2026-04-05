@@ -28,14 +28,20 @@ function HighlightCard({ item, label, to, pickCover, fallbackImg }) {
       </div>
 
       <div className="zr-splitHighlight__art">
-        <img
-          src={imgSrc}
-          alt={item?.titleDisplay || item?.authorNameDisplay || ""}
-          loading="lazy"
-          onError={() => {
-            if (imgSrc !== fallbackImg) setImgSrc(fallbackImg);
-          }}
-        />
+        {imgSrc ? (
+          <img
+            src={imgSrc}
+            alt={item?.titleDisplay || item?.authorNameDisplay || ""}
+            loading="lazy"
+            onError={() => {
+              if (!fallbackImg) {
+                setImgSrc("");
+                return;
+              }
+              if (imgSrc !== fallbackImg) setImgSrc(fallbackImg);
+            }}
+          />
+        ) : null}
       </div>
     </Link>
   );
@@ -44,7 +50,8 @@ function HighlightCard({ item, label, to, pickCover, fallbackImg }) {
 export default function Home() {
   const { t } = useI18n();
   const year = 2026;
-  const FALLBACK_IMG = "/assets/images/allgemein/hosentasche_link.jpeg";
+  const HERO_IMG = "/assets/images/allgemein/hosentasche_link.jpeg";
+  const HIGHLIGHT_FALLBACK = "";
 
   const [hl, setHl] = useState(null);
   const [stats, setStats] = useState({
@@ -151,8 +158,8 @@ export default function Home() {
   const received = hl?.received || {};
 
   const pickCover = useMemo(
-    () => (x) => x?.cover || FALLBACK_IMG,
-    [FALLBACK_IMG]
+    () => (x) => x?.cover_home || x?.cover_full || x?.cover || HIGHLIGHT_FALLBACK,
+    []
   );
 
   const buildLink = (x) => {
@@ -192,7 +199,7 @@ export default function Home() {
         </div>
 
         <div className="pil-hero__media">
-          <img className="pil-hero__image" src={FALLBACK_IMG} alt={t("home_hero_image_alt")} />
+          <img className="pil-hero__image" src={HERO_IMG} alt={t("home_hero_image_alt")} />
         </div>
       </section>
 
@@ -224,7 +231,7 @@ export default function Home() {
             label={t("home_highlight_left")}
             to={buildLink(finished)}
             pickCover={pickCover}
-            fallbackImg={FALLBACK_IMG}
+            fallbackImg={HIGHLIGHT_FALLBACK}
           />
 
           <HighlightCard
@@ -232,7 +239,7 @@ export default function Home() {
             label={t("home_highlight_right")}
             to={buildLink(received)}
             pickCover={pickCover}
-            fallbackImg={FALLBACK_IMG}
+            fallbackImg={HIGHLIGHT_FALLBACK}
           />
         </div>
       </section>

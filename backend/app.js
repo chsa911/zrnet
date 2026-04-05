@@ -10,9 +10,25 @@ const app = express();
 // Helpful when running behind Cloudflare / reverse proxies
 app.set("trust proxy", 1);
 
+const frontendDist = path.resolve(__dirname, "../frontend/dist");
+const legacyPublicDir = path.resolve(__dirname, "public");
+
 const UPLOAD_ROOT =
   process.env.UPLOAD_ROOT || path.resolve(__dirname, "../uploads");
 const COVERS_DIR = path.join(UPLOAD_ROOT, "covers");
+const FRONTEND_PUBLIC_COVERS_DIR = path.resolve(
+  __dirname,
+  "../frontend/public/assets/covers"
+);
+const FRONTEND_DIST_COVERS_DIR = path.resolve(
+  __dirname,
+  "../frontend/dist/assets/covers"
+);
+const BACKEND_PUBLIC_COVERS_DIR = path.resolve(
+  __dirname,
+  "public/assets/covers"
+);
+
 fs.mkdirSync(COVERS_DIR, { recursive: true });
 
 /* ---------- middleware (before routes) ---------- */
@@ -82,21 +98,88 @@ app.use(cors(corsOptions));
 app.options("*", cors(corsOptions));
 
 /* ---------- public endpoints (must be after CORS) ---------- */
+function withVersion(url, version) {
+  return version ? `${url}?v=${encodeURIComponent(version)}` : url;
+}
 
-function coverUrlForBook(bookId, version) {
-  const base = `/media/covers/${bookId}.jpg`;
-  return version ? `${base}?v=${encodeURIComponent(version)}` : base;
+function firstExistingCover(candidates, version) {
+  for (const candidate of candidates) {
+    if (fs.existsSync(candidate.abs)) {
+      return withVersion(candidate.url, version);
+    }
+  }
+  return "";
 }
 
 function coverPathsForBook(bookId, version) {
-  const fullAbs = path.join(COVERS_DIR, `${bookId}.jpg`);
-  const hasFull = fs.existsSync(fullAbs);
-  const fullRel = coverUrlForBook(bookId, version);
+  const uploadHome = {
+    abs: path.join(COVERS_DIR, `${bookId}-home.jpg`),
+    url: `/media/covers/${bookId}-home.jpg`,
+  };
+  const uploadFull = {
+    abs: path.join(COVERS_DIR, `${bookId}.jpg`),
+    url: `/media/covers/${bookId}.jpg`,
+  };
+
+  const publicHome = {
+    abs: path.join(FRONTEND_PUBLIC_COVERS_DIR, `${bookId}-home.jpg`),
+    url: `/assets/covers/${bookId}-home.jpg`,
+  };
+  const publicFull = {
+    abs: path.join(FRONTEND_PUBLIC_COVERS_DIR, `${bookId}.jpg`),
+    url: `/assets/covers/${bookId}.jpg`,
+  };
+
+  const distHome = {
+    abs: path.join(FRONTEND_DIST_COVERS_DIR, `${bookId}-home.jpg`),
+    url: `/assets/covers/${bookId}-home.jpg`,
+  };
+  const distFull = {
+    abs: path.join(FRONTEND_DIST_COVERS_DIR, `${bookId}.jpg`),
+    url: `/assets/covers/${bookId}.jpg`,
+  };
+
+  const backendHome = {
+    abs: path.join(BACKEND_PUBLIC_COVERS_DIR, `${bookId}-home.jpg`),
+    url: `/assets/covers/${bookId}-home.jpg`,
+  };
+  const backendFull = {
+    abs: path.join(BACKEND_PUBLIC_COVERS_DIR, `${bookId}.jpg`),
+    url: `/assets/covers/${bookId}.jpg`,
+  };
+
+  const cover_home = firstExistingCover(
+    [
+      uploadHome,
+      distHome,
+      publicHome,
+      backendHome,
+      uploadFull,
+      distFull,
+      publicFull,
+      backendFull,
+    ],
+    version
+  );
+
+  const cover_full = firstExistingCover(
+    [
+      uploadFull,
+      distFull,
+      publicFull,
+      backendFull,
+      uploadHome,
+      distHome,
+      publicHome,
+      backendHome,
+    ],
+    version
+  );
 
   return {
-    cover_home: hasFull ? fullRel : "",
-    cover_full: hasFull ? fullRel : "",
-    cover: hasFull ? fullRel : "",
+    cover_home,
+    cover_full,
+    cover: cover_home || cover_full,
   };
 }
 
@@ -234,9 +317,26 @@ app.use("/api/mobile-sync", require("./routes/mobileSync"));
 /* ---------- uploaded media ---------- */
 app.use("/media/covers", express.static(COVERS_DIR));
 
+app.get("/assets/covers/:file", (req, res, next) => {
+  const safeFile = path.basename(req.params.file || "");
+
+  const candidates = [
+    path.join(FRONTEND_DIST_COVERS_DIR, safeFile),
+    path.join(FRONTEND_PUBLIC_COVERS_DIR, safeFile),
+    path.join(BACKEND_PUBLIC_COVERS_DIR, safeFile),
+    path.join(COVERS_DIR, safeFile),
+  ];
+
+  for (const abs of candidates) {
+    if (fs.existsSync(abs)) {
+      return res.sendFile(abs);
+    }
+  }
+
+  return next();
+});
+
 /* ---------- static frontend ---------- */
-const frontendDist = path.resolve(__dirname, "../frontend/dist");
-const legacyPublicDir = path.resolve(__dirname, "public");
 const staticDir = fs.existsSync(path.join(frontendDist, "index.html"))
   ? frontendDist
   : legacyPublicDir;
