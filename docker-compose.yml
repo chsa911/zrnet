@@ -5,6 +5,11 @@ services:
       dockerfile: Dockerfile
     env_file:
       - .env
+    environment:
+      - UPLOAD_ROOT=/uploads
+    volumes:
+      - ./uploads:/uploads
+      - ./frontend/public/assets/covers:/frontend/public/assets/covers:ro
     expose:
       - "4000"
     restart: unless-stopped
