@@ -82,10 +82,16 @@ app.use(cors(corsOptions));
 app.options("*", cors(corsOptions));
 
 /* ---------- public endpoints (must be after CORS) ---------- */
-function coverPathsForBook(bookId) {
+
+function coverUrlForBook(bookId, version) {
+  const base = `/media/covers/${bookId}.jpg`;
+  return version ? `${base}?v=${encodeURIComponent(version)}` : base;
+}
+
+function coverPathsForBook(bookId, version) {
   const fullAbs = path.join(COVERS_DIR, `${bookId}.jpg`);
   const hasFull = fs.existsSync(fullAbs);
-  const fullRel = `/media/covers/${bookId}.jpg`;
+  const fullRel = coverUrlForBook(bookId, version);
 
   return {
     cover_home: hasFull ? fullRel : "",
@@ -101,15 +107,23 @@ app.get("/api/public/home-highlights", async (req, res) => {
 
     const { rows } = await pool.query(`
       SELECT
-        COALESCE(slot, presented_as) AS slot,
-        id,
-        author_name_display,
-        title_display,
-        buy,
-        presented_at,
-        presented_till
-      FROM public.home_highlights_current
-      WHERE COALESCE(slot, presented_as) IN ('finished', 'received')
+        COALESCE(h.slot, h.presented_as) AS slot,
+        h.id,
+        h.author_name_display,
+        h.title_display,
+        h.buy,
+        h.presented_at,
+        h.presented_till,
+        COALESCE(
+          b.raw->'capture'->>'coverUploadedAt',
+          b.updated_at::text,
+          b.added_at::text,
+          h.presented_at::text
+        ) AS cover_version
+      FROM public.home_highlights_current h
+      LEFT JOIN public.books b
+        ON b.id = h.id::uuid
+      WHERE COALESCE(h.slot, h.presented_as) IN ('finished', 'received')
     `);
 
     const empty = {
@@ -136,7 +150,8 @@ app.get("/api/public/home-highlights", async (req, res) => {
       const secs = since
         ? Math.max(0, Math.floor((Date.now() - since.getTime()) / 1000))
         : 0;
-      const covers = coverPathsForBook(r.id);
+
+      const covers = coverPathsForBook(r.id, r.cover_version);
 
       const mapped = {
         id: r.id,

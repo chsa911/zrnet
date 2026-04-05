@@ -224,9 +224,9 @@ router.get("/", async (req, res) => {
         );
       }
     } else if (bucket === "stock" || bucket === "in_stock") {
-      where.push("open_ba.barcode IS NOT NULL");
+      where.push("(open_ba.barcode IS NOT NULL OR b.reading_status = 'in_stock')");
       orderBy =
-        "open_ba.assigned_at DESC NULLS LAST, b.registered_at DESC NULLS LAST, b.id ASC";
+        "COALESCE(open_ba.assigned_at, b.reading_status_updated_at, b.registered_at) DESC NULLS LAST, b.id ASC";
     }
 
     if (author) {
@@ -310,7 +310,7 @@ router.get("/", async (req, res) => {
         b.purchase_source,
         a.published_titles,
         COALESCE(open_ba.barcode, bb.barcode) AS barcode,
-        (open_ba.barcode IS NOT NULL) AS is_in_stock,
+        (open_ba.barcode IS NOT NULL OR b.reading_status = 'in_stock') AS is_in_stock,
         ('/media/covers/' || b.id::text || '.jpg') AS cover
       ${fromSql}
       ${whereSql}
@@ -384,9 +384,15 @@ router.get("/stats", async (req, res) => {
         ORDER BY ba.book_id, ba.freed_at DESC
       )
       SELECT
-        (SELECT COUNT(DISTINCT ba2.book_id)::int
-         FROM public.barcode_assignments ba2
-         WHERE ba2.freed_at IS NULL
+        (SELECT COUNT(*)::int
+         FROM public.books b0
+         WHERE b0.reading_status = 'in_stock'
+            OR EXISTS (
+              SELECT 1
+              FROM public.barcode_assignments ba2
+              WHERE ba2.book_id = b0.id
+                AND ba2.freed_at IS NULL
+            )
         ) AS in_stock,
 
         (SELECT COUNT(*)::int
@@ -487,11 +493,18 @@ router.get("/stock-authors", async (req, res) => {
       `
       SELECT
         ${AUTHOR_EXPR} AS author,
-        COUNT(DISTINCT ba.book_id)::int AS count
-      FROM public.barcode_assignments ba
-      JOIN public.books b ON b.id = ba.book_id
+        COUNT(*)::int AS count
+      FROM public.books b
       LEFT JOIN public.authors a ON a.id = b.author_id
-      WHERE ba.freed_at IS NULL
+      WHERE (
+          b.reading_status = 'in_stock'
+          OR EXISTS (
+            SELECT 1
+            FROM public.barcode_assignments ba
+            WHERE ba.book_id = b.id
+              AND ba.freed_at IS NULL
+          )
+        )
         AND ${AUTHOR_EXPR} IS NOT NULL
         AND BTRIM(${AUTHOR_EXPR}) <> ''
       GROUP BY 1

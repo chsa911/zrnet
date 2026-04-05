@@ -144,11 +144,18 @@ export default function SearchUpdatePage() {
     if (!id) return alert("Kein Datensatz-ID gefunden.");
 
     setUpdatingOn(id, true);
-    const revert = { reading_status: b?.reading_status ?? null };
+    const revert = {
+      reading_status: b?.reading_status ?? null,
+      reading_status_updated_at: b?.reading_status_updated_at ?? null,
+    };
 
     try {
-      patchRow(id, { reading_status: nextStatus });
+      patchRow(id, {
+        reading_status: nextStatus,
+        reading_status_updated_at: new Date().toISOString(),
+      });
       await updateBook(id, { reading_status: nextStatus });
+      setRefreshTick((n) => n + 1);
     } catch (e) {
       patchRow(id, revert);
       alert(e?.message || "Update Status fehlgeschlagen");
@@ -177,7 +184,6 @@ export default function SearchUpdatePage() {
   }
 
   const statusOf = (b) => String(b?.reading_status || "").toLowerCase();
-
 
   function highlightLabelForBook(b) {
     const s = statusOf(b);
@@ -316,6 +322,7 @@ export default function SearchUpdatePage() {
               <option value="">Alle</option>
               <option value="finished">Zuletzt Finished</option>
               <option value="abandoned">Zuletzt Abandoned</option>
+              <option value="in_stock">Zuletzt In stock</option>
               <option value="finished,abandoned">Zuletzt Finished + Abandoned</option>
             </select>
           </label>
