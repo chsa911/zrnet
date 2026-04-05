@@ -2,6 +2,10 @@ const express = require("express");
 const fs = require("fs/promises");
 const path = require("path");
 const multer = require("multer");
+const { execFile } = require("child_process");
+const { promisify } = require("util");
+
+const execFileAsync = promisify(execFile);
 
 const router = express.Router();
 const upload = multer({ storage: multer.memoryStorage() });
@@ -14,6 +18,52 @@ const {
   updateBook,
   dropBook,
 } = require("../controllers/booksPgController");
+
+const PYTHON_BIN = process.env.PYTHON_BIN || "python3";
+const CROP_SCRIPT =
+  process.env.COVER_CROP_SCRIPT ||
+  path.resolve(__dirname, "../scripts/crop_book_cover.py");
+const COVER_CROP_TIMEOUT_MS = Number(
+  process.env.COVER_CROP_TIMEOUT_MS || 30000
+);
+
+function isUuid(v) {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+    String(v || "")
+  );
+}
+
+async function fileExists(p) {
+  try {
+    await fs.access(p);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+async function unlinkIfExists(p) {
+  try {
+    await fs.unlink(p);
+  } catch {}
+}
+
+async function runCoverCrop(inputPath, outputPath) {
+  if (!(await fileExists(CROP_SCRIPT))) {
+    throw new Error(`crop_script_missing: ${CROP_SCRIPT}`);
+  }
+
+  const { stdout, stderr } = await execFileAsync(
+    PYTHON_BIN,
+    [CROP_SCRIPT, inputPath, outputPath],
+    {
+      timeout: COVER_CROP_TIMEOUT_MS,
+      maxBuffer: 2 * 1024 * 1024,
+    }
+  );
+
+  return { stdout, stderr };
+}
 
 // List + search
 router.get("/", listBooks);
@@ -35,9 +85,7 @@ router.post("/:id/cover", upload.single("cover"), async (req, res) => {
 
   const id = String(req.params.id || "").trim();
   if (!id) return res.status(400).json({ error: "missing_id" });
-  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id)) {
-    return res.status(400).json({ error: "invalid_id" });
-  }
+  if (!isUuid(id)) return res.status(400).json({ error: "invalid_id" });
   if (!req.file) return res.status(400).json({ error: "missing_file" });
 
   const byteLen = req.file?.buffer?.length ?? 0;
@@ -45,19 +93,41 @@ router.post("/:id/cover", upload.single("cover"), async (req, res) => {
     return res.status(400).json({ error: "empty_file", bytes: byteLen });
   }
 
+  const uploadRoot =
+    process.env.UPLOAD_ROOT || path.resolve(__dirname, "../../uploads");
+  const dir = path.join(uploadRoot, "covers");
+
+  // Final files
+  const croppedMain = path.join(dir, `${id}.jpg`);
+  const rawMain = path.join(dir, `${id}-raw.jpg`);
+
+  // Temp files for crop processing
+  const tempInput = path.join(dir, `${id}-tmp-upload.jpg`);
+  const tempCropped = path.join(dir, `${id}-tmp-cropped.jpg`);
+
+  let autocropped = false;
+  let cropDetail = null;
+
   try {
-    const uploadRoot = process.env.UPLOAD_ROOT || path.resolve(__dirname, "../../uploads");
-    const dir = path.join(uploadRoot, "covers");
     await fs.mkdir(dir, { recursive: true });
 
-    const ts = new Date().toISOString().replace(/[:.]/g, "-");
-    const main = path.join(dir, `${id}.jpg`);
-    const archive = path.join(dir, `${id}-${ts}.jpg`);
+    // Always keep the raw upload with a stable name
+    await fs.writeFile(rawMain, req.file.buffer);
 
-    await Promise.all([
-      fs.writeFile(main, req.file.buffer),
-      fs.writeFile(archive, req.file.buffer),
-    ]);
+    // Write temp input for the Python crop script
+    await fs.writeFile(tempInput, req.file.buffer);
+
+    try {
+      await runCoverCrop(tempInput, tempCropped);
+      await fs.copyFile(tempCropped, croppedMain);
+      autocropped = true;
+    } catch (cropErr) {
+      cropDetail = String(cropErr?.message || cropErr);
+      console.warn("cover autocrop failed, falling back to raw:", cropDetail);
+
+      // Fallback: serve the raw image if crop fails
+      await fs.copyFile(rawMain, croppedMain);
+    }
 
     const upd = await pool.query(
       `
@@ -75,8 +145,8 @@ router.post("/:id/cover", upload.single("cover"), async (req, res) => {
     );
 
     if (!upd.rowCount) {
-      try { await fs.unlink(main); } catch {}
-      try { await fs.unlink(archive); } catch {}
+      await unlinkIfExists(croppedMain);
+      await unlinkIfExists(rawMain);
       return res.status(404).json({ error: "book_not_found_for_cover", id });
     }
 
@@ -85,7 +155,11 @@ router.post("/:id/cover", upload.single("cover"), async (req, res) => {
       id,
       bytes: req.file.buffer.length,
       cover: `/media/covers/${id}.jpg`,
+      rawCover: `/media/covers/${id}-raw.jpg`,
       coverUploadedAt: upd.rows?.[0]?.coveruploadedat || null,
+      autocropped,
+      cropFallback: !autocropped,
+      cropDetail: autocropped ? null : cropDetail,
     });
   } catch (e) {
     console.error("public cover upload failed", e);
@@ -93,6 +167,9 @@ router.post("/:id/cover", upload.single("cover"), async (req, res) => {
       error: "cover_upload_failed",
       detail: String(e?.message || e),
     });
+  } finally {
+    await unlinkIfExists(tempInput);
+    await unlinkIfExists(tempCropped);
   }
 });
 
