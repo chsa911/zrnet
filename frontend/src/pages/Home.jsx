@@ -55,7 +55,7 @@ export default function Home() {
 
   const [hl, setHl] = useState(null);
   const [stats, setStats] = useState({
-    in_stock: null,
+    total_books: null,
     finished: null,
     top: null,
   });
@@ -79,7 +79,7 @@ export default function Home() {
   const proofStats = useMemo(
     () => [
       {
-        key: "in_stock",
+        key: "total_books",
         label: t("home_proof_in_stock_label"),
         meta: t("home_proof_in_stock_meta"),
         to: "/stats/stock",
@@ -136,7 +136,17 @@ export default function Home() {
         const data = await res.json();
 
         setStats({
-          in_stock: toIntOrNull(data.in_stock ?? data.inStock ?? data.instock ?? data.stock),
+          total_books: toIntOrNull(
+            data.total_books ??
+              data.totalBooks ??
+              data.registered ??
+              data.total ??
+              data.books_total ??
+              data.in_stock ??
+              data.inStock ??
+              data.instock ??
+              data.stock
+          ),
           finished: toIntOrNull(data.finished ?? data.finished_books ?? data.finishedBooks),
           top: toIntOrNull(data.top ?? data.top_books ?? data.topBooks),
         });

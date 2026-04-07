@@ -384,23 +384,19 @@ router.get("/stats", async (req, res) => {
         ORDER BY ba.book_id, ba.freed_at DESC
       )
       SELECT
-        (SELECT COUNT(*)::int
-         FROM public.books b0
-         WHERE b0.reading_status = 'in_stock'
-            OR EXISTS (
-              SELECT 1
-              FROM public.barcode_assignments ba2
-              WHERE ba2.book_id = b0.id
-                AND ba2.freed_at IS NULL
-            )
+        (
+          SELECT COUNT(*)::int
+          FROM public.books b0
+          WHERE b0.reading_status IN ('in_stock', 'in_progress')
         ) AS in_stock,
 
-        (SELECT COUNT(*)::int
-         FROM last_free lf
-         JOIN public.books b2 ON b2.id = lf.book_id
-         WHERE b2.reading_status = 'finished'
-           AND lf.freed_at >= $1::timestamptz
-           AND lf.freed_at <  $2::timestamptz
+        (
+          SELECT COUNT(*)::int
+          FROM last_free lf
+          JOIN public.books b2 ON b2.id = lf.book_id
+          WHERE b2.reading_status = 'finished'
+            AND lf.freed_at >= $1::timestamptz
+            AND lf.freed_at <  $2::timestamptz
         ) AS finished,
 
         count(*) FILTER (
@@ -421,6 +417,7 @@ router.get("/stats", async (req, res) => {
 
     const out =
       rows[0] || { in_stock: 0, finished: 0, abandoned: 0, top: 0 };
+
     out.instock = out.in_stock;
     return res.json(out);
   } catch (err) {
@@ -428,7 +425,6 @@ router.get("/stats", async (req, res) => {
     return res.status(500).json({ error: "internal_error" });
   }
 });
-
 /**
  * GET /api/public/books/author-counts
  */

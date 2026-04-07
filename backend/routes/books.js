@@ -99,6 +99,7 @@ router.post("/:id/cover", upload.single("cover"), async (req, res) => {
 
   // Final files
   const croppedMain = path.join(dir, `${id}.jpg`);
+  const homeMain = path.join(dir, `${id}-home.jpg`);
   const rawMain = path.join(dir, `${id}-raw.jpg`);
 
   // Temp files for crop processing
@@ -120,6 +121,7 @@ router.post("/:id/cover", upload.single("cover"), async (req, res) => {
     try {
       await runCoverCrop(tempInput, tempCropped);
       await fs.copyFile(tempCropped, croppedMain);
+      await fs.copyFile(tempCropped, homeMain);
       autocropped = true;
     } catch (cropErr) {
       cropDetail = String(cropErr?.message || cropErr);
@@ -127,6 +129,7 @@ router.post("/:id/cover", upload.single("cover"), async (req, res) => {
 
       // Fallback: serve the raw image if crop fails
       await fs.copyFile(rawMain, croppedMain);
+      await fs.copyFile(rawMain, homeMain);
     }
 
     const upd = await pool.query(
@@ -146,6 +149,7 @@ router.post("/:id/cover", upload.single("cover"), async (req, res) => {
 
     if (!upd.rowCount) {
       await unlinkIfExists(croppedMain);
+      await unlinkIfExists(homeMain);
       await unlinkIfExists(rawMain);
       return res.status(404).json({ error: "book_not_found_for_cover", id });
     }
@@ -155,6 +159,7 @@ router.post("/:id/cover", upload.single("cover"), async (req, res) => {
       id,
       bytes: req.file.buffer.length,
       cover: `/media/covers/${id}.jpg`,
+      homeCover: `/media/covers/${id}-home.jpg`,
       rawCover: `/media/covers/${id}-raw.jpg`,
       coverUploadedAt: upd.rows?.[0]?.coveruploadedat || null,
       autocropped,
