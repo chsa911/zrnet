@@ -99,7 +99,11 @@ function countLinks(text) {
 }
 
 // single sources of truth for public display
-const AUTHOR_EXPR = "a.name_display";
+const AUTHOR_EXPR = `COALESCE(
+  NULLIF(a.name_display, ''),
+  NULLIF(concat_ws(' ', a.last_name, a.first_name), ''),
+  NULLIF(concat_ws(' ', a.first_name, a.last_name), '')
+)`;
 const TITLE_EXPR =
   "COALESCE(NULLIF(b.title_display,''), NULLIF(b.title_keyword,''))";
 const PUBLISHER_EXPR = "COALESCE(p.name, b.publisher)";
@@ -220,9 +224,9 @@ router.get("/", async (req, res) => {
         );
       }
     } else if (bucket === "stock" || bucket === "in_stock") {
-      where.push("open_ba.barcode IS NOT NULL");
+      where.push("(open_ba.barcode IS NOT NULL OR b.reading_status = 'in_stock')");
       orderBy =
-        "open_ba.assigned_at DESC NULLS LAST, b.registered_at DESC NULLS LAST, b.id ASC";
+        "COALESCE(open_ba.assigned_at, b.reading_status_updated_at, b.registered_at) DESC NULLS LAST, b.id ASC";
     }
 
     if (author) {
@@ -306,7 +310,7 @@ router.get("/", async (req, res) => {
         b.purchase_source,
         a.published_titles,
         COALESCE(open_ba.barcode, bb.barcode) AS barcode,
-        (open_ba.barcode IS NOT NULL) AS is_in_stock,
+        (open_ba.barcode IS NOT NULL OR b.reading_status = 'in_stock') AS is_in_stock,
         ('/media/covers/' || b.id::text || '.jpg') AS cover
       ${fromSql}
       ${whereSql}
@@ -380,17 +384,26 @@ router.get("/stats", async (req, res) => {
         ORDER BY ba.book_id, ba.freed_at DESC
       )
       SELECT
-        (SELECT COUNT(DISTINCT ba2.book_id)::int
-         FROM public.barcode_assignments ba2
-         WHERE ba2.freed_at IS NULL
-        ) AS in_stock,
-
-        (SELECT COUNT(*)::int
-         FROM last_free lf
-         JOIN public.books b2 ON b2.id = lf.book_id
-         WHERE b2.reading_status = 'finished'
-           AND lf.freed_at >= $1::timestamptz
-           AND lf.freed_at <  $2::timestamptz
+        (
+  SELECT COUNT(*)::int
+  FROM public.books b0
+  WHERE (
+    b0.reading_status = 'in_stock'
+    OR EXISTS (
+      SELECT 1
+      FROM public.barcode_assignments ba0
+      WHERE ba0.book_id = b0.id
+        AND ba0.freed_at IS NULL
+    )
+  )
+) AS inventory_total,
+        (
+          SELECT COUNT(*)::int
+          FROM last_free lf
+          JOIN public.books b2 ON b2.id = lf.book_id
+          WHERE b2.reading_status = 'finished'
+            AND lf.freed_at >= $1::timestamptz
+            AND lf.freed_at <  $2::timestamptz
         ) AS finished,
 
         count(*) FILTER (
@@ -410,8 +423,13 @@ router.get("/stats", async (req, res) => {
     );
 
     const out =
-      rows[0] || { in_stock: 0, finished: 0, abandoned: 0, top: 0 };
-    out.instock = out.in_stock;
+      rows[0] || { inventory_total: 0, finished: 0, abandoned: 0, top: 0 };
+
+    // Legacy aliases for older frontends
+    out.in_stock = out.inventory_total;
+    out.instock = out.inventory_total;
+    out.inStock = out.inventory_total;
+
     return res.json(out);
   } catch (err) {
     console.error("GET /api/public/books/stats error", err);
@@ -483,11 +501,18 @@ router.get("/stock-authors", async (req, res) => {
       `
       SELECT
         ${AUTHOR_EXPR} AS author,
-        COUNT(DISTINCT ba.book_id)::int AS count
-      FROM public.barcode_assignments ba
-      JOIN public.books b ON b.id = ba.book_id
+        COUNT(*)::int AS count
+      FROM public.books b
       LEFT JOIN public.authors a ON a.id = b.author_id
-      WHERE ba.freed_at IS NULL
+      WHERE (
+          b.reading_status = 'in_stock'
+          OR EXISTS (
+            SELECT 1
+            FROM public.barcode_assignments ba
+            WHERE ba.book_id = b.id
+              AND ba.freed_at IS NULL
+          )
+        )
         AND ${AUTHOR_EXPR} IS NOT NULL
         AND BTRIM(${AUTHOR_EXPR}) <> ''
       GROUP BY 1
@@ -517,7 +542,7 @@ router.get("/most-read-authors", async (req, res) => {
       WITH author_books AS (
         SELECT
           a.id AS author_id,
-          a.name_display AS author,
+          ${AUTHOR_EXPR} AS author,
           b.id AS book_id,
           b.reading_status
         FROM public.books b
@@ -527,7 +552,7 @@ router.get("/most-read-authors", async (req, res) => {
 
         SELECT
           a.id AS author_id,
-          a.name_display AS author,
+          ${AUTHOR_EXPR} AS author,
           ba.book_id AS book_id,
           b.reading_status
         FROM public.book_authors ba
@@ -892,3 +917,4 @@ router.get("/:id", async (req, res) => {
 });
 
 module.exports = router;
+    

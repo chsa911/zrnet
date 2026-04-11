@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { useI18n } from "../context/I18nContext";
+import { apiUrl } from "../api/apiRoot";
 import "./home_minimal.css";
 
 function toIntOrNull(v) {
@@ -9,13 +10,56 @@ function toIntOrNull(v) {
   return Number.isFinite(n) ? n : null;
 }
 
+function HighlightCard({ item, label, to, pickCover, fallbackImg }) {
+  const [imgSrc, setImgSrc] = useState(pickCover(item));
+
+  useEffect(() => {
+    setImgSrc(pickCover(item));
+  }, [item, pickCover]);
+
+  return (
+    <Link className="zr-splitHighlight__half" to={to}>
+      <div className="zr-splitHighlight__copy">
+        <div className="zr-splitHighlight__badge">{label}</div>
+
+        <div className="zr-splitHighlight__value">
+          <strong>{item?.authorNameDisplay || "—"}</strong>
+          <div>{item?.titleDisplay || "—"}</div>
+        </div>
+      </div>
+
+      <div className="zr-splitHighlight__art">
+        {imgSrc ? (
+          <img
+            src={imgSrc}
+            alt={item?.titleDisplay || item?.authorNameDisplay || ""}
+            loading="lazy"
+            onError={() => {
+              if (!fallbackImg) {
+                setImgSrc("");
+                return;
+              }
+              if (imgSrc !== fallbackImg) setImgSrc(fallbackImg);
+            }}
+          />
+        ) : null}
+      </div>
+    </Link>
+  );
+}
+
 export default function Home() {
   const { t } = useI18n();
   const year = 2026;
-  const FALLBACK_IMG = "/assets/images/allgemein/hosentasche_link.jpeg";
+  const HERO_IMG = "/assets/images/allgemein/hosentasche_link.jpeg";
+  const HIGHLIGHT_FALLBACK = "";
 
   const [hl, setHl] = useState(null);
-  const [stats, setStats] = useState({ in_stock: null, finished: null, top: null });
+  const [stats, setStats] = useState({
+    total_books: null,
+    finished: null,
+    top: null,
+  });
 
   const heroParagraphs = useMemo(
     () => [t("home_hero_p1"), t("home_hero_p2"), t("home_hero_p3")].filter(Boolean),
@@ -23,19 +67,20 @@ export default function Home() {
   );
 
   const bullets = useMemo(
-    () => [
-      t("home_bullet_1"),
-      t("home_bullet_2"),
-      t("home_bullet_3"),
-      t("home_bullet_4"),
-    ].filter(Boolean),
+    () =>
+      [
+        t("home_bullet_1"),
+        t("home_bullet_2"),
+        t("home_bullet_3"),
+        t("home_bullet_4"),
+      ].filter(Boolean),
     [t]
   );
 
   const proofStats = useMemo(
     () => [
       {
-        key: "in_stock",
+        key: "total_books",
         label: t("home_proof_in_stock_label"),
         meta: t("home_proof_in_stock_meta"),
         to: "/stats/stock",
@@ -61,7 +106,11 @@ export default function Home() {
 
     (async () => {
       try {
-        const res = await fetch("/api/public/home-highlights", { signal: ac.signal });
+        const res = await fetch(apiUrl("/public/home-highlights"), {
+          signal: ac.signal,
+          cache: "no-store",
+          headers: { Accept: "application/json" },
+        });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const data = await res.json();
         setHl(data);
@@ -78,7 +127,7 @@ export default function Home() {
 
     async function load() {
       try {
-        const res = await fetch(`/api/public/books/stats?year=${year}&_=${Date.now()}`, {
+        const res = await fetch(apiUrl(`/public/books/stats?year=${year}&_=${Date.now()}`), {
           signal: ac.signal,
           headers: { Accept: "application/json" },
           cache: "no-store",
@@ -88,12 +137,22 @@ export default function Home() {
         const data = await res.json();
 
         setStats({
-          in_stock: toIntOrNull(data.in_stock ?? data.inStock ?? data.instock ?? data.stock),
+          total_books: toIntOrNull(
+            data.total_books ??
+              data.totalBooks ??
+              data.registered ??
+              data.total ??
+              data.books_total ??
+              data.in_stock ??
+              data.inStock ??
+              data.instock ??
+              data.stock
+          ),
           finished: toIntOrNull(data.finished ?? data.finished_books ?? data.finishedBooks),
           top: toIntOrNull(data.top ?? data.top_books ?? data.topBooks),
         });
       } catch {
-        // keep previous values without breaking the home page
+        // keep previous values
       }
     }
 
@@ -109,8 +168,10 @@ export default function Home() {
   const finished = hl?.finished || {};
   const received = hl?.received || {};
 
-  const pickCover = (x) => x?.cover_home || x?.cover_full || x?.cover || FALLBACK_IMG;
-
+  const pickCover = useMemo(
+  () => (x) => x?.cover_full || x?.cover_home || x?.cover || HIGHLIGHT_FALLBACK,
+  []
+);
   const buildLink = (x) => {
     if (!x?.id) return "/";
     const sp = new URLSearchParams();
@@ -148,7 +209,7 @@ export default function Home() {
         </div>
 
         <div className="pil-hero__media">
-          <img className="pil-hero__image" src={FALLBACK_IMG} alt={t("home_hero_image_alt")} />
+          <img className="pil-hero__image" src={HERO_IMG} alt={t("home_hero_image_alt")} />
         </div>
       </section>
 
@@ -158,15 +219,15 @@ export default function Home() {
           <h2>{t("home_proof_title")}</h2>
         </div>
 
-       <div className="pil-proofGrid">
-  {proofStats.map((item) => (
-    <div key={item.key} className="pil-proofCard" aria-label={item.label}>
-      <span className="pil-proofCard__label">{item.label}</span>
-      {item.meta ? <span className="pil-proofCard__meta">{item.meta}</span> : null}
-      <strong className="pil-proofCard__value">{stats[item.key] ?? "—"}</strong>
-    </div>
-  ))}
-</div>
+        <div className="pil-proofGrid">
+          {proofStats.map((item) => (
+            <div key={item.key} className="pil-proofCard" aria-label={item.label}>
+              <span className="pil-proofCard__label">{item.label}</span>
+              {item.meta ? <span className="pil-proofCard__meta">{item.meta}</span> : null}
+              <strong className="pil-proofCard__value">{stats[item.key] ?? "—"}</strong>
+            </div>
+          ))}
+        </div>
       </section>
 
       <section className="zr-section pil-highlights">
@@ -175,41 +236,21 @@ export default function Home() {
         </div>
 
         <div className="zr-splitHighlight">
-          <Link
-            className="zr-splitHighlight__half zr-splitHighlight__half--left"
+          <HighlightCard
+            item={finished}
+            label={t("home_highlight_left")}
             to={buildLink(finished)}
-            style={{
-              backgroundImage: `url(${pickCover(finished)})`,
-              backgroundSize: "cover",
-              backgroundPosition: "center",
-            }}
-          >
-            <div className="zr-splitHighlight__overlay zr-splitHighlight__overlay--top">
-              <div className="zr-splitHighlight__badge">{t("home_highlight_left")}</div>
-              <div className="zr-splitHighlight__value">
-                <strong>{finished.authorNameDisplay || "—"}</strong>
-                <div>{finished.titleDisplay || "—"}</div>
-              </div>
-            </div>
-          </Link>
+            pickCover={pickCover}
+            fallbackImg={HIGHLIGHT_FALLBACK}
+          />
 
-          <Link
-            className="zr-splitHighlight__half zr-splitHighlight__half--right"
+          <HighlightCard
+            item={received}
+            label={t("home_highlight_right")}
             to={buildLink(received)}
-            style={{
-              backgroundImage: `url(${pickCover(received)})`,
-              backgroundSize: "cover",
-              backgroundPosition: "center",
-            }}
-          >
-            <div className="zr-splitHighlight__overlay zr-splitHighlight__overlay--top">
-              <div className="zr-splitHighlight__badge">{t("home_highlight_right")}</div>
-              <div className="zr-splitHighlight__value">
-                <strong>{received.authorNameDisplay || "—"}</strong>
-                <div>{received.titleDisplay || "—"}</div>
-              </div>
-            </div>
-          </Link>
+            pickCover={pickCover}
+            fallbackImg={HIGHLIGHT_FALLBACK}
+          />
         </div>
       </section>
     </>
