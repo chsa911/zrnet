@@ -388,7 +388,7 @@ router.get("/stats", async (req, res) => {
           SELECT COUNT(*)::int
           FROM public.books b0
           WHERE b0.reading_status IN ('in_stock', 'in_progress')
-        ) AS in_stock,
+        ) AS inventory_total,
 
         (
           SELECT COUNT(*)::int
@@ -416,15 +416,20 @@ router.get("/stats", async (req, res) => {
     );
 
     const out =
-      rows[0] || { in_stock: 0, finished: 0, abandoned: 0, top: 0 };
+      rows[0] || { inventory_total: 0, finished: 0, abandoned: 0, top: 0 };
 
-    out.instock = out.in_stock;
+    // Legacy aliases for older frontends
+    out.in_stock = out.inventory_total;
+    out.instock = out.inventory_total;
+    out.inStock = out.inventory_total;
+
     return res.json(out);
   } catch (err) {
     console.error("GET /api/public/books/stats error", err);
     return res.status(500).json({ error: "internal_error" });
   }
 });
+
 /**
  * GET /api/public/books/author-counts
  */
@@ -905,3 +910,4 @@ router.get("/:id", async (req, res) => {
 });
 
 module.exports = router;
+    
