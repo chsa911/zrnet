@@ -169,10 +169,9 @@ export default function Home() {
   const received = hl?.received || {};
 
   const pickCover = useMemo(
-    () => (x) => x?.cover_home || x?.cover_full || x?.cover || HIGHLIGHT_FALLBACK,
-    []
-  );
-
+  () => (x) => x?.cover_full || x?.cover_home || x?.cover || HIGHLIGHT_FALLBACK,
+  []
+);
   const buildLink = (x) => {
     if (!x?.id) return "/";
     const sp = new URLSearchParams();

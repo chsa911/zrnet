@@ -385,11 +385,18 @@ router.get("/stats", async (req, res) => {
       )
       SELECT
         (
-          SELECT COUNT(*)::int
-          FROM public.books b0
-          WHERE b0.reading_status IN ('in_stock', 'in_progress')
-        ) AS inventory_total,
-
+  SELECT COUNT(*)::int
+  FROM public.books b0
+  WHERE (
+    b0.reading_status = 'in_stock'
+    OR EXISTS (
+      SELECT 1
+      FROM public.barcode_assignments ba0
+      WHERE ba0.book_id = b0.id
+        AND ba0.freed_at IS NULL
+    )
+  )
+) AS inventory_total,
         (
           SELECT COUNT(*)::int
           FROM last_free lf
