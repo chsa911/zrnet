@@ -1,19 +1,8 @@
 // frontend/src/api/comments.js
-import { API_BASE } from "./config";
-
-// Same base logic as other api modules (avoids /api/api duplication)
-const ENV_BASE = (import.meta?.env?.VITE_API_BASE_URL || import.meta?.env?.VITE_API_BASE || "").trim();
-const BASE = String(ENV_BASE || API_BASE || "/api").replace(/\/$/, "");
-
-function buildUrl(path) {
-  if (/^https?:\/\//i.test(path)) return path;
-  const p = path.startsWith("/") ? path : `/${path}`;
-  if (BASE.endsWith("/api") && p.startsWith("/api/")) return `${BASE}${p.slice(4)}`;
-  return `${BASE}${p}`;
-}
+import { apiUrl } from "./apiRoot";
 
 async function http(path, { method = "GET", json, signal } = {}) {
-  const res = await fetch(buildUrl(path), {
+  const res = await fetch(apiUrl(path), {
     method,
     cache: "no-store",
     headers: json ? { "Content-Type": "application/json" } : undefined,

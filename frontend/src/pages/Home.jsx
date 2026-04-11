@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { useI18n } from "../context/I18nContext";
+import { apiUrl } from "../api/apiRoot";
 import "./home_minimal.css";
 
 function toIntOrNull(v) {
@@ -105,7 +106,7 @@ export default function Home() {
 
     (async () => {
       try {
-        const res = await fetch("/api/public/home-highlights", {
+        const res = await fetch(apiUrl("/public/home-highlights"), {
           signal: ac.signal,
           cache: "no-store",
           headers: { Accept: "application/json" },
@@ -126,7 +127,7 @@ export default function Home() {
 
     async function load() {
       try {
-        const res = await fetch(`/api/public/books/stats?year=${year}&_=${Date.now()}`, {
+        const res = await fetch(apiUrl(`/public/books/stats?year=${year}&_=${Date.now()}`), {
           signal: ac.signal,
           headers: { Accept: "application/json" },
           cache: "no-store",
