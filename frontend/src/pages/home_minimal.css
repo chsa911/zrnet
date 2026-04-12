@@ -235,6 +235,12 @@
   letter-spacing:0.04em;
 }
 
+.pil-proofCard__meta{
+  font-size:15px;
+  line-height:1.35;
+  color:rgba(0,0,0,0.88);
+}
+
 .pil-proofCard__value{
   font-size:clamp(28px, 3vw, 40px);
   line-height:1;
@@ -304,6 +310,20 @@
   align-items:center;
 }
 
+.pil-heroText{
+  display:grid;
+  gap:12px;
+  margin:0 0 20px;
+}
+
+.pil-heroText p{
+  margin:0;
+}
+
+.pil-heroText .pil-lede{
+  margin:0;
+}
+
 /* ===== Split highlight banner ===== */
 
 .zr-splitHighlight{
@@ -317,14 +337,14 @@
 }
 
 .zr-splitHighlight__half{
-  min-height:190px;
+  height:190px;
   display:block;
   text-decoration:none;
   color:inherit;
   background-repeat:no-repeat;
-  background-position:center;
-  background-size:cover;
-  background-color:#f3f3f3;
+  background-position:right 18px center;
+  background-size:auto 92%;
+  background-color:#ececec;
   position:relative;
 }
 
@@ -335,20 +355,20 @@
 .zr-splitHighlight__overlay{
   position:absolute;
   inset:0;
-  padding:14px;
+  padding:20px;
   display:flex;
   flex-direction:column;
-  gap:4px;
   color:#fff;
 }
 
 .zr-splitHighlight__overlay--top{
   justify-content:flex-start;
   background:linear-gradient(
-    to bottom,
-    rgba(0,0,0,0.68),
-    rgba(0,0,0,0.18),
-    rgba(0,0,0,0)
+    90deg,
+    rgba(0,0,0,0.60) 0%,
+    rgba(0,0,0,0.46) 32%,
+    rgba(0,0,0,0.20) 56%,
+    rgba(0,0,0,0.00) 78%
   );
 }
 
@@ -356,43 +376,31 @@
   align-self:flex-start;
   padding:6px 10px;
   border-radius:999px;
-  background:rgba(255,255,255,0.16);
+  background:rgba(255,255,255,0.14);
   border:1px solid rgba(255,255,255,0.22);
   font-weight:800;
   font-size:12px;
-  margin-bottom:8px;
+  margin-bottom:12px;
   backdrop-filter:blur(2px);
 }
 
 .zr-splitHighlight__value{
+  max-width:44%;
   font-size:14px;
-  line-height:1.3;
-  text-shadow:0 1px 8px rgba(0,0,0,0.5);
+  line-height:1.35;
+  text-shadow:0 1px 8px rgba(0,0,0,0.45);
 }
 
 .zr-splitHighlight__value strong{
   display:block;
   font-size:16px;
-  margin-bottom:4px;
+  margin-bottom:6px;
 }
 
+.zr-splitHighlight__value div,
 .zr-splitHighlight__value span{
   display:block;
   font-size:14px;
-}
-
-.pil-heroText{
-  display:grid;
-  gap:12px;
-  margin:0 0 20px;
-}
-
-.pil-heroText p{
-  margin:0;
-}
-
-.pil-heroText .pil-lede{
-  margin:0;
 }
 
 @media (max-width:1060px){
@@ -417,8 +425,43 @@
     grid-template-columns:1fr;
   }
 
+  .zr-splitHighlight__half{
+    background-position:right 14px center;
+    background-size:auto 88%;
+  }
+
   .zr-splitHighlight__half--left{
     border-right:none;
     border-bottom:1px solid rgba(255,255,255,0.22);
+  }
+
+  .zr-splitHighlight__value{
+    max-width:56%;
+  }
+}
+
+@media (max-width:640px){
+  .zr-main{
+    padding:24px 14px 56px;
+  }
+
+  .zr-splitHighlight__half{
+    height:210px;
+    background-position:center bottom 8px;
+    background-size:auto 72%;
+  }
+
+  .zr-splitHighlight__overlay--top{
+    background:linear-gradient(
+      180deg,
+      rgba(0,0,0,0.66) 0%,
+      rgba(0,0,0,0.30) 38%,
+      rgba(0,0,0,0.08) 64%,
+      rgba(0,0,0,0.00) 100%
+    );
+  }
+
+  .zr-splitHighlight__value{
+    max-width:100%;
   }
 }
