@@ -10,16 +10,14 @@ function toIntOrNull(v) {
   return Number.isFinite(n) ? n : null;
 }
 
-function HighlightCard({ item, label, to, pickCover, fallbackImg }) {
-  const [imgSrc, setImgSrc] = useState(pickCover(item));
-
-  useEffect(() => {
-    setImgSrc(pickCover(item));
-  }, [item, pickCover]);
-
+function HighlightCard({ item, label, to, bgImage, left = false }) {
   return (
-    <Link className="zr-splitHighlight__half" to={to}>
-      <div className="zr-splitHighlight__copy">
+    <Link
+      className={`zr-splitHighlight__half ${left ? "zr-splitHighlight__half--left" : ""}`}
+      to={to}
+      style={bgImage ? { backgroundImage: `url(${bgImage})` } : undefined}
+    >
+      <div className="zr-splitHighlight__overlay zr-splitHighlight__overlay--top">
         <div className="zr-splitHighlight__badge">{label}</div>
 
         <div className="zr-splitHighlight__value">
@@ -27,27 +25,9 @@ function HighlightCard({ item, label, to, pickCover, fallbackImg }) {
           <div>{item?.titleDisplay || "—"}</div>
         </div>
       </div>
-
-      <div className="zr-splitHighlight__art">
-        {imgSrc ? (
-          <img
-            src={imgSrc}
-            alt={item?.titleDisplay || item?.authorNameDisplay || ""}
-            loading="lazy"
-            onError={() => {
-              if (!fallbackImg) {
-                setImgSrc("");
-                return;
-              }
-              if (imgSrc !== fallbackImg) setImgSrc(fallbackImg);
-            }}
-          />
-        ) : null}
-      </div>
     </Link>
   );
 }
-
 export default function Home() {
   const { t } = useI18n();
   const year = 2026;
@@ -169,7 +149,7 @@ export default function Home() {
   const received = hl?.received || {};
 
   const pickCover = useMemo(
-  () => (x) => x?.cover_full || x?.cover_home || x?.cover || HIGHLIGHT_FALLBACK,
+  () => (x) => x?.cover_home || x?.cover_full || x?.cover || HIGHLIGHT_FALLBACK,
   []
 );
   const buildLink = (x) => {
@@ -234,24 +214,22 @@ export default function Home() {
         <div className="pil-sectionHead">
           <div className="pil-eyebrow pil-eyebrow--muted">{t("home_highlight_title")}</div>
         </div>
+<div className="zr-splitHighlight">
+  <HighlightCard
+    item={finished}
+    label={t("home_highlight_left")}
+    to={buildLink(finished)}
+    bgImage={pickCover(finished)}
+    left
+  />
 
-        <div className="zr-splitHighlight">
-          <HighlightCard
-            item={finished}
-            label={t("home_highlight_left")}
-            to={buildLink(finished)}
-            pickCover={pickCover}
-            fallbackImg={HIGHLIGHT_FALLBACK}
-          />
-
-          <HighlightCard
-            item={received}
-            label={t("home_highlight_right")}
-            to={buildLink(received)}
-            pickCover={pickCover}
-            fallbackImg={HIGHLIGHT_FALLBACK}
-          />
-        </div>
+  <HighlightCard
+    item={received}
+    label={t("home_highlight_right")}
+    to={buildLink(received)}
+    bgImage={pickCover(received)}
+  />
+</div>
       </section>
     </>
   );
