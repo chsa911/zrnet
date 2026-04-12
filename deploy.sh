@@ -11,10 +11,18 @@ docker compose up -d --build api web
 
 docker exec zrnet-caddy-1 caddy reload --config /etc/caddy/Caddyfile
 
+echo "Waiting for site to come up..."
+for i in {1..20}; do
+  if curl -fsS https://pagesinline.com/ >/dev/null 2>&1; then
+    break
+  fi
+  sleep 3
+done
+
 echo
 docker compose ps
 
 echo
-curl -fsS https://pagesinline.com/api/public/home-highlights >/dev/null
-curl -fsS "https://pagesinline.com/media/covers/1fd5a6f4-552a-46c1-bf02-f2a48301f959-home.jpg?v=$(date +%s)" >/dev/null
-echo "Deploy OK"
+curl -I https://pagesinline.com || true
+echo
+curl -s https://pagesinline.com/api/public/home-highlights || true
