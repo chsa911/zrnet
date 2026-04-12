@@ -8,6 +8,10 @@ services:
     expose:
       - "4000"
     restart: unless-stopped
+    volumes:
+      - ./uploads:/uploads
+    environment:
+      UPLOAD_ROOT: /uploads
 
   web:
     build:
