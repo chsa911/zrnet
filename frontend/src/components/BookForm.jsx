@@ -771,6 +771,7 @@ export default function BookForm({
       original_language: toStr(pick(b, ["original_language"])),
       title_display: toStr(pick(b, ["title_display", "titleDisplay", "title"])),
       subtitle_display: toStr(pick(b, ["subtitle_display"])),
+      home_featured_slot: toStr(pick(b, ["home_featured_slot", "homeFeaturedSlot"])),
       comment: toStr(pick(b, ["comment"])),
     };
   }, [initialBook]);
@@ -1031,6 +1032,8 @@ export default function BookForm({
         "publisher_abbr",
         "title_display",
         "subtitle_display",
+        "home_featured_slot",
+        "homefeaturedslot",
         "title",
         "titledisplay",
         "bkw",
@@ -1772,6 +1775,7 @@ export default function BookForm({
       ["publisher_abbr", v.publisher_abbr, initial.publisher_abbr],
       ["title_display", v.title_display, initial.title_display],
       ["subtitle_display", v.subtitle_display, initial.subtitle_display],
+      ["home_featured_slot", v.home_featured_slot, initial.home_featured_slot],
       ["title_keyword", v.title_keyword, initial.title_keyword],
       ["title_keyword2", v.title_keyword2, initial.title_keyword2],
       ["title_keyword3", v.title_keyword3, initial.title_keyword3],
@@ -2464,6 +2468,21 @@ export default function BookForm({
             value={v.subtitle_display}
             onChange={(e) => setField("subtitle_display", e.target.value)}
           />
+        </label>
+      </div>
+
+      <div className="zr-toolbar">
+        <label style={{ display: "grid", gap: 6, flex: 1 }}>
+          <span>Homepage Highlight (home_featured_slot) (optional)</span>
+          <select
+            className="zr-input"
+            value={v.home_featured_slot || ""}
+            onChange={(e) => setField("home_featured_slot", e.target.value)}
+          >
+            <option value="">Kein Highlight</option>
+            <option value="finished">Finished</option>
+            <option value="received">Received</option>
+          </select>
         </label>
       </div>
 

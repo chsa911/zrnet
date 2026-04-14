@@ -41,7 +41,123 @@ function normalizeBool(v) {
   if (v === "false") return false;
   return null;
 }
+function hasOwn(obj, key) {
+  return Object.prototype.hasOwnProperty.call(obj || {}, key);
+}
+function normalizeHomeFeaturedSlot(v) {
+  const s = normalizeStr(v);
+  if (!s) return null;
+  const x = s.toLowerCase();
+  if (x === "finished" || x === "received") return x;
+  if (x === "none" || x === "null" || x === "off" || x === "false") return null;
+  return null;
+}
 
+async function setHomeFeaturedSlotTx(db, bookId, slot) {
+  const normalized = normalizeHomeFeaturedSlot(slot);
+
+  if (!normalized) {
+    await db.query(
+      `
+      UPDATE public.highlights
+      SET presented_till = now()
+      WHERE book_id = $1::uuid
+        AND presented_as IN ('finished', 'received')
+        AND presented_till IS NULL
+      `,
+      [bookId]
+    );
+
+    await db.query(
+      `
+      UPDATE public.books
+      SET home_featured_slot = NULL
+      WHERE id = $1::uuid
+      `,
+      [bookId]
+    );
+
+    return;
+  }
+
+  await db.query(
+    `
+    UPDATE public.highlights
+    SET presented_till = now()
+    WHERE presented_till IS NULL
+      AND presented_as = $1
+      AND book_id <> $2::uuid
+    `,
+    [normalized, bookId]
+  );
+
+  await db.query(
+    `
+    UPDATE public.highlights
+    SET presented_till = now()
+    WHERE presented_till IS NULL
+      AND book_id = $1::uuid
+      AND presented_as IN ('finished', 'received')
+      AND presented_as <> $2
+    `,
+    [bookId, normalized]
+  );
+
+  await db.query(
+    `
+    UPDATE public.books
+    SET home_featured_slot = NULL
+    WHERE home_featured_slot = $1
+      AND id <> $2::uuid
+    `,
+    [normalized, bookId]
+  );
+
+  await db.query(
+    `
+    UPDATE public.books
+    SET home_featured_slot = $1
+    WHERE id = $2::uuid
+    `,
+    [normalized, bookId]
+  );
+
+  const active = await db.query(
+    `
+    SELECT 1
+    FROM public.highlights
+    WHERE book_id = $1::uuid
+      AND presented_as = $2
+      AND presented_till IS NULL
+    LIMIT 1
+    `,
+    [bookId, normalized]
+  );
+
+  if (!active.rowCount) {
+    await db.query(
+      `
+      INSERT INTO public.highlights (
+        book_id,
+        presented_as,
+        source,
+        presented_at,
+        presented_till,
+        created_at
+      )
+      VALUES (
+        $1::uuid,
+        $2,
+        'manual',
+        now(),
+        NULL,
+        now()
+      )
+      `,
+      [bookId, normalized]
+    );
+  }
+}
 // ISBN: allow user input like "978-3-..." but store canonical digits/X only.
 // This prevents DB constraint failures (e.g. CHECK isbn13 ~ '^[0-9]{13}$').
 function stripIsbnLike(raw) {
@@ -158,6 +274,9 @@ function rowToApi(row) {
     reading_status: row.reading_status ?? null,
     reading_status_updated_at: row.reading_status_updated_at ?? null,
     registered_at: row.registered_at ?? null,
+
+    home_featured_slot: row.home_featured_slot ?? null,
+    homeFeaturedSlot: row.home_featured_slot ?? null,
 
     purchase_url: row.purchase_url ?? null,
     isbn13: row.isbn13 ?? null,
@@ -1045,7 +1164,12 @@ async function registerBook(req, res) {
   }
 
   const assignBarcodeFlag = body.assign_barcode ?? body.assignBarcode;
-  const assignBarcodeNow = assignBarcodeFlag === false ? false : true;
+  const assignBarcodeNow = !(
+    assignBarcodeFlag === false ||
+    assignBarcodeFlag === "false" ||
+    assignBarcodeFlag === 0 ||
+    assignBarcodeFlag === "0"
+  );
 
   const requestedBarcode = normalizeStr(body.barcode);
   const widthCm = toNum(body.width_cm);
@@ -1062,7 +1186,7 @@ async function registerBook(req, res) {
   // Second safety: if this ISBN already exists exactly once, finalize that row
   // instead of creating a new duplicate. If it exists multiple times, fail loudly.
   const exactIsbn = isbnInfo.isbn13 || isbnInfo.isbn10 || null;
-  if (exactIsbn) {
+  if (assignBarcodeNow && exactIsbn) {
     const dup = await pool.query(
       `
       SELECT id
@@ -1076,8 +1200,12 @@ async function registerBook(req, res) {
     );
 
     if (dup.rows.length === 1) {
-      req.params = { ...(req.params || {}), id: dup.rows[0].id };
-      return registerExistingBook(req, res);
+      if (assignBarcodeNow) {
+        req.params = { ...(req.params || {}), id: dup.rows[0].id };
+        return registerExistingBook(req, res);
+      }
+
+      return saveExistingBookWithoutBarcode(req, res, dup.rows[0].id);
     }
     if (dup.rows.length > 1) {
       return res.status(409).json({
@@ -1169,6 +1297,9 @@ async function registerBook(req, res) {
       });
 
       const topBook = normalizeBool(body.top_book) ?? false;
+      const homeFeaturedSlot = normalizeHomeFeaturedSlot(
+        body.home_featured_slot ?? body.homeFeaturedSlot
+      );
 
       const bookInsert = {
         author_id: authorRow?.id ?? null,
@@ -1191,6 +1322,8 @@ async function registerBook(req, res) {
         reading_status: status,
         reading_status_updated_at: statusTs,
         registered_at: assignBarcodeNow ? nowIso : null,
+
+        home_featured_slot: undefined,
 
         title_display: normalizeStr(body.title_display),
         subtitle_display: normalizeStr(body.subtitle_display),
@@ -1223,6 +1356,10 @@ async function registerBook(req, res) {
 
       const bookId = insertedRow?.id;
       if (!bookId) throw new Error("book_insert_failed");
+
+      if (bookId && cols.has("home_featured_slot") && homeFeaturedSlot) {
+        await setHomeFeaturedSlotTx(client, bookId, homeFeaturedSlot);
+      }
 
       if (!assignBarcodeNow) {
         await client.query("COMMIT");
@@ -1279,6 +1416,212 @@ async function registerBook(req, res) {
   }
 }
 
+
+
+async function saveExistingBookWithoutBarcode(req, res, idOverride) {
+  const pool = getPool(req);
+  const id = String(idOverride || req.params?.id || "").trim();
+  if (!UUID_RE.test(id)) return res.status(400).json({ error: "invalid_id" });
+
+  const body = req.body || {};
+  const cols = await getColumns(pool, "books");
+
+  const isbnProvided =
+    body.isbn13 !== undefined ||
+    body.isbn10 !== undefined ||
+    body.isbn13_raw !== undefined ||
+    body.isbn13Raw !== undefined ||
+    body.isbn_raw !== undefined ||
+    body.isbn !== undefined;
+
+  const isbnInfo = isbnProvided
+    ? normalizeIsbnForDb(
+        body.isbn13,
+        body.isbn10,
+        body.isbn13_raw ?? body.isbn13Raw ?? body.isbn_raw ?? body.isbn
+      )
+    : null;
+
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+
+    const curRes = await client.query(
+      `
+      SELECT reading_status, reading_status_updated_at, top_book, author_id, publisher_id, registered_at
+      FROM public.books
+      WHERE id=$1::uuid
+      FOR UPDATE
+      `,
+      [id]
+    );
+    if (!curRes.rowCount) {
+      await client.query("ROLLBACK");
+      return res.status(404).json({ error: "not_found" });
+    }
+    const cur = curRes.rows[0];
+
+    const updates = {
+      reading_status: "in_stock",
+      reading_status_updated_at: null,
+      registered_at: null,
+    };
+
+    const authorIdRaw = normalizeUuid(body.author_id);
+    const effectiveAuthorId = authorIdRaw || cur.author_id || null;
+    const authorLastRaw = normalizeStr(body.author_lastname);
+    const authorFirstRaw = normalizeStr(body.author_firstname);
+    const authorDispRaw = normalizeStr(body.name_display ?? body.author_name_display);
+    const authorAbbrRaw = normalizeStr(body.author_abbreviation);
+    const authorPublishedTitlesRaw = normalizeInt(body.published_titles);
+    const authorMillionsRaw = normalizeInt(body.number_of_millionsellers);
+    const authorNationalityRaw = normalizeStr(body.author_nationality);
+    const authorPlaceOfBirthRaw = normalizeStr(body.place_of_birth);
+    const authorMaleFemaleRaw = normalizeStr(body.male_female);
+
+    if (
+      body.author_id !== undefined ||
+      body.author_lastname !== undefined ||
+      body.author_firstname !== undefined ||
+      body.name_display !== undefined ||
+      body.author_name_display !== undefined ||
+      body.author_abbreviation !== undefined ||
+      body.published_titles !== undefined ||
+      body.number_of_millionsellers !== undefined ||
+      body.author_nationality !== undefined ||
+      body.place_of_birth !== undefined ||
+      body.male_female !== undefined
+    ) {
+      const authorRow = await upsertAuthor(client, {
+        authorId: effectiveAuthorId,
+        key: authorDispRaw || authorLastRaw,
+        firstName: authorFirstRaw,
+        lastName: authorLastRaw,
+        nameDisplay: authorDispRaw,
+        abbreviation: authorAbbrRaw,
+        publishedTitles: authorPublishedTitlesRaw,
+        numberOfMillionSellers: authorMillionsRaw,
+        maleFemale: authorMaleFemaleRaw,
+        authorNationality: authorNationalityRaw,
+        placeOfBirth: authorPlaceOfBirthRaw,
+      });
+      if (cols.has("author_id")) updates.author_id = authorRow?.id ?? effectiveAuthorId ?? null;
+    }
+
+    const publisherIdRaw = normalizeUuid(body.publisher_id);
+    const effectivePublisherId = publisherIdRaw || cur.publisher_id || null;
+    const publisherDispRaw = normalizeStr(body.publisher_name_display);
+    const publisherAbbrRaw = normalizePublisherAbbr(body.publisher_abbr);
+    const publisherKeyRaw = normalizeKey(publisherDispRaw || publisherAbbrRaw);
+
+    if (
+      body.publisher_id !== undefined ||
+      body.publisher_name_display !== undefined ||
+      body.publisher_abbr !== undefined
+    ) {
+      const publisherRow = await upsertPublisher(client, {
+        publisherId: effectivePublisherId,
+        key: publisherKeyRaw,
+        nameDisplay: publisherDispRaw,
+        abbr: publisherAbbrRaw,
+      });
+      if (cols.has("publisher_id")) updates.publisher_id = publisherRow?.id ?? effectivePublisherId ?? null;
+    }
+
+    if (body.title_display !== undefined && cols.has("title_display")) {
+      updates.title_display = normalizeStr(body.title_display);
+    }
+    if (body.subtitle_display !== undefined && cols.has("subtitle_display")) {
+      updates.subtitle_display = normalizeStr(body.subtitle_display);
+    }
+    if (body.title_en !== undefined && cols.has("title_en")) {
+      updates.title_en = normalizeStr(body.title_en);
+    }
+    if (body.purchase_url !== undefined && cols.has("purchase_url")) {
+      updates.purchase_url = normalizeStr(body.purchase_url);
+    }
+    if (body.original_language !== undefined && cols.has("original_language")) {
+      updates.original_language = normalizeStr(body.original_language);
+    }
+    if (isbnInfo && cols.has("isbn13")) updates.isbn13 = isbnInfo.isbn13;
+    if (isbnInfo && cols.has("isbn10")) updates.isbn10 = isbnInfo.isbn10;
+    if (isbnInfo && cols.has("isbn13_raw")) updates.isbn13_raw = isbnInfo.isbn13_raw;
+    if (body.comment !== undefined && cols.has("comment")) {
+      updates.comment = normalizeStr(body.comment);
+    }
+
+    if (body.title_keyword !== undefined) updates.title_keyword = normalizeStr(body.title_keyword);
+    if (body.title_keyword_position !== undefined) {
+      updates.title_keyword_position = normalizeInt(body.title_keyword_position);
+    }
+    if (body.title_keyword2 !== undefined) updates.title_keyword2 = normalizeStr(body.title_keyword2);
+    if (body.title_keyword2_position !== undefined) {
+      updates.title_keyword2_position = normalizeInt(body.title_keyword2_position);
+    }
+    if (body.title_keyword3 !== undefined) updates.title_keyword3 = normalizeStr(body.title_keyword3);
+    if (body.title_keyword3_position !== undefined) {
+      updates.title_keyword3_position = normalizeInt(body.title_keyword3_position);
+    }
+
+    if (body.pages !== undefined) updates.pages = normalizeInt(body.pages);
+
+    if (body.width_cm !== undefined) {
+      const w = toNum(body.width_cm);
+      updates.width = Number.isFinite(w) ? cmToMm(w) : null;
+    }
+    if (body.height_cm !== undefined) {
+      const h = toNum(body.height_cm);
+      updates.height = Number.isFinite(h) ? cmToMm(h) : null;
+    }
+
+    if (body.top_book !== undefined) {
+      const nextTop = normalizeBool(body.top_book);
+      if (nextTop !== null && nextTop !== undefined) {
+        updates.top_book = nextTop;
+        if (cols.has("top_book_set_at")) {
+          updates.top_book_set_at = nextTop ? new Date().toISOString() : null;
+        }
+      }
+    }
+
+    const hasHomeFeaturedSlot =
+      hasOwn(body, "home_featured_slot") || hasOwn(body, "homeFeaturedSlot");
+    const nextHomeFeaturedSlot = hasHomeFeaturedSlot
+      ? normalizeHomeFeaturedSlot(body.home_featured_slot ?? body.homeFeaturedSlot)
+      : undefined;
+
+    const setObj = pickKnownColumns(cols, updates);
+    const keys = Object.keys(setObj).filter((k) => setObj[k] !== undefined);
+    if (keys.length) {
+      const values = keys.map((k) => setObj[k]);
+      const sets = keys.map((k, i) => `${k} = $${i + 1}`);
+      await client.query(
+        `UPDATE public.books SET ${sets.join(", ")} WHERE id = $${keys.length + 1}::uuid`,
+        [...values, id]
+      );
+    }
+
+    if (hasHomeFeaturedSlot && cols.has("home_featured_slot")) {
+      await setHomeFeaturedSlotTx(client, id, nextHomeFeaturedSlot);
+    }
+
+    await client.query("COMMIT");
+    const full = await fetchBookWithBarcode(pool, id);
+    return res.status(200).json(rowToApi(full));
+  } catch (err) {
+    try {
+      await client.query("ROLLBACK");
+    } catch {}
+
+    const knownPg = sendKnownPgError(res, err);
+    if (knownPg) return knownPg;
+
+    console.error("saveExistingBookWithoutBarcode error", err);
+    return res.status(500).json({ error: "internal_error" });
+  } finally {
+    client.release();
+  }
+}
 
 /* ---------------------------- register existing ---------------------------- */
 
@@ -1468,6 +1811,12 @@ async function registerExistingBook(req, res) {
       }
     }
 
+    const hasHomeFeaturedSlot =
+      hasOwn(body, "home_featured_slot") || hasOwn(body, "homeFeaturedSlot");
+    const nextHomeFeaturedSlot = hasHomeFeaturedSlot
+      ? normalizeHomeFeaturedSlot(body.home_featured_slot ?? body.homeFeaturedSlot)
+      : undefined;
+
     const setObj = pickKnownColumns(cols, updates);
     const keys = Object.keys(setObj).filter((k) => setObj[k] !== undefined);
     if (keys.length) {
@@ -1477,6 +1826,10 @@ async function registerExistingBook(req, res) {
         `UPDATE public.books SET ${sets.join(", ")} WHERE id = $${keys.length + 1}::uuid`,
         [...values, id]
       );
+    }
+
+    if (hasHomeFeaturedSlot && cols.has("home_featured_slot")) {
+      await setHomeFeaturedSlotTx(client, id, nextHomeFeaturedSlot);
     }
 
     let barcode = requestedBarcode;
@@ -1707,20 +2060,32 @@ async function updateBook(req, res) {
       }
     }
 
+    const hasHomeFeaturedSlot =
+      hasOwn(patch, "home_featured_slot") || hasOwn(patch, "homeFeaturedSlot");
+    const nextHomeFeaturedSlot = hasHomeFeaturedSlot
+      ? normalizeHomeFeaturedSlot(patch.home_featured_slot ?? patch.homeFeaturedSlot)
+      : undefined;
+
     const setObj = pickKnownColumns(cols, updates);
     const keys = Object.keys(setObj).filter((k) => setObj[k] !== undefined);
-    if (!keys.length) {
+    if (!keys.length && !hasHomeFeaturedSlot) {
       await client.query("ROLLBACK");
       return res.status(400).json({ error: "no_fields" });
     }
 
-    const values = keys.map((k) => setObj[k]);
-    const sets = keys.map((k, i) => `${k} = $${i + 1}`);
+    if (keys.length) {
+      const values = keys.map((k) => setObj[k]);
+      const sets = keys.map((k, i) => `${k} = $${i + 1}`);
 
-    await client.query(
-      `UPDATE public.books SET ${sets.join(", ")} WHERE id = $${keys.length + 1}::uuid`,
-      [...values, id]
-    );
+      await client.query(
+        `UPDATE public.books SET ${sets.join(", ")} WHERE id = $${keys.length + 1}::uuid`,
+        [...values, id]
+      );
+    }
+
+    if (hasHomeFeaturedSlot && cols.has("home_featured_slot")) {
+      await setHomeFeaturedSlotTx(client, id, nextHomeFeaturedSlot);
+    }
 
     await client.query("COMMIT");
 

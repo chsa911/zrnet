@@ -94,9 +94,9 @@ app.get("/api/public/home-highlights", async (req, res) => {
         b.id::text AS id,
         a.name_display AS author_name_display,
         COALESCE(NULLIF(b.title_display, ''), NULLIF(b.title_keyword, '')) AS title_display,
-        ('/media/covers/' || b.id::text || '-home.jpg') AS cover_home,
-        ('/media/covers/' || b.id::text || '.jpg')      AS cover_full,
-        ('/media/covers/' || b.id::text || '.jpg')      AS cover,
+        ('/media/covers/' || b.id::text || '.jpg') AS cover_home,
+        ('/media/covers/' || b.id::text || '.jpg') AS cover_full,
+        ('/media/covers/' || b.id::text || '.jpg') AS cover,
         b.purchase_url AS buy
       FROM public.books b
       LEFT JOIN public.authors a ON a.id = b.author_id
