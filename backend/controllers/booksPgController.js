@@ -29,21 +29,25 @@ function normalizeStr(v) {
   const s = String(v).trim();
   return s === "" ? null : s;
 }
+
 function normalizeInt(v) {
   if (v === undefined || v === null || v === "") return null;
   const n = Number(v);
   if (!Number.isFinite(n)) return null;
   return Math.trunc(n);
 }
+
 function normalizeBool(v) {
   if (v === true || v === false) return v;
   if (v === "true") return true;
   if (v === "false") return false;
   return null;
 }
+
 function hasOwn(obj, key) {
   return Object.prototype.hasOwnProperty.call(obj || {}, key);
 }
+
 function normalizeHomeFeaturedSlot(v) {
   const s = normalizeStr(v);
   if (!s) return null;
@@ -158,6 +162,7 @@ async function setHomeFeaturedSlotTx(db, bookId, slot) {
     );
   }
 }
+
 // ISBN: allow user input like "978-3-..." but store canonical digits/X only.
 // This prevents DB constraint failures (e.g. CHECK isbn13 ~ '^[0-9]{13}$').
 function stripIsbnLike(raw) {
@@ -358,8 +363,6 @@ function pickKnownColumns(colsSet, obj) {
   return out;
 }
 
-
-
 /* ------------------------- author / publisher helpers ---------------------- */
 
 function normalizeKey(v) {
@@ -380,7 +383,6 @@ function normalizeUuid(v) {
   const s = String(v || "").trim();
   return UUID_RE.test(s) ? s : null;
 }
-
 
 function parseExistingBookIdFromPgDetail(detail) {
   const m = /existing_id=([0-9a-f-]{36})/i.exec(String(detail || ""));
@@ -404,7 +406,6 @@ function sendKnownPgError(res, err) {
 
   return null;
 }
-
 
 async function upsertAuthor(
   db,
@@ -638,7 +639,10 @@ async function upsertPublisher(db, { publisherId, key, nameDisplay, abbr }) {
   };
 
   if (publisherUuid) {
-    const byId = await db.query(`SELECT ${baseCols} FROM public.publishers WHERE id = $1::uuid LIMIT 1`, [publisherUuid]);
+    const byId = await db.query(
+      `SELECT ${baseCols} FROM public.publishers WHERE id = $1::uuid LIMIT 1`,
+      [publisherUuid]
+    );
     if (byId.rows[0]) return mergePublisher(byId.rows[0]);
   }
 
@@ -717,7 +721,6 @@ async function resolveRuleAndPos(pool, widthCm, heightCm) {
   const hMm = cmToMm(heightCm);
   if (!Number.isFinite(wMm) || !Number.isFinite(hMm) || wMm <= 0 || hMm <= 0) return null;
 
-  // Mirror /api/barcodes/preview-barcode behavior (uses max_width + eq_heights)
   const { rows } = await pool.query(
     `
     SELECT id, name, min_height, eq_heights
@@ -733,28 +736,52 @@ async function resolveRuleAndPos(pool, widthCm, heightCm) {
   const r = rows[0];
   if (!r) return null;
 
-  const eq = Array.isArray(r.eq_heights) && r.eq_heights.length ? r.eq_heights : [205, 210, 215];
+  const eq =
+    Array.isArray(r.eq_heights) && r.eq_heights.length
+      ? r.eq_heights.map((x) => Number(x))
+      : [205, 210, 215];
 
   let pos = "o";
   if (eq.includes(hMm)) pos = "l";
   else if (hMm <= Number(r.min_height)) pos = "d";
   else pos = "o";
 
-  return { sizeRuleId: r.id, color: r.name, pos };
+  return {
+    sizeRuleId: r.id,
+    color: String(r.name || "").trim().toLowerCase(),
+    pos,
+  };
 }
 
 function posToBand(pos) {
   if (pos === "l") return "special";
   if (pos === "d") return "low";
-  return "high"; // pos === "o"
+  return "high";
+}
+
+function bandToPrefixLead(band) {
+  if (band === "special") return "l";
+  if (band === "low") return "e";
+  return "o";
+}
+
+function expectedPrefixFromRule(rule) {
+  if (!rule?.color || !rule?.pos) return null;
+  const band = posToBand(String(rule.pos).toLowerCase());
+  return `${bandToPrefixLead(band)}${String(rule.color).trim().toLowerCase()}`;
 }
 
 /**
- * Pick best AVAILABLE barcode for given size_rule_id and pos.
- * Uses barcode_numbers.rank_in_series if present; falls back to lexical code order.
+ * Pick the best AVAILABLE barcode for the exact rule:
+ * - exact size rule
+ * - exact band
+ * - exact prefix
+ * - lowest rank_in_inventory
  */
-async function pickBestBarcode(pool, sizeRuleId, pos) {
-  const band = posToBand(String(pos || "").toLowerCase());
+async function pickBestBarcode(pool, rule) {
+  const expectedPrefix = expectedPrefixFromRule(rule);
+  if (!expectedPrefix) return null;
+
   const r = await pool.query(
     `
     SELECT bi.barcode
@@ -764,61 +791,90 @@ async function pickBestBarcode(pool, sizeRuleId, pos) {
      AND ba.freed_at IS NULL
     WHERE bi.status = 'AVAILABLE'
       AND bi.rank_in_inventory IS NOT NULL
-      AND (bi.size_rule_id = $1 OR bi.sizegroup = $1)
-      AND bi.band = $2
+      AND lower(regexp_replace(bi.barcode, '[0-9]+$', '')) = lower($1)
       AND ba.barcode IS NULL
-    ORDER BY bi.rank_in_inventory
+    ORDER BY bi.rank_in_inventory ASC, lower(bi.barcode) ASC
     LIMIT 1
     `,
-    [sizeRuleId, band]
+    [expectedPrefix]
   );
+
   return r.rows[0]?.barcode ?? null;
 }
-
-async function assignBarcodeTx(pool, { bookId, barcode, expectedSizeRuleId, expectedPos, assignedAt }) {
-  // lock inventory row
+async function assignBarcodeTx(
+  pool,
+  { bookId, barcode, expectedSizeRuleId, expectedPos, expectedPrefix, assignedAt }
+) {
   const inv = await pool.query(
     `
-    SELECT barcode, status, size_rule_id, sizegroup, band
+    SELECT
+      barcode,
+      status,
+      size_rule_id,
+      sizegroup,
+      band,
+      lower(regexp_replace(barcode, '[0-9]+$', '')) AS prefix
     FROM public.barcode_inventory
     WHERE lower(barcode) = lower($1)
     FOR UPDATE
     `,
     [barcode]
   );
+
   const row = inv.rows[0];
   if (!row) throw new Error("barcode_not_found");
   if (String(row.status).toUpperCase() !== "AVAILABLE") throw new Error("barcode_not_available");
 
-  if (expectedSizeRuleId) {
-    const ok = String(row.size_rule_id || "") === String(expectedSizeRuleId) || String(row.sizegroup || "") === String(expectedSizeRuleId);
-    if (!ok) throw new Error("barcode_wrong_series");
-  }
+  
+  
+
   if (expectedPos) {
     const expectedBand = posToBand(String(expectedPos).toLowerCase());
-    if (String(row.band || "").toLowerCase() !== expectedBand) throw new Error("barcode_wrong_position");
+    if (String(row.band || "").toLowerCase() !== expectedBand) {
+      throw new Error("barcode_wrong_position");
+    }
   }
 
-  // guard: barcode must not have an open assignment
+  if (expectedPrefix) {
+    if (String(row.prefix || "").toLowerCase() !== String(expectedPrefix).toLowerCase()) {
+      throw new Error("barcode_wrong_prefix");
+    }
+  }
+
   const open = await pool.query(
-    `SELECT 1 FROM public.barcode_assignments WHERE lower(barcode)=lower($1) AND freed_at IS NULL LIMIT 1`,
+    `
+    SELECT 1
+    FROM public.barcode_assignments
+    WHERE lower(barcode) = lower($1)
+      AND freed_at IS NULL
+    LIMIT 1
+    `,
     [barcode]
   );
   if (open.rowCount) throw new Error("barcode_already_assigned");
 
-  // mark inventory (safe even if trigger also updates)
   await pool.query(
-    `UPDATE public.barcode_inventory SET status='ASSIGNED', updated_at=now(), size_rule_id=COALESCE(size_rule_id,$2) WHERE lower(barcode)=lower($1)`,
+    `
+    UPDATE public.barcode_inventory
+    SET status = 'ASSIGNED',
+        updated_at = now(),
+        size_rule_id = COALESCE(size_rule_id, $2)
+    WHERE lower(barcode) = lower($1)
+    `,
     [barcode, expectedSizeRuleId || null]
   );
 
-  // store current barcode on book
-  await pool.query(`DELETE FROM public.book_barcodes WHERE book_id=$1`, [bookId]);
-  await pool.query(`INSERT INTO public.book_barcodes (book_id, barcode) VALUES ($1,$2)`, [bookId, barcode]);
+  await pool.query(`DELETE FROM public.book_barcodes WHERE book_id = $1`, [bookId]);
+  await pool.query(`INSERT INTO public.book_barcodes (book_id, barcode) VALUES ($1, $2)`, [
+    bookId,
+    barcode,
+  ]);
 
-  // create open assignment (freed_at NULL)
   await pool.query(
-    `INSERT INTO public.barcode_assignments (barcode, book_id, assigned_at, freed_at) VALUES ($1,$2,$3,NULL)`,
+    `
+    INSERT INTO public.barcode_assignments (barcode, book_id, assigned_at, freed_at)
+    VALUES ($1, $2, $3, NULL)
+    `,
     [barcode, bookId, assignedAt || new Date().toISOString()]
   );
 }
@@ -901,47 +957,46 @@ async function listBooks(req, res) {
       params.push(pagesEq);
       where.push(`b.pages = $${params.length}`);
     }
-// status filter (supports single value or CSV like "finished,abandoned")
-const statusRaw = normalizeStr(req.query.status || req.query.reading_status);
-if (statusRaw) {
-  const parts = String(statusRaw)
-    .split(",")
-    .map((s) => mapReadingStatus(String(s || "").trim()))
-    .filter(Boolean);
 
-  const uniq = Array.from(new Set(parts));
+    // status filter (supports single value or CSV like "finished,abandoned")
+    const statusRaw = normalizeStr(req.query.status || req.query.reading_status);
+    if (statusRaw) {
+      const parts = String(statusRaw)
+        .split(",")
+        .map((s) => mapReadingStatus(String(s || "").trim()))
+        .filter(Boolean);
 
-  if (uniq.length === 1) {
-    params.push(uniq[0]);
-    where.push(`b.reading_status = $${params.length}`);
-  } else if (uniq.length > 1) {
-    params.push(uniq);
-    where.push(`b.reading_status = ANY($${params.length}::text[])`);
-  }
-}
-const topOnly = normalizeBool(req.query.topOnly ?? req.query.top);
+      const uniq = Array.from(new Set(parts));
+
+      if (uniq.length === 1) {
+        params.push(uniq[0]);
+        where.push(`b.reading_status = $${params.length}`);
+      } else if (uniq.length > 1) {
+        params.push(uniq);
+        where.push(`b.reading_status = ANY($${params.length}::text[])`);
+      }
+    }
+
+    const topOnly = normalizeBool(req.query.topOnly ?? req.query.top);
     if (topOnly === true) {
       where.push(`b.top_book = true`);
     }
 
     const since = normalizeStr(req.query.since);
     if (since) {
-      // Accept YYYY-MM-DD; let PG cast
       params.push(since);
       where.push(`b.registered_at >= $${params.length}::date`);
     }
 
-
-
-// ✅ theme filter (CSV field b.themes, exact token match like "mt.")
-const theme = normalizeStr(req.query.theme);
-if (theme) {
-  params.push(String(theme).toLowerCase().trim());
-  const p = `$${params.length}`;
-  where.push(
-    `regexp_split_to_array(lower(coalesce(b.themes,'')), '\\s*,\\s*') @> ARRAY[${p}]`
-  );
-}
+    // ✅ theme filter (CSV field b.themes, exact token match like "mt.")
+    const theme = normalizeStr(req.query.theme);
+    if (theme) {
+      params.push(String(theme).toLowerCase().trim());
+      const p = `$${params.length}`;
+      where.push(
+        `regexp_split_to_array(lower(coalesce(b.themes,'')), '\\s*,\\s*') @> ARRAY[${p}]`
+      );
+    }
 
     const whereSql = where.length ? `WHERE ${where.join(" AND ")}` : "";
 
@@ -1022,8 +1077,6 @@ async function getBook(req, res) {
     if (!rows.length) return res.status(404).json({ error: "not_found" });
 
     const row = rows[0];
-    // Merge the raw DB row with the legacy/UI alias keys.
-    // This way the edit form can show *all* fields and still reuse existing pick() logic.
     return res.json({ ...row, ...rowToApi(row) });
   } catch (err) {
     console.error("getBook error", err);
@@ -1146,17 +1199,11 @@ async function autocomplete(req, res) {
 
 /* --------------------------------- create --------------------------------- */
 
-
 async function registerBook(req, res) {
   const body = req.body || {};
 
-  // Hard safety: if the client explicitly tells us which existing row to use,
-  // never create a new book row.
   const explicitExistingId = normalizeUuid(
-    body.existing_book_id ??
-      body.existingBookId ??
-      body.draft_id ??
-      body.draftId
+    body.existing_book_id ?? body.existingBookId ?? body.draft_id ?? body.draftId
   );
   if (explicitExistingId) {
     req.params = { ...(req.params || {}), id: explicitExistingId };
@@ -1183,8 +1230,6 @@ async function registerBook(req, res) {
     body.isbn13_raw ?? body.isbn13Raw ?? body.isbn_raw ?? body.isbn
   );
 
-  // Second safety: if this ISBN already exists exactly once, finalize that row
-  // instead of creating a new duplicate. If it exists multiple times, fail loudly.
   const exactIsbn = isbnInfo.isbn13 || isbnInfo.isbn10 || null;
   if (assignBarcodeNow && exactIsbn) {
     const dup = await pool.query(
@@ -1217,17 +1262,14 @@ async function registerBook(req, res) {
     }
   }
 
-  if (assignBarcodeNow && !requestedBarcode) {
+  if (assignBarcodeNow) {
     if (!Number.isFinite(widthCm) || !Number.isFinite(heightCm) || widthCm <= 0 || heightCm <= 0) {
       return res.status(400).json({ error: "width_and_height_required" });
     }
   }
 
-  const rule =
-    assignBarcodeNow && !requestedBarcode
-      ? await resolveRuleAndPos(pool, widthCm, heightCm)
-      : null;
-  if (assignBarcodeNow && !requestedBarcode && !rule) {
+  const rule = assignBarcodeNow ? await resolveRuleAndPos(pool, widthCm, heightCm) : null;
+  if (assignBarcodeNow && !rule) {
     return res.status(422).json({ error: "no_series_for_size" });
   }
 
@@ -1244,10 +1286,7 @@ async function registerBook(req, res) {
     const cols = await getColumns(pool, "books");
 
     if (requestId && cols.has("request_id")) {
-      const exists = await pool.query(
-        `SELECT id FROM public.books WHERE request_id = $1 LIMIT 1`,
-        [requestId]
-      );
+      const exists = await pool.query(`SELECT id FROM public.books WHERE request_id = $1 LIMIT 1`, [requestId]);
       const existingId = exists.rows[0]?.id;
       if (existingId) {
         const existing = await fetchBookWithBarcode(pool, existingId);
@@ -1297,9 +1336,7 @@ async function registerBook(req, res) {
       });
 
       const topBook = normalizeBool(body.top_book) ?? false;
-      const homeFeaturedSlot = normalizeHomeFeaturedSlot(
-        body.home_featured_slot ?? body.homeFeaturedSlot
-      );
+      const homeFeaturedSlot = normalizeHomeFeaturedSlot(body.home_featured_slot ?? body.homeFeaturedSlot);
 
       const bookInsert = {
         author_id: authorRow?.id ?? null,
@@ -1368,7 +1405,7 @@ async function registerBook(req, res) {
       }
 
       let barcode = requestedBarcode;
-      if (!barcode) barcode = await pickBestBarcode(client, rule.sizeRuleId, rule.pos);
+      if (!barcode) barcode = await pickBestBarcode(client, rule);
       if (!barcode) {
         await client.query("ROLLBACK");
         return res.status(409).json({ error: "no_barcodes_available" });
@@ -1379,6 +1416,7 @@ async function registerBook(req, res) {
         barcode,
         expectedSizeRuleId: rule ? rule.sizeRuleId : null,
         expectedPos: rule ? rule.pos : null,
+        expectedPrefix: rule ? expectedPrefixFromRule(rule) : null,
         assignedAt: nowIso,
       });
 
@@ -1403,8 +1441,8 @@ async function registerBook(req, res) {
       barcode_not_found: [404, "barcode_not_found"],
       barcode_not_available: [409, "barcode_not_available"],
       barcode_already_assigned: [409, "barcode_already_assigned"],
-      barcode_wrong_series: [400, "barcode_wrong_series"],
       barcode_wrong_position: [400, "barcode_wrong_position"],
+      barcode_wrong_prefix: [400, "barcode_wrong_prefix"],
     };
     if (map[msg]) {
       const [statusCode, code] = map[msg];
@@ -1415,9 +1453,6 @@ async function registerBook(req, res) {
     return res.status(500).json({ error: "internal_error" });
   }
 }
-
-
-
 async function saveExistingBookWithoutBarcode(req, res, idOverride) {
   const pool = getPool(req);
   const id = String(idOverride || req.params?.id || "").trim();
@@ -1638,14 +1673,12 @@ async function registerExistingBook(req, res) {
   const widthCm = toNum(body.width_cm);
   const heightCm = toNum(body.height_cm);
 
-  if (!requestedBarcode) {
-    if (!Number.isFinite(widthCm) || !Number.isFinite(heightCm) || widthCm <= 0 || heightCm <= 0) {
-      return res.status(400).json({ error: "width_and_height_required" });
-    }
+  if (!Number.isFinite(widthCm) || !Number.isFinite(heightCm) || widthCm <= 0 || heightCm <= 0) {
+    return res.status(400).json({ error: "width_and_height_required" });
   }
 
-  const rule = !requestedBarcode ? await resolveRuleAndPos(pool, widthCm, heightCm) : null;
-  if (!requestedBarcode && !rule) return res.status(422).json({ error: "no_series_for_size" });
+  const rule = await resolveRuleAndPos(pool, widthCm, heightCm);
+  if (!rule) return res.status(422).json({ error: "no_series_for_size" });
 
   const nowIso = new Date().toISOString();
   const cols = await getColumns(pool, "books");
@@ -1833,7 +1866,7 @@ async function registerExistingBook(req, res) {
     }
 
     let barcode = requestedBarcode;
-    if (!barcode) barcode = await pickBestBarcode(client, rule.sizeRuleId, rule.pos);
+    if (!barcode) barcode = await pickBestBarcode(client, rule);
     if (!barcode) {
       await client.query("ROLLBACK");
       return res.status(409).json({ error: "no_barcodes_available" });
@@ -1844,6 +1877,7 @@ async function registerExistingBook(req, res) {
       barcode,
       expectedSizeRuleId: rule ? rule.sizeRuleId : null,
       expectedPos: rule ? rule.pos : null,
+      expectedPrefix: rule ? expectedPrefixFromRule(rule) : null,
       assignedAt: nowIso,
     });
 
@@ -1863,8 +1897,8 @@ async function registerExistingBook(req, res) {
       barcode_not_found: [404, "barcode_not_found"],
       barcode_not_available: [409, "barcode_not_available"],
       barcode_already_assigned: [409, "barcode_already_assigned"],
-      barcode_wrong_series: [400, "barcode_wrong_series"],
       barcode_wrong_position: [400, "barcode_wrong_position"],
+      barcode_wrong_prefix: [400, "barcode_wrong_prefix"],
     };
     if (map[msg]) {
       const [statusCode, code] = map[msg];
@@ -2117,17 +2151,14 @@ async function dropBook(req, res) {
   try {
     await client.query("BEGIN");
 
-    // Ensure the book exists and lock it so concurrent drops/updates don't race.
-    const exists = await client.query(
-      `SELECT id FROM public.books WHERE id = $1::uuid FOR UPDATE`,
-      [id]
-    );
+    const exists = await client.query(`SELECT id FROM public.books WHERE id = $1::uuid FOR UPDATE`, [
+      id,
+    ]);
     if (!exists.rowCount) {
       await client.query("ROLLBACK");
       return res.status(404).json({ error: "not_found" });
     }
 
-    // 1) Free active barcode assignment(s)
     await client.query(
       `
       UPDATE public.barcode_assignments
@@ -2138,10 +2169,7 @@ async function dropBook(req, res) {
       [id]
     );
 
-    // 2) Remove current barcode mapping (book_barcodes is the canonical mapping table)
     await client.query(`DELETE FROM public.book_barcodes WHERE book_id = $1::uuid`, [id]);
-
-    // 3) Delete the book itself
     await client.query(`DELETE FROM public.books WHERE id = $1::uuid`, [id]);
 
     await client.query("COMMIT");
@@ -2151,7 +2179,6 @@ async function dropBook(req, res) {
       await client.query("ROLLBACK");
     } catch {}
 
-    // FK conflict (book referenced by other tables)
     if (String(e?.code) === "23503") {
       return res.status(409).json({
         error: "conflict_foreign_key",
@@ -2159,7 +2186,6 @@ async function dropBook(req, res) {
       });
     }
 
-    // Permissions
     if (String(e?.code) === "42501") {
       return res.status(403).json({
         error: "permission_denied",
@@ -2174,7 +2200,6 @@ async function dropBook(req, res) {
   }
 }
 
-
 module.exports = {
   listBooks,
   getBook,
@@ -2182,5 +2207,5 @@ module.exports = {
   registerBook,
   registerExistingBook,
   updateBook,
-  dropBook, // ✅ wichtig
+  dropBook,
 };

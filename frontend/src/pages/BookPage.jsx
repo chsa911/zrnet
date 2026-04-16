@@ -49,7 +49,7 @@ export default function BookPage() {
   const coverSrc = useMemo(() => {
     if (coverFromQS) return coverFromQS;
     if (!safeId) return "";
-    return `/assets/covers/${encodeURIComponent(safeId)}.jpg`;
+    return `/media/covers/${encodeURIComponent(safeId)}.jpg`;
   }, [coverFromQS, safeId]);
 
   useEffect(() => {
@@ -181,7 +181,7 @@ export default function BookPage() {
                   {t("book.no_cover_image")}
                   {safeId ? (
                     <div className="zr-bookpage__coverHint">
-                      {t("book.expected")} <code>/assets/covers/{safeId}.jpg</code>
+                      {t("book.expected")} <code>/media.  /covers/{safeId}.jpg</code>
                     </div>
                   ) : null}
                 </div>
