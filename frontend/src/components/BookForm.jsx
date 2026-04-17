@@ -12,12 +12,6 @@ import {
   uploadCover,
 } from "../api/books";
 import { previewBarcode } from "../api/barcodes";
-import {
-  deleteUploadJob,
-  getPendingUploadCount,
-  processUploadQueue,
-  upsertUploadJob,
-} from "../utils/uploadQueue";
 import { startIsbnScanner } from "../utils/isbnScanner";
 
 /* ---------- tolerant field picker ---------- */
@@ -48,6 +42,15 @@ const parseFloatOrNull = (s) => {
   const n = Number(t);
   return Number.isFinite(n) ? n : null;
 };
+
+function preventImplicitSubmit(e) {
+  const tag = e.target?.tagName;
+  const type = String(e.target?.type || "").toLowerCase();
+
+  if (e.key === "Enter" && tag !== "TEXTAREA" && type !== "submit") {
+    e.preventDefault();
+  }
+}
 
 /* ---------- ISBN helpers ---------- */
 function stripIsbn(raw) {
@@ -781,6 +784,7 @@ export default function BookForm({
   const [coverPrepBusy, setCoverPrepBusy] = useState(false);
   const [msg, setMsg] = useState("");
   const ocrWorkerRef = useRef(null);
+  const explicitSubmitRef = useRef(false);
   const [coverInfoBusy, setCoverInfoBusy] = useState(false);
 
   const isbnPhotoInputRef = useRef(null);
@@ -796,18 +800,6 @@ export default function BookForm({
   );
   const hasIsbn = !!(isbnState.isbn13 || isbnState.isbn10);
 
-  const [pendingUploads, setPendingUploads] = useState(0);
-  const refreshPending = async () => {
-    try {
-      setPendingUploads(await getPendingUploadCount());
-    } catch {
-      // ignore
-    }
-  };
-
-  useEffect(() => {
-    refreshPending();
-  }, []);
 
   const msgRef = useRef(null);
   useEffect(() => {
@@ -1718,6 +1710,12 @@ export default function BookForm({
     e.preventDefault();
     setMsg("");
 
+    if (!explicitSubmitRef.current) {
+      setMsg("Bitte zum Speichern den Button verwenden.");
+      return;
+    }
+    explicitSubmitRef.current = false;
+
     const payload = {};
 
     if (coverPrepBusy) {
@@ -1880,31 +1878,13 @@ export default function BookForm({
     }
 
     const targetDraftId = lockedDraftId || draftSelectedId || "";
-    let jobId = null;
-    if (!isEdit) {
-      jobId =
-        globalThis.crypto?.randomUUID?.() ||
-        `${Date.now()}-${Math.random()}`;
-      const flow = assignBarcode && targetDraftId ? "finalize" : "create";
-
-      const jobPayload = { ...payload };
-      if (flow === "create") jobPayload.requestId = jobId;
-      if (flow === "finalize") delete jobPayload.assign_barcode;
-
-      await upsertUploadJob({
-        id: jobId,
-        createdAt: Date.now(),
-        status: "pending",
-        retries: 0,
-        flow,
-        draftId: flow === "finalize" ? targetDraftId : null,
-        payload: jobPayload,
-        step: "create",
-        cover: coverFile || null,
-        coverName: coverFile?.name || "cover.jpg",
-      });
-      refreshPending();
+    if (!isEdit && assignBarcode && targetDraftId) {
+      payload.existing_book_id = targetDraftId;
     }
+    const requestId =
+      !isEdit && !targetDraftId
+        ? globalThis.crypto?.randomUUID?.() || `${Date.now()}-${Math.random()}`
+        : null;
 
     if (coverFile && (coverFile.size ?? 0) < 1024) {
       setMsg(
@@ -1926,7 +1906,7 @@ export default function BookForm({
         delete p2.assign_barcode;
         saved = await registerExistingBook(targetDraftId, p2);
       } else {
-        const p2 = jobId ? { ...payload, requestId: jobId } : payload;
+        const p2 = requestId ? { ...payload, requestId } : payload;
         saved = await registerBook(p2);
       }
 
@@ -1938,44 +1918,11 @@ export default function BookForm({
         initialBook?._id ||
         initialBook?.id;
 
-      if (jobId) {
-        const flow = assignBarcode && targetDraftId ? "finalize" : "create";
-        const jobPayload =
-          flow === "finalize"
-            ? (() => {
-                const p2 = { ...payload };
-                delete p2.assign_barcode;
-                return p2;
-              })()
-            : { ...payload, requestId: jobId };
-
-        if (coverFile && savedId) {
-          await upsertUploadJob({
-            id: jobId,
-            createdAt: Date.now(),
-            status: "pending",
-            retries: 0,
-            flow,
-            draftId: flow === "finalize" ? targetDraftId : null,
-            payload: jobPayload,
-            step: "cover",
-            savedId,
-            cover: coverFile,
-            coverName: coverFile?.name || "cover.jpg",
-          });
-        } else {
-          await deleteUploadJob(jobId);
-        }
-        refreshPending();
-      }
-
       let coverUploadFailed = false;
       if (coverFile && savedId) {
         try {
           await uploadCover(savedId, coverFile);
           setCoverFile(null);
-          if (jobId) await deleteUploadJob(jobId);
-          refreshPending();
         } catch (e) {
           coverUploadFailed = true;
           setMsg(
@@ -2000,25 +1947,20 @@ export default function BookForm({
         setLockedDraftId("");
       }
     } catch (err) {
-      setMsg(
-        `${err?.message || "Fehler beim Speichern"}. ` +
-          (jobId
-            ? "Sicherheitsnetz aktiv: Daten wurden lokal gespeichert und können später erneut hochgeladen werden (Online gehen → App öffnen)."
-            : "")
-      );
+      setMsg(err?.message || "Fehler beim Speichern");
     } finally {
+      explicitSubmitRef.current = false;
       setBusy(false);
-      try {
-        await processUploadQueue({ maxJobs: 10 });
-      } catch {
-        // ignore
-      }
-      refreshPending();
     }
   }
 
   return (
-    <form onSubmit={onSubmit} noValidate style={{ display: "grid", gap: 12 }}>
+    <form
+      onSubmit={onSubmit}
+      onKeyDown={preventImplicitSubmit}
+      noValidate
+      style={{ display: "grid", gap: 12 }}
+    >
       <h2 style={{ margin: 0 }}>{isEdit ? "Edit Book" : "Register Book"}</h2>
 
       {msg ? (
@@ -2846,25 +2788,12 @@ export default function BookForm({
           className="zr-btn2 zr-btn2--primary"
           disabled={busy || coverPrepBusy}
           type="submit"
+          onClick={() => {
+            explicitSubmitRef.current = true;
+          }}
         >
           {busy ? "…" : coverPrepBusy ? "Vorbereiten…" : submitLabel}
         </button>
-
-        {pendingUploads ? (
-          <button
-            type="button"
-            className="zr-btn2 zr-btn2--ghost"
-            disabled={busy || coverPrepBusy}
-            onClick={async () => {
-              await processUploadQueue({ maxJobs: 10 });
-              refreshPending();
-              setMsg("Upload-Queue erneut versucht.");
-            }}
-            title="Versucht lokal gespeicherte Uploads erneut"
-          >
-            Pending Uploads: {pendingUploads}
-          </button>
-        ) : null}
 
         {onCancel ? (
           <button
