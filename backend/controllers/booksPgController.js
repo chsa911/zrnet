@@ -759,18 +759,17 @@ function posToBand(pos) {
   return "high";
 }
 
-function bandToPrefixLead(band) {
-  if (band === "special") return "l";
-  if (band === "low") return "e";
+function posToPrefixLead(pos) {
+  const p = String(pos || "").toLowerCase();
+  if (p === "d") return "d";
+  if (p === "l") return "l";
   return "o";
 }
 
 function expectedPrefixFromRule(rule) {
   if (!rule?.color || !rule?.pos) return null;
-  const band = posToBand(String(rule.pos).toLowerCase());
-  return `${bandToPrefixLead(band)}${String(rule.color).trim().toLowerCase()}`;
+  return `${posToPrefixLead(rule.pos)}${String(rule.color).trim().toLowerCase()}`;
 }
-
 /**
  * Pick the best AVAILABLE barcode for the exact rule:
  * - exact size rule

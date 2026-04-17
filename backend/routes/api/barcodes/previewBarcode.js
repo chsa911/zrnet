@@ -63,18 +63,17 @@ function posToBand(pos) {
   return "high";
 }
 
-function bandToPrefixLead(band) {
-  if (band === "special") return "l";
-  if (band === "low") return "e";
+function posToPrefixLead(pos) {
+  const p = String(pos || "").toLowerCase();
+  if (p === "d") return "d";
+  if (p === "l") return "l";
   return "o";
 }
 
 function expectedPrefixFromRule(rule) {
   if (!rule?.color || !rule?.pos) return null;
-  const band = posToBand(rule.pos);
-  return `${bandToPrefixLead(band)}${rule.color}`;
+  return `${posToPrefixLead(rule.pos)}${String(rule.color).trim().toLowerCase()}`;
 }
-
 /**
  * GET /api/barcodes/preview-barcode?width=...&height=...
  * Also accepts: ?BBreite=...&BHoehe=...
