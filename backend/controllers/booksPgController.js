@@ -1217,6 +1217,12 @@ async function registerBook(req, res) {
     assignBarcodeFlag === "0"
   );
 
+  const forceNewEntry =
+    body.force_new_entry === true ||
+    body.force_new_entry === "true" ||
+    body.forceNewEntry === true ||
+    body.forceNewEntry === "true";
+
   const requestedBarcode = normalizeStr(body.barcode);
   const widthCm = toNum(body.width_cm);
   const heightCm = toNum(body.height_cm);
@@ -1230,7 +1236,7 @@ async function registerBook(req, res) {
   );
 
   const exactIsbn = isbnInfo.isbn13 || isbnInfo.isbn10 || null;
-  if (assignBarcodeNow && exactIsbn) {
+  if (assignBarcodeNow && exactIsbn && !forceNewEntry) {
     const dup = await pool.query(
       `
       SELECT id

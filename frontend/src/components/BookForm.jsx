@@ -832,6 +832,7 @@ export default function BookForm({
   const [draftCandidates, setDraftCandidates] = useState([]);
   const [draftSelectedId, setDraftSelectedId] = useState("");
   const [lockedDraftId, setLockedDraftId] = useState("");
+  const [forceNewEntry, setForceNewEntry] = useState(false);
 
   const selectedDraft = useMemo(
     () => draftCandidates.find((d) => d.id === (lockedDraftId || draftSelectedId)) || null,
@@ -854,6 +855,12 @@ export default function BookForm({
   useEffect(() => {
     if (isEdit) return;
     if (!assignBarcode) return;
+    if (forceNewEntry) {
+      setDraftBusy(false);
+      setDraftCandidates([]);
+      setDraftSelectedId("");
+      return;
+    }
 
     const n = normalizeIsbnInputs(v.isbn13, v.isbn10);
     const isbn = n.isbn13 || n.isbn10 || "";
@@ -900,6 +907,7 @@ export default function BookForm({
             : [];
           setDraftCandidates(items);
           setDraftSelectedId((prev) => {
+            if (forceNewEntry) return "";
             if (lockedDraftId && items.some((x) => x.id === lockedDraftId)) {
               return lockedDraftId;
             }
@@ -936,10 +944,11 @@ export default function BookForm({
     v.publisher_name_display,
     v.publisher_abbr,
     lockedDraftId,
+    forceNewEntry,
   ]);
 
   useEffect(() => {
-    if (!selectedDraft) return;
+    if (forceNewEntry || !selectedDraft) return;
     setV((prev) => ({
       ...prev,
       author_id: prev.author_id || selectedDraft.author_id || "",
@@ -968,7 +977,7 @@ export default function BookForm({
       purchase_url: prev.purchase_url || selectedDraft.purchase_url || "",
       comment: prev.comment || selectedDraft.comment || "",
     }));
-  }, [selectedDraft]);
+  }, [selectedDraft, forceNewEntry]);
 
   useEffect(() => {
     if (!coverFile) {
@@ -1881,6 +1890,9 @@ export default function BookForm({
     if (!isEdit && assignBarcode && targetDraftId) {
       payload.existing_book_id = targetDraftId;
     }
+    if (!isEdit && assignBarcode && !targetDraftId && forceNewEntry) {
+      payload.force_new_entry = true;
+    }
     const requestId =
       !isEdit && !targetDraftId
         ? globalThis.crypto?.randomUUID?.() || `${Date.now()}-${Math.random()}`
@@ -1945,6 +1957,7 @@ export default function BookForm({
         setDraftCandidates([]);
         setDraftSelectedId("");
         setLockedDraftId("");
+        setForceNewEntry(false);
       }
     } catch (err) {
       setMsg(err?.message || "Fehler beim Speichern");
@@ -1999,8 +2012,14 @@ export default function BookForm({
                   type="button"
                   className="zr-btn2 zr-btn2--ghost zr-btn2--sm"
                   onClick={() => {
+                    setForceNewEntry(true);
                     setDraftSelectedId("");
                     setLockedDraftId("");
+                    setV((prev) => ({
+                      ...prev,
+                      isbn13: "",
+                      isbn10: "",
+                    }));
                   }}
                 >
                   Als neuen Eintrag anlegen
@@ -2011,6 +2030,7 @@ export default function BookForm({
                   key={d.id}
                   type="button"
                   onClick={() => {
+                    setForceNewEntry(false);
                     setDraftSelectedId(d.id);
                     setLockedDraftId(d.id);
                   }}
