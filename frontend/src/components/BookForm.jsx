@@ -1429,7 +1429,12 @@ export default function BookForm({
           next.isbn13 = String(s.isbn13);
           changed = true;
         }
-        if (!String(prev.isbn10 || "").trim() && s.isbn10) {
+        if (
+          !String(prev.isbn13 || "").trim() &&
+          !String(s.isbn13 || "").trim() &&
+          !String(prev.isbn10 || "").trim() &&
+          s.isbn10
+        ) {
           next.isbn10 = String(s.isbn10);
           changed = true;
         }
@@ -1646,7 +1651,7 @@ export default function BookForm({
     setV((prev) => ({
       ...prev,
       isbn13: n.isbn13 || prev.isbn13,
-      isbn10: n.isbn10 || prev.isbn10,
+      isbn10: n.isbn13 ? "" : (n.isbn10 || prev.isbn10),
     }));
 
     closeIsbnScanner();
@@ -2606,7 +2611,13 @@ export default function BookForm({
             <input
               className="zr-input"
               value={v.isbn13}
-              onChange={(e) => setField("isbn13", e.target.value)}
+              onChange={(e) =>
+                setV((prev) => ({
+                  ...prev,
+                  isbn13: e.target.value,
+                  isbn10: e.target.value.trim() ? "" : prev.isbn10,
+                }))
+              }
             />
           </label>
           <label style={{ display: "grid", gap: 6, flex: 1 }}>
