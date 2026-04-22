@@ -1,4 +1,4 @@
-// frontend/src/components/BookForm.jsx
+   // frontend/src/components/BookForm.jsx
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { createWorker, PSM } from "tesseract.js";
 import { BrowserMultiFormatReader } from "@zxing/browser";
@@ -1998,240 +1998,8 @@ export default function BookForm({
         </div>
       ) : null}
 
-      {!isEdit && assignBarcode ? (
-        draftBusy ? (
-          <div className="zr-card" style={{ opacity: 0.85 }}>
-            Suche nach vorhandenem Draft (Foto) …
-          </div>
-        ) : draftCandidates.length ? (
-          <div className="zr-card" style={{ display: "grid", gap: 10 }}>
-            <div style={{ fontWeight: 600 }}>
-              {draftCandidates.length === 1
-                ? "✅ Vorhandener Eintrag gefunden – Registrierung aktualisiert diesen Eintrag"
-                : "Mehrere vorhandene Einträge gefunden – bitte auswählen"}
-            </div>
-
-            <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-              <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
-                <button
-                  type="button"
-                  className="zr-btn2 zr-btn2--ghost zr-btn2--sm"
-                  onClick={() => {
-                    setForceNewEntry(true);
-                    setDraftSelectedId("");
-                    setLockedDraftId("");
-                    setV((prev) => ({
-                      ...prev,
-                      isbn13: "",
-                      isbn10: "",
-                    }));
-                  }}
-                >
-                  Als neuen Eintrag anlegen
-                </button>
-              </div>
-              {draftCandidates.slice(0, 6).map((d) => (
-                <button
-                  key={d.id}
-                  type="button"
-                  onClick={() => {
-                    setForceNewEntry(false);
-                    setDraftSelectedId(d.id);
-                    setLockedDraftId(d.id);
-                  }}
-                  className="zr-card"
-                  style={{
-                    padding: 8,
-                    cursor: "pointer",
-                    borderColor:
-                      d.id === (lockedDraftId || draftSelectedId)
-                        ? "rgba(0,0,0,0.35)"
-                        : "rgba(0,0,0,0.12)",
-                    width: 220,
-                    textAlign: "left",
-                  }}
-                >
-                  <div style={{ display: "flex", gap: 8, alignItems: "flex-start" }}>
-                    <img
-                      src={d.coverUrl || `/media/covers/${d.id}.jpg`}
-                      alt="cover"
-                      style={{
-                        width: 72,
-                        height: 96,
-                        objectFit: "cover",
-                        display: "block",
-                      }}
-                    />
-                    <div style={{ display: "grid", gap: 2, fontSize: 12 }}>
-                      <div style={{ fontWeight: 700 }}>{draftTitle(d) || "Ohne Titel"}</div>
-                      <div>{draftAuthor(d) || "—"}</div>
-                      <div>{d.publisher_name_display || "—"}</div>
-                      <div>Verlags-Abk.: {d.publisher_abbr || "—"}</div>
-                      <div>Autor-Abk.: {d.author_abbreviation || "—"}</div>
-                      <div>{d.isbn13 || d.isbn10 ? `ISBN: ${d.isbn13 || d.isbn10}` : "ohne ISBN"}</div>
-                      <div>{String(d.added_at || "").slice(0, 10)}</div>
-                    </div>
-                  </div>
-                </button>
-              ))}
-            </div>
-
-            {selectedDraft ? (
-              <div className="zr-card" style={{ display: "grid", gap: 6 }}>
-                <div style={{ fontWeight: 700 }}>Übernommener vorhandener Eintrag</div>
-                <div><strong>Titel:</strong> {selectedDraft.title_display || "—"}</div>
-                <div><strong>Untertitel:</strong> {selectedDraft.subtitle_display || "—"}</div>
-                <div><strong>Stichwort:</strong> {selectedDraft.title_keyword || "—"}</div>
-                <div><strong>Autor Vorname:</strong> {selectedDraft.author_first_name || "—"}</div>
-                <div><strong>Autor Nachname:</strong> {selectedDraft.author_last_name || "—"}</div>
-                <div><strong>Autor Anzeigename:</strong> {selectedDraft.author_name_display || "—"}</div>
-                <div><strong>Autor Abkürzung:</strong> {selectedDraft.author_abbreviation || "—"}</div>
-                <div><strong>Verlag Anzeigename:</strong> {selectedDraft.publisher_name_display || "—"}</div>
-                <div><strong>Verlag Abkürzung:</strong> {selectedDraft.publisher_abbr || "—"}</div>
-                <div><strong>ISBN-13:</strong> {selectedDraft.isbn13 || "—"}</div>
-                <div><strong>ISBN-10:</strong> {selectedDraft.isbn10 || "—"}</div>
-                <div><strong>Seiten:</strong> {selectedDraft.pages ?? "—"}</div>
-                <div><strong>Breite:</strong> {selectedDraft.width_cm ?? "—"}</div>
-                <div><strong>Höhe:</strong> {selectedDraft.height_cm ?? "—"}</div>
-                <div><strong>Sprache:</strong> {selectedDraft.original_language || "—"}</div>
-                <div><strong>Kommentar:</strong> {selectedDraft.comment || "—"}</div>
-                <div><strong>added_at:</strong> {selectedDraft.added_at || "—"}</div>
-                <div><strong>registered_at:</strong> {selectedDraft.registered_at || "—"}</div>
-                <div><strong>Status:</strong> {selectedDraft.reading_status || "—"}</div>
-              </div>
-            ) : null}
-          </div>
-        ) : null
-      ) : null}
-
-      <div className="zr-toolbar">
-        <label style={{ display: "grid", gap: 6, flex: 1 }}>
-          <span>Barcode{lockBarcode ? " (gesperrt)" : ""}</span>
-          <input
-            className="zr-input"
-            value={v.barcode}
-            disabled={lockBarcode || busy || isEdit}
-            onChange={(e) => setField("barcode", e.target.value)}
-            placeholder={
-              assignBarcode
-                ? barcodePreview?.candidate
-                  ? `Vorschlag: ${barcodePreview.candidate}`
-                  : "z.B. dk444"
-                : "(leer)"
-            }
-          />
-        </label>
-      </div>      {!isEdit && assignBarcode ? (
-        <div className="zr-card" style={{ display: "grid", gap: 10 }}>
-          <div style={{ fontWeight: 900 }}>
-            Barcode-Vorschlag / Kurzangaben (optional)
-          </div>
-
-          <div className="zr-toolbar" style={{ alignItems: "end", flexWrap: "wrap", gap: 12 }}>
-            <label style={{ display: "grid", gap: 6, flex: "0 0 auto" }}>
-              <span>Breite (cm) (width_cm)</span>
-              <input
-                className="zr-input"
-                name="width_cm"
-                type="text"
-                inputMode="decimal"
-                autoComplete="off"
-                pattern="[0-9]*[\.,]?[0-9]*"
-                value={v.width_cm}
-                onChange={(e) => setField("width_cm", e.target.value)}
-                onInput={(e) => setField("width_cm", e.currentTarget.value)}
-                placeholder="13,5"
-                style={{ width: "8ch", minWidth: 0 }}
-              />
-            </label>
-
-            <label style={{ display: "grid", gap: 6, flex: "0 0 auto" }}>
-              <span>Höhe (cm) (height_cm)</span>
-              <input
-                className="zr-input"
-                name="height_cm"
-                type="text"
-                inputMode="decimal"
-                autoComplete="off"
-                pattern="[0-9]*[\.,]?[0-9]*"
-                value={v.height_cm}
-                onChange={(e) => setField("height_cm", e.target.value)}
-                onInput={(e) => setField("height_cm", e.currentTarget.value)}
-                placeholder="21"
-                style={{ width: "8ch", minWidth: 0 }}
-              />
-            </label>
-
-            <label style={{ display: "grid", gap: 6, flex: "0 0 auto" }}>
-              <span>Seiten (pages)</span>
-              <input
-                className="zr-input"
-                type="text"
-                inputMode="numeric"
-                value={v.pages}
-                onChange={(e) => setField("pages", e.target.value)}
-                placeholder="320"
-                style={{ width: "6ch", minWidth: 0 }}
-              />
-            </label>
-
-            <label style={{ display: "grid", gap: 6, flex: "0 0 auto" }}>
-              <span>Autor Abk. (author_abbreviation)</span>
-              <input
-                className="zr-input"
-                value={v.author_abbreviation}
-                onChange={(e) => setAuthorIdentityField("author_abbreviation", e.target.value)}
-                placeholder="KR"
-                style={{ width: "8ch", minWidth: 0 }}
-              />
-            </label>
-
-            <label style={{ display: "grid", gap: 6, flex: "0 0 auto" }}>
-              <span>Verlag Abk. (publisher_abbr)</span>
-              <input
-                className="zr-input"
-                value={v.publisher_abbr}
-                onChange={(e) => setPublisherIdentityField("publisher_abbr", e.target.value)}
-                placeholder="ROW"
-                style={{ width: "9ch", minWidth: 0 }}
-              />
-            </label>
-          </div>
-
-          {barcodePreview?.candidate ? (
-            <div className="zr-toolbar" style={{ alignItems: "center" }}>
-              <div style={{ flex: 1 }}>
-                <div style={{ fontWeight: 800 }}>
-                  Vorschlag: {barcodePreview.candidate}
-                </div>
-                <div style={{ opacity: 0.8, fontSize: 12 }}>
-                  Wird beim Speichern automatisch verwendet (wenn das Barcode-Feld leer ist).
-                </div>
-                <div style={{ opacity: 0.75, fontSize: 13 }}>
-                  {barcodePreview.color ? `Serie: ${barcodePreview.color}` : null}
-                  {barcodePreview.band ? ` • Band: ${barcodePreview.band}` : null}
-                  {barcodePreview.availableCount != null
-                    ? ` • verfügbar: ${barcodePreview.availableCount}`
-                    : null}
-                </div>
-              </div>
-              <button
-                type="button"
-                className="zr-btn2 zr-btn2--ghost zr-btn2--sm"
-                disabled={busy || coverPrepBusy || !barcodePreview?.candidate}
-                onClick={() => setField("barcode", barcodePreview.candidate)}
-              >
-                Übernehmen
-              </button>
-            </div>
-          ) : barcodePreviewErr ? (
-            <div style={{ opacity: 0.8, fontSize: 13 }}>{barcodePreviewErr}</div>
-          ) : null}
-        </div>
-      ) : null}
-
       <div className="zr-card" style={{ display: "grid", gap: 10 }}>
-        <div style={{ fontWeight: 900 }}>Cover Foto (iPhone)</div>
+        <div style={{ fontWeight: 900 }}>1. Cover Foto</div>
         <div style={{ opacity: 0.8, fontSize: 13 }}>
           Tippen → Kamera öffnet sich → Foto wird automatisch als <code>&lt;book_id&gt;.jpg</code>{" "}
           gespeichert.
@@ -2260,341 +2028,27 @@ export default function BookForm({
             }}
           />
         ) : null}
-      </div>
 
-      <div className="zr-toolbar" style={{ alignItems: "center", gap: 10 }}>
-        <button
-          type="button"
-          className="zr-btn2 zr-btn2--ghost"
-          disabled={busy || coverPrepBusy || coverInfoBusy || !coverFile || hasIsbn}
-          onClick={doCoverLookup}
-        >
-          {coverInfoBusy ? "Erkenne…" : "Titel/Autor aus Cover"}
-        </button>
-
-        <div style={{ fontSize: 12, opacity: 0.75 }}>
-          {hasIsbn
-            ? "ISBN vorhanden – Cover OCR ist deaktiviert."
-            : "Nur für Bücher ohne ISBN."}
-        </div>
-      </div>
-
-      <div className="zr-toolbar">
-        <label style={{ display: "grid", gap: 6, flex: 1, position: "relative" }}>
-          <span>Autor (author_lastname)</span>
-          <input
-            className="zr-input"
-            value={v.author_lastname}
-            onChange={(e) => {
-              setAuthorIdentityField("author_lastname", e.target.value);
-              runAutocomplete("author_lastname", e.target.value);
-            }}
-            onBlur={() => setTimeout(() => setAc({ field: "", items: [] }), 150)}
-          />
-          {ac.field === "author_lastname" && ac.items.length ? (
-            <div
-              style={{
-                position: "absolute",
-                top: "100%",
-                left: 0,
-                right: 0,
-                zIndex: 5,
-                background: "#fff",
-                border: "1px solid rgba(0,0,0,0.15)",
-                borderRadius: 12,
-                padding: 6,
-                marginTop: 4,
-              }}
-            >
-              {ac.items.map((it, index) => (
-                <button
-                  key={suggestionKey(it, index)}
-                  type="button"
-                  className="zr-btn2 zr-btn2--ghost zr-btn2--sm"
-                  style={{
-                    width: "100%",
-                    justifyContent: "flex-start",
-                    marginBottom: 4,
-                    flexDirection: "column",
-                    alignItems: "flex-start",
-                  }}
-                  onMouseDown={(e) => e.preventDefault()}
-                  onClick={() => {
-                    if (it && typeof it === "object") {
-                      applyAuthorMatch(it, { overwriteIdentity: true, fillOnly: false });
-                    } else {
-                      const picked = String(it || "").trim();
-                      const parts = picked.split(/\s+/).filter(Boolean);
-                      const maybeLast = parts.length > 1 ? parts[parts.length - 1] : picked;
-                      const maybeFirst = parts.length > 1 ? parts.slice(0, -1).join(" ") : "";
-                      setV((prev) => ({
-                        ...prev,
-                        author_id: isEdit ? prev.author_id : "",
-                        author_lastname: maybeLast,
-                        author_firstname: prev.author_firstname || maybeFirst,
-                        name_display: prev.name_display || picked,
-                      }));
-                    }
-                    setAc({ field: "", items: [] });
-                  }}
-                >
-                  <span>{authorSuggestionLabel(it)}</span>
-                  {it && typeof it === "object" ? (
-                    <span style={{ fontSize: 12, opacity: 0.72 }}>
-                      {[it.author_nationality, it.male_female].filter(Boolean).join(" · ") || "Autor aus DB"}
-                    </span>
-                  ) : null}
-                </button>
-              ))}
-            </div>
-          ) : null}
-        </label>
-
-        <label style={{ display: "grid", gap: 6, flex: 1 }}>
-          <span>Vorname (optional)</span>
-          <input
-            className="zr-input"
-            value={v.author_firstname}
-            onChange={(e) => setAuthorIdentityField("author_firstname", e.target.value)}
-          />
-        </label>
-      </div>
-
-      <label style={{ display: "grid", gap: 6 }}>
-        <span>Autor Anzeigename (name_display) (optional)</span>
-        <input
-          className="zr-input"
-          value={v.name_display}
-          onChange={(e) => setAuthorIdentityField("name_display", e.target.value)}
-        />
-      </label>
-
-      <div className="zr-toolbar">
-        <label style={{ display: "grid", gap: 6, flex: 1 }}>
-          <span>Nationalität (author_nationality) (optional)</span>
-          <input
-            className="zr-input"
-            value={v.author_nationality}
-            onChange={(e) => setField("author_nationality", e.target.value)}
-          />
-        </label>
-        <label style={{ display: "grid", gap: 6, flex: 1 }}>
-          <span>Geburtsort (place_of_birth) (optional)</span>
-          <input
-            className="zr-input"
-            value={v.place_of_birth}
-            onChange={(e) => setField("place_of_birth", e.target.value)}
-          />
-        </label>
-        <label style={{ display: "grid", gap: 6, flex: 1 }}>
-          <span>Geschlecht (male_female) (optional)</span>
-          <input
-            className="zr-input"
-            value={v.male_female}
-            onChange={(e) => setField("male_female", e.target.value)}
-          />
-        </label>
-      </div>
-
-      <div className="zr-toolbar">
-        <label style={{ display: "grid", gap: 6, flex: 1 }}>
-          <span>Veröffentlichte Titel (published_titles) (optional)</span>
-          <input
-            className="zr-input"
-            type="text"
-            inputMode="numeric"
-            value={v.published_titles}
-            onChange={(e) => setField("published_titles", e.target.value)}
-          />
-        </label>
-        <label style={{ display: "grid", gap: 6, flex: 1 }}>
-          <span>Millionenseller (number_of_millionsellers) (optional)</span>
-          <input
-            className="zr-input"
-            type="text"
-            inputMode="numeric"
-            value={v.number_of_millionsellers}
-            onChange={(e) => setField("number_of_millionsellers", e.target.value)}
-          />
-        </label>
-      </div>
-
-      <div className="zr-toolbar">
-        <label style={{ display: "grid", gap: 6, flex: 1 }}>
-          <span>Titel anzeigen (title_display) (optional)</span>
-          <input
-            className="zr-input"
-            value={v.title_display}
-            onChange={(e) => setField("title_display", e.target.value)}
-          />
-        </label>
-        <label style={{ display: "grid", gap: 6, flex: 1 }}>
-          <span>Untertitel (subtitle_display) (optional)</span>
-          <input
-            className="zr-input"
-            value={v.subtitle_display}
-            onChange={(e) => setField("subtitle_display", e.target.value)}
-          />
-        </label>
-      </div>
-
-      <div className="zr-toolbar">
-        <label style={{ display: "grid", gap: 6, flex: 1 }}>
-          <span>Homepage Highlight (home_featured_slot) (optional)</span>
-          <select
-            className="zr-input"
-            value={v.home_featured_slot || ""}
-            onChange={(e) => setField("home_featured_slot", e.target.value)}
+        <div className="zr-toolbar" style={{ alignItems: "center", gap: 10 }}>
+          <button
+            type="button"
+            className="zr-btn2 zr-btn2--ghost"
+            disabled={busy || coverPrepBusy || coverInfoBusy || !coverFile || hasIsbn}
+            onClick={doCoverLookup}
           >
-            <option value="">Kein Highlight</option>
-            <option value="finished">Finished</option>
-            <option value="received">Received</option>
-          </select>
-        </label>
-      </div>
+            {coverInfoBusy ? "Erkenne…" : "Titel/Autor aus Cover"}
+          </button>
 
-      <div className="zr-toolbar">
-        <label style={{ display: "grid", gap: 6, flex: 1 }}>
-          <span>Stichwort (title_keyword)</span>
-          <input
-            className="zr-input"
-            value={v.title_keyword}
-            onChange={(e) => {
-              setField("title_keyword", e.target.value);
-              runAutocomplete("title_keyword", e.target.value);
-            }}
-            onBlur={() => setTimeout(() => setAc({ field: "", items: [] }), 150)}
-          />
-        </label>
-        <label style={{ display: "grid", gap: 6 }}>
-          <span>Position (title_keyword_position)</span>
-          <input
-            className="zr-input"
-            type="text"
-            inputMode="numeric"
-            value={v.title_keyword_position}
-            onChange={(e) => setField("title_keyword_position", e.target.value)}
-          />
-        </label>
-      </div>
-
-      <div className="zr-card" style={{ display: "grid", gap: 10 }}>
-        <div style={{ fontWeight: 900 }}>Weitere Stichworte (optional)</div>
-        <div className="zr-toolbar">
-          <label style={{ display: "grid", gap: 6, flex: 1 }}>
-            <span>title_keyword2</span>
-            <input
-              className="zr-input"
-              value={v.title_keyword2}
-              onChange={(e) => setField("title_keyword2", e.target.value)}
-            />
-          </label>
-          <label style={{ display: "grid", gap: 6 }}>
-            <span>title_keyword2_position</span>
-            <input
-              className="zr-input"
-              type="text"
-              inputMode="numeric"
-              value={v.title_keyword2_position}
-              onChange={(e) => setField("title_keyword2_position", e.target.value)}
-            />
-          </label>
-        </div>
-        <div className="zr-toolbar">
-          <label style={{ display: "grid", gap: 6, flex: 1 }}>
-            <span>title_keyword3</span>
-            <input
-              className="zr-input"
-              value={v.title_keyword3}
-              onChange={(e) => setField("title_keyword3", e.target.value)}
-            />
-          </label>
-          <label style={{ display: "grid", gap: 6 }}>
-            <span>title_keyword3_position</span>
-            <input
-              className="zr-input"
-              type="text"
-              inputMode="numeric"
-              value={v.title_keyword3_position}
-              onChange={(e) => setField("title_keyword3_position", e.target.value)}
-            />
-          </label>
+          <div style={{ fontSize: 12, opacity: 0.75 }}>
+            {hasIsbn
+              ? "ISBN vorhanden – Cover OCR ist deaktiviert."
+              : "Nur für Bücher ohne ISBN."}
+          </div>
         </div>
       </div>
 
-      <div className="zr-toolbar">
-        <label style={{ display: "grid", gap: 6, flex: 1, position: "relative" }}>
-          <span>Verlag Anzeigename (publisher_name_display)</span>
-          <input
-            className="zr-input"
-            value={v.publisher_name_display}
-            onChange={(e) => {
-              setPublisherIdentityField("publisher_name_display", e.target.value);
-              runAutocomplete("publisher_name_display", e.target.value);
-            }}
-            onBlur={() => setTimeout(() => setAc({ field: "", items: [] }), 150)}
-          />
-          {ac.field === "publisher_name_display" && ac.items.length ? (
-            <div
-              style={{
-                position: "absolute",
-                top: "100%",
-                left: 0,
-                right: 0,
-                zIndex: 5,
-                background: "#fff",
-                border: "1px solid rgba(0,0,0,0.15)",
-                borderRadius: 12,
-                padding: 6,
-                marginTop: 4,
-              }}
-            >
-              {ac.items.map((it, index) => (
-                <button
-                  key={suggestionKey(it, index)}
-                  type="button"
-                  className="zr-btn2 zr-btn2--ghost zr-btn2--sm"
-                  style={{
-                    width: "100%",
-                    justifyContent: "flex-start",
-                    marginBottom: 4,
-                    flexDirection: "column",
-                    alignItems: "flex-start",
-                  }}
-                  onMouseDown={(e) => e.preventDefault()}
-                  onClick={() => {
-                    if (it && typeof it === "object") {
-                      applyPublisherMatch(it, { overwriteIdentity: true, fillOnly: false });
-                    } else {
-                      const picked = String(it || "").trim();
-                      setPublisherIdentityField("publisher_name_display", picked);
-                    }
-                    setAc({ field: "", items: [] });
-                  }}
-                >
-                  <span>{publisherSuggestionLabel(it)}</span>
-                  {it && typeof it === "object" && String(it.abbr || "").trim() ? (
-                    <span style={{ fontSize: 12, opacity: 0.72 }}>Verlag aus DB</span>
-                  ) : null}
-                </button>
-              ))}
-            </div>
-          ) : null}
-        </label>
-      </div>
-
-      <label style={{ display: "grid", gap: 6 }}>
-        <span>Kommentar (optional)</span>
-        <textarea
-          className="zr-input"
-          rows={3}
-          value={v.comment}
-          onChange={(e) => setField("comment", e.target.value)}
-        />
-      </label>
-
       <div className="zr-card" style={{ display: "grid", gap: 10 }}>
-        <div style={{ fontWeight: 900 }}>ISBN & Kauf-Link (optional)</div>
+        <div style={{ fontWeight: 900 }}>2. ISBN</div>
 
         <input
           ref={isbnPhotoInputRef}
@@ -2665,46 +2119,641 @@ export default function BookForm({
             Live-Scanner: Barcode einfach in den Rahmen halten. Kein Foto nötig.
           </div>
         </div>
+      </div>
+
+      <div className="zr-card" style={{ display: "grid", gap: 10 }}>
+        <div style={{ fontWeight: 900 }}>3. Seiten</div>
+        <label style={{ display: "grid", gap: 6, maxWidth: 140 }}>
+          <span>Seiten (pages)</span>
+          <input
+            className="zr-input"
+            type="text"
+            inputMode="numeric"
+            value={v.pages}
+            onChange={(e) => setField("pages", e.target.value)}
+            placeholder="320"
+          />
+        </label>
+      </div>
+
+      {lockedDraftId ? (
+        <div className="zr-card" style={{ fontWeight: 700 }}>
+          Vorhandener Eintrag ausgewählt – beim Speichern wird dieser Datensatz aktualisiert:
+          <br />
+          <code>{lockedDraftId}</code>
+          <br />
+          Es wird kein neuer Eintrag angelegt.
+        </div>
+      ) : null}
+
+      <div className="zr-toolbar" style={{ marginTop: 4 }}>
+        <button
+          className="zr-btn2 zr-btn2--primary"
+          disabled={busy || coverPrepBusy}
+          type="submit"
+          onClick={() => {
+            explicitSubmitRef.current = true;
+          }}
+        >
+          {busy ? "…" : coverPrepBusy ? "Vorbereiten…" : submitLabel}
+        </button>
+
+        {onCancel ? (
+          <button
+            className="zr-btn2 zr-btn2--ghost"
+            type="button"
+            onClick={onCancel}
+            disabled={busy || coverPrepBusy}
+          >
+            Abbrechen
+          </button>
+        ) : null}
+      </div>
+
+      <details className="zr-card" style={{ display: "grid", gap: 10 }}>
+        <summary style={{ cursor: "pointer", fontWeight: 900 }}>
+          Weitere Felder
+        </summary>
+
+        {!isEdit && assignBarcode ? (
+          draftBusy ? (
+            <div className="zr-card" style={{ opacity: 0.85, marginTop: 10 }}>
+              Suche nach vorhandenem Draft (Foto) …
+            </div>
+          ) : draftCandidates.length ? (
+            <div className="zr-card" style={{ display: "grid", gap: 10, marginTop: 10 }}>
+              <div style={{ fontWeight: 600 }}>
+                {draftCandidates.length === 1
+                  ? "✅ Vorhandener Eintrag gefunden – Registrierung aktualisiert diesen Eintrag"
+                  : "Mehrere vorhandene Einträge gefunden – bitte auswählen"}
+              </div>
+
+              <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+                <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
+                  <button
+                    type="button"
+                    className="zr-btn2 zr-btn2--ghost zr-btn2--sm"
+                    onClick={() => {
+                      setForceNewEntry(true);
+                      setDraftSelectedId("");
+                      setLockedDraftId("");
+                      setV((prev) => ({
+                        ...prev,
+                        isbn13: "",
+                        isbn10: "",
+                      }));
+                    }}
+                  >
+                    Als neuen Eintrag anlegen
+                  </button>
+                </div>
+                {draftCandidates.slice(0, 6).map((d) => (
+                  <button
+                    key={d.id}
+                    type="button"
+                    onClick={() => {
+                      setForceNewEntry(false);
+                      setDraftSelectedId(d.id);
+                      setLockedDraftId(d.id);
+                    }}
+                    className="zr-card"
+                    style={{
+                      padding: 8,
+                      cursor: "pointer",
+                      borderColor:
+                        d.id === (lockedDraftId || draftSelectedId)
+                          ? "rgba(0,0,0,0.35)"
+                          : "rgba(0,0,0,0.12)",
+                      width: 220,
+                      textAlign: "left",
+                    }}
+                  >
+                    <div style={{ display: "flex", gap: 8, alignItems: "flex-start" }}>
+                      <img
+                        src={d.coverUrl || `/media/covers/${d.id}.jpg`}
+                        alt="cover"
+                        style={{
+                          width: 72,
+                          height: 96,
+                          objectFit: "cover",
+                          display: "block",
+                        }}
+                      />
+                      <div style={{ display: "grid", gap: 2, fontSize: 12 }}>
+                        <div style={{ fontWeight: 700 }}>{draftTitle(d) || "Ohne Titel"}</div>
+                        <div>{draftAuthor(d) || "—"}</div>
+                        <div>{d.publisher_name_display || "—"}</div>
+                        <div>Verlags-Abk.: {d.publisher_abbr || "—"}</div>
+                        <div>Autor-Abk.: {d.author_abbreviation || "—"}</div>
+                        <div>
+                          {d.isbn13 || d.isbn10 ? `ISBN: ${d.isbn13 || d.isbn10}` : "ohne ISBN"}
+                        </div>
+                        <div>{String(d.added_at || "").slice(0, 10)}</div>
+                      </div>
+                    </div>
+                  </button>
+                ))}
+              </div>
+
+              {selectedDraft ? (
+                <div className="zr-card" style={{ display: "grid", gap: 6 }}>
+                  <div style={{ fontWeight: 700 }}>Übernommener vorhandener Eintrag</div>
+                  <div><strong>Titel:</strong> {selectedDraft.title_display || "—"}</div>
+                  <div><strong>Untertitel:</strong> {selectedDraft.subtitle_display || "—"}</div>
+                  <div><strong>Stichwort:</strong> {selectedDraft.title_keyword || "—"}</div>
+                  <div><strong>Autor Vorname:</strong> {selectedDraft.author_first_name || "—"}</div>
+                  <div><strong>Autor Nachname:</strong> {selectedDraft.author_last_name || "—"}</div>
+                  <div><strong>Autor Anzeigename:</strong> {selectedDraft.author_name_display || "—"}</div>
+                  <div><strong>Autor Abkürzung:</strong> {selectedDraft.author_abbreviation || "—"}</div>
+                  <div><strong>Verlag Anzeigename:</strong> {selectedDraft.publisher_name_display || "—"}</div>
+                  <div><strong>Verlag Abkürzung:</strong> {selectedDraft.publisher_abbr || "—"}</div>
+                  <div><strong>ISBN-13:</strong> {selectedDraft.isbn13 || "—"}</div>
+                  <div><strong>ISBN-10:</strong> {selectedDraft.isbn10 || "—"}</div>
+                  <div><strong>Seiten:</strong> {selectedDraft.pages ?? "—"}</div>
+                  <div><strong>Breite:</strong> {selectedDraft.width_cm ?? "—"}</div>
+                  <div><strong>Höhe:</strong> {selectedDraft.height_cm ?? "—"}</div>
+                  <div><strong>Sprache:</strong> {selectedDraft.original_language || "—"}</div>
+                  <div><strong>Kommentar:</strong> {selectedDraft.comment || "—"}</div>
+                  <div><strong>added_at:</strong> {selectedDraft.added_at || "—"}</div>
+                  <div><strong>registered_at:</strong> {selectedDraft.registered_at || "—"}</div>
+                  <div><strong>Status:</strong> {selectedDraft.reading_status || "—"}</div>
+                </div>
+              ) : null}
+            </div>
+          ) : null
+        ) : null}
+
+        <div className="zr-toolbar" style={{ marginTop: 10 }}>
+          <label style={{ display: "grid", gap: 6, flex: 1 }}>
+            <span>Barcode{lockBarcode ? " (gesperrt)" : ""}</span>
+            <input
+              className="zr-input"
+              value={v.barcode}
+              disabled={lockBarcode || busy || isEdit}
+              onChange={(e) => setField("barcode", e.target.value)}
+              placeholder={
+                assignBarcode
+                  ? barcodePreview?.candidate
+                    ? `Vorschlag: ${barcodePreview.candidate}`
+                    : "z.B. dk444"
+                  : "(leer)"
+              }
+            />
+          </label>
+        </div>
+
+        {!isEdit && assignBarcode ? (
+          <div className="zr-card" style={{ display: "grid", gap: 10 }}>
+            <div style={{ fontWeight: 900 }}>
+              Barcode-Vorschlag / Kurzangaben (optional)
+            </div>
+
+            <div className="zr-toolbar" style={{ alignItems: "end", flexWrap: "wrap", gap: 12 }}>
+              <label style={{ display: "grid", gap: 6, flex: "0 0 auto" }}>
+                <span>Breite (cm) (width_cm)</span>
+                <input
+                  className="zr-input"
+                  name="width_cm"
+                  type="text"
+                  inputMode="decimal"
+                  autoComplete="off"
+                  pattern="[0-9]*[\.,]?[0-9]*"
+                  value={v.width_cm}
+                  onChange={(e) => setField("width_cm", e.target.value)}
+                  onInput={(e) => setField("width_cm", e.currentTarget.value)}
+                  placeholder="13,5"
+                  style={{ width: "8ch", minWidth: 0 }}
+                />
+              </label>
+
+              <label style={{ display: "grid", gap: 6, flex: "0 0 auto" }}>
+                <span>Höhe (cm) (height_cm)</span>
+                <input
+                  className="zr-input"
+                  name="height_cm"
+                  type="text"
+                  inputMode="decimal"
+                  autoComplete="off"
+                  pattern="[0-9]*[\.,]?[0-9]*"
+                  value={v.height_cm}
+                  onChange={(e) => setField("height_cm", e.target.value)}
+                  onInput={(e) => setField("height_cm", e.currentTarget.value)}
+                  placeholder="21"
+                  style={{ width: "8ch", minWidth: 0 }}
+                />
+              </label>
+
+              <label style={{ display: "grid", gap: 6, flex: "0 0 auto" }}>
+                <span>Autor Abk. (author_abbreviation)</span>
+                <input
+                  className="zr-input"
+                  value={v.author_abbreviation}
+                  onChange={(e) => setAuthorIdentityField("author_abbreviation", e.target.value)}
+                  placeholder="KR"
+                  style={{ width: "8ch", minWidth: 0 }}
+                />
+              </label>
+
+              <label style={{ display: "grid", gap: 6, flex: "0 0 auto" }}>
+                <span>Verlag Abk. (publisher_abbr)</span>
+                <input
+                  className="zr-input"
+                  value={v.publisher_abbr}
+                  onChange={(e) => setPublisherIdentityField("publisher_abbr", e.target.value)}
+                  placeholder="ROW"
+                  style={{ width: "9ch", minWidth: 0 }}
+                />
+              </label>
+            </div>
+
+            {barcodePreview?.candidate ? (
+              <div className="zr-toolbar" style={{ alignItems: "center" }}>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontWeight: 800 }}>
+                    Vorschlag: {barcodePreview.candidate}
+                  </div>
+                  <div style={{ opacity: 0.8, fontSize: 12 }}>
+                    Wird beim Speichern automatisch verwendet (wenn das Barcode-Feld leer ist).
+                  </div>
+                  <div style={{ opacity: 0.75, fontSize: 13 }}>
+                    {barcodePreview.color ? `Serie: ${barcodePreview.color}` : null}
+                    {barcodePreview.band ? ` • Band: ${barcodePreview.band}` : null}
+                    {barcodePreview.availableCount != null
+                      ? ` • verfügbar: ${barcodePreview.availableCount}`
+                      : null}
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  className="zr-btn2 zr-btn2--ghost zr-btn2--sm"
+                  disabled={busy || coverPrepBusy || !barcodePreview?.candidate}
+                  onClick={() => setField("barcode", barcodePreview.candidate)}
+                >
+                  Übernehmen
+                </button>
+              </div>
+            ) : barcodePreviewErr ? (
+              <div style={{ opacity: 0.8, fontSize: 13 }}>{barcodePreviewErr}</div>
+            ) : null}
+          </div>
+        ) : null}
+
+        <div className="zr-toolbar">
+          <label style={{ display: "grid", gap: 6, flex: 1, position: "relative" }}>
+            <span>Autor (author_lastname)</span>
+            <input
+              className="zr-input"
+              value={v.author_lastname}
+              onChange={(e) => {
+                setAuthorIdentityField("author_lastname", e.target.value);
+                runAutocomplete("author_lastname", e.target.value);
+              }}
+              onBlur={() => setTimeout(() => setAc({ field: "", items: [] }), 150)}
+            />
+            {ac.field === "author_lastname" && ac.items.length ? (
+              <div
+                style={{
+                  position: "absolute",
+                  top: "100%",
+                  left: 0,
+                  right: 0,
+                  zIndex: 5,
+                  background: "#fff",
+                  border: "1px solid rgba(0,0,0,0.15)",
+                  borderRadius: 12,
+                  padding: 6,
+                  marginTop: 4,
+                }}
+              >
+                {ac.items.map((it, index) => (
+                  <button
+                    key={suggestionKey(it, index)}
+                    type="button"
+                    className="zr-btn2 zr-btn2--ghost zr-btn2--sm"
+                    style={{
+                      width: "100%",
+                      justifyContent: "flex-start",
+                      marginBottom: 4,
+                      flexDirection: "column",
+                      alignItems: "flex-start",
+                    }}
+                    onMouseDown={(e) => e.preventDefault()}
+                    onClick={() => {
+                      if (it && typeof it === "object") {
+                        applyAuthorMatch(it, { overwriteIdentity: true, fillOnly: false });
+                      } else {
+                        const picked = String(it || "").trim();
+                        const parts = picked.split(/\s+/).filter(Boolean);
+                        const maybeLast = parts.length > 1 ? parts[parts.length - 1] : picked;
+                        const maybeFirst = parts.length > 1 ? parts.slice(0, -1).join(" ") : "";
+                        setV((prev) => ({
+                          ...prev,
+                          author_id: isEdit ? prev.author_id : "",
+                          author_lastname: maybeLast,
+                          author_firstname: prev.author_firstname || maybeFirst,
+                          name_display: prev.name_display || picked,
+                        }));
+                      }
+                      setAc({ field: "", items: [] });
+                    }}
+                  >
+                    <span>{authorSuggestionLabel(it)}</span>
+                    {it && typeof it === "object" ? (
+                      <span style={{ fontSize: 12, opacity: 0.72 }}>
+                        {[it.author_nationality, it.male_female].filter(Boolean).join(" · ") || "Autor aus DB"}
+                      </span>
+                    ) : null}
+                  </button>
+                ))}
+              </div>
+            ) : null}
+          </label>
+
+          <label style={{ display: "grid", gap: 6, flex: 1 }}>
+            <span>Vorname (optional)</span>
+            <input
+              className="zr-input"
+              value={v.author_firstname}
+              onChange={(e) => setAuthorIdentityField("author_firstname", e.target.value)}
+            />
+          </label>
+        </div>
+
+        <label style={{ display: "grid", gap: 6 }}>
+          <span>Autor Anzeigename (name_display) (optional)</span>
+          <input
+            className="zr-input"
+            value={v.name_display}
+            onChange={(e) => setAuthorIdentityField("name_display", e.target.value)}
+          />
+        </label>
 
         <div className="zr-toolbar">
           <label style={{ display: "grid", gap: 6, flex: 1 }}>
-            <span>purchase_url</span>
+            <span>Nationalität (author_nationality) (optional)</span>
             <input
               className="zr-input"
-              value={v.purchase_url}
-              onChange={(e) => setField("purchase_url", e.target.value)}
-              placeholder="https://…"
+              value={v.author_nationality}
+              onChange={(e) => setField("author_nationality", e.target.value)}
             />
           </label>
-          <label style={{ display: "grid", gap: 6, width: 220 }}>
-            <span>Originalsprache (original_language)</span>
+          <label style={{ display: "grid", gap: 6, flex: 1 }}>
+            <span>Geburtsort (place_of_birth) (optional)</span>
             <input
               className="zr-input"
-              value={v.original_language}
-              onChange={(e) => setField("original_language", e.target.value)}
-              placeholder="z.B. en"
+              value={v.place_of_birth}
+              onChange={(e) => setField("place_of_birth", e.target.value)}
+            />
+          </label>
+          <label style={{ display: "grid", gap: 6, flex: 1 }}>
+            <span>Geschlecht (male_female) (optional)</span>
+            <input
+              className="zr-input"
+              value={v.male_female}
+              onChange={(e) => setField("male_female", e.target.value)}
             />
           </label>
         </div>
-      </div>
 
-      {isEdit && showUnknownFields && Object.keys(extras || {}).length ? (
-        <div className="zr-card" style={{ display: "grid", gap: 10 }}>
-          <div style={{ fontWeight: 900 }}>Weitere Felder</div>
-          {Object.keys(extras)
-            .sort((a, b) => a.localeCompare(b))
-            .map((k) => (
-              <label key={k} style={{ display: "grid", gap: 6 }}>
-                <span>{k}</span>
-                <input
-                  className="zr-input"
-                  value={extras[k] ?? ""}
-                  onChange={(e) => setExtra(k, e.target.value)}
-                />
-              </label>
-            ))}
+        <div className="zr-toolbar">
+          <label style={{ display: "grid", gap: 6, flex: 1 }}>
+            <span>Veröffentlichte Titel (published_titles) (optional)</span>
+            <input
+              className="zr-input"
+              type="text"
+              inputMode="numeric"
+              value={v.published_titles}
+              onChange={(e) => setField("published_titles", e.target.value)}
+            />
+          </label>
+          <label style={{ display: "grid", gap: 6, flex: 1 }}>
+            <span>Millionenseller (number_of_millionsellers) (optional)</span>
+            <input
+              className="zr-input"
+              type="text"
+              inputMode="numeric"
+              value={v.number_of_millionsellers}
+              onChange={(e) => setField("number_of_millionsellers", e.target.value)}
+            />
+          </label>
         </div>
-      ) : null}
+
+        <div className="zr-toolbar">
+          <label style={{ display: "grid", gap: 6, flex: 1 }}>
+            <span>Titel anzeigen (title_display) (optional)</span>
+            <input
+              className="zr-input"
+              value={v.title_display}
+              onChange={(e) => setField("title_display", e.target.value)}
+            />
+          </label>
+          <label style={{ display: "grid", gap: 6, flex: 1 }}>
+            <span>Untertitel (subtitle_display) (optional)</span>
+            <input
+              className="zr-input"
+              value={v.subtitle_display}
+              onChange={(e) => setField("subtitle_display", e.target.value)}
+            />
+          </label>
+        </div>
+
+        <div className="zr-toolbar">
+          <label style={{ display: "grid", gap: 6, flex: 1 }}>
+            <span>Homepage Highlight (home_featured_slot) (optional)</span>
+            <select
+              className="zr-input"
+              value={v.home_featured_slot || ""}
+              onChange={(e) => setField("home_featured_slot", e.target.value)}
+            >
+              <option value="">Kein Highlight</option>
+              <option value="finished">Finished</option>
+              <option value="received">Received</option>
+            </select>
+          </label>
+        </div>
+
+        <div className="zr-toolbar">
+          <label style={{ display: "grid", gap: 6, flex: 1 }}>
+            <span>Stichwort (title_keyword)</span>
+            <input
+              className="zr-input"
+              value={v.title_keyword}
+              onChange={(e) => {
+                setField("title_keyword", e.target.value);
+                runAutocomplete("title_keyword", e.target.value);
+              }}
+              onBlur={() => setTimeout(() => setAc({ field: "", items: [] }), 150)}
+            />
+          </label>
+          <label style={{ display: "grid", gap: 6 }}>
+            <span>Position (title_keyword_position)</span>
+            <input
+              className="zr-input"
+              type="text"
+              inputMode="numeric"
+              value={v.title_keyword_position}
+              onChange={(e) => setField("title_keyword_position", e.target.value)}
+            />
+          </label>
+        </div>
+
+        <div className="zr-card" style={{ display: "grid", gap: 10 }}>
+          <div style={{ fontWeight: 900 }}>Weitere Stichworte (optional)</div>
+          <div className="zr-toolbar">
+            <label style={{ display: "grid", gap: 6, flex: 1 }}>
+              <span>title_keyword2</span>
+              <input
+                className="zr-input"
+                value={v.title_keyword2}
+                onChange={(e) => setField("title_keyword2", e.target.value)}
+              />
+            </label>
+            <label style={{ display: "grid", gap: 6 }}>
+              <span>title_keyword2_position</span>
+              <input
+                className="zr-input"
+                type="text"
+                inputMode="numeric"
+                value={v.title_keyword2_position}
+                onChange={(e) => setField("title_keyword2_position", e.target.value)}
+              />
+            </label>
+          </div>
+          <div className="zr-toolbar">
+            <label style={{ display: "grid", gap: 6, flex: 1 }}>
+              <span>title_keyword3</span>
+              <input
+                className="zr-input"
+                value={v.title_keyword3}
+                onChange={(e) => setField("title_keyword3", e.target.value)}
+              />
+            </label>
+            <label style={{ display: "grid", gap: 6 }}>
+              <span>title_keyword3_position</span>
+              <input
+                className="zr-input"
+                type="text"
+                inputMode="numeric"
+                value={v.title_keyword3_position}
+                onChange={(e) => setField("title_keyword3_position", e.target.value)}
+              />
+            </label>
+          </div>
+        </div>
+
+        <div className="zr-toolbar">
+          <label style={{ display: "grid", gap: 6, flex: 1, position: "relative" }}>
+            <span>Verlag Anzeigename (publisher_name_display)</span>
+            <input
+              className="zr-input"
+              value={v.publisher_name_display}
+              onChange={(e) => {
+                setPublisherIdentityField("publisher_name_display", e.target.value);
+                runAutocomplete("publisher_name_display", e.target.value);
+              }}
+              onBlur={() => setTimeout(() => setAc({ field: "", items: [] }), 150)}
+            />
+            {ac.field === "publisher_name_display" && ac.items.length ? (
+              <div
+                style={{
+                  position: "absolute",
+                  top: "100%",
+                  left: 0,
+                  right: 0,
+                  zIndex: 5,
+                  background: "#fff",
+                  border: "1px solid rgba(0,0,0,0.15)",
+                  borderRadius: 12,
+                  padding: 6,
+                  marginTop: 4,
+                }}
+              >
+                {ac.items.map((it, index) => (
+                  <button
+                    key={suggestionKey(it, index)}
+                    type="button"
+                    className="zr-btn2 zr-btn2--ghost zr-btn2--sm"
+                    style={{
+                      width: "100%",
+                      justifyContent: "flex-start",
+                      marginBottom: 4,
+                      flexDirection: "column",
+                      alignItems: "flex-start",
+                    }}
+                    onMouseDown={(e) => e.preventDefault()}
+                    onClick={() => {
+                      if (it && typeof it === "object") {
+                        applyPublisherMatch(it, { overwriteIdentity: true, fillOnly: false });
+                      } else {
+                        const picked = String(it || "").trim();
+                        setPublisherIdentityField("publisher_name_display", picked);
+                      }
+                      setAc({ field: "", items: [] });
+                    }}
+                  >
+                    <span>{publisherSuggestionLabel(it)}</span>
+                    {it && typeof it === "object" && String(it.abbr || "").trim() ? (
+                      <span style={{ fontSize: 12, opacity: 0.72 }}>Verlag aus DB</span>
+                    ) : null}
+                  </button>
+                ))}
+              </div>
+            ) : null}
+          </label>
+        </div>
+
+        <label style={{ display: "grid", gap: 6 }}>
+          <span>Kommentar (optional)</span>
+          <textarea
+            className="zr-input"
+            rows={3}
+            value={v.comment}
+            onChange={(e) => setField("comment", e.target.value)}
+          />
+        </label>
+
+        <div className="zr-card" style={{ display: "grid", gap: 10 }}>
+          <div style={{ fontWeight: 900 }}>ISBN & Kauf-Link (optional)</div>
+          <div className="zr-toolbar">
+            <label style={{ display: "grid", gap: 6, flex: 1 }}>
+              <span>purchase_url</span>
+              <input
+                className="zr-input"
+                value={v.purchase_url}
+                onChange={(e) => setField("purchase_url", e.target.value)}
+                placeholder="https://…"
+              />
+            </label>
+            <label style={{ display: "grid", gap: 6, width: 220 }}>
+              <span>Originalsprache (original_language)</span>
+              <input
+                className="zr-input"
+                value={v.original_language}
+                onChange={(e) => setField("original_language", e.target.value)}
+                placeholder="z.B. en"
+              />
+            </label>
+          </div>
+        </div>
+
+        {isEdit && showUnknownFields && Object.keys(extras || {}).length ? (
+          <div className="zr-card" style={{ display: "grid", gap: 10 }}>
+            <div style={{ fontWeight: 900 }}>Weitere Felder</div>
+            {Object.keys(extras)
+              .sort((a, b) => a.localeCompare(b))
+              .map((k) => (
+                <label key={k} style={{ display: "grid", gap: 6 }}>
+                  <span>{k}</span>
+                  <input
+                    className="zr-input"
+                    value={extras[k] ?? ""}
+                    onChange={(e) => setExtra(k, e.target.value)}
+                  />
+                </label>
+              ))}
+          </div>
+        ) : null}
+      </details>
 
       {scannerOpen ? (
         <div
@@ -2803,40 +2852,7 @@ export default function BookForm({
           </div>
         </div>
       ) : null}
-
-      {lockedDraftId ? (
-        <div className="zr-card" style={{ fontWeight: 700 }}>
-          Vorhandener Eintrag ausgewählt – beim Speichern wird dieser Datensatz aktualisiert:
-          <br />
-          <code>{lockedDraftId}</code>
-          <br />
-          Es wird kein neuer Eintrag angelegt.
-        </div>
-      ) : null}
-
-      <div className="zr-toolbar" style={{ marginTop: 4 }}>
-        <button
-          className="zr-btn2 zr-btn2--primary"
-          disabled={busy || coverPrepBusy}
-          type="submit"
-          onClick={() => {
-            explicitSubmitRef.current = true;
-          }}
-        >
-          {busy ? "…" : coverPrepBusy ? "Vorbereiten…" : submitLabel}
-        </button>
-
-        {onCancel ? (
-          <button
-            className="zr-btn2 zr-btn2--ghost"
-            type="button"
-            onClick={onCancel}
-            disabled={busy || coverPrepBusy}
-          >
-            Abbrechen
-          </button>
-        ) : null}
-      </div>
     </form>
   );
+
 }
