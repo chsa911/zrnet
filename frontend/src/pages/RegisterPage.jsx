@@ -1,21 +1,17 @@
 import React from "react";
-import RegistrationForm from "../components/RegistrationForm";
-import { useI18n } from "../context/I18nContext";
-import AdminNavRow from "../components/AdminNavRow";
+import BookForm from "../components/BookForm";
+import BookFormStagingPwa from "../components/BookFormStagingPwa";
 
-export default function RegisterPage() {
-  const { t } = useI18n();
-
+function isStandalonePwa() {
   return (
-    <section className="zr-section">
-      <AdminNavRow />
-
-      <h1>{t("register_title")}</h1>
-      <p className="zr-lede">{t("register_lede")}</p>
-
-      <div className="zr-card">
-        <RegistrationForm />
-      </div>
-    </section>
+    window.matchMedia?.("(display-mode: standalone)")?.matches ||
+    window.navigator.standalone === true
   );
+}
+
+export default function RegisterPage(props) {
+  const isStaging = import.meta.env.VITE_APP_ENV === "staging";
+  const usePwaForm = isStaging && isStandalonePwa();
+
+  return usePwaForm ? <BookFormStagingPwa {...props} /> : <BookForm {...props} />;
 }
