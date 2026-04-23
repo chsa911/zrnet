@@ -1500,14 +1500,25 @@ async function registerExistingBook(req, res) {
   const widthCm = toNum(body.width_cm);
   const heightCm = toNum(body.height_cm);
 
-  if (!requestedBarcode) {
-    if (!Number.isFinite(widthCm) || !Number.isFinite(heightCm) || widthCm <= 0 || heightCm <= 0) {
-      return res.status(400).json({ error: "width_and_height_required" });
-    }
-  }
+  const assignBarcodeFlag = body.assign_barcode ?? body.assignBarcode;
+const assignBarcodeNow = !(
+  assignBarcodeFlag === false ||
+  assignBarcodeFlag === "false" ||
+  assignBarcodeFlag === 0 ||
+  assignBarcodeFlag === "0"
+);
 
-  const rule = !requestedBarcode ? await resolveRuleAndPos(pool, widthCm, heightCm) : null;
-  if (!requestedBarcode && !rule) return res.status(422).json({ error: "no_series_for_size" });
+// 👉 NUR prüfen wenn Barcode wirklich gewollt ist
+if (assignBarcodeNow && !requestedBarcode) {
+  if (!Number.isFinite(widthCm) || !Number.isFinite(heightCm)) {
+    return res.status(400).json({ error: "width_and_height_required" });
+  }
+}
+const rule =
+  assignBarcodeNow && !requestedBarcode
+    ? await resolveRuleAndPos(pool, widthCm, heightCm)
+    : null;  
+if (!requestedBarcode && !rule) return res.status(422).json({ error: "no_series_for_size" });
 
   const nowIso = new Date().toISOString();
   const cols = await getColumns(pool, "books");
