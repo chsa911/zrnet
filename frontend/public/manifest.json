@@ -2,7 +2,7 @@
   "name": "PagesInLine",
   "short_name": "PagesInLine",
   "id": "/?v=2",
-  "start_url": "/?v=2",
+  "start_url": "/admin/register?v=1",
   "scope": "/",
   "display": "standalone",
   "background_color": "#ffffff",
