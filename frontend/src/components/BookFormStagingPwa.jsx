@@ -324,7 +324,7 @@ export default function BookFormStagingPwa({
   submitLabel = mode === "create" ? "Speichern" : "Aktualisieren",
   onCancel,
   onSuccess,
-  assignBarcode = true,
+  assignBarcode = false,
   createReadingStatus,
 }) {
   const isEdit = mode === "edit";
