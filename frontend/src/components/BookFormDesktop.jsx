@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { createWorker, PSM } from "tesseract.js";
 import { BrowserMultiFormatReader } from "@zxing/browser";
-import { lookupIsbn, registerBook, updateBook, uploadCover } from "../api/books";
+import { findDraft, lookupIsbn, registerBook, registerExistingBook, updateBook, uploadCover } from "../api/books";
 import {{
   deleteUploadJob,
   getPendingUploadCount,
@@ -431,6 +431,15 @@ export default function BookForm({
   };
 
   
+  const [draftCandidates, setDraftCandidates] = useState([]);
+  const [draftSelectedId, setDraftSelectedId] = useState("");
+  const [lockedDraftId, setLockedDraftId] = useState("");
+
+  const selectedDraft = useMemo(
+    () => draftCandidates.find((d) => d.id === (lockedDraftId || draftSelectedId)) || null,
+    [draftCandidates, draftSelectedId, lockedDraftId]
+  );
+
 
   const msgRef = useRef(null);
 
@@ -511,6 +520,104 @@ export default function BookForm({
   }, [scannerOpen]);
 
   
+  useEffect(() => {
+    if (isEdit) return;
+
+    const n = normalizeIsbnInputs(v.isbn13, v.isbn10);
+    const isbn = n.isbn13 || n.isbn10 || "";
+    const pagesRaw = String(v.pages || "").trim();
+    const code = /^[0-9]+$/.test(pagesRaw) ? pagesRaw : "";
+    const titleDisplay = String(v.title_display || "").trim();
+    const authorLast = String(v.author_lastname || "").trim();
+    const publisherDisplay = String(v.publisher_name_display || "").trim();
+
+    const hasKey = !!isbn || !!code || !!titleDisplay || !!authorLast || !!publisherDisplay;
+    if (!hasKey) {
+      setDraftCandidates([]);
+      setDraftSelectedId("");
+      return;
+    }
+
+    let alive = true;
+    const t = setTimeout(() => {
+      (async () => {
+        try {
+          const r = await findDraft({
+            isbn: isbn || undefined,
+            code: code || undefined,
+            title_display: titleDisplay || undefined,
+            author_lastname: authorLast || undefined,
+            publisher_name_display: publisherDisplay || undefined,
+          });
+          if (!alive) return;
+          const items = Array.isArray(r?.items)
+            ? r.items
+            : Array.isArray(r)
+            ? r
+            : [];
+          setDraftCandidates(items);
+          setDraftSelectedId((prev) => {
+            if (lockedDraftId && items.some((x) => x.id === lockedDraftId)) return lockedDraftId;
+            if (prev && items.some((x) => x.id === prev)) return prev;
+            if (!lockedDraftId && items.length === 1) return items[0].id;
+            return lockedDraftId || "";
+          });
+        } catch {
+          if (!alive) return;
+          setDraftCandidates([]);
+          setDraftSelectedId("");
+        }
+      })();
+    }, 350);
+
+    return () => {
+      alive = false;
+      clearTimeout(t);
+    };
+  }, [
+    isEdit,
+    v.isbn13,
+    v.isbn10,
+    v.pages,
+    v.title_display,
+    v.author_lastname,
+    v.publisher_name_display,
+    lockedDraftId,
+  ]);
+
+  useEffect(() => {
+    if (!selectedDraft) return;
+    setV((prev) => ({
+      ...prev,
+      author_id: prev.author_id || selectedDraft.author_id || "",
+      publisher_id: prev.publisher_id || selectedDraft.publisher_id || "",
+      author_lastname: prev.author_lastname || selectedDraft.author_last_name || "",
+      author_firstname: prev.author_firstname || selectedDraft.author_first_name || "",
+      name_display: prev.name_display || selectedDraft.author_name_display || "",
+      author_abbreviation: prev.author_abbreviation || selectedDraft.author_abbreviation || "",
+      author_nationality: prev.author_nationality || selectedDraft.author_nationality || "",
+      place_of_birth: prev.place_of_birth || selectedDraft.place_of_birth || "",
+      male_female: prev.male_female || selectedDraft.male_female || "",
+      published_titles: prev.published_titles || toStr(selectedDraft.published_titles),
+      number_of_millionsellers:
+        prev.number_of_millionsellers || toStr(selectedDraft.number_of_millionsellers),
+      title_display: prev.title_display || selectedDraft.title_display || "",
+      subtitle_display: prev.subtitle_display || selectedDraft.subtitle_display || "",
+      title_keyword: prev.title_keyword || selectedDraft.title_keyword || "",
+      publisher_name_display:
+        prev.publisher_name_display || selectedDraft.publisher_name_display || "",
+      publisher_abbr: prev.publisher_abbr || selectedDraft.publisher_abbr || "",
+      pages: prev.pages || toStr(selectedDraft.pages),
+      width_cm: prev.width_cm || toStr(selectedDraft.width_cm),
+      height_cm: prev.height_cm || toStr(selectedDraft.height_cm),
+      isbn13: prev.isbn13 || selectedDraft.isbn13 || "",
+      isbn10: prev.isbn10 || selectedDraft.isbn10 || "",
+      original_language: prev.original_language || selectedDraft.original_language || "",
+      purchase_url: prev.purchase_url || selectedDraft.purchase_url || "",
+      comment: prev.comment || selectedDraft.comment || "",
+    }));
+  }, [selectedDraft]);
+
 
   function setField(key, val) {
     setV((prev) => ({ ...prev, [key]: val }));
@@ -836,18 +943,25 @@ export default function BookForm({
     if (!isEdit && createReadingStatus) payload.reading_status = createReadingStatus;
     if (!isEdit) payload.assign_barcode = false;
 
+    const targetDraftId = lockedDraftId || draftSelectedId || "";
     let jobId = null;
 
     if (!isEdit) {
       jobId = globalThis.crypto?.randomUUID?.() || `${Date.now()}-${Math.random()}`;
+
+      const flow = targetDraftId ? "finalize" : "create";
+      const jobPayload = { ...payload };
+      if (flow === "create") jobPayload.requestId = jobId;
+      if (flow === "finalize") delete jobPayload.assign_barcode;
 
       await upsertUploadJob({
         id: jobId,
         createdAt: Date.now(),
         status: "pending",
         retries: 0,
-        flow: "create",
-        payload: { ...payload, requestId: jobId },
+        flow,
+        draftId: flow === "finalize" ? targetDraftId : null,
+        payload: jobPayload,
         step: "create",
         cover: coverFile || null,
         coverName: coverFile?.name || "cover.jpg",
@@ -860,22 +974,43 @@ export default function BookForm({
       let saved;
       if (isEdit) {
         saved = await updateBook(bookId || initialBook?._id || initialBook?.id, payload);
+      } else if (targetDraftId) {
+        const p2 = { ...payload };
+        delete p2.assign_barcode;
+        saved = await registerExistingBook(targetDraftId, p2);
       } else {
         const p2 = jobId ? { ...payload, requestId: jobId } : payload;
         saved = await registerBook(p2);
       }
 
-      const savedId = saved?.id || saved?._id || bookId || initialBook?._id || initialBook?.id;
+      const savedId =
+        saved?.id ||
+        saved?._id ||
+        targetDraftId ||
+        bookId ||
+        initialBook?._id ||
+        initialBook?.id;
 
       if (jobId) {
+        const flow = targetDraftId ? "finalize" : "create";
+        const jobPayload =
+          flow === "finalize"
+            ? (() => {
+                const p2 = { ...payload };
+                delete p2.assign_barcode;
+                return p2;
+              })()
+            : { ...payload, requestId: jobId };
+
         if (coverFile && savedId) {
           await upsertUploadJob({
             id: jobId,
             createdAt: Date.now(),
             status: "pending",
             retries: 0,
-            flow: "create",
-            payload: { ...payload, requestId: jobId },
+            flow,
+            draftId: flow === "finalize" ? targetDraftId : null,
+            payload: jobPayload,
             step: "cover",
             savedId,
             cover: coverFile,
@@ -917,6 +1052,9 @@ export default function BookForm({
           isbn10: "",
           pages: "",
         });
+        setDraftCandidates([]);
+        setDraftSelectedId("");
+        setLockedDraftId("");
       }
     } catch (err) {
       setMsg(
@@ -958,6 +1096,58 @@ export default function BookForm({
       ) : null}
 
       
+      {!isEdit && draftCandidates.length ? (
+        <div className="zr-card" style={{ display: "grid", gap: 10 }}>
+          <div style={{ fontWeight: 600 }}>
+            {draftCandidates.length === 1
+              ? "Vorhandener Eintrag gefunden"
+              : "Mehrere vorhandene Einträge gefunden"}
+          </div>
+
+          <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+            <button
+              type="button"
+              className="zr-btn2 zr-btn2--ghost zr-btn2--sm"
+              onClick={() => {
+                setDraftSelectedId("");
+                setLockedDraftId("");
+              }}
+            >
+              Als neuen Eintrag anlegen
+            </button>
+
+            {draftCandidates.slice(0, 4).map((d) => (
+              <button
+                key={d.id}
+                type="button"
+                onClick={() => {
+                  setDraftSelectedId(d.id);
+                  setLockedDraftId(d.id);
+                }}
+                className="zr-card"
+                style={{
+                  padding: 8,
+                  cursor: "pointer",
+                  borderColor:
+                    d.id === (lockedDraftId || draftSelectedId)
+                      ? "rgba(0,0,0,0.35)"
+                      : "rgba(0,0,0,0.12)",
+                  width: 220,
+                  textAlign: "left",
+                }}
+              >
+                <div style={{ fontWeight: 700 }}>{d.title_display || "Ohne Titel"}</div>
+                <div style={{ fontSize: 12, opacity: 0.8 }}>
+                  {d.author_name_display ||
+                    [d.author_first_name, d.author_last_name].filter(Boolean).join(" ") ||
+                    "—"}
+                </div>
+              </button>
+            ))}
+          </div>
+        </div>
+      ) : null}
+
 
       <div className="zr-card" style={{ display: "grid", gap: 10 }}>
         <div style={{ fontWeight: 900 }}>Cover Foto</div>
@@ -1157,6 +1347,16 @@ export default function BookForm({
       ) : null}
 
       
+      {lockedDraftId ? (
+        <div className="zr-card" style={{ fontWeight: 700 }}>
+          Vorhandener Eintrag ausgewählt.
+          <br />
+          Beim Speichern wird dieser Datensatz aktualisiert:
+          <br />
+          <code>{lockedDraftId}</code>
+        </div>
+      ) : null}
+
 
       <div className="zr-toolbar" style={{ marginTop: 4 }}>
         <button

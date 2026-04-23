@@ -1501,13 +1501,8 @@ async function registerExistingBook(req, res) {
   const heightCm = toNum(body.height_cm);
 
   const assignBarcodeFlag = body.assign_barcode ?? body.assignBarcode;
-const assignBarcodeNow = !(
-  assignBarcodeFlag === false ||
-  assignBarcodeFlag === "false" ||
-  assignBarcodeFlag === 0 ||
-  assignBarcodeFlag === "0"
-);
-
+const assignBarcodeNow =
+  assignBarcodeFlag === true || assignBarcodeFlag === "true";
 // 👉 NUR prüfen wenn Barcode wirklich gewollt ist
 if (assignBarcodeNow && !requestedBarcode) {
   if (!Number.isFinite(widthCm) || !Number.isFinite(heightCm)) {
