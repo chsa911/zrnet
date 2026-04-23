@@ -2,12 +2,12 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import { createWorker, PSM } from "tesseract.js";
 import { BrowserMultiFormatReader } from "@zxing/browser";
 import { lookupIsbn, registerBook, updateBook, uploadCover } from "../api/books";
-import {{
+import {
   deleteUploadJob,
   getPendingUploadCount,
   processUploadQueue,
   upsertUploadJob,
-}} from "../utils/uploadQueue";
+} from "../utils/uploadQueue";
 import { startIsbnScanner } from "../utils/isbnScanner";
 
 /* ---------- tolerant field picker ---------- */
