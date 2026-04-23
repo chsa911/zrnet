@@ -65,20 +65,12 @@ async function runCoverCrop(inputPath, outputPath) {
   return { stdout, stderr };
 }
 
-// List + search
 router.get("/", listBooks);
 router.get("/list", listBooks);
-
-// Autocomplete
 router.get("/autocomplete", autocomplete);
-
-// Read one
 router.get("/:id", getBook);
-
-// Create
 router.post("/", registerBook);
 
-// Public cover upload for newly created books
 router.post("/:id/cover", upload.single("cover"), async (req, res) => {
   const pool = req.app.get("pgPool");
   if (!pool) return res.status(500).json({ error: "pgPool missing" });
@@ -97,12 +89,9 @@ router.post("/:id/cover", upload.single("cover"), async (req, res) => {
     process.env.UPLOAD_ROOT || path.resolve(__dirname, "../../uploads");
   const dir = path.join(uploadRoot, "covers");
 
-  // Final files
   const croppedMain = path.join(dir, `${id}.jpg`);
   const homeMain = path.join(dir, `${id}-home.jpg`);
   const rawMain = path.join(dir, `${id}-raw.jpg`);
-
-  // Temp files for crop processing
   const tempInput = path.join(dir, `${id}-tmp-upload.jpg`);
   const tempCropped = path.join(dir, `${id}-tmp-cropped.jpg`);
 
@@ -111,11 +100,7 @@ router.post("/:id/cover", upload.single("cover"), async (req, res) => {
 
   try {
     await fs.mkdir(dir, { recursive: true });
-
-    // Always keep the raw upload with a stable name
     await fs.writeFile(rawMain, req.file.buffer);
-
-    // Write temp input for the Python crop script
     await fs.writeFile(tempInput, req.file.buffer);
 
     try {
@@ -126,8 +111,6 @@ router.post("/:id/cover", upload.single("cover"), async (req, res) => {
     } catch (cropErr) {
       cropDetail = String(cropErr?.message || cropErr);
       console.warn("cover autocrop failed, falling back to raw:", cropDetail);
-
-      // Fallback: serve the raw image if crop fails
       await fs.copyFile(rawMain, croppedMain);
       await fs.copyFile(rawMain, homeMain);
     }
@@ -178,10 +161,7 @@ router.post("/:id/cover", upload.single("cover"), async (req, res) => {
   }
 });
 
-// Patch
 router.patch("/:id", updateBook);
-
-// Delete
 router.delete("/:id", dropBook);
 
 module.exports = router;
