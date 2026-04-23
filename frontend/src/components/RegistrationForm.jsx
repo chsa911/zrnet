@@ -1,4 +1,5 @@
 import React, { useMemo, useState } from "react";
+import BookFormStagingPwa from "./BookFormStagingPwa";
 import BookForm from "./BookForm";
 
 function isStandalonePwa() {
@@ -13,8 +14,10 @@ export default function RegistrationForm({ onRegistered }) {
   const [newInStock, setNewInStock] = useState(false);
 
   const usePwaNoBarcodeDefault = useMemo(() => {
-    const isStaging = import.meta.env.VITE_APP_ENV === "staging";
-    return isStaging && isStandalonePwa();
+    const standalone = isStandalonePwa();
+    const host = window.location.hostname;
+    const isStagingHost = host.includes("staging.pagesinline.com");
+    return standalone && isStagingHost;
   }, []);
 
   const assignBarcode = usePwaNoBarcodeDefault
@@ -69,15 +72,27 @@ export default function RegistrationForm({ onRegistered }) {
         </>
       ) : null}
 
-      <BookForm
-        mode="create"
-        assignBarcode={assignBarcode}
-        createReadingStatus={createReadingStatus}
-        submitLabel={submitLabel}
-        onSuccess={({ saved }) => {
-          onRegistered && onRegistered(saved);
-        }}
-      />
+      {usePwaNoBarcodeDefault ? (
+        <BookFormStagingPwa
+          mode="create"
+          assignBarcode={false}
+          createReadingStatus="in_progress"
+          submitLabel="Speichern"
+          onSuccess={({ saved }) => {
+            onRegistered && onRegistered(saved);
+          }}
+        />
+      ) : (
+        <BookForm
+          mode="create"
+          assignBarcode={assignBarcode}
+          createReadingStatus={createReadingStatus}
+          submitLabel={submitLabel}
+          onSuccess={({ saved }) => {
+            onRegistered && onRegistered(saved);
+          }}
+        />
+      )}
     </div>
   );
 }
