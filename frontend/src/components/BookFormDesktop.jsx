@@ -2014,7 +2014,17 @@ export default function BookForm({
   }
 
   return (
-    <form onSubmit={onSubmit} noValidate style={{ display: "grid", gap: 12 }}>
+    <form className="desktop-priority-form" onSubmit={onSubmit} noValidate style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+      <style>{`
+        .desktop-priority-form > * { order: 100; }
+        .desktop-priority-form [data-desk-order="10"] { order: 10; }
+        .desktop-priority-form [data-desk-order="20"] { order: 20; }
+        .desktop-priority-form [data-desk-order="30"] { order: 30; }
+        .desktop-priority-form [data-desk-order="40"] { order: 40; }
+        .desktop-priority-form [data-desk-order="50"] { order: 50; }
+        .desktop-priority-form [data-desk-order="60"] { order: 60; }
+        .desktop-priority-form [data-desk-order="70"] { order: 70; }
+      `}</style>
       <h2 style={{ margin: 0 }}>{isEdit ? "Edit Book" : "Register Book"}</h2>
 
       {msg ? (
@@ -2133,7 +2143,7 @@ export default function BookForm({
         ) : null
       ) : null}
 
-      <div className="zr-toolbar">
+      <div data-desk-order="10" className="zr-toolbar">
         <label style={{ display: "grid", gap: 6, flex: 1 }}>
           <span>Barcode{lockBarcode ? " (gesperrt)" : ""}</span>
           <input
@@ -2151,7 +2161,7 @@ export default function BookForm({
           />
         </label>
       </div>      {!isEdit && assignBarcode ? (
-        <div className="zr-card" style={{ display: "grid", gap: 10 }}>
+        <div data-desk-order="10" className="zr-card" style={{ display: "grid", gap: 10 }}>
           <div style={{ fontWeight: 900 }}>
             Barcode-Vorschlag / Kurzangaben (optional)
           </div>
@@ -2259,8 +2269,8 @@ export default function BookForm({
         </div>
       ) : null}
 
-      <div className="zr-card" style={{ display: "grid", gap: 10 }}>
-        <div style={{ fontWeight: 900 }}>Cover Foto (iPhone)</div>
+      <div className="zr-card" style={{ display: "none" }}>
+        <div style={{ fontWeight: 900, display: "none" }}>Cover Foto (iPhone)</div>
         <div style={{ opacity: 0.8, fontSize: 13 }}>
           Tippen → Kamera öffnet sich → Foto wird automatisch als <code>&lt;book_id&gt;.jpg</code>{" "}
           gespeichert.
@@ -2389,7 +2399,7 @@ export default function BookForm({
         </label>
       </div>
 
-      <label style={{ display: "grid", gap: 6 }}>
+      <label data-desk-order="30" style={{ display: "grid", gap: 6 }}>
         <span>Autor Anzeigename (name_display) (optional)</span>
         <input
           className="zr-input"
@@ -2448,7 +2458,7 @@ export default function BookForm({
         </label>
       </div>
 
-      <div className="zr-toolbar">
+      <div data-desk-order="40" className="zr-toolbar">
         <label style={{ display: "grid", gap: 6, flex: 1 }}>
           <span>Titel anzeigen (title_display) (optional)</span>
           <input
@@ -2536,7 +2546,7 @@ export default function BookForm({
         </div>
       </div>
 
-      <div className="zr-toolbar">
+      <div data-desk-order="50" className="zr-toolbar">
         <label style={{ display: "grid", gap: 6, flex: 1, position: "relative" }}>
           <span>Verlag Anzeigename (publisher_name_display)</span>
           <input
@@ -2607,7 +2617,7 @@ export default function BookForm({
         />
       </label>
 
-      <div className="zr-card" style={{ display: "grid", gap: 10 }}>
+      <div data-desk-order="20" className="zr-card" style={{ display: "grid", gap: 10 }}>
         <div style={{ fontWeight: 900 }}>ISBN & Kauf-Link (optional)</div>
 
         <input
@@ -2822,7 +2832,7 @@ export default function BookForm({
         </div>
       ) : null}
 
-      <div className="zr-toolbar" style={{ marginTop: 4 }}>
+      <div data-desk-order="60" className="zr-toolbar" style={{ marginTop: 4 }}>
         <button
           className="zr-btn2 zr-btn2--primary"
           disabled={busy || coverPrepBusy}
