@@ -1075,8 +1075,8 @@ export default function BookForm({
   }
 
   return (
-    <form onSubmit={onSubmit} noValidate style={ display: "grid", gap: 12 }>
-      <h2 style={ margin: 0 }>{isEdit ? "Edit Book" : "Register Book"}</h2>
+    <form onSubmit={onSubmit} noValidate style={{ display: "grid", gap: 12 }}>
+      <h2 style={{ margin: 0 }}>{isEdit ? "Edit Book" : "Register Book"}</h2>
 
       {msg ? (
         <div
@@ -1097,14 +1097,14 @@ export default function BookForm({
 
       
       {!isEdit && draftCandidates.length ? (
-        <div className="zr-card" style={ display: "grid", gap: 10 }>
-          <div style={ fontWeight: 600 }>
+        <div className="zr-card" style={{ display: "grid", gap: 10 }}>
+          <div style={{ fontWeight: 600 }}>
             {draftCandidates.length === 1
               ? "Vorhandener Eintrag gefunden"
               : "Mehrere vorhandene Einträge gefunden"}
           </div>
 
-          <div style={ display: "flex", gap: 10, flexWrap: "wrap" }>
+          <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
             <button
               type="button"
               className="zr-btn2 zr-btn2--ghost zr-btn2--sm"
@@ -1136,8 +1136,8 @@ export default function BookForm({
                   textAlign: "left",
                 }
               >
-                <div style={ fontWeight: 700 }>{d.title_display || "Ohne Titel"}</div>
-                <div style={ fontSize: 12, opacity: 0.8 }>
+                <div style={{ fontWeight: 700 }}>{d.title_display || "Ohne Titel"}</div>
+                <div style={{ fontSize: 12, opacity: 0.8 }}>
                   {d.author_name_display ||
                     [d.author_first_name, d.author_last_name].filter(Boolean).join(" ") ||
                     "—"}
@@ -1149,8 +1149,8 @@ export default function BookForm({
       ) : null}
 
 
-      <div className="zr-card" style={ display: "grid", gap: 10 }>
-        <div style={ fontWeight: 900 }>Cover Foto</div>
+      <div className="zr-card" style={{ display: "grid", gap: 10 }}>
+        <div style={{ fontWeight: 900 }}>Cover Foto</div>
 
         <input
           type="file"
@@ -1161,7 +1161,7 @@ export default function BookForm({
         />
 
         {coverPrepBusy ? (
-          <div style={ opacity: 0.8, fontSize: 13 }>Cover wird vorbereitet…</div>
+          <div style={{ opacity: 0.8, fontSize: 13 }}>Cover wird vorbereitet…</div>
         ) : null}
 
         {coverPreviewUrl ? (
@@ -1177,15 +1177,15 @@ export default function BookForm({
         ) : null}
       </div>
 
-      <div className="zr-card" style={ display: "grid", gap: 10 }>
-        <div style={ fontWeight: 900 }>ISBN</div>
+      <div className="zr-card" style={{ display: "grid", gap: 10 }}>
+        <div style={{ fontWeight: 900 }}>ISBN</div>
 
         <input
           ref={isbnPhotoInputRef}
           type="file"
           accept="image/*"
           capture="environment"
-          style={ display: "none" }
+          style={{ display: "none" }}
           onChange={handleIsbnPhotoChange}
         />
 
@@ -1218,7 +1218,7 @@ export default function BookForm({
           </button>
         </div>
 
-        <label style={ display: "grid", gap: 6 }>
+        <label style={{ display: "grid", gap: 6 }}>
           <span>ISBN-13</span>
           <input
             className="zr-input"
@@ -1227,7 +1227,7 @@ export default function BookForm({
           />
         </label>
 
-        <label style={ display: "grid", gap: 6 }>
+        <label style={{ display: "grid", gap: 6 }}>
           <span>ISBN-10</span>
           <input
             className="zr-input"
@@ -1237,7 +1237,7 @@ export default function BookForm({
         </label>
       </div>
 
-      <label style={ display: "grid", gap: 6 }>
+      <label style={{ display: "grid", gap: 6 }}>
         <span>Seiten (pages)</span>
         <input
           className="zr-input"
@@ -1317,15 +1317,15 @@ export default function BookForm({
               background: "rgba(255,255,255,0.96)",
             }
           >
-            <div style={ fontWeight: 800, marginBottom: 6 }>ISBN scannen</div>
-            <div style={ fontSize: 14, opacity: 0.82 }>
+            <div style={{ fontWeight: 800, marginBottom: 6 }}>ISBN scannen</div>
+            <div style={{ fontSize: 14, opacity: 0.82 }}>
               Barcode in den Rahmen halten. Der Scan stoppt automatisch.
             </div>
-            <div style={ fontSize: 12, opacity: 0.7, marginTop: 4 }>
+            <div style={{ fontSize: 12, opacity: 0.7, marginTop: 4 }}>
               {scannerStarting ? "Kamera startet…" : "Kein Foto nötig."}
             </div>
 
-            <div style={ display: "flex", gap: 8, marginTop: 12, flexWrap: "wrap" }>
+            <div style={{ display: "flex", gap: 8, marginTop: 12, flexWrap: "wrap" }}>
               <button
                 type="button"
                 className="zr-btn2 zr-btn2--ghost zr-btn2--sm"
@@ -1348,7 +1348,7 @@ export default function BookForm({
 
       
       {lockedDraftId ? (
-        <div className="zr-card" style={ fontWeight: 700 }>
+        <div className="zr-card" style={{ fontWeight: 700 }}>
           Vorhandener Eintrag ausgewählt.
           <br />
           Beim Speichern wird dieser Datensatz aktualisiert:
@@ -1358,7 +1358,7 @@ export default function BookForm({
       ) : null}
 
 
-      <div className="zr-toolbar" style={ marginTop: 4 }>
+      <div className="zr-toolbar" style={{ marginTop: 4 }}>
         <button
           className="zr-btn2 zr-btn2--primary"
           disabled={busy || coverPrepBusy}
