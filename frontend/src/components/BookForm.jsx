@@ -937,21 +937,21 @@ export default function BookForm({
   }
 
   return (
-    <form onSubmit={onSubmit} noValidate style={ display: "grid", gap: 12 }>
-      <h2 style={ margin: 0 }>{isEdit ? "Edit Book" : "Register Book"}</h2>
+    <form onSubmit={onSubmit} noValidate style={{ display: "grid", gap: 12 }}>
+      <h2 style={{ margin: 0 }}>{isEdit ? "Edit Book" : "Register Book"}</h2>
 
       {msg ? (
         <div
           ref={msgRef}
           className="zr-card"
-          style={
+          style={{
             borderColor: msg.toLowerCase().includes("fehler")
               ? "rgba(200,0,0,0.25)"
               : "rgba(0,0,0,0.12)",
             background: msg.toLowerCase().includes("fehler")
               ? "rgba(200,0,0,0.04)"
               : "rgba(0,0,0,0.02)",
-          }
+          }}
         >
           {msg}
         </div>
@@ -959,8 +959,8 @@ export default function BookForm({
 
       
 
-      <div className="zr-card" style={ display: "grid", gap: 10 }>
-        <div style={ fontWeight: 900 }>Cover Foto</div>
+      <div className="zr-card" style={{ display: "grid", gap: 10 }}>
+        <div style={{ fontWeight: 900 }}>Cover Foto</div>
 
         <input
           type="file"
@@ -971,31 +971,31 @@ export default function BookForm({
         />
 
         {coverPrepBusy ? (
-          <div style={ opacity: 0.8, fontSize: 13 }>Cover wird vorbereitet…</div>
+          <div style={{ opacity: 0.8, fontSize: 13 }}>Cover wird vorbereitet…</div>
         ) : null}
 
         {coverPreviewUrl ? (
           <img
             src={coverPreviewUrl}
             alt="Cover preview"
-            style={
+            style={{
               width: "100%",
               borderRadius: 12,
               border: "1px solid rgba(0,0,0,0.12)",
-            }
+            }}
           />
         ) : null}
       </div>
 
-      <div className="zr-card" style={ display: "grid", gap: 10 }>
-        <div style={ fontWeight: 900 }>ISBN</div>
+      <div className="zr-card" style={{ display: "grid", gap: 10 }}>
+        <div style={{ fontWeight: 900 }}>ISBN</div>
 
         <input
           ref={isbnPhotoInputRef}
           type="file"
           accept="image/*"
           capture="environment"
-          style={ display: "none" }
+          style={{ display: "none" }}
           onChange={handleIsbnPhotoChange}
         />
 
@@ -1028,7 +1028,7 @@ export default function BookForm({
           </button>
         </div>
 
-        <label style={ display: "grid", gap: 6 }>
+        <label style={{ display: "grid", gap: 6 }}>
           <span>ISBN-13</span>
           <input
             className="zr-input"
@@ -1037,7 +1037,7 @@ export default function BookForm({
           />
         </label>
 
-        <label style={ display: "grid", gap: 6 }>
+        <label style={{ display: "grid", gap: 6 }}>
           <span>ISBN-10</span>
           <input
             className="zr-input"
@@ -1047,7 +1047,7 @@ export default function BookForm({
         </label>
       </div>
 
-      <label style={ display: "grid", gap: 6 }>
+      <label style={{ display: "grid", gap: 6 }}>
         <span>Seiten (pages)</span>
         <input
           className="zr-input"
@@ -1061,81 +1061,81 @@ export default function BookForm({
 
       {scannerOpen ? (
         <div
-          style={
+          style={{
             position: "fixed",
             inset: 0,
             zIndex: 9999,
             background: "#000",
-          }
+          }}
         >
           <video
             ref={isbnVideoRef}
             autoPlay
             playsInline
             muted
-            style={
+            style={{
               width: "100%",
               height: "100%",
               objectFit: "cover",
-            }
+            }}
           />
 
           <button
             type="button"
             onClick={closeIsbnScanner}
             className="zr-btn2 zr-btn2--ghost"
-            style={
+            style={{
               position: "absolute",
               top: 16,
               left: 16,
               zIndex: 2,
               background: "rgba(255,255,255,0.9)",
-            }
+            }}
           >
             ✕
           </button>
 
           <div
-            style={
+            style={{
               position: "absolute",
               inset: 0,
               display: "grid",
               placeItems: "center",
               pointerEvents: "none",
-            }
+            }}
           >
             <div
-              style={
+              style={{
                 width: "86%",
                 maxWidth: 640,
                 aspectRatio: "1.8 / 1",
                 border: "2px solid rgba(255,255,255,0.96)",
                 borderRadius: 18,
                 boxShadow: "0 0 0 9999px rgba(0,0,0,0.36)",
-              }
+          }}
             />
           </div>
 
           <div
             className="zr-card"
-            style={
+            style={{
               position: "absolute",
               left: 16,
               right: 16,
               bottom: 16,
               zIndex: 2,
               background: "rgba(255,255,255,0.96)",
-            }
+            }}
           >
-            <div style={ fontWeight: 800, marginBottom: 6 }>ISBN scannen</div>
-            <div style={ fontSize: 14, opacity: 0.82 }>
+            <div style={{ fontWeight: 800, marginBottom: 6 }}>ISBN scannen</div>
+            <div style={{ fontSize: 14, opacity: 0.82 }}>
               Barcode in den Rahmen halten. Der Scan stoppt automatisch.
             </div>
-            <div style={ fontSize: 12, opacity: 0.7, marginTop: 4 }>
+            <div style={{ fontSize: 12, opacity: 0.7, marginTop: 4 }}>
               {scannerStarting ? "Kamera startet…" : "Kein Foto nötig."}
             </div>
 
-            <div style={ display: "flex", gap: 8, marginTop: 12, flexWrap: "wrap" }>
+            <div style={{ display: "flex", gap: 8, marginTop: 12, flexWrap: "wrap" }}>
               <button
                 type="button"
                 className="zr-btn2 zr-btn2--ghost zr-btn2--sm"
@@ -1158,7 +1158,7 @@ export default function BookForm({
 
       
 
-      <div className="zr-toolbar" style={ marginTop: 4 }>
+      <div className="zr-toolbar" style={{ marginTop: 4 }}>
         <button
           className="zr-btn2 zr-btn2--primary"
           disabled={busy || coverPrepBusy}
@@ -1176,7 +1176,7 @@ export default function BookForm({
               await processUploadQueue({ maxJobs: 10 });
               refreshPending();
               setMsg("Upload-Queue erneut versucht.");
-            }
+            }}
           >
             Pending Uploads: {pendingUploads}
           </button>
