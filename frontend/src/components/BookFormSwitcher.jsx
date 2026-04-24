@@ -2,16 +2,17 @@ import React from "react";
 import BookForm from "./BookForm";
 import BookFormDesktop from "./BookFormDesktop";
 
-function isMobileSafari() {
-  if (typeof navigator === "undefined") return false;
-  const ua = navigator.userAgent || "";
-  return (
-    /iPhone|iPad|iPod/i.test(ua) &&
-    /Safari/i.test(ua) &&
-    !/CriOS|FxiOS|EdgiOS/i.test(ua)
-  );
+function isMobile() {
+  if (typeof window === "undefined") return false;
+  return window.innerWidth <= 768;
 }
 
+export default function BookFormSwitcher(props) {
+  if (isMobile()) {
+    return <BookForm {...props} />;
+  }
+  return <BookFormDesktop {...props} />;
+}
 export default function BookFormSwitcher(props) {
   // Mobile Safari: clean create only, no draft matching.
   if (isMobileSafari()) {

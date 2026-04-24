@@ -1,5 +1,5 @@
 import React from "react";
-import BookForm from "./BookForm";
+import BookForm from "./BookFormSwitcher";
 
 export default function RegistrationForm({ onRegistered }) {
   return (
