@@ -1,3 +1,6 @@
+import React from "react";
+import BookForm from "./BookForm";
+
 export default function BookFormDesktop(props) {
   return (
     <div style={{ width: "100%", display: "flex", justifyContent: "center" }}>
