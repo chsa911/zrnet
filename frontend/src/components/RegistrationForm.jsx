@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import BookForm from "./BookForm";
+import BookForm from "./BookFormSwitcher";
 
 export default function RegistrationForm({ onRegistered }) {
   const [wishlist, setWishlist] = useState(false);
