@@ -7,23 +7,31 @@ export default function BookFormDesktop(props) {
       <style>{`
         .desktop-book-form {
           width: 100%;
-          max-width: 1100px;
-          padding: 0 20px;
+          max-width: 1200px;
+          margin: 0 auto;
+        }
+
+        .desktop-book-form form {
+          width: 100%;
         }
 
         @media (min-width: 900px) {
           .desktop-book-form form {
             display: grid !important;
             grid-template-columns: 1fr 1fr;
-            gap: 20px 28px !important;
+            gap: 24px !important;
             align-items: start;
           }
 
           .desktop-book-form form > h2,
           .desktop-book-form form > .zr-toolbar,
-          .desktop-book-form form > .zr-card:first-of-type,
-          .desktop-book-form form > label {
+          .desktop-book-form form > .zr-card:first-of-type {
             grid-column: 1 / -1;
+          }
+
+          .desktop-book-form form > .zr-card,
+          .desktop-book-form form > label {
+            grid-column: span 1;
           }
         }
       `}</style>
