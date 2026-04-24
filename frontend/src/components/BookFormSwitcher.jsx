@@ -13,12 +13,3 @@ export default function BookFormSwitcher(props) {
   }
   return <BookFormDesktop {...props} />;
 }
-export default function BookFormSwitcher(props) {
-  // Mobile Safari: clean create only, no draft matching.
-  if (isMobileSafari()) {
-    return <BookForm {...props} />;
-  }
-
-  // Desktop / other browsers: old draft-aware logic.
-  return <BookFormDesktop {...props} />;
-}
