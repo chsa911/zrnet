@@ -1,5 +1,5 @@
 import React from "react";
-import BookForm from "../components/BookForm";
+import BookForm from "../components/BookFormSwitcher";
 import BookFormStagingPwa from "../components/BookFormStagingPwa";
 
 function isStandalonePwa() {
