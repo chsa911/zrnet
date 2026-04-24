@@ -1,3 +1,4 @@
+// frontend/src/components/BookForm.jsx
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { createWorker, PSM } from "tesseract.js";
 import { BrowserMultiFormatReader } from "@zxing/browser";
@@ -13,165 +14,177 @@ import { startIsbnScanner } from "../utils/isbnScanner";
 /* ---------- tolerant field picker ---------- */
 const norm = (s) => String(s || "").toLowerCase().replace(/[^a-z0-9]/g, "");
 
-function pick(b, aliases) {{
+function pick(b, aliases) {
   if (!b || !aliases?.length) return undefined;
   const keyMap = new Map(Object.keys(b).map((k) => [norm(k), k]));
-  for (const alias of aliases) {{
+  for (const alias of aliases) {
     const k = keyMap.get(norm(alias));
     if (k != null) return b[k];
-  }}
+  }
   return undefined;
-}}
+}
 
 const toStr = (v) => (v === undefined || v === null ? "" : String(v));
 
-const parseIntOrNull = (s) => {{
+const parseIntOrNull = (s) => {
   const t = String(s ?? "").trim();
   if (!t) return null;
   const n = Number.parseInt(t, 10);
   return Number.isFinite(n) ? n : null;
-}};
+};
 
 /* ---------- ISBN helpers ---------- */
-function stripIsbn(raw) {{
+function stripIsbn(raw) {
   return String(raw || "")
     .trim()
     .toUpperCase()
     .replace(/[^0-9X]/g, "");
-}}
+}
 
-function extractIsbnCandidate(raw) {{
+function extractIsbnCandidate(raw) {
   const s = stripIsbn(raw);
 
-  const bookland = s.match(/97[89]\d{{10}}/);
+  const bookland = s.match(/97[89]\d{10}/);
   if (bookland) return bookland[0];
 
-  const ean13 = s.match(/\d{{13}}/);
+  const ean13 = s.match(/\d{13}/);
   if (ean13) return ean13[0];
 
-  const isbn10 = s.match(/\d{{9}}[0-9X]/);
+  const isbn10 = s.match(/\d{9}[0-9X]/);
   if (isbn10) return isbn10[0];
 
   return "";
-}}
+}
 
-function isValidIsbn10(s) {{
-  if (!/^[0-9]{{9}}[0-9X]$/.test(s)) return false;
+function isValidIsbn10(s) {
+  if (!/^[0-9]{9}[0-9X]$/.test(s)) return false;
   let sum = 0;
-  for (let i = 0; i < 10; i++) {{
+  for (let i = 0; i < 10; i++) {
     const v = s[i] === "X" ? 10 : Number(s[i]);
     sum += v * (10 - i);
-  }}
+  }
   return sum % 11 === 0;
-}}
+}
 
-function isValidIsbn13(s) {{
-  if (!/^[0-9]{{13}}$/.test(s)) return false;
+function isValidIsbn13(s) {
+  if (!/^[0-9]{13}$/.test(s)) return false;
   let sum = 0;
   for (let i = 0; i < 12; i++) sum += Number(s[i]) * (i % 2 === 0 ? 1 : 3);
   const check = (10 - (sum % 10)) % 10;
   return check === Number(s[12]);
-}}
+}
 
-function normalizeIsbnInputs(isbn13In, isbn10In) {{
+function normalizeIsbnInputs(isbn13In, isbn10In) {
   const a = stripIsbn(isbn13In);
   const b = stripIsbn(isbn10In);
 
   let isbn13 = null;
   let isbn10 = null;
 
-  if (a.length === 13 && /^[0-9]{{13}}$/.test(a)) isbn13 = a;
-  if (b.length === 10 && /^[0-9]{{9}}[0-9X]$/.test(b)) isbn10 = b;
+  if (a.length === 13 && /^[0-9]{13}$/.test(a)) isbn13 = a;
+  if (b.length === 10 && /^[0-9]{9}[0-9X]$/.test(b)) isbn10 = b;
 
-  if (!isbn10 && a.length === 10 && /^[0-9]{{9}}[0-9X]$/.test(a)) isbn10 = a;
-  if (!isbn13 && b.length === 13 && /^[0-9]{{13}}$/.test(b)) isbn13 = b;
+  if (!isbn10 && a.length === 10 && /^[0-9]{9}[0-9X]$/.test(a)) isbn10 = a;
+  if (!isbn13 && b.length === 13 && /^[0-9]{13}$/.test(b)) isbn13 = b;
 
   const raw = a || b || null;
   const lookupOk =
     (isbn13 && isValidIsbn13(isbn13)) || (isbn10 && isValidIsbn10(isbn10));
 
-  return {{ isbn13, isbn10, raw, lookupOk }};
-}}
+  return { isbn13, isbn10, raw, lookupOk };
+}
 
-function findIsbnInText(text) {{
+function findIsbnInText(text) {
   const s = String(text || "").toUpperCase().replace(/[^0-9X]/g, " ");
 
-  const m13 = s.match(/97[89][0-9 ]{{10,20}}/g) || [];
-  for (const chunk of m13) {{
+  const m13 = s.match(/97[89][0-9 ]{10,20}/g) || [];
+  for (const chunk of m13) {
     const digits = chunk.replace(/[^0-9]/g, "");
-    for (let i = 0; i <= digits.length - 13; i++) {{
+    for (let i = 0; i <= digits.length - 13; i++) {
       const cand = digits.slice(i, i + 13);
       if (isValidIsbn13(cand)) return cand;
-    }}
-  }}
+    }
+  }
 
-  const m10 = s.match(/[0-9X ]{{10,20}}/g) || [];
-  for (const chunk of m10) {{
+  const m10 = s.match(/[0-9X ]{10,20}/g) || [];
+  for (const chunk of m10) {
     const digits = chunk.replace(/[^0-9X]/g, "");
-    for (let i = 0; i <= digits.length - 10; i++) {{
+    for (let i = 0; i <= digits.length - 10; i++) {
       const cand = digits.slice(i, i + 10);
       if (isValidIsbn10(cand)) return cand;
-    }}
-  }}
+    }
+  }
 
   return "";
-}}
+}
 
-function splitAuthorName(name) {{
+function splitAuthorName(name) {
   const s = String(name || "").trim();
-  if (!s) return {{ first: "", last: "", display: "" }};
-  if (s.includes(",")) {{
+  if (!s) return { first: "", last: "", display: "" };
+  if (s.includes(",")) {
     const [last, first] = s.split(",").map((x) => x.trim());
-    return {{
+    return {
       first: first || "",
       last: last || "",
       display: [first, last].filter(Boolean).join(" ").trim(),
-    }};
-  }}
+    };
+  }
   const parts = s.split(/\s+/).filter(Boolean);
-  if (parts.length === 1) return {{ first: "", last: parts[0], display: parts[0] }};
-  return {{
+  if (parts.length === 1) return { first: "", last: parts[0], display: parts[0] };
+  return {
     first: parts.slice(0, -1).join(" "),
     last: parts.slice(-1)[0],
     display: s,
-  }};
-}}
+  };
+}
 
-function computeKeywordFromTitle(title) {{
+function computeKeywordFromTitle(title) {
   const t = String(title || "").trim();
-  if (!t) return {{ keyword: "", pos: "" }};
+  if (!t) return { keyword: "", pos: "" };
   const articles = [
-    "der", "die", "das", "ein", "eine", "einer", "eines",
-    "the", "a", "an", "la", "le", "les", "el",
+    "der",
+    "die",
+    "das",
+    "ein",
+    "eine",
+    "einer",
+    "eines",
+    "the",
+    "a",
+    "an",
+    "la",
+    "le",
+    "les",
+    "el",
   ];
   const m = t.match(/^([A-Za-zÄÖÜäöüß]+)\s+(.*)$/);
-  if (!m) return {{ keyword: t, pos: "0" }};
+  if (!m) return { keyword: t, pos: "0" };
   const first = m[1];
   const rest = m[2];
-  if (articles.includes(first.toLowerCase())) {{
-    return {{ keyword: rest.trim(), pos: "1" }};
-  }}
-  return {{ keyword: t, pos: "0" }};
-}}
+  if (articles.includes(first.toLowerCase())) {
+    return { keyword: rest.trim(), pos: "1" };
+  }
+  return { keyword: t, pos: "0" };
+}
 
 /* ---------- image helpers ---------- */
-function loadImageFromFile(file) {{
-  return new Promise((resolve, reject) => {{
+function loadImageFromFile(file) {
+  return new Promise((resolve, reject) => {
     const url = URL.createObjectURL(file);
     const img = new Image();
-    img.onload = () => {{
+    img.onload = () => {
       URL.revokeObjectURL(url);
       resolve(img);
-    }};
-    img.onerror = () => {{
+    };
+    img.onerror = () => {
       URL.revokeObjectURL(url);
       reject(new Error("Bild konnte nicht geladen werden."));
-    }};
+    };
     img.src = url;
-  }});
-}}
+  });
+}
 
-function imageToCanvas(img, maxEdge = 1800) {{
+function imageToCanvas(img, maxEdge = 1800) {
   const w = img.naturalWidth || img.width;
   const h = img.naturalHeight || img.height;
   const scale = Math.min(1, maxEdge / Math.max(w, h));
@@ -180,18 +193,18 @@ function imageToCanvas(img, maxEdge = 1800) {{
   canvas.width = Math.max(1, Math.round(w * scale));
   canvas.height = Math.max(1, Math.round(h * scale));
 
-  const ctx = canvas.getContext("2d", {{ willReadFrequently: true }});
+  const ctx = canvas.getContext("2d", { willReadFrequently: true });
   if (!ctx) throw new Error("Canvas konnte nicht initialisiert werden.");
 
   ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
   return canvas;
-}}
+}
 
-function cropCanvas(src, {{ x, y, width, height }}) {{
+function cropCanvas(src, { x, y, width, height }) {
   const canvas = document.createElement("canvas");
   canvas.width = Math.max(1, Math.round(width));
   canvas.height = Math.max(1, Math.round(height));
-  const ctx = canvas.getContext("2d", {{ willReadFrequently: true }});
+  const ctx = canvas.getContext("2d", { willReadFrequently: true });
   if (!ctx) throw new Error("Canvas konnte nicht initialisiert werden.");
   ctx.drawImage(
     src,
@@ -205,9 +218,9 @@ function cropCanvas(src, {{ x, y, width, height }}) {{
     canvas.height
   );
   return canvas;
-}}
+}
 
-function rotateCanvas(src, degrees) {{
+function rotateCanvas(src, degrees) {
   const deg = ((degrees % 360) + 360) % 360;
   if (deg === 0) return src;
 
@@ -216,7 +229,7 @@ function rotateCanvas(src, degrees) {{
   canvas.width = swap ? src.height : src.width;
   canvas.height = swap ? src.width : src.height;
 
-  const ctx = canvas.getContext("2d", {{ willReadFrequently: true }});
+  const ctx = canvas.getContext("2d", { willReadFrequently: true });
   if (!ctx) throw new Error("Canvas konnte nicht initialisiert werden.");
 
   ctx.translate(canvas.width / 2, canvas.height / 2);
@@ -224,31 +237,31 @@ function rotateCanvas(src, degrees) {{
   ctx.drawImage(src, -src.width / 2, -src.height / 2);
 
   return canvas;
-}}
+}
 
-async function normalizeCoverFile(file, maxEdge = 1600, quality = 0.78) {{
+async function normalizeCoverFile(file, maxEdge = 1600, quality = 0.78) {
   const img = await loadImageFromFile(file);
   const canvas = imageToCanvas(img, maxEdge);
 
-  const blob = await new Promise((resolve, reject) => {{
+  const blob = await new Promise((resolve, reject) => {
     canvas.toBlob(
       (b) => (b ? resolve(b) : reject(new Error("Bild konnte nicht komprimiert werden."))),
       "image/jpeg",
       quality
     );
-  }});
+  });
 
   const name = String(file?.name || "cover.jpg").replace(/\.[^.]+$/, ".jpg");
-  return new File([blob], name, {{
+  return new File([blob], name, {
     type: "image/jpeg",
     lastModified: Date.now(),
-  }});
-}}
+  });
+}
 
 /* ---------- barcode / isbn from photo ---------- */
-async function tryDecodeCanvas(canvas) {{
-  if ("BarcodeDetector" in globalThis) {{
-    try {{
+async function tryDecodeCanvas(canvas) {
+  if ("BarcodeDetector" in globalThis) {
+    try {
       const supported =
         typeof globalThis.BarcodeDetector?.getSupportedFormats === "function"
           ? await globalThis.BarcodeDetector.getSupportedFormats().catch(() => [])
@@ -258,40 +271,40 @@ async function tryDecodeCanvas(canvas) {{
       const formats = wanted.filter((f) => supported.includes(f));
 
       const detector = formats.length
-        ? new globalThis.BarcodeDetector({{ formats }})
+        ? new globalThis.BarcodeDetector({ formats })
         : new globalThis.BarcodeDetector();
 
       const found = await detector.detect(canvas);
-      for (const item of found || []) {{
+      for (const item of found || []) {
         const isbn = extractIsbnCandidate(item?.rawValue || "");
         if (isbn) return isbn;
-      }}
-    }} catch {{
+      }
+    } catch {
       // ignore
-    }}
-  }}
+    }
+  }
 
   const reader = new BrowserMultiFormatReader();
-  try {{
+  try {
     const dataUrl = canvas.toDataURL("image/png");
     const result = await reader.decodeFromImageUrl(dataUrl);
     const raw = result?.getText?.() || result?.text || "";
     const isbn = extractIsbnCandidate(raw);
     if (isbn) return isbn;
-  }} catch {{
+  } catch {
     // ignore
-  }} finally {{
-    try {{
+  } finally {
+    try {
       reader.reset?.();
-    }} catch {{
+    } catch {
       // ignore
-    }}
-  }}
+    }
+  }
 
   return "";
-}}
+}
 
-async function decodeIsbnFromImageFile(file) {{
+async function decodeIsbnFromImageFile(file) {
   const img = await loadImageFromFile(file);
   const full = imageToCanvas(img, 3200);
   const w = full.width;
@@ -299,58 +312,58 @@ async function decodeIsbnFromImageFile(file) {{
 
   const regions = [
     full,
-    cropCanvas(full, {{ x: 0, y: Math.round(h * 0.45), width: w, height: Math.round(h * 0.55) }}),
-    cropCanvas(full, {{ x: 0, y: Math.round(h * 0.6), width: w, height: Math.round(h * 0.4) }}),
-    cropCanvas(full, {{
+    cropCanvas(full, { x: 0, y: Math.round(h * 0.45), width: w, height: Math.round(h * 0.55) }),
+    cropCanvas(full, { x: 0, y: Math.round(h * 0.6), width: w, height: Math.round(h * 0.4) }),
+    cropCanvas(full, {
       x: Math.round(w * 0.05),
       y: Math.round(h * 0.5),
       width: Math.round(w * 0.9),
       height: Math.round(h * 0.4),
-    }}),
-    cropCanvas(full, {{
+    }),
+    cropCanvas(full, {
       x: Math.round(w * 0.1),
       y: Math.round(h * 0.65),
       width: Math.round(w * 0.8),
       height: Math.round(h * 0.25),
-    }}),
+    }),
   ];
 
   const attempts = [];
-  for (const region of regions) {{
+  for (const region of regions) {
     attempts.push(region);
     attempts.push(rotateCanvas(region, 90));
     attempts.push(rotateCanvas(region, 180));
     attempts.push(rotateCanvas(region, 270));
-  }}
+  }
 
-  for (const canvas of attempts) {{
+  for (const canvas of attempts) {
     const isbn = await tryDecodeCanvas(canvas);
     if (isbn) return isbn;
-  }}
+  }
 
   const worker = await createWorker("eng");
-  try {{
-    await worker.setParameters({{
+  try {
+    await worker.setParameters({
       tessedit_pageseg_mode: PSM.SINGLE_BLOCK,
       tessedit_char_whitelist: "0123456789Xx- ",
-    }});
+    });
 
-    const bottom = cropCanvas(full, {{
+    const bottom = cropCanvas(full, {
       x: Math.round(w * 0.05),
       y: Math.round(h * 0.7),
       width: Math.round(w * 0.9),
       height: Math.round(h * 0.25),
-    }});
+    });
 
     const res = await worker.recognize(bottom);
     const isbn = findIsbnInText(res?.data?.text || "");
     if (isbn) return isbn;
-  }} finally {{
+  } finally {
     await worker.terminate();
-  }}
+  }
 
   throw new Error("Kein ISBN-Barcode im Foto erkannt. Bitte den Barcode groß und nah fotografieren.");
-}}
+}
 
 export default function BookForm({
   mode = "create",
@@ -422,6 +435,8 @@ export default function BookForm({
   const [coverPreviewUrl, setCoverPreviewUrl] = useState("");
 
   const [pendingUploads, setPendingUploads] = useState(0);
+  const msgRef = useRef(null);
+
   const refreshPending = async () => {
     try {
       setPendingUploads(await getPendingUploadCount());
@@ -429,10 +444,6 @@ export default function BookForm({
       // ignore
     }
   };
-
-  
-
-  const msgRef = useRef(null);
 
   useEffect(() => {
     refreshPending();
@@ -509,8 +520,6 @@ export default function BookForm({
       };
     }
   }, [scannerOpen]);
-
-  
 
   function setField(key, val) {
     setV((prev) => ({ ...prev, [key]: val }));
@@ -640,8 +649,8 @@ export default function BookForm({
           ? "ISBN gefunden ✔ (Felder wurden ergänzt)"
           : "ISBN gefunden, aber es kamen nur wenige Metadaten zurück."
       );
-    } catch (e) {
-      setMsg(e?.message || "ISBN Lookup fehlgeschlagen");
+    } catch (err) {
+      setMsg(err?.message || "ISBN Lookup fehlgeschlagen");
     } finally {
       setIsbnBusy(false);
     }
@@ -957,8 +966,6 @@ export default function BookForm({
         </div>
       ) : null}
 
-      
-
       <div className="zr-card" style={{ display: "grid", gap: 10 }}>
         <div style={{ fontWeight: 900 }}>Cover Foto</div>
 
@@ -1155,8 +1162,6 @@ export default function BookForm({
           </div>
         </div>
       ) : null}
-
-      
 
       <div className="zr-toolbar" style={{ marginTop: 4 }}>
         <button
