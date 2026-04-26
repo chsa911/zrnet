@@ -110,13 +110,17 @@ export default function TopBar() {
           <details ref={moreRef} className="zr-more">
             <summary className="zr-nav__link">{t("nav_more")}</summary>
 
-            <div
-              className="zr-more__menu"
-              role="menu"
+            <div className="zr-more__menu" role="menu"
               onClick={(e) => {
                 if (e.target.closest?.("a")) closeMore();
               }}
-            >
+              >
+<Link to="/admin/register">Register</Link>
+<Link to="/admin/search-update">Search / Update</Link>
+<Link to="/admin/sync-issues">Sync Issues</Link>
+<Link to="/admin/barcodes">Barcodes</Link>
+            <hr/>
+
               <Link to="/info/impressum">{t("nav_impressum")}</Link>
               <Link to="/info/datenschutz">{t("nav_privacy")}</Link>
             </div>
