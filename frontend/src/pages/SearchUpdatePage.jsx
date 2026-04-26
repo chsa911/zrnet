@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { listBooks, getBook, updateBook, deleteBook } from "../api/books";
 import AdminNavRow from "../components/AdminNavRow";
-import BookForm from "../components/BookForm";
+import BookForm from "../components/BookFormSwitcher";
 
 const getBarcode = (b) => b?.barcode ?? "—";
 const getAuthor = (b) => b?.name_display ?? b?.author_name_display ?? "—";
