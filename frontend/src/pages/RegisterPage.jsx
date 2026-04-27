@@ -1,6 +1,7 @@
 import React from "react";
 import BookForm from "../components/BookFormSwitcher";
 import BookFormStagingPwa from "../components/BookFormStagingPwa";
+import HomeLiveBlock from "../components/HomeLiveBlock";
 
 function isStandalonePwa() {
   return (
@@ -13,5 +14,10 @@ export default function RegisterPage(props) {
   const isStaging = import.meta.env.VITE_APP_ENV === "staging";
   const usePwaForm = isStaging && isStandalonePwa();
 
-  return usePwaForm ? <BookFormStagingPwa {...props} /> : <BookForm {...props} />;
+  return (
+    <>
+      {usePwaForm ? <BookFormStagingPwa {...props} /> : <BookForm {...props} />}
+      <HomeLiveBlock />
+    </>
+  );
 }
