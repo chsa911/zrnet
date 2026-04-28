@@ -4,7 +4,6 @@ import {
   findDraft,
   lookupIsbn,
   registerBook,
-  registerExistingBook,
   updateBook,
 } from "../api/books";
 import { previewBarcode } from "../api/barcodes";
@@ -474,14 +473,9 @@ export default function BookFormDesktop({
       let saved;
       if (isEdit) {
         saved = await updateBook(bookId || initialBook?._id || initialBook?.id, payload);
-      } else if (assignBarcode && draftSelectedId) {
-        const p2 = { ...payload };
-        delete p2.assign_barcode;
-        saved = await registerExistingBook(draftSelectedId, p2);
       } else {
-        saved = await registerBook(payload);
-      }
-
+  saved = await registerBook(payload);
+}
       onSuccess?.({ payload, saved });
       setMsg(isEdit ? "Gespeichert." : "Gespeichert ✔");
       if (!isEdit) {
@@ -584,7 +578,7 @@ export default function BookFormDesktop({
               {[d.title_display || d.title_keyword || "Ohne Titel", d.author_name_display || d.name_display].filter(Boolean).join(" · ")}
             </button>
           ))}
-          {draftSelectedId ? <span>Wird beim Speichern aktualisiert.</span> : null}
+          {draftSelectedId ? <span>Daten übernommen; beim Speichern wird ein neuer Eintrag erstellt.</span> : null}
         </div>
       ) : null}
 
