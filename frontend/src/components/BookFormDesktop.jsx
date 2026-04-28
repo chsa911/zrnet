@@ -1,7 +1,7 @@
-// frontend/src/components/BookFormDesktop.jsx
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   autocomplete,
+  findDraft,
   lookupIsbn,
   registerBook,
   registerExistingBook,
@@ -9,7 +9,9 @@ import {
 } from "../api/books";
 import { previewBarcode } from "../api/barcodes";
 import { formatBookCode } from "../utils/bookCodeDisplay";
+
 const norm = (s) => String(s || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+const toStr = (v) => (v === undefined || v === null ? "" : String(v));
 
 function pick(b, aliases) {
   if (!b || !aliases?.length) return undefined;
@@ -20,8 +22,6 @@ function pick(b, aliases) {
   }
   return undefined;
 }
-
-const toStr = (v) => (v === undefined || v === null ? "" : String(v));
 
 function parseIntOrNull(s) {
   const t = String(s ?? "").trim();
@@ -38,19 +38,13 @@ function parseFloatOrNull(s) {
 }
 
 function stripIsbn(raw) {
-  return String(raw || "")
-    .trim()
-    .toUpperCase()
-    .replace(/[^0-9X]/g, "");
+  return String(raw || "").trim().toUpperCase().replace(/[^0-9X]/g, "");
 }
 
 function isValidIsbn10(s) {
   if (!/^[0-9]{9}[0-9X]$/.test(s)) return false;
   let sum = 0;
-  for (let i = 0; i < 10; i++) {
-    const v = s[i] === "X" ? 10 : Number(s[i]);
-    sum += v * (10 - i);
-  }
+  for (let i = 0; i < 10; i++) sum += (s[i] === "X" ? 10 : Number(s[i])) * (10 - i);
   return sum % 11 === 0;
 }
 
@@ -58,14 +52,12 @@ function isValidIsbn13(s) {
   if (!/^[0-9]{13}$/.test(s)) return false;
   let sum = 0;
   for (let i = 0; i < 12; i++) sum += Number(s[i]) * (i % 2 === 0 ? 1 : 3);
-  const check = (10 - (sum % 10)) % 10;
-  return check === Number(s[12]);
+  return (10 - (sum % 10)) % 10 === Number(s[12]);
 }
 
 function normalizeIsbnInputs(isbn13In, isbn10In) {
   const a = stripIsbn(isbn13In);
   const b = stripIsbn(isbn10In);
-
   let isbn13 = null;
   let isbn10 = null;
 
@@ -75,9 +67,7 @@ function normalizeIsbnInputs(isbn13In, isbn10In) {
   if (!isbn13 && b.length === 13 && /^[0-9]{13}$/.test(b)) isbn13 = b;
 
   const raw = a || b || null;
-  const lookupOk =
-    (isbn13 && isValidIsbn13(isbn13)) || (isbn10 && isValidIsbn10(isbn10));
-
+  const lookupOk = (isbn13 && isValidIsbn13(isbn13)) || (isbn10 && isValidIsbn10(isbn10));
   return { isbn13, isbn10, raw, lookupOk };
 }
 
@@ -111,29 +101,15 @@ const emptyForm = {
   author_firstname: "",
   name_display: "",
   author_abbreviation: "",
-  author_nationality: "",
-  place_of_birth: "",
-  male_female: "",
-  published_titles: "",
-  number_of_millionsellers: "",
   publisher_name_display: "",
   publisher_abbr: "",
   title_display: "",
   subtitle_display: "",
-  title_keyword: "",
-  title_keyword_position: "",
-  title_keyword2: "",
-  title_keyword2_position: "",
-  title_keyword3: "",
-  title_keyword3_position: "",
   pages: "",
   width_cm: "",
   height_cm: "",
-  purchase_url: "",
   isbn13: "",
   isbn10: "",
-  original_language: "",
-  comment: "",
 };
 
 export default function BookFormDesktop({
@@ -146,8 +122,6 @@ export default function BookFormDesktop({
   submitLabel = mode === "create" ? "Speichern" : "Aktualisieren",
   onCancel,
   onSuccess,
-  showUnknownFields = false,
-  excludeUnknownKeys = [],
 }) {
   const isEdit = mode === "edit";
   const msgRef = useRef(null);
@@ -163,29 +137,15 @@ export default function BookFormDesktop({
       author_firstname: toStr(pick(b, ["author_firstname", "author_first_name"])),
       name_display: toStr(pick(b, ["name_display", "author_name_display"])),
       author_abbreviation: toStr(pick(b, ["author_abbreviation", "abbreviation"])),
-      author_nationality: toStr(pick(b, ["author_nationality"])),
-      place_of_birth: toStr(pick(b, ["place_of_birth"])),
-      male_female: toStr(pick(b, ["male_female"])),
-      published_titles: toStr(pick(b, ["published_titles"])),
-      number_of_millionsellers: toStr(pick(b, ["number_of_millionsellers"])),
       publisher_name_display: toStr(pick(b, ["publisher_name_display"])),
       publisher_abbr: toStr(pick(b, ["publisher_abbr", "publisher_abbreviation", "abbr"])),
       title_display: toStr(pick(b, ["title_display", "titleDisplay", "title"])),
       subtitle_display: toStr(pick(b, ["subtitle_display"])),
-      title_keyword: toStr(pick(b, ["title_keyword", "keyword"])),
-      title_keyword_position: toStr(pick(b, ["title_keyword_position"])),
-      title_keyword2: toStr(pick(b, ["title_keyword2"])),
-      title_keyword2_position: toStr(pick(b, ["title_keyword2_position"])),
-      title_keyword3: toStr(pick(b, ["title_keyword3"])),
-      title_keyword3_position: toStr(pick(b, ["title_keyword3_position"])),
       pages: toStr(pick(b, ["pages"])),
       width_cm: toStr(pick(b, ["width_cm", "width", "bbreite"])),
       height_cm: toStr(pick(b, ["height_cm", "height", "bhoehe"])),
-      purchase_url: toStr(pick(b, ["purchase_url"])),
       isbn13: toStr(pick(b, ["isbn13"])),
       isbn10: toStr(pick(b, ["isbn10"])),
-      original_language: toStr(pick(b, ["original_language"])),
-      comment: toStr(pick(b, ["comment"])),
     };
   }, [initialBook]);
 
@@ -196,25 +156,11 @@ export default function BookFormDesktop({
   const [ac, setAc] = useState({ field: "", items: [] });
   const [barcodePreview, setBarcodePreview] = useState(null);
   const [barcodePreviewErr, setBarcodePreviewErr] = useState("");
-  const [extras, setExtras] = useState({});
+  const [draftBusy, setDraftBusy] = useState(false);
+  const [draftCandidates, setDraftCandidates] = useState([]);
+  const [draftSelectedId, setDraftSelectedId] = useState("");
 
-  const knownKeys = useMemo(() => new Set(Object.keys(emptyForm).map(norm)), []);
-  const excludeKey = (excludeUnknownKeys || []).map(String).join("\u0000");
-
-  useEffect(() => {
-    setV(initial);
-    if (!showUnknownFields) return setExtras({});
-
-    const b = initialBook || {};
-    const ex = {};
-    const exclude = new Set((excludeUnknownKeys || []).map(String));
-    for (const [k, raw] of Object.entries(b)) {
-      if (!k || exclude.has(k) || knownKeys.has(norm(k)) || k.startsWith("_")) continue;
-      if (raw && typeof raw === "object") continue;
-      ex[k] = toStr(raw);
-    }
-    setExtras(ex);
-  }, [initial, initialBook, showUnknownFields, excludeKey, knownKeys]);
+  useEffect(() => setV(initial), [initial]);
 
   useEffect(() => {
     if (!msg) return;
@@ -255,6 +201,69 @@ export default function BookFormDesktop({
     };
   }, [isEdit, assignBarcode, v.barcode, v.width_cm, v.height_cm]);
 
+  useEffect(() => {
+    if (isEdit || !assignBarcode) return;
+
+    const pagesRaw = String(v.pages || "").trim();
+    const code = /^[0-9]+$/.test(pagesRaw) ? pagesRaw : "";
+    const titleDisplay = String(v.title_display || "").trim();
+    const authorDisplay = String(v.name_display || "").trim();
+    const publisherDisplay = String(v.publisher_name_display || "").trim();
+    const isbnN = normalizeIsbnInputs(v.isbn13, v.isbn10);
+    const isbn = isbnN.isbn13 || isbnN.isbn10 || "";
+
+    const hasKey = !!code || !!titleDisplay || !!authorDisplay || !!publisherDisplay || !!isbn;
+
+    if (!hasKey) {
+      setDraftCandidates([]);
+      setDraftSelectedId("");
+      return;
+    }
+
+    let alive = true;
+    const t = setTimeout(async () => {
+      try {
+        setDraftBusy(true);
+        const r = await findDraft({
+          code: code || undefined,
+          pages: code || undefined,
+          isbn: isbn || undefined,
+          title_display: titleDisplay || undefined,
+          name_display: authorDisplay || undefined,
+          publisher_name_display: publisherDisplay || undefined,
+        });
+
+        if (!alive) return;
+        const items = Array.isArray(r?.items) ? r.items : Array.isArray(r) ? r : [];
+        setDraftCandidates(items);
+        setDraftSelectedId((prev) => {
+          if (prev && items.some((x) => x.id === prev)) return prev;
+          return items.length === 1 ? items[0].id : "";
+        });
+      } catch {
+        if (!alive) return;
+        setDraftCandidates([]);
+        setDraftSelectedId("");
+      } finally {
+        if (alive) setDraftBusy(false);
+      }
+    }, 350);
+
+    return () => {
+      alive = false;
+      clearTimeout(t);
+    };
+  }, [
+    isEdit,
+    assignBarcode,
+    v.pages,
+    v.title_display,
+    v.name_display,
+    v.publisher_name_display,
+    v.isbn13,
+    v.isbn10,
+  ]);
+
   function setField(key, val) {
     setV((prev) => {
       const next = { ...prev, [key]: val };
@@ -264,10 +273,6 @@ export default function BookFormDesktop({
       }
       return next;
     });
-  }
-
-  function setExtra(key, val) {
-    setExtras((p) => ({ ...p, [key]: val }));
   }
 
   function suggestionKey(it, index) {
@@ -307,9 +312,11 @@ export default function BookFormDesktop({
       setV((prev) => ({ ...prev, author_id: isEdit ? prev.author_id : "", author_firstname: first, author_lastname: last, name_display: display }));
       return;
     }
+
     const last = String(match.last_name || match.author_last_name || "").trim();
     const first = String(match.first_name || match.author_first_name || "").trim();
     const display = String(match.name_display || match.author_name_display || "").trim() || [first, last].filter(Boolean).join(" ").trim();
+
     setV((prev) => ({
       ...prev,
       author_id: String(match.id || match.author_id || "").trim() || prev.author_id,
@@ -317,22 +324,40 @@ export default function BookFormDesktop({
       author_firstname: first || prev.author_firstname,
       name_display: display || prev.name_display,
       author_abbreviation: String(match.abbreviation || match.author_abbreviation || prev.author_abbreviation || ""),
-      author_nationality: String(match.author_nationality || prev.author_nationality || ""),
-      place_of_birth: String(match.place_of_birth || prev.place_of_birth || ""),
-      male_female: String(match.male_female || prev.male_female || ""),
-      published_titles: toStr(match.published_titles ?? prev.published_titles),
-      number_of_millionsellers: toStr(match.number_of_millionsellers ?? prev.number_of_millionsellers),
     }));
   }
 
   function applyPublisherMatch(match) {
     if (!match) return;
     if (typeof match === "string") return setField("publisher_name_display", match);
+
     setV((prev) => ({
       ...prev,
       publisher_id: String(match.id || match.publisher_id || "").trim() || prev.publisher_id,
       publisher_name_display: String(match.name_display || match.publisher_name_display || match.name || prev.publisher_name_display || ""),
       publisher_abbr: String(match.abbr || match.publisher_abbr || prev.publisher_abbr || ""),
+    }));
+  }
+
+  function applyDraft(d) {
+    if (!d) return;
+    setDraftSelectedId(d.id);
+
+    setV((prev) => ({
+      ...prev,
+      author_id: prev.author_id || d.author_id || "",
+      publisher_id: prev.publisher_id || d.publisher_id || "",
+      title_display: prev.title_display || d.title_display || "",
+      subtitle_display: prev.subtitle_display || d.subtitle_display || "",
+      name_display: prev.name_display || d.author_name_display || d.name_display || "",
+      author_lastname: prev.author_lastname || d.author_last_name || "",
+      author_firstname: prev.author_firstname || d.author_first_name || "",
+      author_abbreviation: prev.author_abbreviation || d.author_abbreviation || "",
+      publisher_name_display: prev.publisher_name_display || d.publisher_name_display || "",
+      publisher_abbr: prev.publisher_abbr || d.publisher_abbr || "",
+      pages: prev.pages || toStr(d.pages),
+      isbn13: prev.isbn13 || d.isbn13 || "",
+      isbn10: prev.isbn10 || d.isbn10 || "",
     }));
   }
 
@@ -358,11 +383,7 @@ export default function BookFormDesktop({
         isbn10: prev.isbn10 || s.isbn10 || "",
         title_display: prev.title_display || title || "",
         subtitle_display: prev.subtitle_display || s.subtitle_display || "",
-        title_keyword: prev.title_keyword || kw.keyword || "",
-        title_keyword_position: prev.title_keyword_position || kw.pos || "",
         pages: prev.pages || toStr(s.pages),
-        purchase_url: prev.purchase_url || s.purchase_url || s.purchaseUrl || s.url || "",
-        original_language: prev.original_language || s.original_language || s.language || "",
         author_id: prev.author_id || s.author_id || "",
         author_lastname: prev.author_lastname || s.author_lastname || last || "",
         author_firstname: prev.author_firstname || s.author_firstname || first || "",
@@ -372,7 +393,8 @@ export default function BookFormDesktop({
         publisher_name_display: prev.publisher_name_display || s.publisher_name_display || "",
         publisher_abbr: prev.publisher_abbr || s.publisher_abbr || "",
       }));
-      setMsg("ISBN gefunden ✔");
+
+      setMsg(`ISBN gefunden ✔${kw.keyword ? ` · Keyword: ${kw.keyword}` : ""}`);
     } catch (e) {
       setMsg(e?.message || "ISBN Lookup fehlgeschlagen");
     } finally {
@@ -397,27 +419,16 @@ export default function BookFormDesktop({
     if (wCm !== null) payload.width_cm = wCm;
     if (hCm !== null) payload.height_cm = hCm;
 
-    const strings = [
+    for (const k of [
       "author_lastname",
       "author_firstname",
       "name_display",
       "author_abbreviation",
-      "author_nationality",
-      "place_of_birth",
-      "male_female",
       "publisher_name_display",
       "publisher_abbr",
       "title_display",
       "subtitle_display",
-      "title_keyword",
-      "title_keyword2",
-      "title_keyword3",
-      "purchase_url",
-      "original_language",
-      "comment",
-    ];
-
-    for (const k of strings) {
+    ]) {
       const next = String(v[k] || "").trim() || null;
       const prev = String(initial[k] || "").trim() || null;
       if (!isEdit) {
@@ -429,53 +440,18 @@ export default function BookFormDesktop({
 
     const nextAuthorId = String(v.author_id || "").trim() || null;
     const nextPublisherId = String(v.publisher_id || "").trim() || null;
-    const prevAuthorId = String(initial.author_id || "").trim() || null;
-    const prevPublisherId = String(initial.publisher_id || "").trim() || null;
     if (!isEdit) {
       if (nextAuthorId) payload.author_id = nextAuthorId;
       if (nextPublisherId) payload.publisher_id = nextPublisherId;
-    } else {
-      if (nextAuthorId !== prevAuthorId) payload.author_id = nextAuthorId;
-      if (nextPublisherId !== prevPublisherId) payload.publisher_id = nextPublisherId;
     }
 
     const isbnN = normalizeIsbnInputs(v.isbn13, v.isbn10);
-    const prevN = normalizeIsbnInputs(initial.isbn13, initial.isbn10);
-    if (!isEdit) {
-      if (isbnN.isbn13) payload.isbn13 = isbnN.isbn13;
-      if (isbnN.isbn10) payload.isbn10 = isbnN.isbn10;
-      if (!isbnN.isbn13 && !isbnN.isbn10 && isbnN.raw) payload.isbn13_raw = isbnN.raw;
-    } else {
-      if (isbnN.isbn13 !== prevN.isbn13) payload.isbn13 = isbnN.isbn13 || null;
-      if (isbnN.isbn10 !== prevN.isbn10) payload.isbn10 = isbnN.isbn10 || null;
-      if (!isbnN.isbn13 && !isbnN.isbn10 && isbnN.raw) payload.isbn13_raw = isbnN.raw;
-    }
+    if (isbnN.isbn13) payload.isbn13 = isbnN.isbn13;
+    if (isbnN.isbn10) payload.isbn10 = isbnN.isbn10;
+    if (!isbnN.isbn13 && !isbnN.isbn10 && isbnN.raw) payload.isbn13_raw = isbnN.raw;
 
-    const ints = [
-      "title_keyword_position",
-      "title_keyword2_position",
-      "title_keyword3_position",
-      "pages",
-      "published_titles",
-      "number_of_millionsellers",
-    ];
-    for (const k of ints) {
-      const raw = String(v[k] ?? "").trim();
-      const prevRaw = String(initial[k] ?? "").trim();
-      if (!raw) {
-        if (isEdit && prevRaw) payload[k] = null;
-        continue;
-      }
-      const n = parseIntOrNull(raw);
-      if (n === null) throw new Error(`${k} ist keine gültige Zahl.`);
-      if (!isEdit || n !== parseIntOrNull(prevRaw)) payload[k] = n;
-    }
-
-    if (isEdit && showUnknownFields) {
-      for (const [k, next] of Object.entries(extras || {})) {
-        if (next !== toStr((initialBook || {})[k])) payload[k] = next === "" ? null : next;
-      }
-    }
+    const pages = parseIntOrNull(v.pages);
+    if (pages !== null) payload.pages = pages;
 
     if (!isEdit && createReadingStatus) payload.reading_status = createReadingStatus;
     return payload;
@@ -493,24 +469,27 @@ export default function BookFormDesktop({
       return;
     }
 
-    if (isEdit && Object.keys(payload).length === 0) {
-      setMsg("Keine Änderungen.");
-      return;
-    }
-
     setBusy(true);
     try {
       let saved;
       if (isEdit) {
         saved = await updateBook(bookId || initialBook?._id || initialBook?.id, payload);
-      } else if (payload.draft_id) {
-        saved = await registerExistingBook(payload.draft_id, payload);
+      } else if (assignBarcode && draftSelectedId) {
+        const p2 = { ...payload };
+        delete p2.assign_barcode;
+        saved = await registerExistingBook(draftSelectedId, p2);
       } else {
         saved = await registerBook(payload);
       }
+
       onSuccess?.({ payload, saved });
       setMsg(isEdit ? "Gespeichert." : "Gespeichert ✔");
-      if (!isEdit) setV({ ...emptyForm });
+      if (!isEdit) {
+        setV({ ...emptyForm });
+        setDraftCandidates([]);
+        setDraftSelectedId("");
+        setBarcodePreview(null);
+      }
     } catch (err) {
       setMsg(err?.message || "Fehler beim Speichern");
     } finally {
@@ -528,10 +507,8 @@ export default function BookFormDesktop({
   });
 
   const numberProps = (key, placeholder, width) =>
-    fieldProps(key, placeholder, {
-      inputMode: "decimal",
-      style: { width },
-    });
+    fieldProps(key, placeholder, { inputMode: "decimal", style: { width } });
+
   return (
     <form className="bfd" onSubmit={onSubmit} noValidate>
       <style>{`
@@ -552,6 +529,8 @@ export default function BookFormDesktop({
           border: 1px solid #008a3f; white-space: nowrap;
         }
         .bfd-msg { border: 1px solid rgba(0,0,0,.24); padding: 4px 6px; min-height: 28px; background: rgba(0,0,0,.025); }
+        .bfd-drafts { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+        .bfd-draft-active { background: #111; color: #fff; border-color: #111; }
         .bfd-ac-wrap { position: relative; min-width: 0; }
         .bfd-ac { position: absolute; left: 0; right: 0; top: 28px; z-index: 20; background: #fff; border: 1px solid #111; box-shadow: 0 8px 20px rgba(0,0,0,.12); }
         .bfd-ac button { display: block; width: 100%; height: 26px; border: 0; border-bottom: 1px solid rgba(0,0,0,.08); background: #fff; text-align: left; padding: 0 6px; cursor: pointer; font: inherit; }
@@ -581,15 +560,33 @@ export default function BookFormDesktop({
         </button>
 
         {barcodePreview?.candidate ? (
-          <button
-            type="button"
-            className="bfd-suggestion"
-            onClick={() => setField("barcode", barcodePreview.candidate)}
-          >
+          <button type="button" className="bfd-suggestion" onClick={() => setField("barcode", barcodePreview.candidate)}>
             {formatBookCode(barcodePreview.candidate)}
           </button>
+        ) : barcodePreviewErr ? (
+          <span className="bfd-msg">{barcodePreviewErr}</span>
         ) : null}
       </div>
+
+      {draftBusy ? (
+        <div className="bfd-msg">Suche vorhandene Titel…</div>
+      ) : draftCandidates.length ? (
+        <div className="bfd-msg bfd-drafts">
+          <strong>Vorhanden:</strong>
+          {draftCandidates.slice(0, 6).map((d) => (
+            <button
+              key={d.id}
+              type="button"
+              className={`bfd-btn ${d.id === draftSelectedId ? "bfd-draft-active" : ""}`}
+              onClick={() => applyDraft(d)}
+              title={d.id}
+            >
+              {[d.title_display || d.title_keyword || "Ohne Titel", d.author_name_display || d.name_display].filter(Boolean).join(" · ")}
+            </button>
+          ))}
+          {draftSelectedId ? <span>Wird beim Speichern aktualisiert.</span> : null}
+        </div>
+      ) : null}
 
       <div className="bfd-row">
         <div className="bfd-ac-wrap" style={{ flex: "1 1 18ch" }}>
@@ -604,15 +601,7 @@ export default function BookFormDesktop({
           {ac.field === "author_lastname" && ac.items.length ? (
             <div className="bfd-ac">
               {ac.items.map((it, index) => (
-                <button
-                  key={suggestionKey(it, index)}
-                  type="button"
-                  onMouseDown={(e) => e.preventDefault()}
-                  onClick={() => {
-                    applyAuthorMatch(it);
-                    setAc({ field: "", items: [] });
-                  }}
-                >
+                <button key={suggestionKey(it, index)} type="button" onMouseDown={(e) => e.preventDefault()} onClick={() => { applyAuthorMatch(it); setAc({ field: "", items: [] }); }}>
                   {authorSuggestionLabel(it)}
                 </button>
               ))}
@@ -635,15 +624,7 @@ export default function BookFormDesktop({
           {ac.field === "publisher_name_display" && ac.items.length ? (
             <div className="bfd-ac">
               {ac.items.map((it, index) => (
-                <button
-                  key={suggestionKey(it, index)}
-                  type="button"
-                  onMouseDown={(e) => e.preventDefault()}
-                  onClick={() => {
-                    applyPublisherMatch(it);
-                    setAc({ field: "", items: [] });
-                  }}
-                >
+                <button key={suggestionKey(it, index)} type="button" onMouseDown={(e) => e.preventDefault()} onClick={() => { applyPublisherMatch(it); setAc({ field: "", items: [] }); }}>
                   {publisherSuggestionLabel(it)}
                 </button>
               ))}
