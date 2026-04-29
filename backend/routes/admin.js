@@ -110,6 +110,42 @@ router.use(adminAuthRequired);
 router.get("/me", (_req, res) => {
   res.json({ ok: true });
 });
+/* -------------------- authors overview -------------------- */
+
+// GET /api/admin/authors/overview
+router.get("/authors/overview", async (req, res) => {
+  const pool = req.app.get("pgPool");
+  if (!pool) return res.status(500).json({ error: "pgPool missing" });
+
+  try {
+    const r = await pool.query(`
+      SELECT
+        COALESCE(a.last_name, '') AS lastname,
+        COALESCE(a.first_name, '') AS firstname,
+        COALESCE(a.name_display, concat_ws(' ', a.first_name, a.last_name)) AS author,
+
+        COUNT(*) FILTER (WHERE b.reading_status = 'finished')::int AS completed,
+        COUNT(*) FILTER (WHERE b.reading_status = 'abandoned')::int AS not_a_match,
+        COUNT(*) FILTER (
+          WHERE COALESCE(b.reading_status, 'in_stock') IN ('in_progress', 'in_stock')
+        )::int AS on_hand,
+        COUNT(*)::int AS total
+
+      FROM public.books b
+      LEFT JOIN public.authors a ON a.id = b.author_id
+      GROUP BY a.last_name, a.first_name, a.name_display
+      ORDER BY a.last_name ASC NULLS LAST, a.first_name ASC NULLS LAST
+    `);
+
+    return res.json({ items: r.rows || [] });
+  } catch (e) {
+    console.error("GET /api/admin/authors/overview failed", e);
+    return res.status(500).json({
+      error: "authors_overview_failed",
+      detail: String(e?.message || e),
+    });
+  }
+});
 
 /* -------------------- abbreviations admin -------------------- */
 
