@@ -114,6 +114,7 @@
 /* -------------------- authors overview -------------------- */
 
 // GET /api/admin/authors/overview
+// GET /api/admin/authors/overview
 router.get("/authors/overview", async (req, res) => {
   const pool = req.app.get("pgPool");
   if (!pool) return res.status(500).json({ error: "pgPool missing" });
@@ -121,25 +122,19 @@ router.get("/authors/overview", async (req, res) => {
   try {
     const r = await pool.query(`
       SELECT
-        COALESCE(a.last_name, '') AS lastname,
-        COALESCE(a.first_name, '') AS firstname,
-        COALESCE(a.name_display, '') AS author,
-
+        a.name_display AS author,
         COUNT(*) FILTER (WHERE b.reading_status = 'finished')::int AS completed,
         COUNT(*) FILTER (WHERE b.reading_status = 'abandoned')::int AS not_a_match,
         COUNT(*) FILTER (
           WHERE COALESCE(b.reading_status, 'in_stock') IN ('in_progress', 'in_stock')
         )::int AS on_hand,
         COUNT(*)::int AS total
-
       FROM public.authors a
       LEFT JOIN public.books b ON b.author_id = a.id
-
       WHERE a.name_display IS NOT NULL
         AND btrim(a.name_display) <> ''
-
-      GROUP BY a.id, a.last_name, a.first_name, a.name_display
-
+        AND regexp_replace(a.name_display, '[^A-Za-zÄÖÜäöüß0-9]+', '', 'g') <> ''
+      GROUP BY a.id, a.name_display
       ORDER BY regexp_replace(a.name_display, '^[^A-Za-zÄÖÜäöüß0-9]+', '') ASC
     `);
 
@@ -152,7 +147,7 @@ router.get("/authors/overview", async (req, res) => {
     });
   }
 });
-  /* -------------------- abbreviations admin -------------------- */
+/* -------------------- abbreviations admin -------------------- */
 
   // GET /api/admin/abbreviations?source=abbrev_map|author_aliases|publisher_aliases|authors&type=author|publisher&level=1&q=foo
   router.get("/abbreviations", async (req, res) => {
