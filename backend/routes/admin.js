@@ -140,7 +140,7 @@ router.get("/authors/overview", async (req, res) => {
 
       GROUP BY a.id, a.last_name, a.first_name, a.name_display
 
-      ORDER BY a.name_display ASC
+      ORDER BY regexp_replace(a.name_display, '^[^A-Za-zÄÖÜäöüß0-9]+', '') ASC
     `);
 
     return res.json({ items: r.rows || [] });
