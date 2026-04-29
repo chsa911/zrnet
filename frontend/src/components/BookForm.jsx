@@ -430,8 +430,6 @@ export default function BookForm({
     }
   };
 
-  
-
   const msgRef = useRef(null);
 
   useEffect(() => {
@@ -509,8 +507,6 @@ export default function BookForm({
       };
     }
   }, [scannerOpen]);
-
-  
 
   function setField(key, val) {
     setV((prev) => ({ ...prev, [key]: val }));
@@ -832,6 +828,12 @@ export default function BookForm({
       return;
     }
 
+    const pages = parseIntOrNull(v.pages);
+    if (pages === null || pages <= 0) {
+      setMsg("Bitte Seitenzahl eingeben.");
+      return;
+    }
+
     const payload = buildPayload();
     if (!isEdit && createReadingStatus) payload.reading_status = createReadingStatus;
     if (!isEdit) payload.assign_barcode = false;
@@ -957,8 +959,6 @@ export default function BookForm({
         </div>
       ) : null}
 
-      
-
       <div className="zr-card" style={{ display: "grid", gap: 10 }}>
         <div style={{ fontWeight: 900 }}>Cover Foto</div>
 
@@ -1053,6 +1053,7 @@ export default function BookForm({
           className="zr-input"
           type="text"
           inputMode="numeric"
+          required
           value={v.pages}
           onChange={(e) => setField("pages", e.target.value)}
           placeholder="320"
@@ -1112,7 +1113,7 @@ export default function BookForm({
                 border: "2px solid rgba(255,255,255,0.96)",
                 borderRadius: 18,
                 boxShadow: "0 0 0 9999px rgba(0,0,0,0.36)",
-          }}
+              }}
             />
           </div>
 
@@ -1155,8 +1156,6 @@ export default function BookForm({
           </div>
         </div>
       ) : null}
-
-      
 
       <div className="zr-toolbar" style={{ marginTop: 4 }}>
         <button
