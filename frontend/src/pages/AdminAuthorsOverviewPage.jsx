@@ -126,14 +126,14 @@ export default function AdminAuthorsOverviewPage() {
 
             <tbody>
               {filtered.map((r) => {
-                const id = String(r.id || "");
-                const last = r.last_name || "—";
-                const first = r.first_name || "—";
-                const name = r.name_display || `${first} ${last}`.trim() || "—";
-                const completed = r.completed_books ?? 0;
-                const notMatch = r.not_match_books ?? 0;
-                const onHand = r.on_hand_books ?? 0;
-                const total = r.total_books ?? 0;
+               const id = String(r.id || r.author || "");
+const last = "";
+const first = "";
+const name = r.author || "—";
+const completed = r.completed ?? 0;
+const notMatch = r.not_a_match ?? 0;
+const onHand = r.on_hand ?? 0;
+const total = r.total ?? 0;
 
                 return (
                   <tr key={id || name}>
