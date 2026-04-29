@@ -49,6 +49,7 @@ export default function SearchUpdatePage() {
   const [refreshTick, setRefreshTick] = useState(0);
 
   const [editingBook, setEditingBook] = useState(null);
+  const [latestBook, setLatestBook] = useState(null);
   const debounceRef = useRef(null);
 
   const canPrev = useMemo(() => q.page > 1, [q.page]);
@@ -92,6 +93,26 @@ export default function SearchUpdatePage() {
     };
   }, [q.page, q.limit, q.sortBy, q.order, q.q, q.status, refreshTick]);
 
+  useEffect(() => {
+    let cancelled = false;
+
+    (async () => {
+      try {
+        const data = await listBooks({ page: 1, limit: 1, sortBy: "registered_at", order: "desc" });
+        if (cancelled) return;
+
+        const list = Array.isArray(data?.items) ? data.items : Array.isArray(data) ? data : [];
+        setLatestBook(list[0] || null);
+      } catch {
+        if (!cancelled) setLatestBook(null);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [refreshTick]);
+
   const idOf = (b) => b?._id || b?.id || "";
 
   function setQuery(patch) {
@@ -109,6 +130,7 @@ export default function SearchUpdatePage() {
   function patchRow(id, patch) {
     if (!id) return;
     setItems((prev) => prev.map((it) => (idOf(it) === id ? { ...it, ...patch } : it)));
+    setLatestBook((prev) => (prev && idOf(prev) === id ? { ...prev, ...patch } : prev));
   }
 
   function setUpdatingOn(id, on = true) {
@@ -147,7 +169,7 @@ export default function SearchUpdatePage() {
     const revert = { reading_status: b?.reading_status ?? null };
 
     try {
-      patchRow(id, { reading_status: nextStatus });
+      patchRow(id, { reading_status: nextStatus, reading_status_updated_at: new Date().toISOString() });
       await updateBook(id, { reading_status: nextStatus });
     } catch (e) {
       patchRow(id, revert);
@@ -216,6 +238,57 @@ export default function SearchUpdatePage() {
           </>
         ) : null}
       </p>
+
+      {latestBook ? (() => {
+        const id = idOf(latestBook);
+        const isBusy = updating.has(id);
+        const status = statusOf(latestBook);
+        const isAbandoned = status === "abandoned";
+        const isFinished = status === "finished";
+
+        return (
+          <div className="zr-card" style={{ marginBottom: 14 }}>
+            <h2 style={{ marginTop: 0 }}>Zuletzt registriertes Buch</h2>
+            <div style={{ display: "grid", gap: 8 }}>
+              <div>
+                <strong>{getBarcode(latestBook)}</strong> · {getAuthor(latestBook)} · {getKeyword(latestBook)}
+              </div>
+              <div style={{ fontSize: 12, opacity: 0.75 }}>
+                Registriert: {getCreatedAt(latestBook)}
+                {isAbandoned || isFinished ? <> · Status geändert: {getStatusChangedAt(latestBook)}</> : null}
+              </div>
+              <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+                <button
+                  disabled={isBusy}
+                  onClick={() => setStatus(latestBook, "abandoned")}
+                  className={`zr-btn2 zr-btn2--sm ${isAbandoned ? "" : "zr-btn2--ghost"}`}
+                  type="button"
+                >
+                  {isAbandoned ? "✓ Abandoned" : "Abandoned setzen"}
+                </button>
+
+                <button
+                  disabled={isBusy}
+                  onClick={() => setStatus(latestBook, "finished")}
+                  className={`zr-btn2 zr-btn2--sm ${isFinished ? "" : "zr-btn2--ghost"}`}
+                  type="button"
+                >
+                  {isFinished ? "✓ Finished" : "Finished setzen"}
+                </button>
+
+                <button
+                  disabled={isBusy}
+                  onClick={() => openEditor(latestBook)}
+                  className="zr-btn2 zr-btn2--ghost zr-btn2--sm"
+                  type="button"
+                >
+                  ✎ Buch bearbeiten
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })() : null}
 
       <div className="zr-card">
         <div className="zr-toolbar">
