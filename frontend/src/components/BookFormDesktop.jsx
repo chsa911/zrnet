@@ -2,6 +2,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   autocomplete,
+  findDraft,
   lookupIsbn,
   registerBook,
   registerExistingBook,
@@ -197,6 +198,7 @@ export default function BookFormDesktop({
   const [barcodePreview, setBarcodePreview] = useState(null);
   const [barcodePreviewErr, setBarcodePreviewErr] = useState("");
   const [extras, setExtras] = useState({});
+  const [existingMatch, setExistingMatch] = useState(null);
 
   const knownKeys = useMemo(() => new Set(Object.keys(emptyForm).map(norm)), []);
   const excludeKey = (excludeUnknownKeys || []).map(String).join("\u0000");
@@ -254,6 +256,61 @@ export default function BookFormDesktop({
       clearTimeout(t);
     };
   }, [isEdit, assignBarcode, v.barcode, v.width_cm, v.height_cm]);
+
+  useEffect(() => {
+    if (isEdit) {
+      setExistingMatch(null);
+      return;
+    }
+
+    const isbnN = normalizeIsbnInputs(v.isbn13, v.isbn10);
+    const isbn = isbnN.isbn13 || isbnN.isbn10 || isbnN.raw || "";
+    const pages = parseIntOrNull(v.pages);
+    const title = String(v.title_display || "").trim();
+    const authorLast = String(v.author_lastname || "").trim();
+    const authorDisplay = String(v.name_display || "").trim();
+    const publisherDisplay = String(v.publisher_name_display || "").trim();
+
+    if (!isbn && pages == null && !title && !authorLast && !authorDisplay && !publisherDisplay) {
+      setExistingMatch(null);
+      return;
+    }
+
+    const ctrl = new AbortController();
+    const t = setTimeout(async () => {
+      try {
+        const r = await findDraft(
+          {
+            isbn,
+            pages,
+            title_display: title,
+            author_lastname: authorLast,
+            name_display: authorDisplay,
+            publisher_name_display: publisherDisplay,
+          },
+          { signal: ctrl.signal }
+        );
+        const items = Array.isArray(r?.items) ? r.items : [];
+        setExistingMatch(items[0] || null);
+      } catch (e) {
+        if (e?.name !== "AbortError") setExistingMatch(null);
+      }
+    }, 300);
+
+    return () => {
+      clearTimeout(t);
+      ctrl.abort();
+    };
+  }, [
+    isEdit,
+    v.isbn13,
+    v.isbn10,
+    v.pages,
+    v.title_display,
+    v.author_lastname,
+    v.name_display,
+    v.publisher_name_display,
+  ]);
 
   function setField(key, val) {
     setV((prev) => {
@@ -477,6 +534,7 @@ export default function BookFormDesktop({
       }
     }
 
+    if (!isEdit && existingMatch?.id) payload.draft_id = existingMatch.id;
     if (!isEdit && createReadingStatus) payload.reading_status = createReadingStatus;
     return payload;
   }
@@ -560,6 +618,16 @@ export default function BookFormDesktop({
       `}</style>
 
       {msg ? <div ref={msgRef} className="bfd-msg">{msg}</div> : null}
+
+      {!isEdit && existingMatch ? (
+        <div className="bfd-msg" style={{ background: "#fff8d8" }}>
+          Bereits vorhanden: {existingMatch.title_display || "ohne Titel"}
+          {existingMatch.author_name_display ? ` · ${existingMatch.author_name_display}` : ""}
+          {existingMatch.pages ? ` · ${existingMatch.pages} Seiten` : ""}
+          {existingMatch.isbn13 || existingMatch.isbn10 ? ` · ${existingMatch.isbn13 || existingMatch.isbn10}` : ""}
+          {" — wird beim Speichern aktualisiert, nicht neu angelegt."}
+        </div>
+      ) : null}
 
       <div className="bfd-row">
         <input {...numberProps("width_cm", "Width", "5.6ch")} />

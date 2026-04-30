@@ -379,8 +379,8 @@ router.get("/authors/overview", async (req, res) => {
     const pool = req.app.get("pgPool");
     if (!pool) return res.status(500).json({ error: "pgPool missing" });
 
-    const isbn = String(req.query.isbn || "").trim();
-    const codeRaw = String(req.query.code || "").trim();
+    const isbn = String(req.query.isbn || "").trim().toUpperCase().replace(/[^0-9X]/g, "");
+    const codeRaw = String(req.query.pages || req.query.code || "").trim();
     const titleDisplay = String(req.query.title_display || "").trim();
     const subtitleDisplay = String(req.query.subtitle_display || "").trim();
     const titleKeyword = String(req.query.title_keyword || "").trim();
@@ -413,7 +413,11 @@ router.get("/authors/overview", async (req, res) => {
       if (isbn) {
         params.push(isbn);
         const p = `$${params.length}`;
-        matches.push(`(b.isbn13 = ${p} OR b.isbn10 = ${p} OR b.isbn13_raw = ${p})`);
+        matches.push(`(
+          regexp_replace(upper(coalesce(b.isbn13, '')), '[^0-9X]', '', 'g') = ${p}
+          OR regexp_replace(upper(coalesce(b.isbn10, '')), '[^0-9X]', '', 'g') = ${p}
+          OR regexp_replace(upper(coalesce(b.isbn13_raw, '')), '[^0-9X]', '', 'g') = ${p}
+        )`);
       }
       if (code != null) {
         params.push(code);
@@ -508,7 +512,7 @@ router.get("/authors/overview", async (req, res) => {
         FROM public.books b
         LEFT JOIN public.authors a ON a.id = b.author_id
         LEFT JOIN public.publishers p ON p.id = b.publisher_id
-        WHERE b.reading_status = 'in_stock'
+        WHERE coalesce(b.reading_status, '') IN ('in_stock', 'in_progress')
           AND (${matches.join(" OR ")})
         ORDER BY (b.registered_at IS NULL) DESC, b.added_at DESC NULLS LAST, b.registered_at DESC NULLS LAST
         LIMIT 20
