@@ -512,9 +512,9 @@ router.get("/authors/overview", async (req, res) => {
         FROM public.books b
         LEFT JOIN public.authors a ON a.id = b.author_id
         LEFT JOIN public.publishers p ON p.id = b.publisher_id
-        WHERE coalesce(b.reading_status, '') IN ('in_stock', 'in_progress')
-          AND (${matches.join(" OR ")})
-        ORDER BY (b.registered_at IS NULL) DESC, b.added_at DESC NULLS LAST, b.registered_at DESC NULLS LAST
+       WHERE b.reading_status = 'in_stock'
+         AND (${matches.join(" OR ")})
+        ORDER BY b.registered_at DESC NULLS LAST, b.added_at DESC NULLS LAST
         LIMIT 20
       `;
 
