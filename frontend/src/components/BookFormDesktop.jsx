@@ -362,8 +362,8 @@ setExistingMatch(null);
     const t = String(q || "").trim();
     if (t.length < 1) return setAc({ field: "", items: [] });
     try {
-      const items = await autocomplete(field, t);
-      if (Array.isArray(items)) setAc({ field, items: items.slice(0, 8) });
+      const items = await autocomplete(field, t, {limit: 200});
+      if (Array.isArray(items)) setAc({ field, items });
     } catch {
       setAc({ field: "", items: [] });
     }
@@ -613,53 +613,155 @@ setExistingMatch(null);
 
   return (
     <form className="bfd" onSubmit={onSubmit} noValidate>
-      <style>{`
-        .bfd {
+     <style>{`
+.bfd {
   display: grid;
-  gap: 10px;
+  gap: 12px;
   align-content: start;
-  font-size: 22px;
-  font-weight: 700;
+  font-size: clamp(24px, 5vw, 42px);
+  font-weight: 900;
+  overflow: visible;
 }
 
-.bfd-input,
-.bfd-btn {
-  height: 54px;
-  border: 2px solid rgba(0,0,0,.55);
+.bfd-row {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 0;
+  overflow: visible;
+  position: relative;
+}
+.bfd-input {
+  flex: 0 0 auto;
   font: inherit;
-  font-weight: 800;
-  padding: 0 12px;
+  font-size: clamp(76px, 12vw, 138px);
+  font-weight: 900;
+  line-height: 0.9;
+  height: 0.95em;
+  padding: 0 0.03em;
+  margin: 0;
+  box-sizing: content-box;
+  border: 3px solid rgba(0,0,0,.65);
+}
+
+.bfd-input::placeholder {
+  font-size: 0.58em;
+  font-weight: 900;
+}
+
+/* compact numeric fields */
+.bfd-input[placeholder="Width"],
+.bfd-input[placeholder="Height"] {
+  width: 3.25ch !important;
+}
+
+.bfd-input[placeholder="Pages"] {
+  width: 3.8ch !important;
+}
+.bfd-btn,
+.bfd-suggestion {
+  min-height: 78px;
+  border: 3px solid rgba(0,0,0,.65);
+  font: inherit;
+  font-weight: 900;
+  padding: 0 16px;
+  box-sizing: border-box;
+  background: white;
+}
+
+.bfd-input {
+  flex: 0 0 auto;
 }
 
 .bfd-input::placeholder {
   color: rgba(0,0,0,.65);
-  font-weight: 700;
-}
-
-.bfd-suggestion {
-  height: 54px;
-  padding: 0 18px;
-  font-size: 24px;
   font-weight: 900;
 }
 
+.bfd-btn,
+.bfd-suggestion {
+  cursor: pointer;
+  background: #eee;
+}
+
+.bfd-btn-primary {
+  min-height: 96px;
+  font-size: clamp(30px, 6vw, 52px);
+  padding: 0 22px;
+}
+
 .bfd-msg {
-  font-size: 22px;
-  font-weight: 800;
-  padding: 10px 12px;
-  min-height: 54px;
+  font-size: clamp(24px, 5vw, 42px);
+  font-weight: 900;
+  padding: 12px 14px;
+  min-height: 78px;
+}
+
+.bfd-ac-wrap {
+  position: relative;
+  height: 78px;
+  flex: 0 0 auto;
+  overflow: visible;
+}
+
+.bfd-ac-wrap > .bfd-input {
+  width: 100%;
 }
 
 .bfd-ac {
-  top: 54px;
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 0;
+  z-index: 99999;
+
+  display: grid;
+  grid-template-columns: repeat(8, max-content);
+  gap: 8px;
+
+  width: max-content;
+  max-width: 96vw;
+  max-height: 70vh;
+  overflow: auto;
+
+  background: white;
+  border: 4px solid rgba(0,0,0,.7);
+  padding: 10px;
+  box-sizing: border-box;
 }
 
 .bfd-ac button {
-  height: 48px;
-  font-size: 21px;
-  font-weight: 800;
+  min-height: 82px;
+  border: 2px solid rgba(0,0,0,.6);
+  padding: 10px 16px;
+  font: inherit;
+  font-size: clamp(22px, 4vw, 38px);
+  font-weight: 900;
+  text-align: left;
+  white-space: nowrap;
+  background: #eee;
+  cursor: pointer;
 }
-      `}</style>
+.bfd-existing {
+  border: 3px solid rgba(0,0,0,.35);
+  background: #fff8df;
+}
+
+.bfd-existing-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.bfd-btn-muted {
+  background: #eee;
+}
+
+.bfd-btn-update {
+  background: #dff3df;
+}
+`}</style>
 {!isEdit && existingMatches.length ? (
   <div className="bfd-msg bfd-existing">
     <div className="bfd-existing-text">
@@ -732,9 +834,9 @@ setExistingMatch(null);
         <input {...numberProps("width_cm", "Width", "5.6ch")} />
         <input {...numberProps("height_cm", "Height", "5.8ch")} />
         <input {...fieldProps("pages", "Pages", { inputMode: "numeric", style: { width: "6ch" } })} />
-        <div className="bfd-ac-wrap" style={{ width: "7ch" }}>
+        <div className="bfd-ac-wrap" style={{ width: "4ch" }}>
   <input
-    {...fieldProps("author_abbreviation", "AAbbr.", { style: { width: "7ch" } })}
+    {...fieldProps("author_abbreviation", "AAbbr.", { style: { width: "4ch" } })}
     onChange={(e) => {
       setField("author_abbreviation", e.target.value);
       runAutocomplete("author_abbreviation", e.target.value);

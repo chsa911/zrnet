@@ -663,7 +663,7 @@ async function upsertPublisher(db, { publisherId, key, nameDisplay, abbr }) {
       `
       SELECT p.${baseCols}
       FROM public.publisher_aliases pa
-      JOIN public.publishers p ON lower(p.name) = lower(pa.full_name)
+      JOIN public.publishers p ON lower(p.name_display) = lower(pa.full_name)
       WHERE pa.abbr_norm = regexp_replace(lower($1), '[^a-z0-9]+', '', 'g')
       LIMIT 1
       `,
@@ -934,7 +934,7 @@ async function listBooks(req, res) {
     const pool = getPool(req);
 
     const page = clampInt(req.query.page, 1, 1, 500000);
-    const limit = clampInt(req.query.limit, 20, 1, 500); // ✅ allow bigger result set for dropdown
+    const limit = clampInt(req.query.limit, 50, 1, 500); // ✅ allow bigger result set for dropdown
     const offset = (page - 1) * limit;
 
     const order =
@@ -1107,42 +1107,43 @@ async function autocomplete(req, res) {
     const q = String(req.query.q || "").trim();
     if (!field || q.length < 1) return res.json([]);
 
-    const max = clampInt(req.query.limit, 10, 1, 50);
+    const max = clampInt(req.query.limit, 50, 1, 200);
     const like = `${q}%`;
     const contains = `%${q}%`;
 
     const columns = await getColumns(pool, "books");
 
-    if (field === "author_abbreviation") {
-      const { rows } = await pool.query(
-        `
-        SELECT
-          a.id::text AS id,
-          a.first_name,
-          a.last_name,
-          a.name_display,
-          a.abbreviation,
-          a.author_nationality,
-          a.place_of_birth,
-          a.male_female,
-          a.published_titles,
-          a.number_of_millionsellers
-        FROM public.authors a
-        WHERE a.abbreviation ILIKE $1
-        ORDER BY
-          CASE
-            WHEN lower(a.abbreviation) = lower($2) THEN 1
-            ELSE 99
-          END,
-          a.abbreviation NULLS LAST,
-          a.name_display NULLS LAST
-        LIMIT $3
-        `,
-        [like, q, max]
-      );
-      return res.json(rows);
-    }
-
+   if (field === "author_abbreviation") {
+  const { rows } = await pool.query(
+    `
+    SELECT
+      a.id::text AS id,
+      a.first_name,
+      a.last_name,
+      a.name_display,
+      a.abbreviation,
+      a.author_nationality,
+      a.place_of_birth,
+      a.male_female,
+      a.published_titles,
+      a.number_of_millionsellers
+    FROM public.authors a
+    WHERE regexp_replace(lower(coalesce(a.abbreviation, '')), '[^a-z0-9]+', '', 'g')
+          LIKE regexp_replace(lower($1), '[^a-z0-9]+', '', 'g') || '%'
+    ORDER BY
+      CASE
+        WHEN regexp_replace(lower(coalesce(a.abbreviation, '')), '[^a-z0-9]+', '', 'g')
+             = regexp_replace(lower($1), '[^a-z0-9]+', '', 'g') THEN 1
+        ELSE 99
+      END,
+      regexp_replace(lower(coalesce(a.abbreviation, '')), '[^a-z0-9]+', '', 'g'),
+      a.name_display NULLS LAST
+    LIMIT $2
+    `,
+    [q, max]
+  );
+  return res.json(rows);
+}
     if (field === "author_lastname" || field === "name_display") {
       const { rows } = await pool.query(
         `
@@ -1179,32 +1180,30 @@ async function autocomplete(req, res) {
       );
       return res.json(rows);
     }
-
-    if (field === "publisher_abbr") {
-      const { rows } = await pool.query(
-        `
-        SELECT
-          p.id::text AS id,
-          p.name,
-          p.name_display,
-          p.abbr
-        FROM public.publishers p
-        WHERE p.abbr ILIKE $1
-        ORDER BY
-          CASE
-            WHEN lower(p.abbr) = lower($2) THEN 1
-            ELSE 99
-          END,
-          p.abbr NULLS LAST,
-          p.name_display NULLS LAST,
-          p.name NULLS LAST
-        LIMIT $3
-        `,
-        [contains, q, max]
-      );
-      return res.json(rows);
-    }
-
+if (field === "publisher_abbr") {
+  const { rows } = await pool.query(
+    `
+    SELECT
+      p.id::text AS id,
+      p.name,
+      p.name_display,
+      a.abbr_raw AS abbr,
+      a.abbr_raw AS publisher_abbr
+    FROM public.publisher_aliases a
+    JOIN public.publishers p
+      ON p.name_display = a.full_name
+    WHERE a.type = 'publisher'
+      AND a.abbr_norm LIKE regexp_replace(lower($1::text), '[^a-z0-9]+', '', 'g') || '%'
+    ORDER BY
+      (a.abbr_norm = regexp_replace(lower($1::text), '[^a-z0-9]+', '', 'g')) DESC,
+      length(a.abbr_norm),
+      p.name_display NULLS LAST
+    LIMIT $2
+    `,
+    [q, max]
+  );
+  return res.json(rows);
+}
     if (field === "publisher_name_display") {
       const { rows } = await pool.query(
         `

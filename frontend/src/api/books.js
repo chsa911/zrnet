@@ -78,7 +78,7 @@ export async function getBook(id, { signal } = {}) {
   return http(`/books/${encodeURIComponent(id)}`, { signal });
 }
 
-export async function autocomplete(field, q, { limit = 10, signal } = {}) {
+export async function autocomplete(field, q, { limit = 200, signal } = {}) {
   const qs = qsFromObject({ field, q, limit });
   const data = await http(`/books/autocomplete?${qs}`, { signal });
   return Array.isArray(data) ? data : [];
