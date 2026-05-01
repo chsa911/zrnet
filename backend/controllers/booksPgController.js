@@ -785,13 +785,20 @@ async function pickBestBarcode(pool, rule) {
     `
     SELECT bi.barcode
     FROM public.barcode_inventory bi
-    LEFT JOIN public.barcode_assignments ba
-      ON lower(ba.barcode) = lower(bi.barcode)
-     AND ba.freed_at IS NULL
     WHERE bi.status = 'AVAILABLE'
-      AND bi.rank_in_inventory IS NOT NULL
-      AND lower(regexp_replace(bi.barcode, '[0-9]+$', '')) = lower($1)
-      AND ba.barcode IS NULL
+  AND bi.rank_in_inventory IS NOT NULL
+    AND lower(regexp_replace(bi.barcode, '[0-9]+$', '')) = lower($1)
+
+      -- never suggest if barcode is currently used by an in_progress book
+      AND NOT EXISTS (
+        SELECT 1
+        FROM public.barcode_assignments ba
+        JOIN public.books b ON b.id = ba.book_id
+        WHERE lower(ba.barcode) = lower(bi.barcode)
+          AND ba.freed_at IS NULL
+          AND b.reading_status = 'in_progress'
+      )
+
     ORDER BY bi.rank_in_inventory ASC, lower(bi.barcode) ASC
     LIMIT 1
     `,
@@ -822,10 +829,6 @@ async function assignBarcodeTx(
 
   const row = inv.rows[0];
   if (!row) throw new Error("barcode_not_found");
-  if (String(row.status).toUpperCase() !== "AVAILABLE") throw new Error("barcode_not_available");
-
-  
-  
 
   if (expectedPos) {
     const expectedBand = posToBand(String(expectedPos).toLowerCase());
@@ -840,17 +843,24 @@ async function assignBarcodeTx(
     }
   }
 
-  const open = await pool.query(
+  // hard rule: barcode may not be used by any OTHER in_progress book
+  const activeUse = await pool.query(
     `
-    SELECT 1
-    FROM public.barcode_assignments
-    WHERE lower(barcode) = lower($1)
-      AND freed_at IS NULL
+    SELECT ba.book_id::text AS book_id
+    FROM public.barcode_assignments ba
+    JOIN public.books b ON b.id = ba.book_id
+    WHERE lower(ba.barcode) = lower($1)
+      AND ba.freed_at IS NULL
+      AND b.reading_status = 'in_progress'
+      AND ba.book_id <> $2::uuid
     LIMIT 1
     `,
-    [barcode]
+    [barcode, bookId]
   );
-  if (open.rowCount) throw new Error("barcode_already_assigned");
+
+  if (activeUse.rowCount) {
+    throw new Error("barcode_already_assigned_to_other_book");
+  }
 
   await pool.query(
     `
@@ -863,16 +873,21 @@ async function assignBarcodeTx(
     [barcode, expectedSizeRuleId || null]
   );
 
-  await pool.query(`DELETE FROM public.book_barcodes WHERE book_id = $1`, [bookId]);
-  await pool.query(`INSERT INTO public.book_barcodes (book_id, barcode) VALUES ($1, $2)`, [
-    bookId,
-    barcode,
-  ]);
+  await pool.query(`DELETE FROM public.book_barcodes WHERE book_id = $1::uuid`, [bookId]);
+
+  await pool.query(
+    `
+    INSERT INTO public.book_barcodes (book_id, barcode)
+    VALUES ($1::uuid, $2)
+    ON CONFLICT DO NOTHING
+    `,
+    [bookId, barcode]
+  );
 
   await pool.query(
     `
     INSERT INTO public.barcode_assignments (barcode, book_id, assigned_at, freed_at)
-    VALUES ($1, $2, $3, NULL)
+    VALUES ($1, $2::uuid, $3, NULL)
     `,
     [barcode, bookId, assignedAt || new Date().toISOString()]
   );
@@ -1235,38 +1250,7 @@ async function registerBook(req, res) {
     body.isbn13_raw ?? body.isbn13Raw ?? body.isbn_raw ?? body.isbn
   );
 
-  const exactIsbn = isbnInfo.isbn13 || isbnInfo.isbn10 || null;
-  if (assignBarcodeNow && exactIsbn && !forceNewEntry) {
-    const dup = await pool.query(
-      `
-      SELECT id
-      FROM public.books
-      WHERE ($1::text IS NOT NULL AND isbn13 = $1)
-         OR ($2::text IS NOT NULL AND isbn10 = $2)
-      ORDER BY registered_at DESC NULLS LAST, added_at DESC NULLS LAST, id
-      LIMIT 3
-      `,
-      [isbnInfo.isbn13 || null, isbnInfo.isbn10 || null]
-    );
-
-    if (dup.rows.length === 1) {
-      if (assignBarcodeNow) {
-        req.params = { ...(req.params || {}), id: dup.rows[0].id };
-        return registerExistingBook(req, res);
-      }
-
-      return saveExistingBookWithoutBarcode(req, res, dup.rows[0].id);
-    }
-    if (dup.rows.length > 1) {
-      return res.status(409).json({
-        error: "duplicate_isbn_ambiguous",
-        isbn13: isbnInfo.isbn13 || null,
-        isbn10: isbnInfo.isbn10 || null,
-        book_ids: dup.rows.map((r) => r.id),
-      });
-    }
-  }
-
+  
   if (assignBarcodeNow) {
     if (!Number.isFinite(widthCm) || !Number.isFinite(heightCm) || widthCm <= 0 || heightCm <= 0) {
       return res.status(400).json({ error: "width_and_height_required" });
@@ -1446,6 +1430,7 @@ async function registerBook(req, res) {
       barcode_not_found: [404, "barcode_not_found"],
       barcode_not_available: [409, "barcode_not_available"],
       barcode_already_assigned: [409, "barcode_already_assigned"],
+      barcode_already_assigned_to_other_book: [409, "barcode_already_assigned_to_other_book"],
       barcode_wrong_position: [400, "barcode_wrong_position"],
       barcode_wrong_prefix: [400, "barcode_wrong_prefix"],
     };
@@ -1722,15 +1707,7 @@ async function registerExistingBook(req, res) {
       return res.status(404).json({ error: "not_found" });
     }
 
-    const open = await client.query(
-      `SELECT 1 FROM public.barcode_assignments WHERE book_id=$1::uuid AND freed_at IS NULL LIMIT 1`,
-      [id]
-    );
-    if (open.rowCount) {
-      await client.query("ROLLBACK");
-      return res.status(409).json({ error: "already_registered" });
-    }
-
+    
     const authorIdRaw = normalizeUuid(body.author_id);
     const effectiveAuthorId = authorIdRaw || curRes.rows[0]?.author_id || null;
     const authorLastRaw = normalizeStr(body.author_lastname);
@@ -1902,6 +1879,7 @@ async function registerExistingBook(req, res) {
       barcode_not_found: [404, "barcode_not_found"],
       barcode_not_available: [409, "barcode_not_available"],
       barcode_already_assigned: [409, "barcode_already_assigned"],
+      barcode_already_assigned_to_other_book: [409, "barcode_already_assigned_to_other_book"],
       barcode_wrong_position: [400, "barcode_wrong_position"],
       barcode_wrong_prefix: [400, "barcode_wrong_prefix"],
     };
@@ -2051,12 +2029,10 @@ async function updateBook(req, res) {
     if (patch.title_keyword_position !== undefined) {
       updates.title_keyword_position = normalizeInt(patch.title_keyword_position);
     }
-
     if (patch.title_keyword2 !== undefined) updates.title_keyword2 = normalizeStr(patch.title_keyword2);
     if (patch.title_keyword2_position !== undefined) {
       updates.title_keyword2_position = normalizeInt(patch.title_keyword2_position);
     }
-
     if (patch.title_keyword3 !== undefined) updates.title_keyword3 = normalizeStr(patch.title_keyword3);
     if (patch.title_keyword3_position !== undefined) {
       updates.title_keyword3_position = normalizeInt(patch.title_keyword3_position);
@@ -2126,6 +2102,49 @@ async function updateBook(req, res) {
       await setHomeFeaturedSlotTx(client, id, nextHomeFeaturedSlot);
     }
 
+    if (
+      cur.reading_status === "in_progress" &&
+      updates.reading_status &&
+      updates.reading_status !== "in_progress"
+    ) {
+      await client.query(
+        `
+        WITH freed AS (
+          UPDATE public.barcode_assignments
+          SET freed_at = now()
+          WHERE book_id = $1::uuid
+            AND freed_at IS NULL
+          RETURNING barcode
+        )
+        DELETE FROM public.book_barcodes
+        WHERE book_id = $1::uuid
+        `,
+        [id]
+      );
+
+      await client.query(
+        `
+        UPDATE public.barcode_inventory bi
+        SET status = 'AVAILABLE',
+            updated_at = now()
+        WHERE EXISTS (
+          SELECT 1
+          FROM public.barcode_assignments ba
+          WHERE lower(ba.barcode) = lower(bi.barcode)
+            AND ba.book_id = $1::uuid
+            AND ba.freed_at IS NOT NULL
+        )
+          AND NOT EXISTS (
+            SELECT 1
+            FROM public.barcode_assignments ba2
+            WHERE lower(ba2.barcode) = lower(bi.barcode)
+              AND ba2.freed_at IS NULL
+          )
+        `,
+        [id]
+      );
+    }
+
     await client.query("COMMIT");
 
     const full = await fetchBookWithBarcode(pool, id);
@@ -2144,7 +2163,6 @@ async function updateBook(req, res) {
     client.release();
   }
 }
-
 /* --------------------------------- drop --------------------------------- */
 
 async function dropBook(req, res) {
