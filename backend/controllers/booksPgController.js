@@ -1138,7 +1138,7 @@ async function autocomplete(req, res) {
           a.name_display NULLS LAST
         LIMIT $3
         `,
-        [contains, q, max]
+        [like, q, max]
       );
       return res.json(rows);
     }
@@ -1175,7 +1175,7 @@ async function autocomplete(req, res) {
           a.id
         LIMIT $3
         `,
-        [contains, q, max]
+        [like, q, max]
       );
       return res.json(rows);
     }
