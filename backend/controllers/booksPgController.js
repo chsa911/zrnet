@@ -1099,7 +1099,6 @@ async function getBook(req, res) {
 }
 
 /* ------------------------------ autocomplete -------------------------------- */
-
 async function autocomplete(req, res) {
   try {
     const pool = getPool(req);
@@ -1113,7 +1112,38 @@ async function autocomplete(req, res) {
     const contains = `%${q}%`;
 
     const columns = await getColumns(pool, "books");
-if (field === "author_lastname" || field === "name_display" || field === "author_abbreviation") {
+
+    if (field === "author_abbreviation") {
+      const { rows } = await pool.query(
+        `
+        SELECT
+          a.id::text AS id,
+          a.first_name,
+          a.last_name,
+          a.name_display,
+          a.abbreviation,
+          a.author_nationality,
+          a.place_of_birth,
+          a.male_female,
+          a.published_titles,
+          a.number_of_millionsellers
+        FROM public.authors a
+        WHERE a.abbreviation ILIKE $1
+        ORDER BY
+          CASE
+            WHEN lower(a.abbreviation) = lower($2) THEN 1
+            ELSE 99
+          END,
+          a.abbreviation NULLS LAST,
+          a.name_display NULLS LAST
+        LIMIT $3
+        `,
+        [contains, q, max]
+      );
+      return res.json(rows);
+    }
+
+    if (field === "author_lastname" || field === "name_display") {
       const { rows } = await pool.query(
         `
         SELECT
@@ -1150,7 +1180,32 @@ if (field === "author_lastname" || field === "name_display" || field === "author
       return res.json(rows);
     }
 
-    if (field === "publisher_name_display" || field === "publisher_abbr") {
+    if (field === "publisher_abbr") {
+      const { rows } = await pool.query(
+        `
+        SELECT
+          p.id::text AS id,
+          p.name,
+          p.name_display,
+          p.abbr
+        FROM public.publishers p
+        WHERE p.abbr ILIKE $1
+        ORDER BY
+          CASE
+            WHEN lower(p.abbr) = lower($2) THEN 1
+            ELSE 99
+          END,
+          p.abbr NULLS LAST,
+          p.name_display NULLS LAST,
+          p.name NULLS LAST
+        LIMIT $3
+        `,
+        [contains, q, max]
+      );
+      return res.json(rows);
+    }
+
+    if (field === "publisher_name_display") {
       const { rows } = await pool.query(
         `
         SELECT
@@ -1209,7 +1264,6 @@ if (field === "author_lastname" || field === "name_display" || field === "author
     return res.status(500).json({ error: "internal_error" });
   }
 }
-
 /* --------------------------------- create --------------------------------- */
 
 async function registerBook(req, res) {
