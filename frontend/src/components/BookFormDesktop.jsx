@@ -732,8 +732,60 @@ setExistingMatch(null);
         <input {...numberProps("width_cm", "Width", "5.6ch")} />
         <input {...numberProps("height_cm", "Height", "5.8ch")} />
         <input {...fieldProps("pages", "Pages", { inputMode: "numeric", style: { width: "6ch" } })} />
-        <input {...fieldProps("author_abbreviation", "AAbbr.", { style: { width: "7ch" } })} />
-        <input {...fieldProps("publisher_abbr", "PAbbr.", { style: { width: "7ch" } })} />
+        <div className="bfd-ac-wrap" style={{ width: "7ch" }}>
+  <input
+    {...fieldProps("author_abbreviation", "AAbbr.", { style: { width: "7ch" } })}
+    onChange={(e) => {
+      setField("author_abbreviation", e.target.value);
+      runAutocomplete("author_abbreviation", e.target.value);
+    }}
+    onBlur={() => setTimeout(() => setAc({ field: "", items: [] }), 120)}
+  />
+  {ac.field === "author_abbreviation" && ac.items.length ? (
+    <div className="bfd-ac">
+      {ac.items.map((it, index) => (
+        <button
+          key={suggestionKey(it, index)}
+          type="button"
+          onMouseDown={(e) => e.preventDefault()}
+          onClick={() => {
+            applyAuthorMatch(it);
+            setAc({ field: "", items: [] });
+          }}
+        >
+          {authorSuggestionLabel(it)}
+        </button>
+      ))}
+    </div>
+  ) : null}
+</div>
+      <div className="bfd-ac-wrap" style={{ width: "7ch" }}>
+  <input
+    {...fieldProps("publisher_abbr", "PAbbr.", { style: { width: "7ch" } })}
+    onChange={(e) => {
+      setField("publisher_abbr", e.target.value);
+      runAutocomplete("publisher_abbr", e.target.value);
+    }}
+    onBlur={() => setTimeout(() => setAc({ field: "", items: [] }), 120)}
+  />
+  {ac.field === "publisher_abbr" && ac.items.length ? (
+    <div className="bfd-ac">
+      {ac.items.map((it, index) => (
+        <button
+          key={suggestionKey(it, index)}
+          type="button"
+          onMouseDown={(e) => e.preventDefault()}
+          onClick={() => {
+            applyPublisherMatch(it);
+            setAc({ field: "", items: [] });
+          }}
+        >
+          {publisherSuggestionLabel(it)}
+        </button>
+      ))}
+    </div>
+  ) : null}
+</div>
         <input {...fieldProps("isbn10", "ISBN-10", { style: { width: "11ch" } })} />
         <input {...fieldProps("isbn13", "ISBN-13", { style: { width: "14ch" } })} />
         <button type="button" className="bfd-btn" disabled={busy || isbnBusy} onClick={doIsbnLookup}>

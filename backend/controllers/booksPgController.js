@@ -1113,8 +1113,7 @@ async function autocomplete(req, res) {
     const contains = `%${q}%`;
 
     const columns = await getColumns(pool, "books");
-
-    if (field === "author_lastname" || field === "name_display") {
+if (field === "author_lastname" || field === "name_display" || field === "author_abbreviation") {
       const { rows } = await pool.query(
         `
         SELECT
@@ -1151,7 +1150,7 @@ async function autocomplete(req, res) {
       return res.json(rows);
     }
 
-    if (field === "publisher_name_display") {
+    if (field === "publisher_name_display" || field === "publisher_abbr") {
       const { rows } = await pool.query(
         `
         SELECT
