@@ -628,10 +628,6 @@ export default function BookFormDesktop({
   return (
     <form className="bfd" onSubmit={onSubmit} noValidate>
       <style>{`
-.bfd-input-wide {
-  flex: 1 1 100% !important;
-  width: 100% !important;
-}
 .bfd {
   display: grid;
   gap: 12px;
@@ -641,18 +637,17 @@ export default function BookFormDesktop({
   overflow: visible;
   padding-bottom: 160px;
 }
+
 .bfd-row {
   display: flex;
   flex-direction: row;
   flex-wrap: wrap;
-  align-items: stretch;   /* 🔥 IMPORTANT */
+  align-items: flex-start;
   gap: 0;
   overflow: visible;
   position: relative;
 }
-.bfd-row + .bfd-row {
-  margin-top: 8px;
-}
+
 .bfd-input {
   flex: 0 0 auto;
   font: inherit;
@@ -672,11 +667,6 @@ export default function BookFormDesktop({
   height: 0.95em !important;
   line-height: 0.9 !important;
 }
-.bfd-wide-wrap {
-  flex: 1 1 100% !important;
-  width: 100% !important;
-  height: auto !important;
-}
 
 .bfd-input::placeholder {
   font-size: 0.36em;
@@ -688,21 +678,13 @@ export default function BookFormDesktop({
 
 .bfd-input[placeholder="Width"],
 .bfd-input[placeholder="Height"] {
-  width: 3.1ch !important;
-}
-.bfd-input[placeholder="Pages"] {
-  width: 3.0ch !important;
-  text-align: center;
+  width: 3.15ch !important;
 }
 
-.bfd-input[placeholder="AA"] {
-  width: 190px !important;
-  text-align: center;
-}
-
-.bfd-input[placeholder="PA"] {
-  width: 220px !important;
-  text-align: center;
+.bfd-input[placeholder="Pages"],
+.bfd-input[placeholder="AAbbr."],
+.bfd-input[placeholder="PAbbr."] {
+  width: 3.6ch !important;
 }
 
 .bfd-btn,
@@ -732,11 +714,15 @@ export default function BookFormDesktop({
 
 .bfd-ac-wrap {
   position: relative;
-  height: auto;
-  min-height: 0;
+  height: 78px;
   flex: 0 0 auto;
   overflow: visible;
 }
+
+.bfd-ac-wrap > .bfd-input {
+  width: auto;
+}
+
 .bfd-ac {
   position: absolute;
   top: calc(100% + 8px);
@@ -851,13 +837,13 @@ export default function BookFormDesktop({
       {msg ? <div ref={msgRef} className="bfd-msg">{msg}</div> : null}
 
       <div className="bfd-row">
-        <input {...numberProps("width_cm", "Width", "2.8ch")} />
-        <input {...numberProps("height_cm", "Height", "2.8ch")} />
-        <input {...fieldProps("pages", "Pages", { inputMode: "numeric", style: { width: "3.0ch" } })} />
+        <input {...numberProps("width_cm", "Width", "3.15ch")} />
+        <input {...numberProps("height_cm", "Height", "3.15ch")} />
+        <input {...fieldProps("pages", "Pages", { inputMode: "numeric", style: { width: "3.6ch" } })} />
 
-        <div className="bfd-ac-wrap" style={{ width: 190 }}>
+        <div className="bfd-ac-wrap" style={{ width: "3.6ch" }}>
           <input
-            {...fieldProps("author_abbreviation", "AA", { style: { width: 190 } })}
+            {...fieldProps("author_abbreviation", "AAbbr.", { style: { width: "3.6ch" } })}
             onChange={(e) => {
               setField("author_abbreviation", e.target.value);
               runAutocomplete("author_abbreviation", e.target.value);
@@ -883,9 +869,9 @@ export default function BookFormDesktop({
           ) : null}
         </div>
 
-        <div className="bfd-ac-wrap" style={{ width: 220 }}>
+        <div className="bfd-ac-wrap" style={{ width: "3.6ch" }}>
           <input
-            {...fieldProps("publisher_abbr", "PA", { style: { width: 220 } })}
+            {...fieldProps("publisher_abbr", "PAbbr.", { style: { width: "3.6ch" } })}
             onChange={(e) => {
               setField("publisher_abbr", e.target.value);
               runAutocomplete("publisher_abbr", e.target.value);
@@ -929,7 +915,7 @@ export default function BookFormDesktop({
       </div>
 
       <div className="bfd-row">
-        <div className="bfd-ac-wrap bfd-wide-wrap">
+        <div className="bfd-ac-wrap" style={{ flex: "1 1 100%", width: "100%" }}>
           <input
             {...fieldProps("name_display", "Author", { className: "bfd-input bfd-input-wide" })}
             onChange={(e) => {
@@ -956,26 +942,20 @@ export default function BookFormDesktop({
             </div>
           ) : null}
         </div>
-      </div>
 
-      <div className="bfd-row">
         <input
           {...fieldProps("title_display", "Title", {
             className: "bfd-input bfd-input-wide",
           })}
         />
-      </div>
 
-      <div className="bfd-row">
         <input
           {...fieldProps("subtitle_display", "Subtitle", {
             className: "bfd-input bfd-input-wide",
           })}
         />
-      </div>
 
-      <div className="bfd-row">
-        <div className="bfd-ac-wrap bfd-wide-wrap">
+        <div className="bfd-ac-wrap" style={{ flex: "1 1 100%", width: "100%" }}>
           <input
             {...fieldProps("publisher_name_display", "Publisher", { className: "bfd-input bfd-input-wide" })}
             onChange={(e) => {
@@ -1002,9 +982,7 @@ export default function BookFormDesktop({
             </div>
           ) : null}
         </div>
-      </div>
 
-      <div className="bfd-row">
         <button className="bfd-btn bfd-btn-primary" disabled={busy} type="submit">
           {busy ? "…" : existingMatch?.id ? "Ausgewähltes Buch registrieren" : submitLabel}
         </button>
