@@ -199,16 +199,16 @@ export default function BookFormDesktop({
   const [barcodePreview, setBarcodePreview] = useState(null);
   const [barcodePreviewErr, setBarcodePreviewErr] = useState("");
   const [extras, setExtras] = useState({});
+  const [existingMatches, setExistingMatches] = useState([]);
   const [existingMatch, setExistingMatch] = useState(null);
-  const [updateExistingOnSave, setUpdateExistingOnSave] = useState(false);
 
   const knownKeys = useMemo(() => new Set(Object.keys(emptyForm).map(norm)), []);
   const excludeKey = (excludeUnknownKeys || []).map(String).join("\u0000");
 
   useEffect(() => {
     setV(initial);
-    setExistingMatch(null);
-    setUpdateExistingOnSave(false);
+    setExistingMatches([]);
+setExistingMatch(null);
     if (!showUnknownFields) return setExtras({});
 
     const b = initialBook || {};
@@ -263,9 +263,9 @@ export default function BookFormDesktop({
 
   useEffect(() => {
     if (isEdit) {
-      setExistingMatch(null);
-      setUpdateExistingOnSave(false);
-      return;
+      setExistingMatches([]);
+setExistingMatch(null);
+return;
     }
 
     const isbnN = normalizeIsbnInputs(v.isbn13, v.isbn10);
@@ -277,9 +277,9 @@ export default function BookFormDesktop({
     const publisherDisplay = String(v.publisher_name_display || "").trim();
 
     if (!isbn && pages == null && !title && !authorLast && !authorDisplay && !publisherDisplay) {
-      setExistingMatch(null);
-      setUpdateExistingOnSave(false);
-      return;
+      setExistingMatches([]);
+setExistingMatch(null);
+return;
     }
 
     const ctrl = new AbortController();
@@ -297,13 +297,12 @@ export default function BookFormDesktop({
           { signal: ctrl.signal }
         );
         const items = Array.isArray(r?.items) ? r.items : [];
-        const match = items[0] || null;
-        setExistingMatch(match);
-        setUpdateExistingOnSave(false);
+setExistingMatches(items);
+setExistingMatch(null);
       } catch (e) {
         if (e?.name !== "AbortError") {
-          setExistingMatch(null);
-          setUpdateExistingOnSave(false);
+          setExistingMatches([]);
+setExistingMatch(null);
         }
       }
     }, 300);
@@ -544,11 +543,15 @@ export default function BookFormDesktop({
         if (next !== toStr((initialBook || {})[k])) payload[k] = next === "" ? null : next;
       }
     }
+if (!isEdit && existingMatch?.id) payload.draft_id = existingMatch.id;
 
-    if (!isEdit && updateExistingOnSave && existingMatch?.id) payload.draft_id = existingMatch.id;
-    if (!isEdit && createReadingStatus) payload.reading_status = createReadingStatus;
+if (!isEdit && existingMatches.length && !existingMatch?.id) {
+  throw new Error("Bitte zuerst das richtige Buch aus den Treffern wählen.");
+}
+
+if (!isEdit && createReadingStatus) payload.reading_status = createReadingStatus;
     return payload;
-  }
+}
 
   async function onSubmit(e) {
     e.preventDefault();
@@ -581,8 +584,8 @@ export default function BookFormDesktop({
       setMsg(payload.draft_id ? "Vorhandenes Buch aktualisiert ✔" : isEdit ? "Gespeichert." : "Gespeichert ✔");
       if (!isEdit) {
         setV({ ...emptyForm });
-        setExistingMatch(null);
-        setUpdateExistingOnSave(false);
+        setExistingMatches([]);
+setExistingMatch(null);
       }
     } catch (err) {
       setMsg(err?.message || "Fehler beim Speichern");
@@ -609,62 +612,80 @@ export default function BookFormDesktop({
   return (
     <form className="bfd" onSubmit={onSubmit} noValidate>
       <style>{`
-        .bfd { display: grid; gap: 4px; align-content: start; font-size: 13px; }
-        .bfd * { box-sizing: border-box; }
-        .bfd-row { display: flex; align-items: center; gap: 0; min-width: 0; }
-        .bfd-input, .bfd-btn {
-          height: 28px; border: 1px solid rgba(0,0,0,.28); border-radius: 0;
-          background: #fff; color: #111; font: inherit; padding: 0 4px;
-          min-width: 0; outline: none;
-        }
-        .bfd-input::placeholder { color: rgba(0,0,0,.58); opacity: 1; }
-        .bfd-btn { cursor: pointer; padding: 0 8px; white-space: nowrap; }
-        .bfd-btn-primary { background: #111; color: #fff; border-color: #111; }
-        .bfd-btn-update { background: #00b050; color: #fff; border-color: #008a3f; font-weight: 800; }
-        .bfd-btn-muted { background: #fff; color: #111; border-color: rgba(0,0,0,.28); }
-        .bfd-suggestion {
-          height: 28px; display: inline-flex; align-items: center; padding: 0 8px;
-          background: #00b050; color: #fff; font-weight: 800;
-          border: 1px solid #008a3f; white-space: nowrap;
-        }
-        .bfd-msg { border: 1px solid rgba(0,0,0,.24); padding: 4px 6px; min-height: 28px; background: rgba(0,0,0,.025); }
-        .bfd-existing { display: flex; align-items: center; gap: 8px; justify-content: space-between; background: #fff8d8; }
-        .bfd-existing-text { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-        .bfd-existing-actions { display: inline-flex; align-items: center; gap: 4px; flex: 0 0 auto; }
-        .bfd-ac-wrap { position: relative; min-width: 0; }
-        .bfd-ac { position: absolute; left: 0; right: 0; top: 28px; z-index: 20; background: #fff; border: 1px solid #111; box-shadow: 0 8px 20px rgba(0,0,0,.12); }
-        .bfd-ac button { display: block; width: 100%; height: 26px; border: 0; border-bottom: 1px solid rgba(0,0,0,.08); background: #fff; text-align: left; padding: 0 6px; cursor: pointer; font: inherit; }
-        .bfd-ac button:hover { background: rgba(0,0,0,.06); }
-        @media (max-width: 768px) { .bfd { display: none; } }
-      `}</style>
+        .bfd {
+  display: grid;
+  gap: 10px;
+  align-content: start;
+  font-size: 22px;
+  font-weight: 700;
+}
 
+.bfd-input,
+.bfd-btn {
+  height: 54px;
+  border: 2px solid rgba(0,0,0,.55);
+  font: inherit;
+  font-weight: 800;
+  padding: 0 12px;
+}
+
+.bfd-input::placeholder {
+  color: rgba(0,0,0,.65);
+  font-weight: 700;
+}
+
+.bfd-suggestion {
+  height: 54px;
+  padding: 0 18px;
+  font-size: 24px;
+  font-weight: 900;
+}
+
+.bfd-msg {
+  font-size: 22px;
+  font-weight: 800;
+  padding: 10px 12px;
+  min-height: 54px;
+}
+
+.bfd-ac {
+  top: 54px;
+}
+
+.bfd-ac button {
+  height: 48px;
+  font-size: 21px;
+  font-weight: 800;
+}
+      `}</style>
+{!isEdit && existingMatches.length ? (
+  <div className="bfd-msg bfd-existing">
+    <div className="bfd-existing-text">
+      Treffer gefunden — bitte das richtige Buch wählen:
+    </div>
+
+    <div className="bfd-existing-actions">
+      {existingMatches.map((m) => (
+        <button
+          key={m.id}
+          type="button"
+          className={`bfd-btn ${existingMatch?.id === m.id ? "bfd-btn-update" : "bfd-btn-muted"}`}
+          disabled={busy}
+          onClick={() => setExistingMatch(m)}
+        >
+          {(m.title_display || m.main_title_display || "ohne Titel")}
+          {m.author_display || m.author_name_display ? ` · ${m.author_display || m.author_name_display}` : ""}
+          {m.pages ? ` · ${m.pages} S.` : ""}
+          {m.reading_status ? ` · ${m.reading_status}` : ""}
+        </button>
+      ))}
+    </div>
+  </div>
+) : null}
       {msg ? <div ref={msgRef} className="bfd-msg">{msg}</div> : null}
 
-      {!isEdit && existingMatch ? (
-        <div className="bfd-msg bfd-existing">
-          <div className="bfd-existing-text">
-            Bereits vorhanden: {existingMatch.title_display || "ohne Titel"}
-            {existingMatch.author_name_display ? ` · ${existingMatch.author_name_display}` : ""}
-            {existingMatch.pages ? ` · ${existingMatch.pages} Seiten` : ""}
-            {existingMatch.isbn13 || existingMatch.isbn10 ? ` · ${existingMatch.isbn13 || existingMatch.isbn10}` : ""}
-            {updateExistingOnSave
-              ? " — wird beim Speichern aktualisiert."
-              : " — automatischer Hinweis; Speichern legt neu an."}
-          </div>
-          <div className="bfd-existing-actions">
-            <button
-              type="button"
-              className={`bfd-btn ${updateExistingOnSave ? "bfd-btn-update" : "bfd-btn-muted"}`}
-              disabled={busy}
-              onClick={() => setUpdateExistingOnSave((x) => !x)}
-              title={updateExistingOnSave ? "Beim Speichern doch neu anlegen" : "Beim Speichern vorhandenes Buch aktualisieren"}
-            >
-              {updateExistingOnSave ? "Update aktiv" : "Update existing"}
-            </button>
-          </div>
-        </div>
-      ) : null}
-
+     
+         
       <div className="bfd-row">
         <input {...numberProps("width_cm", "Width", "5.6ch")} />
         <input {...numberProps("height_cm", "Height", "5.8ch")} />
@@ -749,7 +770,7 @@ export default function BookFormDesktop({
         </div>
 
         <button className="bfd-btn bfd-btn-primary" disabled={busy} type="submit">
-          {busy ? "…" : updateExistingOnSave && existingMatch?.id ? "Aktualisieren" : submitLabel}
+       {busy ? "…" : existingMatch?.id ? "Ausgewähltes Buch registrieren" : submitLabel}
         </button>
 
         {onCancel ? (
