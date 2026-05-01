@@ -298,7 +298,9 @@ return;
         );
         const items = Array.isArray(r?.items) ? r.items : [];
 setExistingMatches(items);
-setExistingMatch(null);
+setExistingMatch((prev) =>
+  prev?.id && items.some((x) => x.id === prev.id) ? prev : null
+);
       } catch (e) {
         if (e?.name !== "AbortError") {
           setExistingMatches([]);
@@ -671,7 +673,47 @@ setExistingMatch(null);
           type="button"
           className={`bfd-btn ${existingMatch?.id === m.id ? "bfd-btn-update" : "bfd-btn-muted"}`}
           disabled={busy}
-          onClick={() => setExistingMatch(m)}
+         onClick={() => {
+  setExistingMatch(m);
+
+  setV((prev) => ({
+    ...prev,
+
+    // keep barcode + width/height already entered
+    pages: toStr(m.pages ?? prev.pages),
+
+    isbn13: toStr(m.isbn13 ?? prev.isbn13),
+    isbn10: toStr(m.isbn10 ?? prev.isbn10),
+
+    title_display: toStr(
+      m.title_display ??
+      m.main_title_display ??
+      prev.title_display
+    ),
+    subtitle_display: toStr(m.subtitle_display ?? prev.subtitle_display),
+
+    author_id: toStr(m.author_id ?? prev.author_id),
+    name_display: toStr(
+      m.name_display ??
+      m.author_name_display ??
+      m.author_display ??
+      prev.name_display
+    ),
+    author_lastname: toStr(m.author_lastname ?? prev.author_lastname),
+    author_firstname: toStr(m.author_firstname ?? prev.author_firstname),
+    author_abbreviation: toStr(
+      m.author_abbreviation ?? prev.author_abbreviation
+    ),
+
+    publisher_id: toStr(m.publisher_id ?? prev.publisher_id),
+    publisher_name_display: toStr(
+      m.publisher_name_display ??
+      m.publisher_name ??
+      prev.publisher_name_display
+    ),
+    publisher_abbr: toStr(m.publisher_abbr ?? prev.publisher_abbr),
+  }));
+}}
         >
           {(m.title_display || m.main_title_display || "ohne Titel")}
           {m.author_display || m.author_name_display ? ` · ${m.author_display || m.author_name_display}` : ""}
