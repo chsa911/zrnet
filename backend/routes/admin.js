@@ -122,20 +122,29 @@ router.get("/authors/overview", async (req, res) => {
   try {
     const r = await pool.query(`
       SELECT
-        a.name_display AS author,
-        COUNT(*) FILTER (WHERE b.reading_status = 'finished')::int AS completed,
-        COUNT(*) FILTER (WHERE b.reading_status = 'abandoned')::int AS not_a_match,
-        COUNT(*) FILTER (
+        a.id::text AS id,
+        NULLIF(btrim(a.last_name), '') AS last_name,
+        NULLIF(btrim(a.first_name), '') AS first_name,
+        NULLIF(btrim(a.name_display), '') AS name_display,
+        NULLIF(btrim(a.name_display), '') AS author,
+
+        COUNT(b.id) FILTER (WHERE b.reading_status = 'finished')::int AS completed,
+        COUNT(b.id) FILTER (WHERE b.reading_status = 'abandoned')::int AS not_a_match,
+        COUNT(b.id) FILTER (
           WHERE COALESCE(b.reading_status, 'in_stock') IN ('in_progress', 'in_stock')
         )::int AS on_hand,
-        COUNT(*)::int AS total
+        COUNT(b.id)::int AS total
       FROM public.authors a
       LEFT JOIN public.books b ON b.author_id = a.id
       WHERE a.name_display IS NOT NULL
         AND btrim(a.name_display) <> ''
         AND regexp_replace(a.name_display, '[^A-Za-zÄÖÜäöüß0-9]+', '', 'g') <> ''
-      GROUP BY a.id, a.name_display
-      ORDER BY regexp_replace(a.name_display, '^[^A-Za-zÄÖÜäöüß0-9]+', '') ASC
+      GROUP BY a.id, a.last_name, a.first_name, a.name_display
+      ORDER BY
+        LOWER(NULLIF(btrim(a.last_name), '')) ASC NULLS LAST,
+        LOWER(COALESCE(NULLIF(btrim(a.first_name), ''), '')) ASC,
+        LOWER(NULLIF(btrim(a.name_display), '')) ASC,
+        a.id ASC
     `);
 
     return res.json({ items: r.rows || [] });

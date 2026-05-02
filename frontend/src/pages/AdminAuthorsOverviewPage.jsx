@@ -18,6 +18,7 @@ export default function AdminAuthorsOverviewPage() {
 
   useEffect(() => {
     if (acRef.current) acRef.current.abort();
+
     const ac = new AbortController();
     acRef.current = ac;
 
@@ -31,13 +32,14 @@ export default function AdminAuthorsOverviewPage() {
     })
       .then(async (res) => {
         if (!res.ok) {
-          // Friendly handling for missing admin session
           if (res.status === 401 || res.status === 403) {
             throw new Error("Please login to view the authors overview.");
           }
+
           const t = await res.text().catch(() => "");
           throw new Error(t || `Request failed (${res.status})`);
         }
+
         return res.json();
       })
       .then((data) => {
@@ -59,13 +61,24 @@ export default function AdminAuthorsOverviewPage() {
   const filtered = useMemo(() => {
     const needle = normKey(q);
     const base = Array.isArray(rows) ? rows : [];
+
     if (!needle) return base;
+
     return base.filter((r) => {
-      const a = [r.last_name, r.first_name, r.name_display, r.id]
+      const haystack = [
+        r.last_name,
+        r.last,
+        r.first_name,
+        r.first,
+        r.name_display,
+        r.author,
+        r.id,
+      ]
         .filter(Boolean)
         .map(normKey)
         .join(" ");
-      return a.includes(needle);
+
+      return haystack.includes(needle);
     });
   }, [rows, q]);
 
@@ -92,6 +105,7 @@ export default function AdminAuthorsOverviewPage() {
             )}
           </div>
         ) : null}
+
         {loading ? <div className="zr-alert">Loading…</div> : null}
 
         <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
@@ -105,6 +119,7 @@ export default function AdminAuthorsOverviewPage() {
               style={{ minWidth: 260 }}
             />
           </label>
+
           <div style={{ opacity: 0.8, paddingTop: 22 }}>
             {filtered.length} / {rows.length} authors
           </div>
@@ -126,22 +141,20 @@ export default function AdminAuthorsOverviewPage() {
 
             <tbody>
               {filtered.map((r) => {
-               const id = String(r.id || r.author || "");
-const last = "";
-const first = "";
-const name = r.author || "—";
-const completed = r.completed ?? 0;
-const notMatch = r.not_a_match ?? 0;
-const onHand = r.on_hand ?? 0;
-const total = r.total ?? 0;
+                const id = String(r.id || r.author || r.name_display || "");
+                const last = r.last_name || r.last || "";
+                const first = r.first_name || r.first || "";
+                const name = r.name_display || r.author || "—";
+                const completed = r.completed ?? r.finished ?? 0;
+                const notMatch = r.not_match ?? r.not_a_match ?? 0;
+                const onHand = r.on_hand ?? 0;
+                const total = r.total ?? 0;
 
                 return (
                   <tr key={id || name}>
                     <td>{last}</td>
                     <td>{first}</td>
-                    <td>
-                    {name}
-                    </td>
+                    <td>{name}</td>
                     <td style={{ textAlign: "right" }}>{completed}</td>
                     <td style={{ textAlign: "right" }}>{notMatch}</td>
                     <td style={{ textAlign: "right" }}>{onHand}</td>
