@@ -28,13 +28,13 @@ function isUuid(v) {
   );
 }
 
-// Prefer display name, else full_name, else name
-const AUTHOR_EXPR =
-  "COALESCE(NULLIF(a.name_display,''), NULLIF(a.full_name,''), NULLIF(a.name,''))";
+// Public author display must come from authors.name_display.
+const AUTHOR_EXPR = "NULLIF(TRIM(a.name_display), '')";
 
-// Same, but without table alias (for authors table queries)
+// Same idea, but without table alias for direct authors-table queries.
+// Kept as fallback-aware so top-books can still resolve older/incomplete rows.
 const AUTHOR_COL_EXPR =
-  "COALESCE(NULLIF(name_display,''), NULLIF(full_name,''), NULLIF(name,''))";
+  "COALESCE(NULLIF(TRIM(name_display), ''), NULLIF(TRIM(full_name), ''), NULLIF(TRIM(name), ''))";
 
 const TITLE_EXPR = "COALESCE(NULLIF(b.title_display,''), NULLIF(b.title_keyword,''))";
 
@@ -95,34 +95,11 @@ router.get("/overview", async (req, res) => {
         SELECT
           a.id,
           ${AUTHOR_EXPR} AS author_display,
-          a.first_name,
-          a.last_name,
-          a.abbreviation,
+          NULLIF(TRIM(a.first_name), '') AS first_sort,
+          NULLIF(TRIM(a.last_name), '') AS last_sort,
+          NULLIF(TRIM(a.abbreviation), '') AS abbreviation,
           a.author_nationality,
           COALESCE(a.published_titles, 0)::int AS total,
-
-          TRIM(SPLIT_PART(${AUTHOR_EXPR}, ',', 1)) AS left_part,
-          NULLIF(TRIM(SPLIT_PART(${AUTHOR_EXPR}, ',', 2)), '') AS right_part,
-
-          COALESCE(
-            NULLIF(TRIM(a.last_name), ''),
-            CASE
-              WHEN ${AUTHOR_EXPR} LIKE '%,%' THEN regexp_replace(TRIM(SPLIT_PART(${AUTHOR_EXPR}, ',', 1)), '^.*\\s', '')
-              ELSE NULL
-            END,
-            regexp_replace(${AUTHOR_EXPR}, '^.*\\s', '')
-          ) AS last_sort,
-
-          CASE
-            WHEN ${AUTHOR_EXPR} LIKE '%,%' THEN NULLIF(TRIM(regexp_replace(TRIM(SPLIT_PART(${AUTHOR_EXPR}, ',', 1)), '\\s+[^\\s]+$', '')), '')
-            ELSE NULL
-          END AS name_addition_sort,
-
-          COALESCE(
-            NULLIF(TRIM(a.first_name), ''),
-            NULLIF(TRIM(SPLIT_PART(${AUTHOR_EXPR}, ',', 2)), ''),
-            NULLIF(TRIM(regexp_replace(${AUTHOR_EXPR}, '\\s+[^\\s]+$', '')), '')
-          ) AS first_sort,
 
           CASE
             WHEN a.author_nationality ~ '^[A-Za-z]{2,3}$' THEN UPPER(a.author_nationality)
@@ -130,13 +107,14 @@ router.get("/overview", async (req, res) => {
           END AS nationality_abbr
         FROM public.authors a
         JOIN ids ON ids.author_id = a.id
-        WHERE ($1::text IS NULL OR ${AUTHOR_EXPR} ILIKE $1)
+        WHERE
+          ${AUTHOR_EXPR} IS NOT NULL
+          AND ($1::text IS NULL OR ${AUTHOR_EXPR} ILIKE $1)
       ),
       agg AS (
         SELECT
           b.id::text AS id,
           b.last_sort,
-          b.name_addition_sort,
           b.first_sort,
           b.author_display,
           b.nationality_abbr,
@@ -151,14 +129,14 @@ router.get("/overview", async (req, res) => {
         WHERE 1=1
         ${startsFilterSql}
         GROUP BY
-          b.id, b.last_sort, b.name_addition_sort, b.first_sort,
+          b.id, b.last_sort, b.first_sort,
           b.author_display, b.nationality_abbr, b.author_nationality, b.total
       )
       SELECT
         id,
         last_sort,
-        name_addition_sort,
         first_sort,
+        author_display,
         nationality_abbr,
         on_hand,
         finished,
@@ -168,9 +146,9 @@ router.get("/overview", async (req, res) => {
         COUNT(*) OVER()::int AS total_authors
       FROM agg
       ORDER BY
-        LOWER(last_sort) ASC,
-        LOWER(COALESCE(name_addition_sort, '')) ASC,
+        LOWER(last_sort) ASC NULLS LAST,
         LOWER(COALESCE(first_sort, '')) ASC,
+        LOWER(author_display) ASC,
         id ASC
       LIMIT $2 OFFSET $3
       `,
@@ -181,16 +159,14 @@ router.get("/overview", async (req, res) => {
 
     const items = (rows || []).map((r) => {
       const last = normStr(r.last_sort);
-      const add = normStr(r.name_addition_sort);
       const first = normStr(r.first_sort);
-
-      const author = [last, add, first].filter(Boolean).join(" ");
+      const author = normStr(r.author_display);
 
       return {
         id: r.id,
 
+        // Backward-compatible fields used by the public UI.
         last,
-        name_addition: add,
         first,
         author,
 
@@ -204,6 +180,7 @@ router.get("/overview", async (req, res) => {
         total: r.total ?? 0,
         not_match: r.not_match ?? 0,
 
+        // Explicit author fields.
         last_name: last,
         first_name: first,
         name_display: author,
@@ -246,17 +223,12 @@ router.get("/overview-letters", async (req, res) => {
         SELECT
           a.id,
           ${AUTHOR_EXPR} AS author_display,
-          COALESCE(
-            NULLIF(TRIM(a.last_name), ''),
-            CASE
-              WHEN ${AUTHOR_EXPR} LIKE '%,%' THEN regexp_replace(TRIM(SPLIT_PART(${AUTHOR_EXPR}, ',', 1)), '^.*\\s', '')
-              ELSE NULL
-            END,
-            regexp_replace(${AUTHOR_EXPR}, '^.*\\s', '')
-          ) AS last_sort
+          NULLIF(TRIM(a.last_name), '') AS last_sort
         FROM public.authors a
         JOIN ids ON ids.author_id = a.id
-        WHERE ($1::text IS NULL OR ${AUTHOR_EXPR} ILIKE $1)
+        WHERE
+          ${AUTHOR_EXPR} IS NOT NULL
+          AND ($1::text IS NULL OR ${AUTHOR_EXPR} ILIKE $1)
       ),
       buckets AS (
         SELECT
