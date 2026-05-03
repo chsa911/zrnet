@@ -560,11 +560,7 @@ export default function BookFormDesktop({
     }
 
     if (!isEdit && existingMatch?.id) payload.draft_id = existingMatch.id;
-
-    if (!isEdit && existingMatches.length && !existingMatch?.id) {
-      throw new Error("Bitte zuerst das richtige Buch aus den Treffern wählen.");
-    }
-
+    
     if (!isEdit && createReadingStatus) payload.reading_status = createReadingStatus;
     return payload;
   }
