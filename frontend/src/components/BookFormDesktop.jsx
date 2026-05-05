@@ -202,6 +202,7 @@ export default function BookFormDesktop({
   const [ac, setAc] = useState({ field: "", items: [] });
   const [barcodePreview, setBarcodePreview] = useState(null);
   const [barcodePreviewErr, setBarcodePreviewErr] = useState("");
+  const [barcodePreviewLoading, setBarcodePreviewLoading] = useState(false);
   const [extras, setExtras] = useState({});
   const [existingMatches, setExistingMatches] = useState([]);
   const [existingMatch, setExistingMatch] = useState(null);
@@ -231,39 +232,49 @@ export default function BookFormDesktop({
     msgRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
   }, [msg]);
 
-  useEffect(() => {
-    if (isEdit || !assignBarcode || String(v.barcode || "").trim()) {
-      setBarcodePreview(null);
+useEffect(() => {
+  const w = parseFloatOrNull(v.width_cm);
+  const h = parseFloatOrNull(v.height_cm);
+
+  setBarcodePreview(null);
+  setBarcodePreviewErr("");
+  setBarcodePreviewLoading(false);
+
+  if (isEdit || !assignBarcode) return;
+
+  if (!(w > 0 && h > 0)) {
+    setBarcodePreviewErr("Breite und Höhe eingeben.");
+    return;
+  }
+
+  let alive = true;
+  setBarcodePreviewLoading(true);
+
+  const t = setTimeout(async () => {
+    try {
+      const p = await previewBarcode(w, h);
+      if (!alive) return;
+
+      setBarcodePreview({
+        ...p,
+        width_cm: w,
+        height_cm: h,
+      });
       setBarcodePreviewErr("");
-      return;
-    }
-
-    const w = parseFloatOrNull(v.width_cm);
-    const h = parseFloatOrNull(v.height_cm);
-    if (!(w > 0 && h > 0)) {
+    } catch (e) {
+      if (!alive) return;
       setBarcodePreview(null);
-      setBarcodePreviewErr("");
-      return;
+      setBarcodePreviewErr(e?.message || "Barcode-Prüfung fehlgeschlagen.");
+    } finally {
+      if (alive) setBarcodePreviewLoading(false);
     }
+  }, 200);
 
-    let alive = true;
-    const t = setTimeout(async () => {
-      try {
-        setBarcodePreviewErr("");
-        const p = await previewBarcode(w, h);
-        if (alive) setBarcodePreview(p);
-      } catch (e) {
-        if (!alive) return;
-        setBarcodePreview(null);
-        setBarcodePreviewErr(e?.message || "Kein Vorschlag");
-      }
-    }, 200);
-
-    return () => {
-      alive = false;
-      clearTimeout(t);
-    };
-  }, [isEdit, assignBarcode, v.barcode, v.width_cm, v.height_cm]);
+  return () => {
+    alive = false;
+    clearTimeout(t);
+  };
+}, [isEdit, assignBarcode, v.width_cm, v.height_cm]);
 
   useEffect(() => {
     if (isEdit) {
@@ -466,8 +477,7 @@ export default function BookFormDesktop({
     const payload = {};
     if (!isEdit) payload.assign_barcode = !!assignBarcode;
 
-    const suggestedBarcode = String(barcodePreview?.candidate || "").trim();
-    const finalBarcode = String(v.barcode || "").trim() || suggestedBarcode;
+    const finalBarcode = String(v.barcode || "").trim();
     const wCm = parseFloatOrNull(v.width_cm);
     const hCm = parseFloatOrNull(v.height_cm);
 
@@ -913,16 +923,21 @@ export default function BookFormDesktop({
           {isbnBusy ? "…" : "Lookup"}
         </button>
 
-        {barcodePreview?.candidate ? (
-          <button
-            type="button"
-            className="bfd-suggestion"
-            onClick={() => setField("barcode", barcodePreview.candidate)}
-          >
-            {formatBookCode(barcodePreview.candidate)}
-          </button>
-        ) : null}
-      </div>
+        {barcodePreviewLoading ? (
+  <span className="bfd-suggestion">Barcode wird geprüft…</span>
+) : barcodePreview?.candidate ? (
+ <span className="bfd-suggestion">
+  {formatBookCode(barcodePreview.candidate)}
+</span>
+) : barcodePreview ? (
+  <span className="bfd-suggestion">
+    Kein Barcode verfügbar
+    {barcodePreview.expectedPrefix ? ` · ${barcodePreview.expectedPrefix}` : ""}
+  </span>
+) : barcodePreviewErr ? (
+  <span className="bfd-suggestion">{barcodePreviewErr}</span>
+) : null}
+              </div>
 
       <div className="bfd-row">
         <div className="bfd-ac-wrap bfd-wide-wrap">
