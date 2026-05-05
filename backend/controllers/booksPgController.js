@@ -778,18 +778,26 @@ function expectedPrefixFromRule(rule) {
  * - lowest rank_in_inventory
  */
 async function pickBestBarcode(pool, rule) {
-  const expectedPrefix = expectedPrefixFromRule(rule);
-  if (!expectedPrefix) return null;
+  const ruleColor = String(rule?.color || "").trim().toLowerCase();
+
+  const prefixes =
+    ruleColor === "ik"
+      ? [
+          expectedPrefixFromRule({ ...rule, color: "i" }),
+          expectedPrefixFromRule({ ...rule, color: "ik" }),
+        ]
+      : [expectedPrefixFromRule(rule)];
+
+  const cleanPrefixes = prefixes.filter(Boolean).map((x) => x.toLowerCase());
+  if (!cleanPrefixes.length) return null;
 
   const r = await pool.query(
     `
     SELECT bi.barcode
     FROM public.barcode_inventory bi
     WHERE bi.status = 'AVAILABLE'
-  AND bi.rank_in_inventory IS NOT NULL
-    AND lower(regexp_replace(bi.barcode, '[0-9]+$', '')) = lower($1)
-
-      -- never suggest if barcode is currently used by an in_progress book
+      AND bi.rank_in_inventory IS NOT NULL
+      AND lower(regexp_replace(bi.barcode, '[0-9]+$', '')) = ANY($1::text[])
       AND NOT EXISTS (
         SELECT 1
         FROM public.barcode_assignments ba
@@ -798,11 +806,13 @@ async function pickBestBarcode(pool, rule) {
           AND ba.freed_at IS NULL
           AND b.reading_status = 'in_progress'
       )
-
-    ORDER BY bi.rank_in_inventory ASC, lower(bi.barcode) ASC
+    ORDER BY
+      array_position($1::text[], lower(regexp_replace(bi.barcode, '[0-9]+$', ''))),
+      bi.rank_in_inventory ASC,
+      lower(bi.barcode) ASC
     LIMIT 1
     `,
-    [expectedPrefix]
+    [cleanPrefixes]
   );
 
   return r.rows[0]?.barcode ?? null;
@@ -1457,7 +1467,7 @@ async function registerBook(req, res) {
         barcode,
         expectedSizeRuleId: rule ? rule.sizeRuleId : null,
         expectedPos: rule ? rule.pos : null,
-        expectedPrefix: rule ? expectedPrefixFromRule(rule) : null,
+        expectedPrefix: null,
         assignedAt: nowIso,
       });
 
@@ -1911,7 +1921,7 @@ async function registerExistingBook(req, res) {
       barcode,
       expectedSizeRuleId: rule ? rule.sizeRuleId : null,
       expectedPos: rule ? rule.pos : null,
-      expectedPrefix: rule ? expectedPrefixFromRule(rule) : null,
+      expectedPrefix: null,
       assignedAt: nowIso,
     });
 

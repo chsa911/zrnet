@@ -96,12 +96,22 @@ router.get("/preview-barcode", async (req, res) => {
 
     const band = posToBand(rule.pos);
     const sizegroup = rule.sizeRuleId;
-    const expectedPrefix = expectedPrefixFromRule(rule);
+    const ruleColor = String(rule.color || "").trim().toLowerCase();
 
-    if (!expectedPrefix) {
-      return res.status(422).json({ error: "no_prefix_for_size" });
-    }
+const expectedPrefixes =
+  ruleColor === "ik"
+    ? [
+        expectedPrefixFromRule({ ...rule, color: "i" }),
+        expectedPrefixFromRule({ ...rule, color: "ik" }),
+      ]
+    : [expectedPrefixFromRule(rule)];
 
+const cleanPrefixes = expectedPrefixes.filter(Boolean).map((x) => x.toLowerCase());
+
+if (!cleanPrefixes.length) {
+  return res.status(422).json({ error: "no_prefix_for_size" });
+}
+   
     const pick = await pool.query(
   `
   SELECT bi.barcode
@@ -111,12 +121,15 @@ router.get("/preview-barcode", async (req, res) => {
    AND ba.freed_at IS NULL
   WHERE bi.status = 'AVAILABLE'
     AND bi.rank_in_inventory IS NOT NULL
-    AND lower(regexp_replace(bi.barcode, '[0-9]+$', '')) = lower($1)
+    AND lower(regexp_replace(bi.barcode, '[0-9]+$', '')) = ANY($1::text[])
     AND ba.barcode IS NULL
-  ORDER BY bi.rank_in_inventory ASC, lower(bi.barcode) ASC
+  ORDER BY
+    array_position($1::text[], lower(regexp_replace(bi.barcode, '[0-9]+$', ''))),
+    bi.rank_in_inventory ASC,
+    lower(bi.barcode) ASC
   LIMIT 1
   `,
-  [expectedPrefix]
+  [cleanPrefixes]
 );
     const candidate = pick.rows[0]?.barcode ?? null;
 
@@ -129,22 +142,23 @@ router.get("/preview-barcode", async (req, res) => {
    AND ba.freed_at IS NULL
   WHERE bi.status = 'AVAILABLE'
     AND bi.rank_in_inventory IS NOT NULL
-    AND lower(regexp_replace(bi.barcode, '[0-9]+$', '')) = lower($1)
+    AND lower(regexp_replace(bi.barcode, '[0-9]+$', '')) = ANY($1::text[])
     AND ba.barcode IS NULL
   `,
-  [expectedPrefix]
+  [cleanPrefixes]
 );
     const availableCount = countRes.rows[0]?.available ?? 0;
 
-    return res.json({
-      sizegroup,
-      color: rule.color,
-      pos: rule.pos,
-      band,
-      expectedPrefix,
-      candidate,
-      availableCount,
-    });
+   return res.json({
+  sizegroup,
+  color: rule.color,
+  pos: rule.pos,
+  band,
+  expectedPrefix: cleanPrefixes[0],
+  expectedPrefixes: cleanPrefixes,
+  candidate,
+  availableCount,
+});
   } catch (err) {
     console.error("api/barcodes/preview-barcode error", err);
     return res.status(500).json({ error: "internal_error" });
