@@ -25,6 +25,21 @@ function pick(b, aliases) {
 
 const toStr = (v) => (v === undefined || v === null ? "" : String(v));
 
+function displayIsbnForBook(b) {
+  const isbn13 = stripIsbn(
+    b?.isbn13 ??
+    b?.isbn_13 ??
+    b?.isbn13_raw ??
+    b?.isbn_raw ??
+    ""
+  );
+  const isbn10 = stripIsbn(b?.isbn10 ?? b?.isbn_10 ?? "");
+  const primary = isbn13 || isbn10;
+  if (!primary) return "";
+  if (isbn13 && isbn10 && isbn13 !== isbn10) return `${isbn13} / ${isbn10}`;
+  return primary;
+}
+
 function parseIntOrNull(s) {
   const t = String(s ?? "").trim();
   if (!t) return null;
@@ -847,6 +862,7 @@ useEffect(() => {
                 {(m.title_display || m.main_title_display || "ohne Titel")}
                 {m.author_display || m.author_name_display ? ` · ${m.author_display || m.author_name_display}` : ""}
                 {m.pages ? ` · ${m.pages} S.` : ""}
+                {displayIsbnForBook(m) ? ` · ISBN ${displayIsbnForBook(m)}` : ""}
                 {m.reading_status ? ` · ${m.reading_status}` : ""}
               </button>
             ))}
