@@ -737,6 +737,79 @@ router.get("/authors/overview", async (req, res) => {
     }
   });
 
+
+  // GET /api/admin/barcodes/occupancy
+  router.get("/barcodes/occupancy", async (req, res) => {
+    const pool = req.app.get("pgPool");
+    if (!pool) return res.status(500).json({ error: "pgPool missing" });
+
+    try {
+      const r = await pool.query(
+        `
+          WITH normalized AS (
+            SELECT
+              bi.barcode,
+              bi.status::text AS status,
+              bi.sizegroup,
+              bi.band,
+              lower(regexp_replace(bi.barcode, '[0-9]+$', '')) AS prefix,
+              NULLIF(substring(bi.barcode FROM '([0-9]+)$'), '')::int AS position
+            FROM public.barcode_inventory bi
+          ), grouped AS (
+            SELECT
+              prefix,
+              sizegroup,
+              band,
+              count(*)::int AS total,
+              sum(CASE WHEN status = 'ASSIGNED' THEN 1 ELSE 0 END)::int AS taken,
+              sum(CASE WHEN status = 'AVAILABLE' THEN 1 ELSE 0 END)::int AS free,
+              sum(CASE WHEN status NOT IN ('AVAILABLE','ASSIGNED') THEN 1 ELSE 0 END)::int AS other,
+              min(position)::int AS first_position,
+              max(position)::int AS last_position,
+              min(position) FILTER (WHERE status = 'AVAILABLE')::int AS next_free_position,
+              (array_agg(barcode ORDER BY position NULLS LAST, barcode) FILTER (WHERE status = 'AVAILABLE'))[1] AS next_free_barcode,
+              (array_agg(barcode ORDER BY position NULLS LAST, barcode))[1] AS first_barcode,
+              (array_agg(barcode ORDER BY position DESC NULLS LAST, barcode DESC))[1] AS last_barcode
+            FROM normalized
+            WHERE prefix IS NOT NULL AND prefix <> ''
+            GROUP BY prefix, sizegroup, band
+          )
+          SELECT
+            prefix,
+            sizegroup,
+            band,
+            total,
+            taken,
+            free,
+            other,
+            first_position,
+            last_position,
+            first_barcode,
+            last_barcode,
+            next_free_position,
+            next_free_barcode,
+            round((taken::numeric / NULLIF(total, 0)) * 100, 1)::float AS occupancy_percent,
+            CASE
+              WHEN free = 0 THEN 'FULL'
+              WHEN (taken::numeric / NULLIF(total, 0)) >= 0.95 THEN 'ALMOST_FULL'
+              WHEN (taken::numeric / NULLIF(total, 0)) >= 0.85 THEN 'HIGH'
+              ELSE 'OK'
+            END AS occupancy_status
+          FROM grouped
+          ORDER BY (taken::numeric / NULLIF(total, 0)) DESC NULLS LAST, free ASC, prefix ASC, sizegroup ASC NULLS LAST, band ASC NULLS LAST
+        `
+      );
+
+      return res.json({ items: r.rows || [] });
+    } catch (e) {
+      console.error("barcode_occupancy_failed:", e);
+      return res.status(500).json({
+        error: "barcode_occupancy_failed",
+        detail: String(e?.message || e),
+      });
+    }
+  });
+
   // GET /api/admin/barcodes
   router.get("/barcodes", async (req, res) => {
     const pool = req.app.get("pgPool");

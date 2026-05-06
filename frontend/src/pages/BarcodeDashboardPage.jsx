@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import AdminNavRow from "../components/AdminNavRow";
 import RequireAdmin from "../components/RequireAdmin";
-import { getBarcodeSummary, listBarcodes } from "../api/barcodes";
+import { getBarcodeSummary, getBarcodeOccupancy, listBarcodes } from "../api/barcodes";
 
 function fmtTs(ts) {
   if (!ts) return "—";
@@ -51,6 +51,89 @@ function StatCard({ label, value, hint }) {
   );
 }
 
+function statusColor(status, pct) {
+  if (status === "FULL" || Number(pct) >= 100) return "#8b0000";
+  if (Number(pct) >= 95) return "#b45309";
+  if (Number(pct) >= 85) return "#854d0e";
+  return "#166534";
+}
+
+function OccupancyOverview({ rows, loading, error }) {
+  const sortedRows = [...(rows || [])].sort((a, b) => {
+    const pctDiff = Number(b.occupancy_percent || 0) - Number(a.occupancy_percent || 0);
+    if (pctDiff !== 0) return pctDiff;
+    return Number(a.free || 0) - Number(b.free || 0);
+  });
+
+  return (
+    <div className="zr-card" style={{ padding: 0, overflow: "auto", marginBottom: 14 }}>
+      <div style={{ padding: 14, borderBottom: "1px solid rgba(0,0,0,0.08)" }}>
+        <h2 style={{ margin: 0 }}>Occupancy Overview</h2>
+        <p style={{ margin: "6px 0 0", opacity: 0.75 }}>
+          Barcode families sorted by highest occupancy first. FULL means no free barcode remains in that group.
+        </p>
+      </div>
+
+      {error ? <div style={{ padding: 14, color: "#a00" }}>{error}</div> : null}
+
+      <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 980 }}>
+        <thead>
+          <tr style={{ background: "rgba(0,0,0,0.04)", textAlign: "left" }}>
+            <th style={{ padding: 10 }}>Prefix</th>
+            <th style={{ padding: 10 }}>Range / Position</th>
+            <th style={{ padding: 10 }}>Total</th>
+            <th style={{ padding: 10 }}>Taken</th>
+            <th style={{ padding: 10 }}>Free</th>
+            <th style={{ padding: 10 }}>Occupancy</th>
+            <th style={{ padding: 10 }}>Next free</th>
+            <th style={{ padding: 10 }}>Sizegroup</th>
+            <th style={{ padding: 10 }}>Band</th>
+          </tr>
+        </thead>
+        <tbody>
+          {loading ? (
+            <tr>
+              <td colSpan={9} style={{ padding: 14, opacity: 0.75 }}>Loading occupancy…</td>
+            </tr>
+          ) : sortedRows.length === 0 ? (
+            <tr>
+              <td colSpan={9} style={{ padding: 14, opacity: 0.75 }}>No occupancy data found.</td>
+            </tr>
+          ) : (
+            sortedRows.map((row) => {
+              const pct = Number(row.occupancy_percent || 0);
+              const color = statusColor(row.occupancy_status, pct);
+              const nextFree = row.next_free_barcode || (Number(row.free || 0) === 0 ? "FULL" : "—");
+              const range = row.range || [row.first_barcode, row.last_barcode].filter(Boolean).join(" – ") || "—";
+
+              return (
+                <tr key={`${row.prefix || ""}-${row.sizegroup || ""}-${row.band || ""}-${range}`} style={{ borderTop: "1px solid rgba(0,0,0,0.08)" }}>
+                  <td style={{ padding: 10, fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace", fontWeight: 900 }}>{row.prefix || "—"}</td>
+                  <td style={{ padding: 10, fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace" }}>{range}</td>
+                  <td style={{ padding: 10 }}>{row.total ?? 0}</td>
+                  <td style={{ padding: 10 }}>{row.taken ?? 0}</td>
+                  <td style={{ padding: 10, fontWeight: Number(row.free || 0) === 0 ? 900 : 700 }}>{row.free ?? 0}</td>
+                  <td style={{ padding: 10, minWidth: 170 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                      <div style={{ flex: 1, height: 10, background: "rgba(0,0,0,0.10)", borderRadius: 999, overflow: "hidden" }}>
+                        <div style={{ width: `${Math.max(0, Math.min(100, pct))}%`, height: "100%", background: color }} />
+                      </div>
+                      <b style={{ color }}>{pct.toFixed(1)}%</b>
+                    </div>
+                  </td>
+                  <td style={{ padding: 10, fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace", fontWeight: nextFree === "FULL" ? 900 : 700, color: nextFree === "FULL" ? "#8b0000" : undefined }}>{nextFree}</td>
+                  <td style={{ padding: 10 }}>{row.sizegroup ?? "—"}</td>
+                  <td style={{ padding: 10 }}>{row.band ?? "—"}</td>
+                </tr>
+              );
+            })
+          )}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
 function Inner() {
   const [summary, setSummary] = useState({
     total: 0,
@@ -62,6 +145,10 @@ function Inner() {
   });
   const [loadingSummary, setLoadingSummary] = useState(false);
   const [summaryErr, setSummaryErr] = useState("");
+
+  const [occupancy, setOccupancy] = useState([]);
+  const [loadingOccupancy, setLoadingOccupancy] = useState(false);
+  const [occupancyErr, setOccupancyErr] = useState("");
 
   const [filters, setFilters] = useState({ status: "", q: "", page: 1, limit: 50 });
   const [loading, setLoading] = useState(false);
@@ -91,6 +178,21 @@ function Inner() {
     }
   }
 
+  async function refreshOccupancy() {
+    setLoadingOccupancy(true);
+    setOccupancyErr("");
+    try {
+      const d = await getBarcodeOccupancy();
+      const rows = Array.isArray(d?.items) ? d.items : Array.isArray(d) ? d : [];
+      setOccupancy(rows);
+    } catch (e) {
+      setOccupancy([]);
+      setOccupancyErr(e?.message || "Failed to load occupancy");
+    } finally {
+      setLoadingOccupancy(false);
+    }
+  }
+
   async function refreshList() {
     setLoading(true);
     setErr("");
@@ -111,6 +213,7 @@ function Inner() {
 
   useEffect(() => {
     refreshSummary();
+    refreshOccupancy();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -142,6 +245,7 @@ function Inner() {
           className="zr-btn2 zr-btn2--ghost"
           onClick={() => {
             refreshSummary();
+            refreshOccupancy();
             refreshList();
           }}
           disabled={loading || loadingSummary}
@@ -163,6 +267,8 @@ function Inner() {
         <StatCard label="Other" value={loadingSummary ? "…" : summary.other} hint="rare / special" />
         <StatCard label="Open assignments" value={loadingSummary ? "…" : summary.open_assigned} hint="barcode_assignments (freed_at IS NULL)" />
       </div>
+
+      <OccupancyOverview rows={occupancy} loading={loadingOccupancy} error={occupancyErr} />
 
       <div className="zr-card" style={{ padding: 14, marginBottom: 14 }}>
         <div style={{ display: "flex", gap: 12, flexWrap: "wrap", alignItems: "center" }}>

@@ -36,6 +36,17 @@ export async function getBarcodeSummary() {
   return data;
 }
 
+export async function getBarcodeOccupancy() {
+  const res = await fetch(`${getApiRoot()}/admin/barcodes/occupancy`, {
+    method: "GET",
+    credentials: "include",
+    cache: "no-store",
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data?.error || `HTTP ${res.status}`);
+  return data;
+}
+
 export async function listBarcodes({ status, q, page = 1, limit = 50 } = {}) {
   const params = new URLSearchParams();
   if (status && String(status).trim() && String(status).toLowerCase() !== "all") {
