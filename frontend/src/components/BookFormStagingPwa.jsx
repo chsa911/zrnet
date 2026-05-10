@@ -300,8 +300,6 @@ function initialStateFromBook(b = {}) {
     barcode: toStr(b.barcode),
     width_cm: toStr(b.width_cm),
     height_cm: toStr(b.height_cm),
-    author_abbreviation: toStr(b.author_abbreviation),
-    publisher_abbr: toStr(b.publisher_abbr),
     author_firstname: toStr(b.author_firstname || b.author_first_name),
     author_lastname: toStr(b.author_lastname || b.author_last_name),
     name_display: toStr(b.name_display || b.author_name_display),
@@ -491,8 +489,6 @@ export default function BookFormStagingPwa({
         publisher_name_display: prev.publisher_name_display || toStr(s.publisher_name_display),
         purchase_url: prev.purchase_url || toStr(s.purchase_url || s.purchaseUrl || s.url),
         original_language: prev.original_language || toStr(s.original_language || s.language),
-        author_abbreviation: prev.author_abbreviation || toStr(s.author_abbreviation),
-        publisher_abbr: prev.publisher_abbr || toStr(s.publisher_abbr),
         author_firstname: prev.author_firstname || toStr(s.author_firstname || s.author_first_name),
         author_lastname: prev.author_lastname || toStr(s.author_lastname || s.author_last_name),
       }));
@@ -671,8 +667,6 @@ export default function BookFormStagingPwa({
       "title_display",
       "subtitle_display",
       "publisher_name_display",
-      "author_abbreviation",
-      "publisher_abbr",
       "purchase_url",
       "original_language",
       "comment",
@@ -940,28 +934,6 @@ export default function BookFormStagingPwa({
                 onChange={(e) => setField("height_cm", e.target.value)}
                 placeholder="21"
                 style={{ width: "8ch", minWidth: 0 }}
-              />
-            </label>
-
-            <label style={{ display: "grid", gap: 6, flex: "0 0 auto" }}>
-              <span>Autor Abk.</span>
-              <input
-                className="zr-input"
-                value={v.author_abbreviation}
-                onChange={(e) => setField("author_abbreviation", e.target.value)}
-                placeholder="KR"
-                style={{ width: "8ch", minWidth: 0 }}
-              />
-            </label>
-
-            <label style={{ display: "grid", gap: 6, flex: "0 0 auto" }}>
-              <span>Verlag Abk.</span>
-              <input
-                className="zr-input"
-                value={v.publisher_abbr}
-                onChange={(e) => setField("publisher_abbr", e.target.value)}
-                placeholder="ROW"
-                style={{ width: "9ch", minWidth: 0 }}
               />
             </label>
           </div>

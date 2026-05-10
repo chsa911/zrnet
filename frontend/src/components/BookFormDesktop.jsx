@@ -131,14 +131,12 @@ const emptyForm = {
   author_lastname: "",
   author_firstname: "",
   name_display: "",
-  author_abbreviation: "",
   author_nationality: "",
   place_of_birth: "",
   male_female: "",
   published_titles: "",
   number_of_millionsellers: "",
   publisher_name_display: "",
-  publisher_abbr: "",
   title_display: "",
   subtitle_display: "",
   title_keyword: "",
@@ -183,14 +181,12 @@ export default function BookFormDesktop({
       author_lastname: toStr(pick(b, ["author_lastname", "author_last_name"])),
       author_firstname: toStr(pick(b, ["author_firstname", "author_first_name"])),
       name_display: toStr(pick(b, ["name_display", "author_name_display"])),
-      author_abbreviation: toStr(pick(b, ["author_abbreviation", "abbreviation"])),
       author_nationality: toStr(pick(b, ["author_nationality"])),
       place_of_birth: toStr(pick(b, ["place_of_birth"])),
       male_female: toStr(pick(b, ["male_female"])),
       published_titles: toStr(pick(b, ["published_titles"])),
       number_of_millionsellers: toStr(pick(b, ["number_of_millionsellers"])),
       publisher_name_display: toStr(pick(b, ["publisher_name_display"])),
-      publisher_abbr: toStr(pick(b, ["publisher_abbr", "publisher_abbreviation", "abbr"])),
       title_display: toStr(pick(b, ["title_display", "titleDisplay", "title"])),
       subtitle_display: toStr(pick(b, ["subtitle_display"])),
       title_keyword: toStr(pick(b, ["title_keyword", "keyword"])),
@@ -247,49 +243,49 @@ export default function BookFormDesktop({
     msgRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
   }, [msg]);
 
-useEffect(() => {
-  const w = parseFloatOrNull(v.width_cm);
-  const h = parseFloatOrNull(v.height_cm);
+  useEffect(() => {
+    const w = parseFloatOrNull(v.width_cm);
+    const h = parseFloatOrNull(v.height_cm);
 
-  setBarcodePreview(null);
-  setBarcodePreviewErr("");
-  setBarcodePreviewLoading(false);
+    setBarcodePreview(null);
+    setBarcodePreviewErr("");
+    setBarcodePreviewLoading(false);
 
-  if (isEdit || !assignBarcode) return;
+    if (isEdit || !assignBarcode) return;
 
-  if (!(w > 0 && h > 0)) {
-    setBarcodePreviewErr("Breite und Höhe eingeben.");
-    return;
-  }
-
-  let alive = true;
-  setBarcodePreviewLoading(true);
-
-  const t = setTimeout(async () => {
-    try {
-      const p = await previewBarcode(w, h);
-      if (!alive) return;
-
-      setBarcodePreview({
-        ...p,
-        width_cm: w,
-        height_cm: h,
-      });
-      setBarcodePreviewErr("");
-    } catch (e) {
-      if (!alive) return;
-      setBarcodePreview(null);
-      setBarcodePreviewErr(e?.message || "Barcode-Prüfung fehlgeschlagen.");
-    } finally {
-      if (alive) setBarcodePreviewLoading(false);
+    if (!(w > 0 && h > 0)) {
+      setBarcodePreviewErr("Breite und Höhe eingeben.");
+      return;
     }
-  }, 200);
 
-  return () => {
-    alive = false;
-    clearTimeout(t);
-  };
-}, [isEdit, assignBarcode, v.width_cm, v.height_cm]);
+    let alive = true;
+    setBarcodePreviewLoading(true);
+
+    const t = setTimeout(async () => {
+      try {
+        const p = await previewBarcode(w, h);
+        if (!alive) return;
+
+        setBarcodePreview({
+          ...p,
+          width_cm: w,
+          height_cm: h,
+        });
+        setBarcodePreviewErr("");
+      } catch (e) {
+        if (!alive) return;
+        setBarcodePreview(null);
+        setBarcodePreviewErr(e?.message || "Barcode-Prüfung fehlgeschlagen.");
+      } finally {
+        if (alive) setBarcodePreviewLoading(false);
+      }
+    }, 200);
+
+    return () => {
+      alive = false;
+      clearTimeout(t);
+    };
+  }, [isEdit, assignBarcode, v.width_cm, v.height_cm]);
 
   useEffect(() => {
     if (isEdit) {
@@ -358,8 +354,8 @@ useEffect(() => {
     setV((prev) => {
       const next = { ...prev, [key]: val };
       if (!isEdit) {
-        if (["author_lastname", "author_firstname", "name_display", "author_abbreviation"].includes(key)) next.author_id = "";
-        if (["publisher_name_display", "publisher_abbr"].includes(key)) next.publisher_id = "";
+        if (["author_lastname", "author_firstname", "name_display"].includes(key)) next.author_id = "";
+        if (["publisher_name_display"].includes(key)) next.publisher_id = "";
       }
       return next;
     });
@@ -424,7 +420,6 @@ useEffect(() => {
       author_lastname: last || prev.author_lastname,
       author_firstname: first || prev.author_firstname,
       name_display: display || prev.name_display,
-      author_abbreviation: String(match.abbreviation || match.author_abbreviation || prev.author_abbreviation || ""),
       author_nationality: String(match.author_nationality || prev.author_nationality || ""),
       place_of_birth: String(match.place_of_birth || prev.place_of_birth || ""),
       male_female: String(match.male_female || prev.male_female || ""),
@@ -440,7 +435,6 @@ useEffect(() => {
       ...prev,
       publisher_id: String(match.id || match.publisher_id || "").trim() || prev.publisher_id,
       publisher_name_display: String(match.name_display || match.publisher_name_display || match.name || prev.publisher_name_display || ""),
-      publisher_abbr: String(match.abbr || match.publisher_abbr || prev.publisher_abbr || ""),
     }));
   }
 
@@ -475,10 +469,8 @@ useEffect(() => {
         author_lastname: prev.author_lastname || s.author_lastname || last || "",
         author_firstname: prev.author_firstname || s.author_firstname || first || "",
         name_display: prev.name_display || s.name_display || display || "",
-        author_abbreviation: prev.author_abbreviation || s.author_abbreviation || "",
         publisher_id: prev.publisher_id || s.publisher_id || "",
         publisher_name_display: prev.publisher_name_display || s.publisher_name_display || "",
-        publisher_abbr: prev.publisher_abbr || s.publisher_abbr || "",
       }));
       setMsg("ISBN gefunden ✔");
     } catch (e) {
@@ -508,12 +500,10 @@ useEffect(() => {
       "author_lastname",
       "author_firstname",
       "name_display",
-      "author_abbreviation",
       "author_nationality",
       "place_of_birth",
       "male_female",
       "publisher_name_display",
-      "publisher_abbr",
       "title_display",
       "subtitle_display",
       "title_keyword",
@@ -585,7 +575,7 @@ useEffect(() => {
     }
 
     if (!isEdit && existingMatch?.id) payload.draft_id = existingMatch.id;
-    
+
     if (!isEdit && createReadingStatus) payload.reading_status = createReadingStatus;
     return payload;
   }
@@ -655,7 +645,7 @@ useEffect(() => {
 }
 .bfd {
   display: grid;
-  gap: 12px;
+  gap: 0px;
   align-content: start;
   font-size: clamp(24px, 5vw, 42px);
   font-weight: 900;
@@ -666,14 +656,30 @@ useEffect(() => {
   display: flex;
   flex-direction: row;
   flex-wrap: wrap;
-  align-items: stretch;   /* 🔥 IMPORTANT */
+  align-items: stretch;
   gap: 0;
   overflow: visible;
   position: relative;
 }
 .bfd-row + .bfd-row {
-  margin-top: 8px;
+  margin-top: 0px;
 }
+
+/* Compact rows: Author, Title, and Publisher touch with no vertical space */
+.bfd-tight-row {
+  margin-top: 0 !important;
+}
+.bfd-tight-row + .bfd-tight-row {
+  margin-top: 0 !important;
+}
+.bfd-row.bfd-tight-row {
+  margin-bottom: 0 !important;
+}
+.bfd-row.bfd-tight-row .bfd-input {
+  margin-top: 0 !important;
+  margin-bottom: 0 !important;
+}
+
 .bfd-input {
   flex: 0 0 auto;
   font: inherit;
@@ -683,22 +689,23 @@ useEffect(() => {
   height: 0.95em;
   padding: 0 0.03em;
   margin: 0;
-  box-sizing: content-box;
+  box-sizing: border-box;
   border: 3px solid rgba(0,0,0,.65);
 }
 
-.bfd-input-wide {
-  flex: 1 1 100% !important;
-  width: 100% !important;
-  height: 0.95em !important;
-  line-height: 0.9 !important;
-}
 .bfd-wide-wrap {
   flex: 1 1 100% !important;
   width: 100% !important;
-  height: auto !important;
+  box-sizing: border-box;
 }
 
+.bfd-input-wide {
+  display: block;
+  width: 100% !important;
+  max-width: 100% !important;
+  box-sizing: border-box !important;
+  flex: none !important;
+}
 .bfd-input::placeholder {
   font-size: 0.36em;
   line-height: 1;
@@ -713,16 +720,6 @@ useEffect(() => {
 }
 .bfd-input[placeholder="Pages"] {
   width: 3.0ch !important;
-  text-align: center;
-}
-
-.bfd-input[placeholder="AA"] {
-  width: 190px !important;
-  text-align: center;
-}
-
-.bfd-input[placeholder="PA"] {
-  width: 220px !important;
   text-align: center;
 }
 
@@ -846,16 +843,12 @@ useEffect(() => {
                     ),
                     author_lastname: toStr(m.author_lastname ?? prev.author_lastname),
                     author_firstname: toStr(m.author_firstname ?? prev.author_firstname),
-                    author_abbreviation: toStr(
-                      m.author_abbreviation ?? prev.author_abbreviation
-                    ),
                     publisher_id: toStr(m.publisher_id ?? prev.publisher_id),
                     publisher_name_display: toStr(
                       m.publisher_name_display ??
                       m.publisher_name ??
                       prev.publisher_name_display
                     ),
-                    publisher_abbr: toStr(m.publisher_abbr ?? prev.publisher_abbr),
                   }));
                 }}
               >
@@ -877,62 +870,6 @@ useEffect(() => {
         <input {...numberProps("height_cm", "Height", "2.8ch")} />
         <input {...fieldProps("pages", "Pages", { inputMode: "numeric", style: { width: "3.0ch" } })} />
 
-        <div className="bfd-ac-wrap" style={{ width: 190 }}>
-          <input
-            {...fieldProps("author_abbreviation", "AA", { style: { width: 190 } })}
-            onChange={(e) => {
-              setField("author_abbreviation", e.target.value);
-              runAutocomplete("author_abbreviation", e.target.value);
-            }}
-            onBlur={() => setTimeout(() => setAc({ field: "", items: [] }), 120)}
-          />
-          {ac.field === "author_abbreviation" && ac.items.length ? (
-            <div className="bfd-ac">
-              {ac.items.map((it, index) => (
-                <button
-                  key={suggestionKey(it, index)}
-                  type="button"
-                  onMouseDown={(e) => e.preventDefault()}
-                  onClick={() => {
-                    applyAuthorMatch(it);
-                    setAc({ field: "", items: [] });
-                  }}
-                >
-                  {authorSuggestionLabel(it)}
-                </button>
-              ))}
-            </div>
-          ) : null}
-        </div>
-
-        <div className="bfd-ac-wrap" style={{ width: 220 }}>
-          <input
-            {...fieldProps("publisher_abbr", "PA", { style: { width: 220 } })}
-            onChange={(e) => {
-              setField("publisher_abbr", e.target.value);
-              runAutocomplete("publisher_abbr", e.target.value);
-            }}
-            onBlur={() => setTimeout(() => setAc({ field: "", items: [] }), 120)}
-          />
-          {ac.field === "publisher_abbr" && ac.items.length ? (
-            <div className="bfd-ac">
-              {ac.items.map((it, index) => (
-                <button
-                  key={suggestionKey(it, index)}
-                  type="button"
-                  onMouseDown={(e) => e.preventDefault()}
-                  onClick={() => {
-                    applyPublisherMatch(it);
-                    setAc({ field: "", items: [] });
-                  }}
-                >
-                  {publisherSuggestionLabel(it)}
-                </button>
-              ))}
-            </div>
-          ) : null}
-        </div>
-
         <input {...fieldProps("isbn10", "ISBN-10", { style: { width: "11ch" } })} />
         <input {...fieldProps("isbn13", "ISBN-13", { style: { width: "14ch" } })} />
         <button type="button" className="bfd-btn" disabled={busy || isbnBusy} onClick={doIsbnLookup}>
@@ -940,22 +877,22 @@ useEffect(() => {
         </button>
 
         {barcodePreviewLoading ? (
-  <span className="bfd-suggestion">Barcode wird geprüft…</span>
-) : barcodePreview?.candidate ? (
- <span className="bfd-suggestion">
-  {formatBookCode(barcodePreview.candidate)}
-</span>
-) : barcodePreview ? (
-  <span className="bfd-suggestion">
-    Kein Barcode verfügbar
-    {barcodePreview.expectedPrefix ? ` · ${barcodePreview.expectedPrefix}` : ""}
-  </span>
-) : barcodePreviewErr ? (
-  <span className="bfd-suggestion">{barcodePreviewErr}</span>
-) : null}
-              </div>
+          <span className="bfd-suggestion">Barcode wird geprüft…</span>
+        ) : barcodePreview?.candidate ? (
+          <span className="bfd-suggestion">
+            {formatBookCode(barcodePreview.candidate)}
+          </span>
+        ) : barcodePreview ? (
+          <span className="bfd-suggestion">
+            Kein Barcode verfügbar
+            {barcodePreview.expectedPrefix ? ` · ${barcodePreview.expectedPrefix}` : ""}
+          </span>
+        ) : barcodePreviewErr ? (
+          <span className="bfd-suggestion">{barcodePreviewErr}</span>
+        ) : null}
+      </div>
 
-      <div className="bfd-row">
+      <div className="bfd-row bfd-tight-row">
         <div className="bfd-ac-wrap bfd-wide-wrap">
           <input
             {...fieldProps("name_display", "Author", { className: "bfd-input bfd-input-wide" })}
@@ -985,7 +922,7 @@ useEffect(() => {
         </div>
       </div>
 
-      <div className="bfd-row">
+      <div className="bfd-row bfd-tight-row">
         <input
           {...fieldProps("title_display", "Title", {
             className: "bfd-input bfd-input-wide",
@@ -993,7 +930,7 @@ useEffect(() => {
         />
       </div>
 
-      <div className="bfd-row">
+      <div className="bfd-row bfd-tight-row">
         <input
           {...fieldProps("subtitle_display", "Subtitle", {
             className: "bfd-input bfd-input-wide",
@@ -1001,7 +938,7 @@ useEffect(() => {
         />
       </div>
 
-      <div className="bfd-row">
+      <div className="bfd-row bfd-tight-row">
         <div className="bfd-ac-wrap bfd-wide-wrap">
           <input
             {...fieldProps("publisher_name_display", "Publisher", { className: "bfd-input bfd-input-wide" })}
