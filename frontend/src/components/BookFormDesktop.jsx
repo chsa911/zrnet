@@ -865,33 +865,40 @@ export default function BookFormDesktop({
 
       {msg ? <div ref={msgRef} className="bfd-msg">{msg}</div> : null}
 
-      <div className="bfd-row">
-        <input {...numberProps("width_cm", "Width", "2.8ch")} />
-        <input {...numberProps("height_cm", "Height", "2.8ch")} />
-        <input {...fieldProps("pages", "Pages", { inputMode: "numeric", style: { width: "3.0ch" } })} />
+     <div className="bfd-row">
+  <input {...numberProps("width_cm", "Width", "2.8ch")} />
+  <input {...numberProps("height_cm", "Height", "2.8ch")} />
+  <input {...fieldProps("pages", "Pages", { inputMode: "numeric", style: { width: "3.0ch" } })} />
+</div>
 
-        <input {...fieldProps("isbn10", "ISBN-10", { style: { width: "11ch" } })} />
-        <input {...fieldProps("isbn13", "ISBN-13", { style: { width: "14ch" } })} />
-        <button type="button" className="bfd-btn" disabled={busy || isbnBusy} onClick={doIsbnLookup}>
-          {isbnBusy ? "…" : "Lookup"}
-        </button>
+<div className="bfd-row bfd-tight-row">
+  <input {...fieldProps("isbn10", "ISBN-10", { className: "bfd-input bfd-input-wide" })} />
+</div>
 
-        {barcodePreviewLoading ? (
-          <span className="bfd-suggestion">Barcode wird geprüft…</span>
-        ) : barcodePreview?.candidate ? (
-          <span className="bfd-suggestion">
-            {formatBookCode(barcodePreview.candidate)}
-          </span>
-        ) : barcodePreview ? (
-          <span className="bfd-suggestion">
-            Kein Barcode verfügbar
-            {barcodePreview.expectedPrefix ? ` · ${barcodePreview.expectedPrefix}` : ""}
-          </span>
-        ) : barcodePreviewErr ? (
-          <span className="bfd-suggestion">{barcodePreviewErr}</span>
-        ) : null}
-      </div>
+<div className="bfd-row bfd-tight-row">
+  <input {...fieldProps("isbn13", "ISBN-13", { className: "bfd-input bfd-input-wide" })} />
+</div>
 
+<div className="bfd-row bfd-tight-row">
+  <button type="button" className="bfd-btn" disabled={busy || isbnBusy} onClick={doIsbnLookup}>
+    {isbnBusy ? "…" : "Lookup"}
+  </button>
+
+  {barcodePreviewLoading ? (
+    <span className="bfd-suggestion">Barcode wird geprüft…</span>
+  ) : barcodePreview?.candidate ? (
+    <span className="bfd-suggestion">
+      {formatBookCode(barcodePreview.candidate)}
+    </span>
+  ) : barcodePreview ? (
+    <span className="bfd-suggestion">
+      Kein Barcode verfügbar
+      {barcodePreview.expectedPrefix ? ` · ${barcodePreview.expectedPrefix}` : ""}
+    </span>
+  ) : barcodePreviewErr ? (
+    <span className="bfd-suggestion">{barcodePreviewErr}</span>
+  ) : null}
+</div>
       <div className="bfd-row bfd-tight-row">
         <div className="bfd-ac-wrap bfd-wide-wrap">
           <input
