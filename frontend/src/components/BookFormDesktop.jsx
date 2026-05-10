@@ -805,7 +805,23 @@ export default function BookFormDesktop({
 .bfd-btn-update {
   background: #dff3df;
 }
-      `}</style>
+.bfd-top-frame {
+  width: 100%;
+  box-sizing: border-box;
+  border: 3px solid rgba(0,0,0,.65);
+  padding: 0;
+  margin: 0;
+  overflow: visible;
+}
+.bfd-top-frame .bfd-row {
+  margin: 0 !important;
+}
+
+.bfd-top-frame + .bfd-row {
+  margin-top: 0 !important;
+}
+        
+`}</style>
 
       {!isEdit && existingMatches.length ? (
         <div className="bfd-msg bfd-existing">
@@ -865,11 +881,13 @@ export default function BookFormDesktop({
 
       {msg ? <div ref={msgRef} className="bfd-msg">{msg}</div> : null}
 
-     <div className="bfd-row">
-  <input {...numberProps("width_cm", "Width", "2.8ch")} />
+    <div className="bfd-top-frame">
+  <div className="bfd-row">
+      <input {...numberProps("width_cm", "Width", "2.8ch")} />
   <input {...numberProps("height_cm", "Height", "2.8ch")} />
-  <input {...fieldProps("pages", "Pages", { inputMode: "numeric", style: { width: "3.0ch" } })} />
-</div>
+ <input {...fieldProps("pages", "Pages", { inputMode: "numeric", style: { width: "3.0ch" } })} />
+<span className="bfd-top-fill"/>
+ </div>
 
 <div className="bfd-row bfd-tight-row">
   <input {...fieldProps("isbn10", "ISBN-10", { className: "bfd-input bfd-input-wide" })} />
@@ -898,6 +916,7 @@ export default function BookFormDesktop({
   ) : barcodePreviewErr ? (
     <span className="bfd-suggestion">{barcodePreviewErr}</span>
   ) : null}
+</div>
 </div>
       <div className="bfd-row bfd-tight-row">
         <div className="bfd-ac-wrap bfd-wide-wrap">
