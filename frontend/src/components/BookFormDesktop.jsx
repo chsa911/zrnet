@@ -487,7 +487,11 @@ export default function BookFormDesktop({
     const finalBarcode = String(v.barcode || "").trim();
     const wCm = parseFloatOrNull(v.width_cm);
     const hCm = parseFloatOrNull(v.height_cm);
+const pages = parseIntOrNull(v.pages);
 
+if (pages == null || pages <= 0) {
+  throw new Error("Pages ist erforderlich.");
+}
     if (!isEdit && assignBarcode && !finalBarcode) {
       if (!(wCm > 0 && hCm > 0)) throw new Error("Breite + Höhe oder BookCode nötig.");
     }
@@ -926,7 +930,7 @@ export default function BookFormDesktop({
   <div className="bfd-row">
     <input {...numberProps("width_cm", "Width", "2.8ch")} />
     <input {...numberProps("height_cm", "Height", "2.8ch")} />
-    <input {...fieldProps("pages", "Pages", { inputMode: "numeric", style: { width: "3.0ch" } })} />
+    <input {...fieldProps("pages", "Pages", { inputMode: "numeric", style: { width: "3.0ch" }, required: true, })} />
 
     <span className="bfd-top-fill">
       {barcodePreviewLoading
