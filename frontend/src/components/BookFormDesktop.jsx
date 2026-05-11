@@ -638,11 +638,7 @@ export default function BookFormDesktop({
 
   return (
     <form className="bfd" onSubmit={onSubmit} noValidate>
-      <style>{`
-.bfd-input-wide {
-  flex: 1 1 100% !important;
-  width: 100% !important;
-}
+<style>{`
 .bfd {
   display: grid;
   gap: 0px;
@@ -652,6 +648,7 @@ export default function BookFormDesktop({
   overflow: visible;
   padding-bottom: 160px;
 }
+
 .bfd-row {
   display: flex;
   flex-direction: row;
@@ -661,20 +658,23 @@ export default function BookFormDesktop({
   overflow: visible;
   position: relative;
 }
+
 .bfd-row + .bfd-row {
   margin-top: 0px;
 }
 
-/* Compact rows: Author, Title, and Publisher touch with no vertical space */
 .bfd-tight-row {
   margin-top: 0 !important;
 }
+
 .bfd-tight-row + .bfd-tight-row {
   margin-top: 0 !important;
 }
+
 .bfd-row.bfd-tight-row {
   margin-bottom: 0 !important;
 }
+
 .bfd-row.bfd-tight-row .bfd-input {
   margin-top: 0 !important;
   margin-bottom: 0 !important;
@@ -693,19 +693,22 @@ export default function BookFormDesktop({
   border: 3px solid rgba(0,0,0,.65);
 }
 
+.bfd-input-wide {
+  display: block;
+  flex: none !important;
+  width: 100% !important;
+  max-width: 100% !important;
+  height: 0.95em !important;
+  line-height: 0.9 !important;
+  box-sizing: border-box !important;
+}
+
 .bfd-wide-wrap {
   flex: 1 1 100% !important;
   width: 100% !important;
   box-sizing: border-box;
 }
 
-.bfd-input-wide {
-  display: block;
-  width: 100% !important;
-  max-width: 100% !important;
-  box-sizing: border-box !important;
-  flex: none !important;
-}
 .bfd-input::placeholder {
   font-size: 0.36em;
   line-height: 1;
@@ -718,9 +721,49 @@ export default function BookFormDesktop({
 .bfd-input[placeholder="Height"] {
   width: 3.1ch !important;
 }
+
 .bfd-input[placeholder="Pages"] {
   width: 3.0ch !important;
   text-align: center;
+}
+
+.bfd-top-frame {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 0;
+  margin: 0;
+  overflow: visible;
+}
+
+.bfd-top-frame .bfd-row {
+  margin: 0 !important;
+}
+
+.bfd-top-frame + .bfd-row {
+  margin-top: 0 !important;
+}
+
+.bfd-top-fill {
+  flex: 1 1 auto;
+  align-self: stretch;
+  min-height: 0;
+  border: 3px solid rgba(0,0,0,.65);
+  border-left: 0;
+  box-sizing: border-box;
+  background: #eee;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  font: inherit;
+  font-size: 0.5em;
+  font-weight: 900;
+  line-height: 1;
+  color: #111;
+  white-space: nowrap;
+  overflow: hidden;
+  padding: 0 0.4em;
 }
 
 .bfd-btn,
@@ -735,6 +778,16 @@ export default function BookFormDesktop({
   cursor: pointer;
 }
 
+.bfd-btn-lookup {
+  flex: 1 1 100%;
+  width: 100%;
+  height: 0.95em;
+  min-height: 0;
+  font-size: clamp(76px, 12vw, 138px);
+  line-height: 0.9;
+  padding: 0 0.2em;
+}
+
 .bfd-btn-primary {
   flex: 1 1 100%;
   width: 100%;
@@ -744,6 +797,7 @@ export default function BookFormDesktop({
   line-height: 0.9;
   padding: 0 0.2em;
 }
+
 .bfd-msg {
   font-size: clamp(24px, 5vw, 42px);
   font-weight: 900;
@@ -757,14 +811,6 @@ export default function BookFormDesktop({
   min-height: 0;
   flex: 0 0 auto;
   overflow: visible;
-}
-.bfd-bottom-fill {
-  flex: 1 1 auto;
-  align-self: stretch;
-  border: 3px solid rgba(0,0,0,.65);
-  border-left: 0;
-  box-sizing: border-box;
-  background: #eee;
 }
 
 .bfd-ac {
@@ -784,15 +830,7 @@ export default function BookFormDesktop({
   padding: 10px;
   box-sizing: border-box;
 }
-.bfd-top-fill {
-  flex: 1 1 auto;
-  align-self: stretch;
-  min-height: 0;
-  border: 3px solid rgba(0,0,0,.65);
-  border-left: 0;
-  box-sizing: border-box;
-  background: #eee;
-}
+
 .bfd-ac button {
   min-height: 82px;
   border: 2px solid rgba(0,0,0,.6);
@@ -825,23 +863,7 @@ export default function BookFormDesktop({
 .bfd-btn-update {
   background: #dff3df;
 }
-.bfd-top-frame {
-  width: 100%;
-  box-sizing: border-box;
-  padding: 0;
-  margin: 0;
-  overflow: visible;
-}
-.bfd-top-frame .bfd-row {
-  margin: 0 !important;
-}
-
-.bfd-top-frame + .bfd-row {
-  margin-top: 0 !important;
-}
-        
 `}</style>
-
       {!isEdit && existingMatches.length ? (
         <div className="bfd-msg bfd-existing">
           <div className="bfd-existing-text">
@@ -902,44 +924,33 @@ export default function BookFormDesktop({
 
     <div className="bfd-top-frame">
   <div className="bfd-row">
-      <input {...numberProps("width_cm", "Width", "2.8ch")} />
-  <input {...numberProps("height_cm", "Height", "2.8ch")} />
- <input {...fieldProps("pages", "Pages", { inputMode: "numeric", style: { width: "3.0ch" } })} />
-<span className="bfd-top-fill"/>
- </div>
+    <input {...numberProps("width_cm", "Width", "2.8ch")} />
+    <input {...numberProps("height_cm", "Height", "2.8ch")} />
+    <input {...fieldProps("pages", "Pages", { inputMode: "numeric", style: { width: "3.0ch" } })} />
 
-<div className="bfd-row bfd-tight-row">
-  <input {...fieldProps("isbn10", "ISBN-10", { className: "bfd-input bfd-input-wide" })} />
-</div>
-
-<div className="bfd-row bfd-tight-row">
-  <input {...fieldProps("isbn13", "ISBN-13", { className: "bfd-input bfd-input-wide" })} />
-</div>
-
-<div className="bfd-row bfd-tight-row">
-  <button type="button" className="bfd-btn" disabled={busy || isbnBusy} onClick={doIsbnLookup}>
-    {isbnBusy ? "…" : "Lookup"}
-  </button>
-
-  {barcodePreviewLoading ? (
-    <span className="bfd-suggestion">Barcode wird geprüft…</span>
-  ) : barcodePreview?.candidate ? (
-    <span className="bfd-suggestion">
-      {formatBookCode(barcodePreview.candidate)}
+    <span className="bfd-top-fill">
+      {barcodePreviewLoading
+        ? "Prüfe…"
+        : barcodePreview?.candidate
+          ? formatBookCode(barcodePreview.candidate)
+          : ""}
     </span>
-    
-  ) : barcodePreview ? (
-    <span className="bfd-suggestion">
-      Kein Barcode verfügbar
-      {barcodePreview.expectedPrefix ? ` · ${barcodePreview.expectedPrefix}` : ""}
-    </span>
-  ) : barcodePreviewErr ? (
-    <span className="bfd-suggestion">{barcodePreviewErr}</span>
-  ) : null}
-<span className="bfd-bottom-fill" />
+  </div>
+
+  <div className="bfd-row bfd-tight-row">
+    <input {...fieldProps("isbn10", "ISBN-10", { className: "bfd-input bfd-input-wide" })} />
+  </div>
+
+  <div className="bfd-row bfd-tight-row">
+    <input {...fieldProps("isbn13", "ISBN-13", { className: "bfd-input bfd-input-wide" })} />
+  </div>
+
+  <div className="bfd-row bfd-tight-row">
+    <button type="button" className="bfd-btn bfd-btn-lookup" disabled={busy || isbnBusy} onClick={doIsbnLookup}>
+      {isbnBusy ? "…" : "Lookup"}
+    </button>
+  </div>
 </div>
-</div>
-    
       <div className="bfd-row bfd-tight-row">
         <div className="bfd-ac-wrap bfd-wide-wrap">
           <input
@@ -978,7 +989,7 @@ export default function BookFormDesktop({
         />
       </div>
 
-      <div className="bfd-row bfd-tight-row">
+      <div className="bfd-row">
         <input
           {...fieldProps("subtitle_display", "Subtitle", {
             className: "bfd-input bfd-input-wide",
@@ -1016,11 +1027,17 @@ export default function BookFormDesktop({
         </div>
       </div>
 
-   <div className="bfd-row">
-  <button className="bfd-btn bfd-btn-primary" disabled={busy} type="submit">
-    {busy ? "…" : existingMatch?.id ? "Ausgewähltes Buch registrieren" : submitLabel}
-  </button>
-</div>
- </form>
+      <div className="bfd-row">
+        <button className="bfd-btn bfd-btn-primary" disabled={busy} type="submit">
+          {busy ? "…" : existingMatch?.id ? "Ausgewähltes Buch registrieren" : submitLabel}
+        </button>
+
+        {onCancel ? (
+          <button className="bfd-btn" type="button" onClick={onCancel} disabled={busy}>
+            Cancel
+          </button>
+        ) : null}
+      </div>
+    </form>
   );
 }
