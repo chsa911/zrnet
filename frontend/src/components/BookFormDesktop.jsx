@@ -736,11 +736,14 @@ export default function BookFormDesktop({
 }
 
 .bfd-btn-primary {
-  min-height: 96px;
-  font-size: clamp(30px, 6vw, 52px);
-  padding: 0 22px;
+  flex: 1 1 100%;
+  width: 100%;
+  height: 0.95em;
+  min-height: 0;
+  font-size: clamp(76px, 12vw, 138px);
+  line-height: 0.9;
+  padding: 0 0.2em;
 }
-
 .bfd-msg {
   font-size: clamp(24px, 5vw, 42px);
   font-weight: 900;
@@ -1013,17 +1016,11 @@ export default function BookFormDesktop({
         </div>
       </div>
 
-      <div className="bfd-row">
-        <button className="bfd-btn bfd-btn-primary" disabled={busy} type="submit">
-          {busy ? "…" : existingMatch?.id ? "Ausgewähltes Buch registrieren" : submitLabel}
-        </button>
-
-        {onCancel ? (
-          <button className="bfd-btn" type="button" onClick={onCancel} disabled={busy}>
-            Cancel
-          </button>
-        ) : null}
-      </div>
-    </form>
+   <div className="bfd-row">
+  <button className="bfd-btn bfd-btn-primary" disabled={busy} type="submit">
+    {busy ? "…" : existingMatch?.id ? "Ausgewähltes Buch registrieren" : submitLabel}
+  </button>
+</div>
+ </form>
   );
 }
