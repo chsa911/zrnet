@@ -755,6 +755,15 @@ export default function BookFormDesktop({
   flex: 0 0 auto;
   overflow: visible;
 }
+.bfd-bottom-fill {
+  flex: 1 1 auto;
+  align-self: stretch;
+  border: 3px solid rgba(0,0,0,.65);
+  border-left: 0;
+  box-sizing: border-box;
+  background: #eee;
+}
+
 .bfd-ac {
   position: absolute;
   top: calc(100% + 8px);
@@ -772,7 +781,15 @@ export default function BookFormDesktop({
   padding: 10px;
   box-sizing: border-box;
 }
-
+.bfd-top-fill {
+  flex: 1 1 auto;
+  align-self: stretch;
+  min-height: 0;
+  border: 3px solid rgba(0,0,0,.65);
+  border-left: 0;
+  box-sizing: border-box;
+  background: #eee;
+}
 .bfd-ac button {
   min-height: 82px;
   border: 2px solid rgba(0,0,0,.6);
@@ -808,7 +825,6 @@ export default function BookFormDesktop({
 .bfd-top-frame {
   width: 100%;
   box-sizing: border-box;
-  border: 3px solid rgba(0,0,0,.65);
   padding: 0;
   margin: 0;
   overflow: visible;
@@ -908,6 +924,7 @@ export default function BookFormDesktop({
     <span className="bfd-suggestion">
       {formatBookCode(barcodePreview.candidate)}
     </span>
+    
   ) : barcodePreview ? (
     <span className="bfd-suggestion">
       Kein Barcode verfügbar
@@ -916,8 +933,10 @@ export default function BookFormDesktop({
   ) : barcodePreviewErr ? (
     <span className="bfd-suggestion">{barcodePreviewErr}</span>
   ) : null}
+<span className="bfd-bottom-fill" />
 </div>
 </div>
+    
       <div className="bfd-row bfd-tight-row">
         <div className="bfd-ac-wrap bfd-wide-wrap">
           <input
