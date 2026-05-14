@@ -1,33 +1,23 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { listBooks, getBook, updateBook, deleteBook } from "../api/books";
-import AdminNavRow from "../components/AdminNavRow";
+import { listBooks, getBook, updateBook } from "../api/books";
 import BookForm from "../components/BookFormSwitcher";
 
 const getBarcode = (b) => b?.barcode ?? "—";
-const getAuthor = (b) => b?.name_display ?? b?.author_name_display ?? "—";
-const getKeyword = (b) => b?.title_keyword ?? "—";
-const getPublisher = (b) => b?.publisher_name_display ?? "—";
-const getPages = (b) => (b?.pages ?? b?.pages === 0 ? b.pages : "—");
 
-const getCreatedAt = (b) => {
-  try {
-    return b?.registered_at ? new Date(b.registered_at).toLocaleString() : "—";
-  } catch {
-    return "—";
-  }
-};
+const getAuthor = (b) =>
+  b?.name_display ?? b?.author_name_display ?? b?.author_name ?? "—";
 
-const getStatusChangedAt = (b) => {
-  try {
-    return b?.reading_status_updated_at
-      ? new Date(b.reading_status_updated_at).toLocaleString()
-      : "—";
-  } catch {
-    return "—";
-  }
-};
+const getAuthorAbbr = (b) =>
+  b?.author_abbreviation ??
+  b?.author_abbr ??
+  b?.author_code ??
+  b?.author_short ??
+  getAuthor(b);
 
-const getTop = (b) => !!b?.top_book;
+const getKeyword = (b) => b?.title_keyword ?? b?.keyword ?? b?.title ?? "—";
+
+const getPages = (b) =>
+  b?.pages ?? b?.pages === 0 ? b.pages : "—";
 
 export default function SearchUpdatePage() {
   const [q, setQ] = useState({
@@ -38,27 +28,58 @@ export default function SearchUpdatePage() {
     order: "desc",
     status: "",
   });
-  const [searchText, setSearchText] = useState("");
 
+  const [searchText, setSearchText] = useState("");
   const [items, setItems] = useState([]);
   const [total, setTotal] = useState(0);
 
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState("");
   const [updating, setUpdating] = useState(() => new Set());
+  const [editingBook, setEditingBook] = useState(null);
   const [refreshTick, setRefreshTick] = useState(0);
 
-  const [editingBook, setEditingBook] = useState(null);
-  const [latestBook, setLatestBook] = useState(null);
   const debounceRef = useRef(null);
 
-  const canPrev = useMemo(() => q.page > 1, [q.page]);
-  const canNext = useMemo(() => q.page * q.limit < total, [q.page, q.limit, total]);
-  const totalPages = useMemo(() => Math.max(1, Math.ceil((total || 0) / q.limit)), [total, q.limit]);
+  const totalPages = useMemo(
+    () => Math.max(1, Math.ceil((total || 0) / q.limit)),
+    [total, q.limit]
+  );
+
+  const canPrev = q.page > 1;
+  const canNext = q.page * q.limit < total;
+
+  const idOf = (b) => b?._id || b?.id || "";
+  const statusOf = (b) => String(b?.reading_status || "").toLowerCase();
+
+  function setQuery(patch) {
+    setQ((prev) => ({ ...prev, ...patch }));
+  }
+
+  function patchRow(id, patch) {
+    if (!id) return;
+    setItems((prev) =>
+      prev.map((it) => (idOf(it) === id ? { ...it, ...patch } : it))
+    );
+  }
+
+  function setUpdatingOn(id, on = true) {
+    setUpdating((prev) => {
+      const next = new Set(prev);
+      if (!id) return next;
+      if (on) next.add(id);
+      else next.delete(id);
+      return next;
+    });
+  }
 
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
-    debounceRef.current = setTimeout(() => setQ((p) => ({ ...p, q: searchText, page: 1 })), 300);
+
+    debounceRef.current = setTimeout(() => {
+      setQ((prev) => ({ ...prev, q: searchText, page: 1 }));
+    }, 250);
+
     return () => {
       if (debounceRef.current) clearTimeout(debounceRef.current);
     };
@@ -67,14 +88,20 @@ export default function SearchUpdatePage() {
   useEffect(() => {
     let cancelled = false;
 
-    (async () => {
+    async function loadBooks() {
       setLoading(true);
       setErr("");
+
       try {
         const data = await listBooks(q);
         if (cancelled) return;
 
-        const list = Array.isArray(data?.items) ? data.items : Array.isArray(data) ? data : [];
+        const list = Array.isArray(data?.items)
+          ? data.items
+          : Array.isArray(data)
+          ? data
+          : [];
+
         setItems(list);
         setTotal(Number.isFinite(data?.total) ? data.total : list.length);
       } catch (e) {
@@ -86,132 +113,51 @@ export default function SearchUpdatePage() {
       } finally {
         if (!cancelled) setLoading(false);
       }
-    })();
+    }
+
+    loadBooks();
 
     return () => {
       cancelled = true;
     };
   }, [q.page, q.limit, q.sortBy, q.order, q.q, q.status, refreshTick]);
 
-  useEffect(() => {
-    let cancelled = false;
-
-    (async () => {
-      try {
-        const data = await listBooks({ page: 1, limit: 1, sortBy: "registered_at", order: "desc" });
-        if (cancelled) return;
-
-        const list = Array.isArray(data?.items) ? data.items : Array.isArray(data) ? data : [];
-        setLatestBook(list[0] || null);
-      } catch {
-        if (!cancelled) setLatestBook(null);
-      }
-    })();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [refreshTick]);
-
-  const idOf = (b) => b?._id || b?.id || "";
-
-  function setQuery(patch) {
-    setQ((prev) => ({ ...prev, ...patch }));
-  }
-
-  function nextPage() {
-    if (canNext) setQuery({ page: q.page + 1 });
-  }
-
-  function prevPage() {
-    if (canPrev) setQuery({ page: q.page - 1 });
-  }
-
-  function patchRow(id, patch) {
-    if (!id) return;
-    setItems((prev) => prev.map((it) => (idOf(it) === id ? { ...it, ...patch } : it)));
-    setLatestBook((prev) => (prev && idOf(prev) === id ? { ...prev, ...patch } : prev));
-  }
-
-  function setUpdatingOn(id, on = true) {
-    setUpdating((prev) => {
-      const n = new Set(prev);
-      if (!id) return n;
-      if (on) n.add(id);
-      else n.delete(id);
-      return n;
-    });
-  }
-
-  async function toggleTop(b, nextVal) {
-    const id = idOf(b);
-    if (!id) return alert("Kein Datensatz-ID gefunden.");
-
-    setUpdatingOn(id, true);
-    const revert = { top_book: getTop(b) };
-
-    try {
-      patchRow(id, { top_book: !!nextVal });
-      await updateBook(id, { top_book: !!nextVal });
-    } catch (e) {
-      patchRow(id, revert);
-      alert(e?.message || "Update Topbook fehlgeschlagen");
-    } finally {
-      setUpdatingOn(id, false);
-    }
-  }
-
   async function setStatus(b, nextStatus) {
     const id = idOf(b);
     if (!id) return alert("Kein Datensatz-ID gefunden.");
 
+    const oldStatus = b?.reading_status ?? null;
     setUpdatingOn(id, true);
-    const revert = { reading_status: b?.reading_status ?? null };
 
     try {
-      patchRow(id, { reading_status: nextStatus, reading_status_updated_at: new Date().toISOString() });
+      patchRow(id, {
+        reading_status: nextStatus,
+        reading_status_updated_at: new Date().toISOString(),
+      });
+
       await updateBook(id, { reading_status: nextStatus });
     } catch (e) {
-      patchRow(id, revert);
+      patchRow(id, { reading_status: oldStatus });
       alert(e?.message || "Update Status fehlgeschlagen");
     } finally {
       setUpdatingOn(id, false);
     }
   }
 
-  async function dropRow(b) {
-    const id = idOf(b);
-    if (!id) return alert("Kein Datensatz-ID gefunden.");
-
-    if (!confirm("Buch wirklich löschen? (Barcode wird freigegeben)")) return;
-
-    setUpdatingOn(id, true);
-    try {
-      await deleteBook(id);
-      setItems((prev) => prev.filter((it) => idOf(it) !== id));
-      setTotal((prev) => Math.max(0, (Number(prev) || 0) - 1));
-      if (items.length === 1 && q.page > 1) setQuery({ page: q.page - 1 });
-    } catch (e) {
-      alert(e?.message || "Löschen fehlgeschlagen");
-    } finally {
-      setUpdatingOn(id, false);
-    }
-  }
-
-  const statusOf = (b) => String(b?.reading_status || "").toLowerCase();
-
   async function openEditor(b) {
     const id = idOf(b);
     if (!id) return alert("Kein Datensatz-ID gefunden.");
 
     setUpdatingOn(id, true);
+
     try {
       const full = await getBook(id);
       setEditingBook(full && typeof full === "object" ? full : b);
+
       setTimeout(() => {
-        try {
-          document.getElementById("edit-book-form")?.scrollIntoView({ behavior: "smooth", block: "start" });
-        } catch {}
+        document
+          .getElementById("edit-book-form")
+          ?.scrollIntoView({ behavior: "smooth", block: "start" });
       }, 0);
     } catch (e) {
       alert(e?.message || "Buchdetails konnten nicht geladen werden.");
@@ -226,317 +172,492 @@ export default function SearchUpdatePage() {
 
   return (
     <section className="zr-section">
-      <AdminNavRow />
-      <h1>Bücher verwalten</h1>
-      <p className="zr-lede">
-        Seite <strong>{q.page}</strong> / <strong>{totalPages}</strong> · Pro Seite <strong>{q.limit}</strong> · Gesamt{" "}
-        <strong>{total}</strong>
-        {q.q ? (
-          <>
-            {" "}
-            · Suche: <em>{q.q}</em>
-          </>
-        ) : null}
-      </p>
+      <style>{`
+        .zr-section {
+          max-width: none;
+        }
 
-      {latestBook ? (() => {
-        const id = idOf(latestBook);
-        const isBusy = updating.has(id);
-        const status = statusOf(latestBook);
-        const isAbandoned = status === "abandoned";
-        const isFinished = status === "finished";
+        .su-heading {
+          margin-bottom: 26px;
+        }
 
-        return (
-          <div className="zr-card" style={{ marginBottom: 14 }}>
-            <h2 style={{ marginTop: 0 }}>Zuletzt registriertes Buch</h2>
-            <div style={{ display: "grid", gap: 8 }}>
-              <div>
-                <strong>{getBarcode(latestBook)}</strong> · {getAuthor(latestBook)} · {getKeyword(latestBook)}
-              </div>
-              <div style={{ fontSize: 12, opacity: 0.75 }}>
-                Registriert: {getCreatedAt(latestBook)}
-                {isAbandoned || isFinished ? <> · Status geändert: {getStatusChangedAt(latestBook)}</> : null}
-              </div>
-              <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-                <button
-                  disabled={isBusy}
-                  onClick={() => setStatus(latestBook, "abandoned")}
-                  className={`zr-btn2 zr-btn2--sm ${isAbandoned ? "" : "zr-btn2--ghost"}`}
-                  type="button"
-                >
-                  {isAbandoned ? "✓ Abandoned" : "Abandoned setzen"}
-                </button>
+        .su-heading h1 {
+          margin-bottom: 10px;
+        }
 
-                <button
-                  disabled={isBusy}
-                  onClick={() => setStatus(latestBook, "finished")}
-                  className={`zr-btn2 zr-btn2--sm ${isFinished ? "" : "zr-btn2--ghost"}`}
-                  type="button"
-                >
-                  {isFinished ? "✓ Finished" : "Finished setzen"}
-                </button>
+        .su-grid {
+          width: 100%;
+          border: 4px solid #666;
+          border-bottom: 0;
+          border-radius: 0;
+          overflow: hidden;
+          background: #fff;
+        }
 
-                <button
-                  disabled={isBusy}
-                  onClick={() => openEditor(latestBook)}
-                  className="zr-btn2 zr-btn2--ghost zr-btn2--sm"
-                  type="button"
-                >
-                  ✎ Buch bearbeiten
-                </button>
-              </div>
-            </div>
-          </div>
-        );
-      })() : null}
+        .su-search-row,
+        .su-book-row {
+          display: grid;
+          grid-template-columns: 150px 78px minmax(0, 1fr) 86px 330px;
+          align-items: stretch;
+          min-height: 72px;
+          border-bottom: 4px solid #666;
+        }
 
-      <div className="zr-card">
-        <div className="zr-toolbar">
-          <form
-            className="zr-toolbar"
-            onSubmit={(e) => {
-              e.preventDefault();
-              setQ((p) => ({ ...p, q: searchText, page: 1 }));
-            }}
-          >
+        .su-search-row {
+          min-height: 86px;
+          background: #f1f1f1;
+        }
+
+        .su-cell {
+          display: flex;
+          align-items: center;
+          min-width: 0;
+          padding: 0 12px;
+          border-right: 4px solid #666;
+          color: #5f5f5f;
+          font-size: clamp(24px, 3vw, 50px);
+          font-weight: 800;
+          letter-spacing: -0.04em;
+          line-height: 1;
+          overflow: hidden;
+        }
+
+        .su-cell:last-child {
+          border-right: 0;
+        }
+
+        .su-cell--search {
+          grid-column: 1 / 4;
+          background: #fff;
+        }
+
+        .su-cell--filters {
+          grid-column: 4 / 6;
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          flex-wrap: wrap;
+          background: #e9e9e9;
+          padding: 12px;
+        }
+
+        .su-search-input {
+          width: 100%;
+          border: 0;
+          outline: 0;
+          background: transparent;
+          color: #111;
+          font: inherit;
+          line-height: 1;
+          padding: 0;
+        }
+
+        .su-search-input::placeholder {
+          color: #9a9a9a;
+          opacity: 1;
+        }
+
+        .su-filter {
+          height: 38px;
+          border: 3px solid #666;
+          border-radius: 0;
+          background: #fff;
+          color: #333;
+          font-size: 15px;
+          font-weight: 700;
+          padding: 0 8px;
+          max-width: 150px;
+        }
+
+        .su-book-row {
+          background: #fff;
+        }
+
+        .su-book-row:nth-child(even) {
+          background: #fafafa;
+        }
+
+        .su-book-row.is-finished {
+          background: #f4f4f4;
+        }
+
+        .su-book-row.is-abandoned {
+          background: #ededed;
+        }
+
+        .su-text {
+          display: block;
+          min-width: 0;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+        }
+
+        .su-code {
+          color: #111;
+          font-size: clamp(19px, 1.8vw, 34px);
+          font-weight: 850;
+          letter-spacing: -0.04em;
+        }
+
+        .su-author {
+          color: #333;
+          font-size: clamp(18px, 1.7vw, 30px);
+          font-weight: 850;
+          letter-spacing: -0.04em;
+        }
+
+        .su-title {
+          color: #333;
+          font-size: clamp(18px, 1.9vw, 34px);
+          font-weight: 750;
+          letter-spacing: -0.035em;
+        }
+
+        .su-pages {
+          justify-content: flex-end;
+          color: #555;
+          font-size: clamp(18px, 1.7vw, 30px);
+          font-weight: 750;
+          letter-spacing: -0.035em;
+        }
+
+        .su-actions {
+          display: flex;
+          align-items: center;
+          justify-content: flex-end;
+          gap: 0;
+          padding: 0;
+        }
+
+        .su-action {
+          height: 100%;
+          min-width: 104px;
+          border: 0;
+          border-right: 4px solid #666;
+          border-radius: 0;
+          background: transparent;
+          color: #111;
+          cursor: pointer;
+          font-size: 18px;
+          font-weight: 850;
+          letter-spacing: -0.03em;
+        }
+
+        .su-action:last-child {
+          border-right: 0;
+        }
+
+        .su-action:hover,
+        .su-action.is-active {
+          background: #111;
+          color: #fff;
+        }
+
+        .su-action:disabled {
+          cursor: wait;
+          opacity: 0.45;
+        }
+
+        .su-empty,
+        .su-alert {
+          border-bottom: 4px solid #666;
+          padding: 24px;
+          font-size: 26px;
+          font-weight: 800;
+          color: #666;
+        }
+
+        .su-alert--error {
+          color: #8b1111;
+          background: #fff3f3;
+        }
+
+        .su-pager {
+          display: grid;
+          grid-template-columns: 1fr auto 1fr;
+          align-items: stretch;
+          border: 4px solid #666;
+          border-top: 0;
+          min-height: 58px;
+          background: #f1f1f1;
+        }
+
+        .su-pager button {
+          border: 0;
+          border-right: 4px solid #666;
+          border-radius: 0;
+          background: transparent;
+          color: #111;
+          cursor: pointer;
+          font-size: 20px;
+          font-weight: 850;
+        }
+
+        .su-pager button:last-child {
+          border-right: 0;
+          border-left: 4px solid #666;
+        }
+
+        .su-pager button:disabled {
+          color: #aaa;
+          cursor: default;
+        }
+
+        .su-pager-info {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          padding: 0 24px;
+          font-size: 18px;
+          font-weight: 800;
+          color: #444;
+        }
+
+        .su-editor {
+          margin-top: 28px;
+          border: 4px solid #666;
+          padding: 18px;
+          background: #fff;
+        }
+
+        @media (max-width: 980px) {
+          .su-search-row,
+          .su-book-row {
+            grid-template-columns: 120px 64px minmax(0, 1fr) 70px;
+          }
+
+          .su-cell--search,
+          .su-cell--filters {
+            grid-column: 1 / -1;
+          }
+
+          .su-cell--filters {
+            border-top: 4px solid #666;
+          }
+
+          .su-actions {
+            grid-column: 1 / -1;
+            border-top: 4px solid #666;
+          }
+
+          .su-action {
+            flex: 1;
+          }
+        }
+
+        @media (max-width: 620px) {
+          .su-search-row,
+          .su-book-row {
+            grid-template-columns: 92px 52px minmax(0, 1fr);
+          }
+
+          .su-pages {
+            display: none;
+          }
+
+          .su-filter {
+            max-width: none;
+            flex: 1 1 120px;
+          }
+        }
+      `}</style>
+
+      
+      <div className="su-grid">
+        <form
+          className="su-search-row"
+          onSubmit={(e) => {
+            e.preventDefault();
+            setQ((prev) => ({ ...prev, q: searchText, page: 1 }));
+          }}
+        >
+          <div className="su-cell su-cell--search">
             <input
-              className="zr-input"
-              placeholder="Suche (Titel, Autor, Barcode …)"
+              className="su-search-input"
+              placeholder="Search"
               value={searchText}
               onChange={(e) => setSearchText(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") {
-                  e.preventDefault();
-                  setQ((p) => ({ ...p, q: searchText, page: 1 }));
-                }
-              }}
+              aria-label="Search books"
             />
-            <button type="submit" className="zr-btn2 zr-btn2--ghost zr-btn2--sm">
-              Suchen
-            </button>
-            {searchText ? (
-              <button type="button" className="zr-btn2 zr-btn2--ghost zr-btn2--sm" onClick={() => setSearchText("")}>
-                Leeren
-              </button>
-            ) : null}
-          </form>
+          </div>
 
-          <div className="zr-toolbar__grow" />
-
-          <label style={{ fontSize: 12, opacity: 0.75 }}>
-            Sortieren
+          <div className="su-cell su-cell--filters">
             <select
-              className="zr-select"
-              style={{ marginLeft: 8 }}
+              className="su-filter"
               value={q.sortBy}
               onChange={(e) => setQuery({ sortBy: e.target.value, page: 1 })}
+              aria-label="Sortieren"
             >
               <option value="registered_at">Registriert</option>
               <option value="author_name_display">Autor</option>
-              <option value="publisher_name_display">Verlag</option>
-              <option value="reading_status_updated_at">Status geändert</option>
+              <option value="reading_status_updated_at">Status</option>
+              <option value="pages">Seiten</option>
             </select>
-          </label>
 
-          <label style={{ fontSize: 12, opacity: 0.75 }}>
-            Status
             <select
-              className="zr-select"
-              style={{ marginLeft: 8 }}
+              className="su-filter"
               value={q.status || ""}
               onChange={(e) => {
                 const v = e.target.value || "";
                 if (v) {
-                  setQuery({ status: v, page: 1, sortBy: "reading_status_updated_at", order: "desc" });
+                  setQuery({
+                    status: v,
+                    page: 1,
+                    sortBy: "reading_status_updated_at",
+                    order: "desc",
+                  });
                 } else {
                   setQuery({ status: "", page: 1 });
                 }
               }}
+              aria-label="Status"
             >
               <option value="">Alle</option>
-              <option value="finished">Zuletzt Finished</option>
-              <option value="abandoned">Zuletzt Abandoned</option>
-              <option value="finished,abandoned">Zuletzt Finished + Abandoned</option>
+              <option value="finished">Finished</option>
+              <option value="abandoned">Abandoned</option>
+              <option value="finished,abandoned">Finished + Abandoned</option>
             </select>
-          </label>
 
-          <label style={{ fontSize: 12, opacity: 0.75 }}>
-            Ordnung
             <select
-              className="zr-select"
-              style={{ marginLeft: 8 }}
+              className="su-filter"
               value={q.order}
               onChange={(e) => setQuery({ order: e.target.value, page: 1 })}
+              aria-label="Ordnung"
             >
-              <option value="desc">↓ absteigend</option>
-              <option value="asc">↑ aufsteigend</option>
+              <option value="desc">↓</option>
+              <option value="asc">↑</option>
             </select>
-          </label>
 
-          <label style={{ fontSize: 12, opacity: 0.75 }}>
-            Pro Seite
             <select
-              className="zr-select"
-              style={{ marginLeft: 8 }}
+              className="su-filter"
               value={q.limit}
               onChange={(e) => setQuery({ limit: Number(e.target.value), page: 1 })}
+              aria-label="Pro Seite"
             >
               <option value={10}>10</option>
               <option value={20}>20</option>
               <option value={50}>50</option>
             </select>
-          </label>
-        </div>
-
-        {err ? <div className="zr-alert zr-alert--error">{err}</div> : null}
-        {loading ? <div className="zr-alert">Lade…</div> : null}
-        {!loading && !err && items.length === 0 ? <div className="zr-alert">Keine Einträge gefunden.</div> : null}
-
-        {!loading && !err && items.length > 0 ? (
-          <div style={{ overflow: "auto", marginTop: 12 }}>
-            <table className="zr-table">
-              <thead>
-                <tr>
-                  <th>Barcode</th>
-                  <th>Autor</th>
-                  <th>Stichwort</th>
-                  <th>Verlag</th>
-                  <th>Seiten</th>
-                  <th>Topbook</th>
-                  <th>Abandoned</th>
-                  <th>Finished</th>
-                  <th>Status geändert</th>
-                  <th>Registriert</th>
-                  <th>Aktionen</th>
-                </tr>
-              </thead>
-
-              <tbody>
-                {items.map((b, i) => {
-                  const id = idOf(b) || String(i);
-                  const isBusy = updating.has(id);
-                  const status = statusOf(b);
-                  const isAbandoned = status === "abandoned";
-                  const isFinished = status === "finished";
-
-                  return (
-                    <tr key={id}>
-                      <td>{getBarcode(b)}</td>
-                      <td>{getAuthor(b)}</td>
-                      <td>{getKeyword(b)}</td>
-                      <td>{getPublisher(b)}</td>
-                      <td>{getPages(b)}</td>
-                      <td>{getTop(b) ? "✓" : "—"}</td>
-                      <td>{isAbandoned ? "✓" : "—"}</td>
-                      <td>{isFinished ? "✓" : "—"}</td>
-                      <td>{isAbandoned || isFinished ? getStatusChangedAt(b) : "—"}</td>
-                      <td>{getCreatedAt(b)}</td>
-                      <td>
-                        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                          <button
-                            disabled={isBusy}
-                            onClick={() => openEditor(b)}
-                            className="zr-btn2 zr-btn2--ghost zr-btn2--sm"
-                            type="button"
-                          >
-                            ✎ Bearbeiten
-                          </button>
-
-                          <button
-                            disabled={isBusy}
-                            onClick={() => toggleTop(b, !getTop(b))}
-                            className="zr-btn2 zr-btn2--ghost zr-btn2--sm"
-                            title={getTop(b) ? "Topbook entfernen" : "Als Topbook markieren"}
-                            type="button"
-                          >
-                            {getTop(b) ? "★ Top entfernen" : "☆ Top setzen"}
-                          </button>
-
-                          <button
-                            disabled={isBusy}
-                            onClick={() => dropRow(b)}
-                            className="zr-btn2 zr-btn2--ghost zr-btn2--sm"
-                            type="button"
-                            title="Löschen"
-                          >
-                            🗑 Löschen
-                          </button>
-
-                          <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
-                            <label style={{ fontSize: 12, display: "inline-flex", gap: 6, alignItems: "center" }}>
-                              <input
-                                type="radio"
-                                name={`status-${id}`}
-                                disabled={isBusy}
-                                checked={isAbandoned}
-                                onChange={() => setStatus(b, "abandoned")}
-                              />
-                              Abandoned
-                            </label>
-
-                            <label style={{ fontSize: 12, display: "inline-flex", gap: 6, alignItems: "center" }}>
-                              <input
-                                type="radio"
-                                name={`status-${id}`}
-                                disabled={isBusy}
-                                checked={isFinished}
-                                onChange={() => setStatus(b, "finished")}
-                              />
-                              Finished
-                            </label>
-                          </div>
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
           </div>
+        </form>
+
+        {err ? <div className="su-alert su-alert--error">{err}</div> : null}
+        {loading ? <div className="su-alert">Lade…</div> : null}
+
+        {!loading && !err && items.length === 0 ? (
+          <div className="su-empty">Keine Einträge gefunden.</div>
         ) : null}
 
-        <div className="zr-toolbar" style={{ marginTop: 12 }}>
-          <button className="zr-btn2 zr-btn2--ghost zr-btn2--sm" onClick={prevPage} disabled={!canPrev} type="button">
-            ← Zurück
-          </button>
+        {!loading && !err && items.length > 0
+          ? items.map((b, i) => {
+              const id = idOf(b) || String(i);
+              const isBusy = updating.has(id);
+              const status = statusOf(b);
+              const isAbandoned = status === "abandoned";
+              const isFinished = status === "finished";
 
-          <div className="zr-toolbar__grow" />
+              return (
+                <div
+                  className={`su-book-row ${
+                    isFinished ? "is-finished" : isAbandoned ? "is-abandoned" : ""
+                  }`}
+                  key={id}
+                >
+                  <div className="su-cell su-code">
+                    <span className="su-text">{getBarcode(b)}</span>
+                  </div>
 
-          <div style={{ fontSize: 12, opacity: 0.75 }}>
-            Seite <strong>{q.page}</strong> / <strong>{totalPages}</strong>
-          </div>
+                  <div className="su-cell su-author" title={getAuthor(b)}>
+                    <span className="su-text">{getAuthorAbbr(b)}</span>
+                  </div>
 
-          <button className="zr-btn2 zr-btn2--ghost zr-btn2--sm" onClick={nextPage} disabled={!canNext} type="button">
-            Weiter →
-          </button>
-        </div>
+                  <div className="su-cell su-title">
+                    <span className="su-text">{getKeyword(b)}</span>
+                  </div>
 
-        {editingBook ? (
-          <div id="edit-book-form" style={{ marginTop: 14 }}>
-            <div className="zr-card">
-              <BookForm
-                mode="edit"
-                bookId={idOf(editingBook)}
-                initialBook={editingBook}
-                lockBarcode={true}
-                showUnknownFields={false}
-                excludeUnknownKeys={["reading_status"]}
-                submitLabel="Speichern"
-                onCancel={closeEditor}
-                onSuccess={({ payload, saved }) => {
-                  const patch = saved && typeof saved === "object" ? saved : payload;
-                  const currentId = idOf(editingBook);
+                  <div className="su-cell su-pages">
+                    <span className="su-text">{getPages(b)}</span>
+                  </div>
 
-                  patchRow(currentId, patch);
-                  setEditingBook((prev) => ({ ...(prev || {}), ...patch }));
-                  closeEditor();
-                  setRefreshTick((n) => n + 1);
-                }}
-              />
-            </div>
-          </div>
-        ) : null}
+                  <div className="su-cell su-actions">
+                    <button
+                      disabled={isBusy}
+                      onClick={() => setStatus(b, "abandoned")}
+                      className={`su-action ${isAbandoned ? "is-active" : ""}`}
+                      type="button"
+                    >
+                      Abandoned
+                    </button>
+
+                    <button
+                      disabled={isBusy}
+                      onClick={() => setStatus(b, "finished")}
+                      className={`su-action ${isFinished ? "is-active" : ""}`}
+                      type="button"
+                    >
+                      Finished
+                    </button>
+
+                    <button
+                      disabled={isBusy}
+                      onClick={() => openEditor(b)}
+                      className="su-action"
+                      type="button"
+                    >
+                      Edit
+                    </button>
+                  </div>
+                </div>
+              );
+            })
+          : null}
       </div>
+
+      <div className="su-pager">
+        <button
+          onClick={() => canPrev && setQuery({ page: q.page - 1 })}
+          disabled={!canPrev}
+          type="button"
+        >
+          ← Zurück
+        </button>
+
+        <div className="su-pager-info">
+          Seite <strong>&nbsp;{q.page}&nbsp;</strong> / <strong>&nbsp;{totalPages}</strong>
+        </div>
+
+        <button
+          onClick={() => canNext && setQuery({ page: q.page + 1 })}
+          disabled={!canNext}
+          type="button"
+        >
+          Weiter →
+        </button>
+      </div>
+
+      {editingBook ? (
+        <div id="edit-book-form" className="su-editor">
+          <BookForm
+            mode="edit"
+            bookId={idOf(editingBook)}
+            initialBook={editingBook}
+            lockBarcode={true}
+            showUnknownFields={false}
+            excludeUnknownKeys={["reading_status"]}
+            submitLabel="Speichern"
+            onCancel={closeEditor}
+            onSuccess={({ payload, saved }) => {
+              const patch = saved && typeof saved === "object" ? saved : payload;
+              const currentId = idOf(editingBook);
+
+              patchRow(currentId, patch);
+              closeEditor();
+              setRefreshTick((  ) => n + 1);
+            }}
+          />
+        </div>
+      ) : null}
     </section>
   );
 }

@@ -117,6 +117,7 @@ export default function TopBar() {
               >
 <Link to="/admin/register">Register</Link>
 <Link to="/admin/search-update">Search / Update</Link>
+<Link to="/admin/authors">Authors</Link>
 <Link to="/admin/sync-issues">Sync Issues</Link>
 <Link to="/admin/barcodes">Barcodes</Link>
             <hr/>

@@ -29,7 +29,17 @@
     const s = String(v).trim();
     return s === "" ? null : s;
   }
+function makeTitleKeyword(title) {
+  const value = String(title || "").trim();
 
+  if (!value) return null;
+
+  return value
+    .toLowerCase()
+    .replace(/^(der|die|das|ein|eine|the|a|an)\s+/i, "")
+    .split(/\s+/)[0]
+    ?.replace(/[^\p{L}\p{N}]+/gu, "") || null;
+}
   function normalizeInt(v) {
     if (v === undefined || v === null || v === "") return null;
     const n = Number(v);
@@ -943,7 +953,12 @@ place_of_birth = COALESCE($9, place_of_birth)
           )`
         );
       }
+const authorId = normalizeUuid(req.query.author_id ?? req.query.authorId);
 
+if (authorId) {
+  params.push(authorId);
+  where.push(`b.author_id = $${params.length}::uuid`);
+}
       // ✅ pages exakt (unabhängig von q)
       const pagesEq = normalizeInt(req.query.pages ?? req.query.BSeiten);
       if (pagesEq !== null) {
@@ -1330,7 +1345,9 @@ place_of_birth = COALESCE($9, place_of_birth)
           author_id: authorRow?.id ?? null,
           publisher_id: publisherRow?.id ?? null,
 
-          title_keyword: normalizeStr(body.title_keyword),
+          title_keyword:
+  normalizeStr(body.title_keyword) ||
+  makeTitleKeyword(body.title_display),
           title_keyword_position: normalizeInt(body.title_keyword_position),
           title_keyword2: normalizeStr(body.title_keyword2),
           title_keyword2_position: normalizeInt(body.title_keyword2_position),
@@ -1574,7 +1591,13 @@ place_of_birth = COALESCE($9, place_of_birth)
         updates.comment = normalizeStr(body.comment);
       }
 
-      if (body.title_keyword !== undefined) updates.title_keyword = normalizeStr(body.title_keyword);
+  if (body.title_keyword !== undefined) {
+  updates.title_keyword =
+    normalizeStr(body.title_keyword) ||
+    makeTitleKeyword(body.title_display);
+} else if (body.title_display !== undefined) {
+  updates.title_keyword = makeTitleKeyword(body.title_display);
+}
       if (body.title_keyword_position !== undefined) {
         updates.title_keyword_position = normalizeInt(body.title_keyword_position);
       }
@@ -1791,7 +1814,13 @@ place_of_birth = COALESCE($9, place_of_birth)
         updates.comment = normalizeStr(body.comment);
       }
 
-      if (body.title_keyword !== undefined) updates.title_keyword = normalizeStr(body.title_keyword);
+     if (body.title_keyword !== undefined) {
+  updates.title_keyword =
+    normalizeStr(body.title_keyword) ||
+    makeTitleKeyword(body.title_display);
+} else if (body.title_display !== undefined) {
+  updates.title_keyword = makeTitleKeyword(body.title_display);
+}
       if (body.title_keyword_position !== undefined) {
         updates.title_keyword_position = normalizeInt(body.title_keyword_position);
       }
@@ -2024,7 +2053,13 @@ place_of_birth = COALESCE($9, place_of_birth)
         updates.comment = normalizeStr(patch.comment);
       }
 
-      if (patch.title_keyword !== undefined) updates.title_keyword = normalizeStr(patch.title_keyword);
+     if (patch.title_keyword !== undefined) {
+  updates.title_keyword =
+    normalizeStr(patch.title_keyword) ||
+    makeTitleKeyword(patch.title_display);
+} else if (patch.title_display !== undefined) {
+  updates.title_keyword = makeTitleKeyword(patch.title_display);
+}
       if (patch.title_keyword_position !== undefined) {
         updates.title_keyword_position = normalizeInt(patch.title_keyword_position);
       }

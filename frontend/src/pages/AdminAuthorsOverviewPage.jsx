@@ -1,19 +1,21 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { Link } from "react-router-dom";
-import AdminNavRow from "../components/AdminNavRow";
 import { getApiRoot } from "../api/apiRoot";
+import "./AuthorsIndexPage.css";
 
-function normKey(s) {
-  return String(s || "")
-    .toLowerCase()
-    .trim();
+function num(v) {
+  const n = Number(v);
+  return Number.isFinite(n) ? n : 0;
+}
+
+function getAuthorName(r) {
+  return r?.name_display || r?.author || r?.name || "—";
 }
 
 export default function AdminAuthorsOverviewPage() {
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState("");
-  const [q, setQ] = useState("");
+  const [sort, setSort] = useState("total_desc");
   const acRef = useRef(null);
 
   useEffect(() => {
@@ -31,15 +33,7 @@ export default function AdminAuthorsOverviewPage() {
       signal: ac.signal,
     })
       .then(async (res) => {
-        if (!res.ok) {
-          if (res.status === 401 || res.status === 403) {
-            throw new Error("Please login to view the authors overview.");
-          }
-
-          const t = await res.text().catch(() => "");
-          throw new Error(t || `Request failed (${res.status})`);
-        }
-
+        if (!res.ok) throw new Error(`Request failed (${res.status})`);
         return res.json();
       })
       .then((data) => {
@@ -58,121 +52,107 @@ export default function AdminAuthorsOverviewPage() {
     return () => ac.abort();
   }, []);
 
-  const filtered = useMemo(() => {
-    const needle = normKey(q);
-    const base = Array.isArray(rows) ? rows : [];
+  const sortedRows = useMemo(() => {
+    return rows.slice().sort((a, b) => {
+      const an = getAuthorName(a);
+      const bn = getAuthorName(b);
 
-    if (!needle) return base;
+      const totalA = num(a.total);
+      const totalB = num(b.total);
+      const completedA = num(a.completed ?? a.finished);
+      const completedB = num(b.completed ?? b.finished);
+      const abandonedA = num(a.not_match ?? a.not_a_match ?? a.abandoned);
+      const abandonedB = num(b.not_match ?? b.not_a_match ?? b.abandoned);
+      const onHandA = num(a.on_hand);
+      const onHandB = num(b.on_hand);
 
-    return base.filter((r) => {
-      const haystack = [
-        r.last_name,
-        r.last,
-        r.first_name,
-        r.first,
-        r.name_display,
-        r.author,
-        r.id,
-      ]
-        .filter(Boolean)
-        .map(normKey)
-        .join(" ");
+      if (sort === "author_asc") return an.localeCompare(bn, "de", { sensitivity: "base" });
+      if (sort === "author_desc") return bn.localeCompare(an, "de", { sensitivity: "base" });
 
-      return haystack.includes(needle);
+      if (sort === "completed_desc") return completedB - completedA || an.localeCompare(bn);
+      if (sort === "completed_asc") return completedA - completedB || an.localeCompare(bn);
+
+      if (sort === "abandoned_desc") return abandonedB - abandonedA || an.localeCompare(bn);
+      if (sort === "abandoned_asc") return abandonedA - abandonedB || an.localeCompare(bn);
+
+      if (sort === "on_hand_desc") return onHandB - onHandA || an.localeCompare(bn);
+      if (sort === "on_hand_asc") return onHandA - onHandB || an.localeCompare(bn);
+
+      if (sort === "total_asc") return totalA - totalB || an.localeCompare(bn);
+
+      return totalB - totalA || an.localeCompare(bn);
     });
-  }, [rows, q]);
+  }, [rows, sort]);
+
+  function toggleSort(column) {
+    const map = {
+      author: ["author_asc", "author_desc"],
+      total: ["total_desc", "total_asc"],
+      completed: ["completed_desc", "completed_asc"],
+      abandoned: ["abandoned_desc", "abandoned_asc"],
+      on_hand: ["on_hand_desc", "on_hand_asc"],
+    };
+
+    const [descOrAsc, opposite] = map[column];
+    setSort((current) => (current === descOrAsc ? opposite : descOrAsc));
+  }
+
+  function arrow(column) {
+    if (sort === `${column}_asc`) return "↑";
+    if (sort === `${column}_desc`) return "↓";
+    if (column === "abandoned" && sort === "abandoned_asc") return "↑";
+    if (column === "abandoned" && sort === "abandoned_desc") return "↓";
+    if (column === "on_hand" && sort === "on_hand_asc") return "↑";
+    if (column === "on_hand" && sort === "on_hand_desc") return "↓";
+    return "↕";
+  }
 
   return (
-    <section className="zr-section" aria-busy={loading ? "true" : "false"}>
-      <AdminNavRow />
+    <section className="authors-brutal-page" aria-busy={loading ? "true" : "false"}>
+      <div className="authors-grid">
+        <div className="authors-row authors-head">
+          <button className="authors-cell authors-name authors-head-btn" onClick={() => toggleSort("author")}>
+            <span>Author</span> <b>{arrow("author")}</b>
+          </button>
 
-      <h1>Authors overview</h1>
-      <p className="zr-lede">
-        Alphabetical by last name. Counts follow the same meaning as the Author page: Completed
-        (finished), Not a match (abandoned), On hand (in_progress + in_stock).
-      </p>
+          <button className="authors-cell authors-number authors-head-btn" onClick={() => toggleSort("total")}>
+            <span>Total</span> <b>{arrow("total")}</b>
+          </button>
 
-      <div className="zr-card">
-        {err ? (
-          <div className="zr-alert zr-alert--error" style={{ display: "grid", gap: 6 }}>
-            <div>{err}</div>
-            {(String(err).toLowerCase().includes("login") ||
-              String(err).toLowerCase().includes("unauthorized") ||
-              String(err).toLowerCase().includes("forbidden")) && (
-              <div>
-                <Link to="/admin?next=/admin/authors">Go to Admin login</Link>
-              </div>
-            )}
-          </div>
-        ) : null}
+          <button className="authors-cell authors-number authors-head-btn" onClick={() => toggleSort("completed")}>
+            <span>Completed</span> <b>{arrow("completed")}</b>
+          </button>
 
-        {loading ? <div className="zr-alert">Loading…</div> : null}
+          <button className="authors-cell authors-number authors-head-btn" onClick={() => toggleSort("abandoned")}>
+            <span>Not a match</span> <b>{arrow("abandoned")}</b>
+          </button>
 
-        <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
-          <label style={{ display: "grid", gap: 6 }}>
-            Search
-            <input
-              className="zr-input"
-              value={q}
-              onChange={(e) => setQ(e.target.value)}
-              placeholder="Lastname, firstname, …"
-              style={{ minWidth: 260 }}
-            />
-          </label>
-
-          <div style={{ opacity: 0.8, paddingTop: 22 }}>
-            {filtered.length} / {rows.length} authors
-          </div>
+          <button className="authors-cell authors-number authors-head-btn" onClick={() => toggleSort("on_hand")}>
+            <span>On hand</span> <b>{arrow("on_hand")}</b>
+          </button>
         </div>
 
-        <div style={{ overflow: "auto", marginTop: 12 }}>
-          <table className="zr-table">
-            <thead>
-              <tr>
-                <th>Lastname</th>
-                <th>Firstname</th>
-                <th>Author</th>
-                <th style={{ textAlign: "right" }}>Completed</th>
-                <th style={{ textAlign: "right" }}>Not a match</th>
-                <th style={{ textAlign: "right" }}>On hand</th>
-                <th style={{ textAlign: "right" }}>Total</th>
-              </tr>
-            </thead>
+        {err ? <div className="authors-message authors-error">{err}</div> : null}
+        {loading ? <div className="authors-message">Loading…</div> : null}
 
-            <tbody>
-              {filtered.map((r) => {
-                const id = String(r.id || r.author || r.name_display || "");
-                const last = r.last_name || r.last || "";
-                const first = r.first_name || r.first || "";
-                const name = r.name_display || r.author || "—";
-                const completed = r.completed ?? r.finished ?? 0;
-                const notMatch = r.not_match ?? r.not_a_match ?? 0;
-                const onHand = r.on_hand ?? 0;
-                const total = r.total ?? 0;
+        {!loading && !err && sortedRows.map((r, index) => {
+          const name = getAuthorName(r);
+          const completed = num(r.completed ?? r.finished);
+          const abandoned = num(r.not_match ?? r.not_a_match ?? r.abandoned);
+          const onHand = num(r.on_hand);
+          const total = num(r.total);
+          const key = String(r.id || r.author || r.name_display || `${name}-${index}`);
 
-                return (
-                  <tr key={id || name}>
-                    <td>{last}</td>
-                    <td>{first}</td>
-                    <td>{name}</td>
-                    <td style={{ textAlign: "right" }}>{completed}</td>
-                    <td style={{ textAlign: "right" }}>{notMatch}</td>
-                    <td style={{ textAlign: "right" }}>{onHand}</td>
-                    <td style={{ textAlign: "right" }}>{total}</td>
-                  </tr>
-                );
-              })}
-
-              {!loading && filtered.length === 0 ? (
-                <tr>
-                  <td colSpan={7} style={{ opacity: 0.75 }}>
-                    No authors found.
-                  </td>
-                </tr>
-              ) : null}
-            </tbody>
-          </table>
-        </div>
+          return (
+            <div className="authors-row" key={key}>
+              <div className="authors-cell authors-name" title={name}>{name}</div>
+              <div className="authors-cell authors-number">{total}</div>
+              <div className="authors-cell authors-number">{completed}</div>
+              <div className="authors-cell authors-number">{abandoned}</div>
+              <div className="authors-cell authors-number">{onHand}</div>
+            </div>
+          );
+        })}
       </div>
     </section>
   );
