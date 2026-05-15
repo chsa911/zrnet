@@ -1,228 +1,263 @@
-.authors-brutal-page {
-  padding: 96px 32px 48px;
-}
-
-.authors-grid {
-  width: min(1280px, 100%);
-  border: 4px solid #555;
-  border-bottom: 0;
-  background: #fff;
-}
-
-.authors-row {
-  display: grid;
-  grid-template-columns: minmax(280px, 1.6fr) 0.7fr 0.9fr 1fr 0.85fr;
-  border-bottom: 4px solid #555;
-  min-height: 118px;
-}
-
-.authors-head {
-  min-height: 96px;
-  background: #f3f3f3;
-}
-
-.authors-cell {
-  display: flex;
-  align-items: center;
-  min-width: 0;
-  padding: 24px 28px;
-  border-right: 4px solid #555;
-  color: #111;
-}
-
-.authors-cell:last-child {
-  border-right: 0;
-}
-
-.authors-name {
-  justify-content: flex-start;
-  font-size: clamp(28px, 2.4vw, 42px);
-  font-weight: 900;
-  letter-spacing: -0.06em;
-  line-height: 1.05;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.authors-number {
-  justify-content: center;
-  font-size: clamp(28px, 2.5vw, 44px);
-  font-weight: 900;
-  letter-spacing: -0.05em;
-  color: #555;
-}
-
-.authors-head-btn {
-  appearance: none;
-  border-top: 0;
-  border-left: 0;
-  border-bottom: 0;
-  background: transparent;
-  cursor: pointer;
-  gap: 14px;
-}
-
-.authors-head-btn span {
-  text-decoration: underline;
-  text-underline-offset: 5px;
-}
-
-.authors-head-btn b {
-  font-size: 34px;
-  line-height: 1;
-}
-
-.authors-head-btn:hover,
-.authors-row:hover .authors-cell {
-  background: #111;
-  color: #fff;
-}
-
-.authors-message {
-  border-bottom: 4px solid #555;
-  padding: 28px;
-  font-size: 30px;
-  font-weight: 900;
-}
-
-.authors-error {
-  color: #8b1111;
-  background: #fff3f3;
-}
-
-@media (max-width: 900px) {
   .authors-brutal-page {
-    padding: 48px 16px;
+    padding: 96px 32px 48px;
+  }
+
+  .authors-grid {
+    width: min(1280px, 100%);
+    border: 4px solid #555;
+    border-bottom: 0;
+    background: #fff;
   }
 
   .authors-row {
-    grid-template-columns: 1fr 90px 90px;
+    display: grid;
+    grid-template-columns: minmax(280px, 1.6fr) 0.7fr 0.9fr 1fr 0.85fr;
+    border-bottom: 4px solid #555;
+    min-height: 118px;
   }
 
-  .authors-cell:nth-child(4),
-  .authors-cell:nth-child(5) {
-    display: none;
+  .authors-head {
+    min-height: 96px;
+    background: #f3f3f3;
   }
 
   .authors-cell {
-    padding: 18px;
+    display: flex;
+    align-items: center;
+    min-width: 0;
+    padding: 24px 28px;
+    border-right: 4px solid #555;
+    color: #111;
   }
-}
-.sync-toolbar {
-  width: min(1280px, 100%);
-  display: flex;
-  align-items: center;
-  gap: 0;
-  margin-bottom: 28px;
-  border: 4px solid #555;
-  background: #f3f3f3;
-}
 
-.sync-toolbar-btn,
-.sync-toolbar-select {
-  min-height: 76px;
-  border: 0;
-  border-right: 4px solid #555;
-  background: transparent;
-  padding: 0 28px;
-  font-size: 28px;
-  font-weight: 900;
-  cursor: pointer;
-}
+  .authors-cell:last-child {
+    border-right: 0;
+  }
 
-.sync-toolbar-select {
-  min-width: 120px;
-}
+  .authors-name {
+    justify-content: flex-start;
+    font-size: clamp(28px, 2.4vw, 42px);
+    font-weight: 900;
+    letter-spacing: -0.06em;
+    line-height: 1.05;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
 
-.sync-toolbar-count {
-  min-height: 76px;
-  display: flex;
-  align-items: center;
-  border-right: 4px solid #555;
-  padding: 0 28px;
-  font-size: 28px;
-  font-weight: 900;
-  color: #555;
-}
+  .authors-number {
+    justify-content: center;
+    font-size: clamp(28px, 2.5vw, 44px);
+    font-weight: 900;
+    letter-spacing: -0.05em;
+    color: #555;
+  }
 
-.sync-toolbar-btn:hover,
-.sync-toolbar-select:hover {
-  background: #111;
-  color: #fff;
-}
+  .authors-head-btn {
+    appearance: none;
+    border-top: 0;
+    border-left: 0;
+    border-bottom: 0;
+    background: transparent;
+    cursor: pointer;
+    gap: 14px;
+  }
 
-.sync-toolbar-btn:disabled {
-  opacity: 0.35;
-  cursor: not-allowed;
-}
+  .authors-head-btn span {
+    text-decoration: underline;
+    text-underline-offset: 5px;
+  }
 
-.sync-grid {
-  margin-top: 0;
-}
+  .authors-head-btn b {
+    font-size: 34px;
+    line-height: 1;
+  }
 
-.sync-row {
-  grid-template-columns: minmax(260px, 1.2fr) 1fr 0.75fr 0.75fr 1fr;
-}
+  .authors-head-btn:hover,
+  .authors-row:hover .authors-cell {
+    background: #111;
+    color: #fff;
+  }
 
-.sync-open {
-  appearance: none;
-  border-top: 0;
-  border-left: 0;
-  border-bottom: 0;
-  background: transparent;
-  cursor: pointer;
-  text-align: left;
-}
+  .authors-message {
+    border-bottom: 4px solid #555;
+    padding: 28px;
+    font-size: 30px;
+    font-weight: 900;
+  }
 
-.sync-actions {
-  gap: 10px;
-  justify-content: center;
-}
+  .authors-error {
+    color: #8b1111;
+    background: #fff3f3;
+  }
 
-.sync-actions button {
-  border: 3px solid #555;
-  background: #fff;
-  padding: 10px 14px;
-  font-weight: 900;
-  cursor: pointer;
-}
+  @media (max-width: 900px) {
+    .authors-brutal-page {
+      padding: 48px 16px;
+    }
 
-.sync-actions button:hover {
-  background: #111;
-  color: #fff;
-}
+    .authors-row {
+      grid-template-columns: 1fr 90px 90px;
+    }
 
-.sync-detail {
-  border-bottom: 4px solid #555;
-  padding: 28px;
-  font-size: 18px;
-  font-weight: 700;
-  display: grid;
-  gap: 10px;
-}
+    .authors-cell:nth-child(4),
+    .authors-cell:nth-child(5) {
+      display: none;
+    }
 
-.sync-detail pre {
-  margin: 8px 0 0;
-  padding: 18px;
-  overflow: auto;
-  background: #f3f3f3;
-  border: 3px solid #555;
-  font-size: 14px;
-  font-weight: 600;
-}
-
-@media (max-width: 900px) {
+    .authors-cell {
+      padding: 18px;
+    }
+  }
   .sync-toolbar {
-    flex-wrap: wrap;
+    width: min(1280px, 100%);
+    display: flex;
+    align-items: center;
+    gap: 0;
+    margin-bottom: 28px;
+    border: 4px solid #555;
+    background: #f3f3f3;
+  }
+
+  .sync-toolbar-btn,
+  .sync-toolbar-select {
+    min-height: 76px;
+    border: 0;
+    border-right: 4px solid #555;
+    background: transparent;
+    padding: 0 28px;
+    font-size: 28px;
+    font-weight: 900;
+    cursor: pointer;
+  }
+
+  .sync-toolbar-select {
+    min-width: 120px;
+  }
+
+  .sync-toolbar-count {
+    min-height: 76px;
+    display: flex;
+    align-items: center;
+    border-right: 4px solid #555;
+    padding: 0 28px;
+    font-size: 28px;
+    font-weight: 900;
+    color: #555;
+  }
+
+  .sync-toolbar-btn:hover,
+  .sync-toolbar-select:hover {
+    background: #111;
+    color: #fff;
+  }
+
+  .sync-toolbar-btn:disabled {
+    opacity: 0.35;
+    cursor: not-allowed;
+  }
+
+  .sync-grid {
+    margin-top: 0;
   }
 
   .sync-row {
-    grid-template-columns: 1fr 100px 100px;
+    grid-template-columns: minmax(260px, 1.2fr) 1fr 0.75fr 0.75fr 1fr;
   }
 
-  .sync-row .authors-cell:nth-child(4),
-  .sync-row .authors-cell:nth-child(5) {
-    display: none;
+  .sync-open {
+    appearance: none;
+    border-top: 0;
+    border-left: 0;
+    border-bottom: 0;
+    background: transparent;
+    cursor: pointer;
+    text-align: left;
   }
+
+  .sync-actions {
+    gap: 10px;
+    justify-content: center;
+  }
+
+  .sync-actions button {
+    border: 3px solid #555;
+    background: #fff;
+    padding: 10px 14px;
+    font-weight: 900;
+    cursor: pointer;
+  }
+
+  .sync-actions button:hover {
+    background: #111;
+    color: #fff;
+  }
+
+  .sync-detail {
+    border-bottom: 4px solid #555;
+    padding: 28px;
+    font-size: 18px;
+    font-weight: 700;
+    display: grid;
+    gap: 10px;
+  }
+
+  .sync-detail pre {
+    margin: 8px 0 0;
+    padding: 18px;
+    overflow: auto;
+    background: #f3f3f3;
+    border: 3px solid #555;
+    font-size: 14px;
+    font-weight: 600;
+  }
+
+  @media (max-width: 900px) {
+    .sync-toolbar {
+      flex-wrap: wrap;
+    }
+
+    .sync-row {
+      grid-template-columns: 1fr 100px 100px;
+    }
+
+    .sync-row .authors-cell:nth-child(4),
+    .sync-row .authors-cell:nth-child(5) {
+      display: none;
+    }
+  }
+.simple-barcode-row {
+  grid-template-columns: 1fr 1fr !important;
+}
+
+.simple-barcode-grid {
+  max-width: 900px;
+  margin: 0 auto;
+}
+
+.simple-barcode-row .authors-cell,
+.simple-barcode-row .authors-head-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  font-size: 42px;
+  font-weight: 900;
+}
+
+.simple-barcode-row .authors-head-btn {
+  width: 100%;
+  cursor: pointer;
+}
+
+.simple-barcode-row .authors-head-btn span {
+  text-decoration: underline;
+  text-underline-offset: 8px;
+  text-decoration-thickness: 4px;
+}
+
+.simple-barcode-row .authors-head-btn b {
+  margin-left: 18px;
+  font-size: 42px;
+  font-weight: 900;
 }

@@ -1023,22 +1023,39 @@ async function freeBarcode(client, barcodeRaw) {
         return res.json({ ok: true, action: "apply", issueId, bookId, freedBarcode: barcodeToFree });
       }
 
-      // discard / resolve (no apply)
+      
+  // discard / resolve without applying mobile payload
+      // discard / resolve without applying mobile payload
       const status = action === "discard" ? "discarded" : "resolved";
+      const note2 =
+        action === "discard"
+          ? (note || "Closed without changes. Incoming barcode/pages were not trusted.")
+          : note;
 
       const upd = await client.query(
         `UPDATE mobile_sync.issues
-        SET status = $2,
-            note = COALESCE($3, note),
-            resolved_at = now(),
-            resolved_by = 'admin'
-        WHERE id = $1::uuid
-        RETURNING id, status, resolved_at, note`,
-        [issueId, status, note]
+         SET status = $2,
+             note = COALESCE($3, note),
+             resolved_at = now(),
+             resolved_by = 'admin'
+         WHERE id = $1::uuid
+         RETURNING id, status, resolved_at, note`,
+        [issueId, status, note2]
       );
 
-      await client.query("COMMIT");
-      return res.json({ ok: true, action: status, issue: upd.rows[0] || { id: issueId, status } });
+      await client.query(
+        `UPDATE mobile_sync.receipts
+         SET status = 'applied'
+         WHERE issue_id = $1::uuid`,
+        [issueId]
+      );
+
+          await client.query("COMMIT");
+      return res.json({
+        ok: true,
+        action: status,
+        issue: upd.rows[0] || { id: issueId, status },
+      });
     } catch (e) {
       try { await client.query("ROLLBACK"); } catch {}
       return res.status(500).json({ error: "resolve_failed", detail: String(e?.message || e) });

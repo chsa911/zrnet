@@ -9,7 +9,7 @@ import {
   updateBook,
 } from "../api/books";
 import { previewBarcode } from "../api/barcodes";
-import { formatBookCode } from "../utils/bookCodeDisplay";
+import { BookCodeVisual } from "../utils/bookCodeDisplay";
 
 const norm = (s) => String(s || "").toLowerCase().replace(/[^a-z0-9]/g, "");
 
@@ -936,7 +936,7 @@ if (pages == null || pages <= 0) {
       {barcodePreviewLoading
         ? "Prüfe…"
         : barcodePreview?.candidate
-          ? formatBookCode(barcodePreview.candidate)
+          ? <BookCodeVisual code={barcodePreview.candidate} />
           : ""}
     </span>
   </div>

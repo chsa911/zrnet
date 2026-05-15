@@ -757,45 +757,61 @@ place_of_birth = COALESCE($9, place_of_birth)
    * - lowest rank_in_inventory
    */
   async function pickBestBarcode(pool, rule) {
-    const ruleColor = String(rule?.color || "").trim().toLowerCase();
+  const fallbackByPrefix = {
+    di: ["ri"],
+    db: ["rb"],
+    os: ["ros"],
+    dik: ["rik"],
+    dkg: ["rkg"],
+    ln: ["rln"],
+    dki: ["rki"],
+    oi: ["roi"],
+    dk: ["rk"],
+  };
 
-    const prefixes =
-      ruleColor === "ik"
-        ? [
-            expectedPrefixFromRule({ ...rule, color: "i" }),
-            expectedPrefixFromRule({ ...rule, color: "ik" }),
-          ]
-        : [expectedPrefixFromRule(rule)];
+  const ruleColor = String(rule?.color || "").trim().toLowerCase();
+  const primaryPrefix = expectedPrefixFromRule(rule);
 
-    const cleanPrefixes = prefixes.filter(Boolean).map((x) => x.toLowerCase());
-    if (!cleanPrefixes.length) return null;
+  const prefixes =
+    ruleColor === "ik"
+      ? [
+          expectedPrefixFromRule({ ...rule, color: "i" }),
+          expectedPrefixFromRule({ ...rule, color: "ik" }),
+        ]
+      : [
+          primaryPrefix,
+          ...(fallbackByPrefix[primaryPrefix] || []),
+        ];
 
-    const r = await pool.query(
-      `
-      SELECT bi.barcode
-      FROM public.barcode_inventory bi
-      WHERE bi.status = 'AVAILABLE'
-        AND bi.rank_in_inventory IS NOT NULL
-        AND lower(regexp_replace(bi.barcode, '[0-9]+$', '')) = ANY($1::text[])
-        AND NOT EXISTS (
-          SELECT 1
-          FROM public.barcode_assignments ba
-          JOIN public.books b ON b.id = ba.book_id
-          WHERE lower(ba.barcode) = lower(bi.barcode)
-            AND ba.freed_at IS NULL
-            AND b.reading_status = 'in_progress'
-        )
-      ORDER BY
-        array_position($1::text[], lower(regexp_replace(bi.barcode, '[0-9]+$', ''))),
-        bi.rank_in_inventory ASC,
-        lower(bi.barcode) ASC
-      LIMIT 1
-      `,
-      [cleanPrefixes]
-    );
+  const cleanPrefixes = prefixes.filter(Boolean).map((x) => x.toLowerCase());
+  if (!cleanPrefixes.length) return null;
 
-    return r.rows[0]?.barcode ?? null;
-  }
+  const r = await pool.query(
+    `
+    SELECT bi.barcode
+    FROM public.barcode_inventory bi
+    WHERE bi.status = 'AVAILABLE'
+      AND bi.rank_in_inventory IS NOT NULL
+      AND lower(regexp_replace(bi.barcode, '[0-9]+$', '')) = ANY($1::text[])
+      AND NOT EXISTS (
+        SELECT 1
+        FROM public.barcode_assignments ba
+        JOIN public.books b ON b.id = ba.book_id
+        WHERE lower(ba.barcode) = lower(bi.barcode)
+          AND ba.freed_at IS NULL
+          AND b.reading_status = 'in_progress'
+      )
+    ORDER BY
+      array_position($1::text[], lower(regexp_replace(bi.barcode, '[0-9]+$', ''))),
+      bi.rank_in_inventory ASC,
+      lower(bi.barcode) ASC
+    LIMIT 1
+    `,
+    [cleanPrefixes]
+  );
+
+  return r.rows[0]?.barcode ?? null;
+}
   async function assignBarcodeTx(
     pool,
     { bookId, barcode, expectedSizeRuleId, expectedPos, expectedPrefix, assignedAt }
@@ -819,13 +835,12 @@ place_of_birth = COALESCE($9, place_of_birth)
     const row = inv.rows[0];
     if (!row) throw new Error("barcode_not_found");
 
-    if (expectedPos) {
-      const expectedBand = posToBand(String(expectedPos).toLowerCase());
-      if (String(row.band || "").toLowerCase() !== expectedBand) {
-        throw new Error("barcode_wrong_position");
-      }
-    }
-
+    if (expectedPos && row.band) {
+  const expectedBand = posToBand(String(expectedPos).toLowerCase());
+  if (String(row.band || "").toLowerCase() !== expectedBand) {
+    throw new Error("barcode_wrong_position");
+  }
+}
     if (expectedPrefix) {
       if (String(row.prefix || "").toLowerCase() !== String(expectedPrefix).toLowerCase()) {
         throw new Error("barcode_wrong_prefix");

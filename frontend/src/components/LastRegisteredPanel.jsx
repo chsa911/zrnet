@@ -1,19 +1,19 @@
 // frontend/src/components/LastRegisteredPanel.jsx
 import React, { useState } from "react";
 import { updateBook } from "../api/books";
-import { formatBookCode } from "../utils/bookCodeDisplay";
+import { BookCodeVisual } from "../utils/bookCodeDisplay";
 
 function getBookId(book) {
   return book?.id || book?._id || book?.book_id;
 }
 
 function getBookCode(book) {
-  return formatBookCode(
+  return (
     book?.barcode ||
-      book?.BMarkb ||
-      book?.BMark ||
-      book?.code ||
-      ""
+    book?.BMarkb ||
+    book?.BMark ||
+    book?.code ||
+    ""
   );
 }
 
@@ -125,7 +125,7 @@ export default function LastRegisteredPanel({ book, onEdit, onUpdated }) {
       <div className="lrp-info">
         <div className="lrp-line">
           <span className="lrp-icon">▥</span>
-          <span>BookCode: {getBookCode(book) || "—"}</span>
+          <span>BookCode: {getBookCode(book) ? <BookCodeVisual code={getBookCode(book)} /> : "—"}</span>
         </div>
 
         <div className="lrp-line">
