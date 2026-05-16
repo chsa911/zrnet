@@ -1079,5 +1079,136 @@ NULL::text AS abbr_norm,
       });
     }
   });
+// GET /api/admin/authors/:authorId
+router.get("/authors/:authorId", async (req, res) => {
+  const pool = req.app.get("pgPool");
+  if (!pool) return res.status(500).json({ error: "pgPool missing" });
+
+  try {
+    const r = await pool.query(
+      `
+      SELECT *
+      FROM public.authors
+      WHERE id = $1::uuid
+      LIMIT 1
+      `,
+      [req.params.authorId]
+    );
+
+    if (!r.rows[0]) return res.status(404).json({ error: "author_not_found" });
+
+    res.json({ author: r.rows[0] });
+  } catch (e) {
+    res.status(500).json({ error: "author_load_failed", detail: String(e?.message || e) });
+  }
+});
+
+// PATCH /api/admin/authors/:authorId
+router.patch("/authors/:authorId", async (req, res) => {
+  const pool = req.app.get("pgPool");
+  if (!pool) return res.status(500).json({ error: "pgPool missing" });
+
+  const allowed = [
+    "first_name",
+    "last_name",
+    "name_display",
+    "author_nationality",
+    "place_of_birth",
+    "male_female",
+    "published_titles",
+    "number_of_millionsellers"
+  ];
+
+  const sets = [];
+  const values = [];
+
+  for (const key of allowed) {
+    if (Object.prototype.hasOwnProperty.call(req.body || {}, key)) {
+      values.push(req.body[key] === "" ? null : req.body[key]);
+      sets.push(`${key} = $${values.length}`);
+    }
+  }
+
+  if (!sets.length) return res.status(400).json({ error: "nothing_to_update" });
+
+  values.push(req.params.authorId);
+
+  try {
+    const r = await pool.query(
+      `
+      UPDATE public.authors
+      SET ${sets.join(", ")}
+      WHERE id = $${values.length}::uuid
+      RETURNING *
+      `,
+      values
+    );
+
+    if (!r.rows[0]) return res.status(404).json({ error: "author_not_found" });
+
+    res.json({ author: r.rows[0] });
+  } catch (e) {
+    res.status(500).json({ error: "author_update_failed", detail: String(e?.message || e) });
+  }
+});
+// GET /api/admin/authors/:authorId/titles
+router.get("/authors/:authorId/titles", async (req, res) => {
+  const pool = req.app.get("pgPool");
+  if (!pool) return res.status(500).json({ error: "pgPool missing" });
+
+  const { authorId } = req.params;
+  const status = String(req.query.status || "").trim();
+
+  try {
+    const params = [authorId];
+
+    let sql = `
+      SELECT
+  b.id::text AS id,
+  b.title_display,
+  b.reading_status,
+  b.reading_status_updated_at,
+  b.registered_at,
+  b.added_at
+  FROM public.books b
+      WHERE b.author_id = $1::uuid
+    `;
+
+    if (status) {
+      const statuses = status.split(",").map((s) => s.trim()).filter(Boolean);
+      params.push(statuses);
+      sql += ` AND b.reading_status = ANY($2::text[])`;
+    }
+
+    sql += `
+    ORDER BY
+  COALESCE(b.reading_status_updated_at, b.registered_at, b.added_at) DESC NULLS LAST,
+  LOWER(COALESCE(b.title_display, '')) ASC
+    `;
+
+    const { rows } = await pool.query(sql, params);
+
+    res.json({
+      items: rows.map((row) => ({
+        ...row,
+        reading_history: [
+          {
+            status: row.reading_status,
+          date:
+  row.reading_status_updated_at ||
+  row.registered_at ||
+  row.added_at,
+          },
+        ],
+      })),
+    });
+  } catch (e) {
+    console.error("GET /api/admin/authors/:authorId/titles failed", e);
+    res.status(500).json({
+      error: "failed_to_load_author_titles",
+      detail: String(e?.message || e),
+    });
+  }
+});
 
   module.exports = router;

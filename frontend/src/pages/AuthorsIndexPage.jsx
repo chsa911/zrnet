@@ -221,7 +221,7 @@
                     </Link>
 
                     <Link className="afi-cell afi-count-link" to={searchUpdateUrl(id)} title="Total entries">
-                      {totalCount}
+                       TEST {totalCount}
                     </Link>
 
                     <Link className="afi-cell afi-count-link" to={searchUpdateUrl(id, "finished")} title="Completed">
@@ -234,7 +234,7 @@
 
                     <Link
                       className="afi-cell afi-count-link"
-                      to={searchUpdateUrl(id, "in_stock,in_progress")}
+                      to={authorTitlesUrl(id, "in_stock,in_progress")}
                       title="In stock + in progress"
                     >
                       {inStock + inProgress}

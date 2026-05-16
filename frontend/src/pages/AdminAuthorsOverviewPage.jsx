@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { getApiRoot } from "../api/apiRoot";
 import "./AuthorsIndexPage.css";
+import { Link } from "react-router-dom";
 
 function num(v) {
   const n = Number(v);
@@ -11,6 +12,16 @@ function getAuthorName(r) {
   return r?.name_display || r?.author || r?.name || "—";
 }
 
+function authorAdminUrl(authorId) {
+  return `/admin/authors/${authorId}`;
+}
+function authorTitlesUrl(authorId, status = "") {
+  const p = new URLSearchParams();
+  if (status) p.set("status", status);
+  const qs = p.toString();
+
+  return `/admin/authors/${authorId}/titles${qs ? `?${qs}` : ""}`;
+}
 export default function AdminAuthorsOverviewPage() {
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -144,13 +155,26 @@ export default function AdminAuthorsOverviewPage() {
           const key = String(r.id || r.author || r.name_display || `${name}-${index}`);
 
           return (
-            <div className="authors-row" key={key}>
-              <div className="authors-cell authors-name" title={name}>{name}</div>
-              <div className="authors-cell authors-number">{total}</div>
-              <div className="authors-cell authors-number">{completed}</div>
-              <div className="authors-cell authors-number">{abandoned}</div>
-              <div className="authors-cell authors-number">{onHand}</div>
-            </div>
+         <div className="authors-row" key={key}>
+  <Link className="authors-cell authors-name" to={authorAdminUrl(r.id)} title={name}>
+  {name}
+</Link>
+  <Link className="authors-cell authors-number" to={authorTitlesUrl(r.id)} title="Total entries">
+    {total}
+  </Link>
+
+  <Link className="authors-cell authors-number" to={authorTitlesUrl(r.id, "finished")} title="Completed">
+    {completed}
+  </Link>
+
+  <Link className="authors-cell authors-number" to={authorTitlesUrl(r.id, "abandoned")} title="Not a match">
+    {abandoned}
+  </Link>
+
+  <Link className="authors-cell authors-number" to={authorTitlesUrl(r.id, "in_stock,in_progress")} title="On hand">
+    {onHand}
+  </Link>
+</div>
           );
         })}
       </div>

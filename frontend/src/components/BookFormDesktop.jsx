@@ -946,7 +946,12 @@ if (pages == null || pages <= 0) {
   </div>
 
   <div className="bfd-row bfd-tight-row">
-    <input {...fieldProps("isbn13", "ISBN-13", { className: "bfd-input bfd-input-wide" })} />
+    <input
+  {...fieldProps("isbn13", "ISBN-13", { className: "bfd-input bfd-input-wide" })}
+  onFocus={() => {
+    if (!String(v.isbn13 || "").trim()) setField("isbn13", "978");
+  }}
+/>
   </div>
 
   <div className="bfd-row bfd-tight-row">

@@ -73,12 +73,10 @@
     line-height: 1;
   }
 
-  .authors-head-btn:hover,
-  .authors-row:hover .authors-cell {
-    background: #111;
-    color: #fff;
-  }
-
+  .authors-head-btn:hover {
+  background: #111;
+  color: #fff;
+}
   .authors-message {
     border-bottom: 4px solid #555;
     padding: 28px;
@@ -260,4 +258,15 @@
   margin-left: 18px;
   font-size: 42px;
   font-weight: 900;
+}
+
+.authors-row a.authors-cell {
+  cursor: pointer;
+  text-decoration: none;
+}
+
+.authors-row a.authors-cell:hover {
+  background: #111;
+  color: #fff;
+  text-decoration: underline;
 }
