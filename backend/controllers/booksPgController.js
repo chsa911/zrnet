@@ -325,7 +325,7 @@ function makeTitleKeyword(title) {
     a.name_display AS author_name_display,
     a.first_name AS author_first_name,
     a.last_name AS author_last_name,
-    NULL::text AS author_abbreviation,
+    a.abbr AS author_abbreviation,
     a.author_nationality AS author_nationality,
     a.place_of_birth AS place_of_birth,
     a.male_female AS male_female,
@@ -1126,32 +1126,66 @@ if (authorId) {
       if (field === "author_lastname" || field === "name_display") {
         const { rows } = await pool.query(
           `
-          SELECT
-            a.id::text AS id,
-            a.first_name,
-            a.last_name,
-            a.name_display,
-            a.author_nationality,
-            a.place_of_birth,
-            a.male_female,
-            a.published_titles,
-            a.number_of_millionsellers
-          FROM public.authors a
-          WHERE a.last_name ILIKE $1
-            OR a.name_display ILIKE $1
-            OR concat_ws(' ', a.first_name, a.last_name) ILIKE $1
-            
-          ORDER BY
-            CASE
-              WHEN lower(a.last_name) = lower($2) THEN 1
-              WHEN lower(a.name_display) = lower($2) THEN 2
-              ELSE 99
-            END,
-            a.name_display NULLS LAST,
-            a.last_name NULLS LAST,
-            a.first_name NULLS LAST,
-            a.id
-          LIMIT $3
+          WITH input AS (
+            SELECT regexp_replace(lower($2::text), '[^a-z0-9]+', '', 'g') AS q_norm
+          ),
+          exact_abbr AS (
+            SELECT
+              a.id::text AS id,
+              a.first_name,
+              a.last_name,
+              a.name_display,
+              a.abbr,
+              a.abbr AS author_abbreviation,
+              a.author_nationality,
+              a.place_of_birth,
+              a.male_female,
+              a.published_titles,
+              a.number_of_millionsellers
+            FROM public.authors a, input i
+            WHERE i.q_norm <> ''
+              AND regexp_replace(lower(coalesce(a.abbr, '')), '[^a-z0-9]+', '', 'g') = i.q_norm
+            ORDER BY a.name_display NULLS LAST, a.id
+            LIMIT $3
+          ),
+          fallback AS (
+            SELECT
+              a.id::text AS id,
+              a.first_name,
+              a.last_name,
+              a.name_display,
+              a.abbr,
+              a.abbr AS author_abbreviation,
+              a.author_nationality,
+              a.place_of_birth,
+              a.male_female,
+              a.published_titles,
+              a.number_of_millionsellers
+            FROM public.authors a, input i
+            WHERE NOT EXISTS (SELECT 1 FROM exact_abbr)
+              AND (
+                (i.q_norm <> '' AND regexp_replace(lower(coalesce(a.abbr, '')), '[^a-z0-9]+', '', 'g') LIKE i.q_norm || '%')
+                OR a.last_name ILIKE $1
+                OR a.name_display ILIKE $1
+                OR concat_ws(' ', a.first_name, a.last_name) ILIKE $1
+              )
+            ORDER BY
+              CASE
+                WHEN i.q_norm <> ''
+                  AND regexp_replace(lower(coalesce(a.abbr, '')), '[^a-z0-9]+', '', 'g') LIKE i.q_norm || '%' THEN 1
+                WHEN lower(a.last_name) = lower($2) THEN 2
+                WHEN lower(a.name_display) = lower($2) THEN 3
+                ELSE 99
+              END,
+              a.name_display NULLS LAST,
+              a.last_name NULLS LAST,
+              a.first_name NULLS LAST,
+              a.id
+            LIMIT $3
+          )
+          SELECT * FROM exact_abbr
+          UNION ALL
+          SELECT * FROM fallback
           `,
           [like, q, max]
         );

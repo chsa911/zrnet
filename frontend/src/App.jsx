@@ -28,6 +28,7 @@ import AuthorsIndexPage from "./pages/AuthorsIndexPage";
 import BetaTestPage from "./pages/BetaTestPage";
 import AdminAuthorTitlesPage from "./pages/AdminAuthorTitlesPage";
 import AdminAuthorPage from "./pages/AdminAuthorPage";
+
 function NotFound() {
   return (
     <div style={{ padding: 24, fontFamily: "Arial, sans-serif" }}>

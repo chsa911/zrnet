@@ -244,14 +244,14 @@
     const issue = await client.query(
       `
       INSERT INTO mobile_sync.issues (
-        reason, client_change_id, barcode, pages, candidate_book_ids, details, payload
+        reason, client_change_id, barcode, pages, candidate_book_ids, details, payload, note
       )
-      VALUES ($1,$2,$3,$4,$5,$6,$7)
+      VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
       ON CONFLICT (client_change_id) DO UPDATE
         SET reason = EXCLUDED.reason
       RETURNING id
       `,
-      [reason, clientChangeId, barcode, pages, candidateBookIds || null, details || null, change]
+      [reason, clientChangeId, barcode, pages, candidateBookIds || null, details || null, change, parsed.note]
     );
 
     const issueId = issue.rows[0]?.id || null;
@@ -388,6 +388,7 @@
             : null;
 
         const topBookSetAt = parseTs(c.topbook_set_at || c.topBookSetAt || c.top_book_set_at);
+        const note = c.note != null && String(c.note).trim() !== "" ? String(c.note).trim().slice(0, 15) : null;
         const storedClientChangeId = await inboxStoreReceived(client, c);
 
         if (!clientChangeId || !barcode || !readingStatus || !rsUpdatedAt) {
@@ -417,6 +418,7 @@
           rsUpdatedAt,
           topBook,
           topBookSetAt,
+          note,
         };
 
         // ✅ Auto-resolve duplicates: if we already applied same barcode+timestamp before, reuse that book_id
@@ -1023,39 +1025,22 @@ async function freeBarcode(client, barcodeRaw) {
         return res.json({ ok: true, action: "apply", issueId, bookId, freedBarcode: barcodeToFree });
       }
 
-      
-  // discard / resolve without applying mobile payload
-      // discard / resolve without applying mobile payload
+      // discard / resolve (no apply)
       const status = action === "discard" ? "discarded" : "resolved";
-      const note2 =
-        action === "discard"
-          ? (note || "Closed without changes. Incoming barcode/pages were not trusted.")
-          : note;
 
       const upd = await client.query(
         `UPDATE mobile_sync.issues
-         SET status = $2,
-             note = COALESCE($3, note),
-             resolved_at = now(),
-             resolved_by = 'admin'
-         WHERE id = $1::uuid
-         RETURNING id, status, resolved_at, note`,
-        [issueId, status, note2]
+        SET status = $2,
+            note = COALESCE($3, note),
+            resolved_at = now(),
+            resolved_by = 'admin'
+        WHERE id = $1::uuid
+        RETURNING id, status, resolved_at, note`,
+        [issueId, status, note]
       );
 
-      await client.query(
-        `UPDATE mobile_sync.receipts
-         SET status = 'applied'
-         WHERE issue_id = $1::uuid`,
-        [issueId]
-      );
-
-          await client.query("COMMIT");
-      return res.json({
-        ok: true,
-        action: status,
-        issue: upd.rows[0] || { id: issueId, status },
-      });
+      await client.query("COMMIT");
+      return res.json({ ok: true, action: status, issue: upd.rows[0] || { id: issueId, status } });
     } catch (e) {
       try { await client.query("ROLLBACK"); } catch {}
       return res.status(500).json({ error: "resolve_failed", detail: String(e?.message || e) });

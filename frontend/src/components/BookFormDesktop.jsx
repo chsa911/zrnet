@@ -127,6 +127,7 @@ function computeKeywordFromTitle(title) {
 const emptyForm = {
   barcode: "",
   author_id: "",
+  authors_number: "1",
   publisher_id: "",
   author_lastname: "",
   author_firstname: "",
@@ -177,6 +178,7 @@ export default function BookFormDesktop({
       ...emptyForm,
       barcode: toStr(pick(b, ["barcode", "BMarkb", "BMark", "code"])),
       author_id: toStr(pick(b, ["author_id"])),
+      authors_number: toStr(pick(b, ["authors_number"])) || "1",
       publisher_id: toStr(pick(b, ["publisher_id"])),
       author_lastname: toStr(pick(b, ["author_lastname", "author_last_name"])),
       author_firstname: toStr(pick(b, ["author_firstname", "author_first_name"])),
@@ -553,6 +555,7 @@ if (pages == null || pages <= 0) {
     }
 
     const ints = [
+      "authors_number",
       "title_keyword_position",
       "title_keyword2_position",
       "title_keyword3_position",
@@ -896,6 +899,7 @@ if (pages == null || pages <= 0) {
                     ),
                     subtitle_display: toStr(m.subtitle_display ?? prev.subtitle_display),
                     author_id: toStr(m.author_id ?? prev.author_id),
+                    authors_number: toStr(m.authors_number ?? prev.authors_number),
                     name_display: toStr(
                       m.name_display ??
                       m.author_name_display ??
@@ -946,50 +950,50 @@ if (pages == null || pages <= 0) {
   </div>
 
   <div className="bfd-row bfd-tight-row">
-    <input
-  {...fieldProps("isbn13", "ISBN-13", { className: "bfd-input bfd-input-wide" })}
-  onFocus={() => {
-    if (!String(v.isbn13 || "").trim()) setField("isbn13", "978");
-  }}
-/>
+    <input {...fieldProps("isbn13", "ISBN-13", { className: "bfd-input bfd-input-wide" })} />
   </div>
 
   <div className="bfd-row bfd-tight-row">
-    <button type="button" className="bfd-btn bfd-btn-lookup" disabled={busy || isbnBusy} onClick={doIsbnLookup}>
-      {isbnBusy ? "…" : "Lookup"}
-    </button>
-  </div>
-</div>
-      <div className="bfd-row bfd-tight-row">
-        <div className="bfd-ac-wrap bfd-wide-wrap">
-          <input
-            {...fieldProps("name_display", "Author", { className: "bfd-input bfd-input-wide" })}
-            onChange={(e) => {
-              setField("name_display", e.target.value);
-              runAutocomplete("author_lastname", e.target.value);
-            }}
-            onBlur={() => setTimeout(() => setAc({ field: "", items: [] }), 120)}
-          />
-          {ac.field === "author_lastname" && ac.items.length ? (
-            <div className="bfd-ac">
-              {ac.items.map((it, index) => (
-                <button
-                  key={suggestionKey(it, index)}
-                  type="button"
-                  onMouseDown={(e) => e.preventDefault()}
-                  onClick={() => {
-                    applyAuthorMatch(it);
-                    setAc({ field: "", items: [] });
-                  }}
-                >
-                  {authorSuggestionLabel(it)}
-                </button>
-              ))}
-            </div>
-          ) : null}
-        </div>
-      </div>
+  <div className="bfd-ac-wrap" style={{ flex: "1 1 0", minWidth: 0 }}>
+    <input
+      {...fieldProps("name_display", "Author", {
+        className: "bfd-input",
+        style: { width: "100%" },
+      })}
+      onChange={(e) => {
+        setField("name_display", e.target.value);
+        runAutocomplete("author_lastname", e.target.value);
+      }}
+      onBlur={() => setTimeout(() => setAc({ field: "", items: [] }), 120)}
+    />
 
+    {ac.field === "author_lastname" && ac.items.length ? (
+      <div className="bfd-ac">
+        {ac.items.map((it, index) => (
+          <button
+            key={suggestionKey(it, index)}
+            type="button"
+            onMouseDown={(e) => e.preventDefault()}
+            onClick={() => {
+              applyAuthorMatch(it);
+              setAc({ field: "", items: [] });
+            }}
+          >
+            {authorSuggestionLabel(it)}
+          </button>
+        ))}
+      </div>
+    ) : null}
+  </div>
+
+  <input
+    {...fieldProps("authors_number", "#", {
+      inputMode: "numeric",
+      style: { width: "1.35ch", textAlign: "center" },
+    })}
+  />
+</div>
+</div>
       <div className="bfd-row bfd-tight-row">
         <input
           {...fieldProps("title_display", "Title", {

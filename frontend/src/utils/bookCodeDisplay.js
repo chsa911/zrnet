@@ -22,7 +22,10 @@ const COLORS = {
 const BLACK = { label: "Black", value: "#111827" };
 
 function getColor(colorCode) {
-  return COLORS[colorCode] || { label: String(colorCode || "").toUpperCase(), value: "#111827" };
+  return COLORS[colorCode] || {
+    label: String(colorCode || "").toUpperCase(),
+    value: "#111827",
+  };
 }
 
 export function parseBookCode(code) {
@@ -33,13 +36,18 @@ export function parseBookCode(code) {
   const [, posCode, toolCode, nums] = m;
   const colorCode = toolCode.replace(/k/g, "");
   const color = colorCode ? getColor(colorCode) : BLACK;
-  const hasPencil = toolCode.includes("k");
+  const hasPen = toolCode.includes("k");
 
   return {
     raw: s,
-    position: POSITIONS[posCode] || { label: posCode.toUpperCase(), arrow: posCode.toUpperCase() },
+    position: POSITIONS[posCode] || {
+      label: posCode.toUpperCase(),
+      arrow: posCode.toUpperCase(),
+    },
+    // gk = green marker + black/dark ballpoint pen
+    // kg = green ballpoint pen only
     marker: toolCode.startsWith("k") ? null : color,
-    pencil: hasPencil ? (toolCode === "k" ? BLACK : color) : null,
+    pen: hasPen ? (toolCode.startsWith("k") ? color : BLACK) : null,
     nums: nums.split(""),
   };
 }
@@ -50,7 +58,7 @@ export function formatBookCode(code) {
 
   const tools = [
     parsed.marker ? `${parsed.marker.label} Marker` : null,
-    parsed.pencil ? `${parsed.pencil.label} Pencil` : null,
+    parsed.pen ? `${parsed.pen.label} Ballpoint Pen` : null,
   ].filter(Boolean);
 
   return `${parsed.position.label} ${tools.join(" + ")} ${parsed.nums.join("-")}`;
@@ -76,100 +84,130 @@ const arrowStyle = {
   display: "inline-flex",
   alignItems: "center",
   justifyContent: "center",
-  width: "32px",
-  height: "32px",
-  border: "2px solid #111827",
+  width: "38px",
+  height: "38px",
+  border: "4px solid #111827",
   borderRadius: "999px",
-  fontSize: "26px",
-  fontWeight: 900,
+  fontSize: "32px",
+  fontWeight: 1000,
   background: "#fff",
   color: "#111827",
+  boxSizing: "border-box",
 };
 
 const groupStyle = {
   display: "inline-flex",
   alignItems: "center",
-  gap: "5px",
+  gap: "6px",
 };
 
 const numsStyle = {
   fontSize: "18px",
-  fontWeight: 800,
+  fontWeight: 900,
   letterSpacing: "0.04em",
   color: "#111827",
 };
 
 function MarkerIcon({ color }) {
   return React.createElement(
-    "span",
+    "svg",
     {
+      width: 66,
+      height: 30,
+      viewBox: "0 0 132 60",
+      role: "img",
       title: `${color.label} marker`,
       "aria-label": `${color.label} marker`,
-      style: {
-        display: "inline-flex",
-        alignItems: "center",
-        width: "52px",
-        height: "18px",
-        border: "2px solid #111827",
-        borderRadius: "4px 10px 10px 4px",
-        background: color.value,
-        boxShadow: "inset 10px 0 0 rgba(255,255,255,0.85)",
-      },
+      style: { display: "block", flex: "0 0 auto" },
     },
-    React.createElement("span", {
-      style: {
-        width: 0,
-        height: 0,
-        marginLeft: "47px",
-        borderTop: "6px solid transparent",
-        borderBottom: "6px solid transparent",
-        borderLeft: "10px solid #111827",
-      },
+    React.createElement("rect", {
+      x: 14,
+      y: 15,
+      width: 80,
+      height: 30,
+      rx: 8,
+      fill: color.value,
+      stroke: "#111827",
+      strokeWidth: 5,
+    }),
+    React.createElement("rect", {
+      x: 21,
+      y: 20,
+      width: 16,
+      height: 20,
+      rx: 4,
+      fill: "rgba(255,255,255,0.72)",
+    }),
+    React.createElement("rect", {
+      x: 92,
+      y: 18,
+      width: 18,
+      height: 24,
+      rx: 3,
+      fill: "#f8fafc",
+      stroke: "#111827",
+      strokeWidth: 5,
+    }),
+    React.createElement("path", {
+      d: "M110 20 L126 30 L110 40 Z",
+      fill: "#111827",
+      stroke: "#111827",
+      strokeWidth: 3,
+      strokeLinejoin: "round",
     })
   );
 }
 
-function PencilIcon({ color }) {
+function BallpointPenIcon({ color }) {
   return React.createElement(
-    "span",
+    "svg",
     {
-      title: `${color.label} pencil`,
-      "aria-label": `${color.label} pencil`,
-      style: {
-        display: "inline-flex",
-        alignItems: "center",
-        transform: "rotate(-22deg)",
-        transformOrigin: "center",
-      },
+      width: 70,
+      height: 28,
+      viewBox: "0 0 140 56",
+      role: "img",
+      title: `${color.label} ballpoint pen`,
+      "aria-label": `${color.label} ballpoint pen`,
+      style: { display: "block", flex: "0 0 auto" },
     },
-    React.createElement("span", {
-      style: {
-        width: "42px",
-        height: "10px",
-        background: color.value,
-        border: "2px solid #111827",
-        borderRight: "0",
-        borderRadius: "3px 0 0 3px",
-      },
+    React.createElement("rect", {
+      x: 16,
+      y: 20,
+      width: 82,
+      height: 16,
+      rx: 8,
+      fill: color.value,
+      stroke: "#111827",
+      strokeWidth: 5,
     }),
-    React.createElement("span", {
-      style: {
-        width: 0,
-        height: 0,
-        borderTop: "7px solid transparent",
-        borderBottom: "7px solid transparent",
-        borderLeft: "13px solid #d6a35a",
-      },
+    React.createElement("rect", {
+      x: 28,
+      y: 24,
+      width: 34,
+      height: 4,
+      rx: 2,
+      fill: "rgba(255,255,255,0.65)",
     }),
-    React.createElement("span", {
-      style: {
-        width: 0,
-        height: 0,
-        marginLeft: "-4px",
-        borderTop: "3px solid transparent",
-        borderBottom: "3px solid transparent",
-        borderLeft: "6px solid #111827",
-      },
+    React.createElement("path", {
+      d: "M98 20 L122 28 L98 36 Z",
+      fill: "#d1d5db",
+      stroke: "#111827",
+      strokeWidth: 5,
+      strokeLinejoin: "round",
+    }),
+    React.createElement("circle", {
+      cx: 125,
+      cy: 28,
+      r: 4,
+      fill: "#111827",
+    }),
+    React.createElement("rect", {
+      x: 6,
+      y: 23,
+      width: 14,
+      height: 10,
+      rx: 5,
+      fill: "#111827",
     })
   );
 }
@@ -178,12 +216,14 @@ export function BookCodeVisual({ code }) {
   const parsed = parseBookCode(code);
   if (!parsed) return code || "";
 
+  const readable = formatBookCode(code);
+
   return React.createElement(
     "span",
     {
       className: "book-code-visual",
-      title: formatBookCode(code),
-      "aria-label": formatBookCode(code),
+      title: readable,
+      "aria-label": readable,
       style: wrapStyle,
     },
     React.createElement("span", { style: arrowStyle }, parsed.position.arrow),
@@ -191,7 +231,7 @@ export function BookCodeVisual({ code }) {
       "span",
       { style: groupStyle },
       parsed.marker ? React.createElement(MarkerIcon, { color: parsed.marker }) : null,
-      parsed.pencil ? React.createElement(PencilIcon, { color: parsed.pencil }) : null
+      parsed.pen ? React.createElement(BallpointPenIcon, { color: parsed.pen }) : null
     ),
     React.createElement("span", { style: numsStyle }, parsed.nums.join("-"))
   );

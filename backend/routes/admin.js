@@ -156,145 +156,49 @@
       });
     }
   });
-/* -------------------- abbreviations admin -------------------- */
 
-  // GET /api/admin/abbreviations?source=abbrev_map|author_aliases|publisher_aliases|authors&type=author|publisher&level=1&q=foo
-  router.get("/abbreviations", async (req, res) => {
+  // GET /api/admin/authors/lookup?q=arch&limit=20
+  // Strict author lookup for abbreviation assignment.
+  // It matches ONLY authors whose last_name starts with the typed value.
+  // It returns name_display so the UI can show the complete author name.
+  router.get("/authors/lookup", async (req, res) => {
     const pool = req.app.get("pgPool");
     if (!pool) return res.status(500).json({ error: "pgPool missing" });
 
-    const source = String(req.query.source || "all").trim().toLowerCase();
-    const type = String(req.query.type || "all").trim().toLowerCase();
-    const levelRaw = String(req.query.level || "all").trim().toLowerCase();
-    const q = String(req.query.q || "").trim();
-    const limit = clampInt(req.query.limit, { min: 1, max: 2000, def: 500 });
-    const offset = clampOffset(req.query.offset, { min: 0, max: 1000000, def: 0 });
+    const qRaw = String(req.query.q || "").trim();
+    const limit = clampInt(req.query.limit, { min: 1, max: 75, def: 30 });
 
-    const validSources = new Set(["all", "abbrev_map", "author_aliases", "publisher_aliases", "authors"]);
-    const validTypes = new Set(["all", "author", "publisher"]);
-
-    if (!validSources.has(source)) {
-      return res.status(400).json({ error: "invalid_source" });
-    }
-    if (!validTypes.has(type)) {
-      return res.status(400).json({ error: "invalid_type" });
-    }
-
-    let level = null;
-    if (levelRaw && levelRaw !== "all") {
-      if (!/^\d+$/.test(levelRaw)) return res.status(400).json({ error: "invalid_level" });
-      level = Math.max(1, Math.trunc(Number(levelRaw)));
-    }
+    if (qRaw.length < 1) return res.json({ items: [] });
 
     try {
-      const parts = [];
+      const { rows } = await pool.query(
+        `
+        SELECT
+          a.id::text AS id,
+          a.name,
+          a.full_name,
+          a.name_display,
+          a.first_name,
+          a.last_name,
+          a.abbr,
+          coalesce(a.published_titles, 0)::int AS published_titles
+        FROM public.authors a
+        WHERE NULLIF(btrim(a.last_name), '') IS NOT NULL
+          AND lower(btrim(a.last_name)) LIKE lower($1::text) || '%'
+        ORDER BY
+          lower(btrim(a.last_name)),
+          lower(coalesce(a.name_display, a.full_name, a.name, '')),
+          a.id
+        LIMIT $2::int
+        `,
+        [qRaw, limit]
+      );
 
-      if (source === "all" || source === "abbrev_map") {
-        parts.push(`
-          SELECT
-            'abbrev_map'::text AS source_table,
-            am.type::text AS type,
-            am.abbr_raw::text AS abbr_raw,
-            am.abbr_norm::text AS abbr_norm,
-            am.full_name::text AS full_name,
-            am.full::text AS "full",
-            char_length(coalesce(am.abbr_norm, ''))::int AS abbr_len
-          FROM public.abbrev_map am
-        `);
-      }
-
-      if (source === "all" || source === "author_aliases") {
-        parts.push(`
-          SELECT
-            'author_aliases'::text AS source_table,
-            'author'::text AS type,
-            NULL::text AS abbr_raw,
-            aa.abbr_norm::text AS abbr_norm,
-            aa.full_name::text AS full_name,
-            NULL::text AS "full",
-            char_length(coalesce(aa.abbr_norm, ''))::int AS abbr_len
-          FROM public.author_aliases aa
-        `);
-      }
-
-      if (source === "all" || source === "publisher_aliases") {
-        parts.push(`
-          SELECT
-            'publisher_aliases'::text AS source_table,
-            'publisher'::text AS type,
-            NULL::text AS abbr_raw,
-            pa.abbr_norm::text AS abbr_norm,
-            pa.full_name::text AS full_name,
-            NULL::text AS "full",
-            char_length(coalesce(pa.abbr_norm, ''))::int AS abbr_len
-          FROM public.publisher_aliases pa
-        `);
-      }
-
-      if (source === "all" || source === "authors") {
-        parts.push(`
-          SELECT
-            'authors'::text AS source_table,
-            'author'::text AS type,
-            NULL::text AS abbr_raw,
-NULL::text AS abbr_norm,
-0::int AS abbr_len
-            a.full_name::text AS "full",
-            char_length(regexp_replace(lower(coalesce(a.abbreviation, '')), '[^a-z0-9]+', '', 'g'))::int AS abbr_len
-          FROM public.authors a
-        WHERE false
-          `);
-      }
-
-      if (!parts.length) return res.json({ items: [], total: 0, limit, offset });
-
-      const params = [];
-      const where = [];
-
-      if (type !== "all") {
-        params.push(type);
-        where.push(`type = $${params.length}`);
-      }
-
-      if (level != null) {
-        params.push(level);
-        where.push(`abbr_len = $${params.length}`);
-      }
-
-      if (q) {
-        params.push(`%${q}%`);
-        const pno = params.length;
-        where.push(`(
-          coalesce(abbr_raw, '') ILIKE $${pno}
-          OR coalesce(abbr_norm, '') ILIKE $${pno}
-          OR coalesce(full_name, '') ILIKE $${pno}
-          OR coalesce("full", '') ILIKE $${pno}
-        )`);
-      }
-
-      params.push(limit);
-      const limitP = params.length;
-      params.push(offset);
-      const offsetP = params.length;
-
-      const sql = `
-        WITH src AS (
-          ${parts.join("\nUNION ALL\n")}
-        )
-        SELECT source_table, type, abbr_raw, abbr_norm, full_name, "full", abbr_len
-        FROM src
-        ${where.length ? `WHERE ${where.join(" AND ")}` : ""}
-        ORDER BY type ASC, abbr_len ASC, abbr_norm ASC, full_name ASC
-        LIMIT $${limitP}
-        OFFSET $${offsetP}
-      `;
-
-      const { rows } = await pool.query(sql, params);
-      return res.json({ items: rows, total: rows.length, limit, offset });
+      return res.json({ items: rows });
     } catch (e) {
-      console.error("GET /api/admin/abbreviations failed", e);
+      console.error("GET /api/admin/authors/lookup failed", e);
       return res.status(500).json({
-        error: "abbreviations_query_failed",
+        error: "authors_lookup_failed",
         detail: String(e?.message || e),
       });
     }
@@ -507,7 +411,7 @@ NULL::text AS abbr_norm,
           a.last_name AS author_last_name,
           a.name_display AS author_name_display,
           
-        NULL::text AS author_abbreviation
+        NULL::text AS author_abbreviation,
           a.author_nationality,
           a.place_of_birth,
           a.male_female,
@@ -1211,4 +1115,309 @@ router.get("/authors/:authorId/titles", async (req, res) => {
   }
 });
 
-  module.exports = router;
+
+/* -------------------- abbreviation assignment -------------------- */
+
+function normalizeAbbrDotted(value) {
+  const raw = String(value || "").trim().toLowerCase();
+  const cleaned = raw.replace(/\s+/g, "");
+  if (!cleaned) return "";
+  return cleaned.endsWith(".") ? cleaned : `${cleaned}.`;
+}
+
+function normalizeAbbrBare(value) {
+  return String(value || "")
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, "")
+    .replace(/\.+$/g, "");
+}
+
+async function findAuthorAssignment(pool, abbrInput) {
+  const dotted = normalizeAbbrDotted(abbrInput);
+  const bare = normalizeAbbrBare(abbrInput);
+  if (!dotted || !bare) return null;
+
+  const r = await pool.query(
+    `
+    WITH picked AS (
+      SELECT aa.abbr_norm, aa.full_name
+      FROM public.author_aliases aa
+      WHERE aa.abbr_norm = ANY($1::text[])
+      ORDER BY CASE WHEN aa.abbr_norm = $2 THEN 0 ELSE 1 END
+      LIMIT 1
+    )
+    SELECT
+      p.abbr_norm,
+      p.full_name,
+      a.id::text AS current_author_id,
+      a.name AS current_author_name,
+      a.name_display AS current_name_display,
+      a.full_name AS current_author_full_name,
+      a.first_name AS current_first_name,
+      a.last_name AS current_last_name,
+      a.abbr AS current_abbr
+    FROM picked p
+    LEFT JOIN LATERAL (
+      SELECT a.*
+      FROM public.authors a
+      WHERE lower(a.abbr) = lower(p.abbr_norm)
+         OR lower(a.name) = lower(p.full_name)
+         OR lower(a.name_display) = lower(p.full_name)
+         OR lower(a.full_name) = lower(p.full_name)
+         OR lower(a.last_name) = lower(p.full_name)
+      ORDER BY
+        CASE
+          WHEN lower(a.abbr) = lower(p.abbr_norm) THEN 0
+          WHEN lower(a.name) = lower(p.full_name) THEN 1
+          WHEN lower(a.name_display) = lower(p.full_name) THEN 2
+          WHEN lower(a.full_name) = lower(p.full_name) THEN 3
+          ELSE 4
+        END,
+        lower(coalesce(a.name_display, a.full_name, a.name, ''))
+      LIMIT 1
+    ) a ON true
+    `,
+    [[dotted, bare], dotted]
+  );
+  return r.rows[0] || null;
+}
+
+async function getAuthorForAbbreviation(pool, authorId) {
+  const r = await pool.query(
+    `
+    SELECT
+      id::text AS id,
+      name,
+      full_name,
+      name_display,
+      first_name,
+      last_name,
+      abbr
+    FROM public.authors
+    WHERE id = $1::uuid
+    LIMIT 1
+    `,
+    [authorId]
+  );
+  return r.rows[0] || null;
+}
+
+function abbreviationItemFromAuthor(abbrNorm, author) {
+  if (!author) return null;
+  return {
+    abbr_norm: abbrNorm,
+    full_name: author.name || author.name_display || author.full_name,
+    current_author_id: author.id,
+    current_author_name: author.name,
+    current_full_name: author.name || author.name_display || author.full_name,
+    current_name_display: author.name_display || author.full_name || author.name,
+    current_author_full_name: author.full_name,
+    current_first_name: author.first_name,
+    current_last_name: author.last_name,
+    current_abbr: abbrNorm || author.abbr,
+  };
+}
+
+// GET /api/admin/abbreviations?level=1&limit=2000&q=a
+router.get("/abbreviations", async (req, res) => {
+  const pool = req.app.get("pgPool");
+  if (!pool) return res.status(500).json({ error: "pgPool missing" });
+
+  const level = clampInt(req.query.level, { min: 1, max: 10, def: 1 });
+  const limit = clampInt(req.query.limit, { min: 1, max: 5000, def: 2000 });
+  const q = String(req.query.q || "").trim().toLowerCase();
+
+  try {
+    const params = [level, limit];
+    let qFilter = "";
+    if (q) {
+      params.push(`%${q}%`);
+      qFilter = `
+        AND (
+          x.abbr_norm ILIKE $3
+          OR x.full_name ILIKE $3
+        )
+      `;
+    }
+
+    const r = await pool.query(
+      `
+      WITH all_rows AS (
+        SELECT abbr_norm, full_name, 'author_aliases'::text AS source
+        FROM public.author_aliases
+        UNION ALL
+        SELECT abbr_norm, full_name, 'abbrev_map'::text AS source
+        FROM public.abbrev_map
+        WHERE full_name IS NOT NULL
+      ), dedup AS (
+        SELECT DISTINCT ON (regexp_replace(abbr_norm, '\\.+$', ''))
+          CASE
+            WHEN abbr_norm LIKE '%.%' THEN abbr_norm
+            ELSE abbr_norm || '.'
+          END AS abbr_norm,
+          full_name,
+          source
+        FROM all_rows
+        WHERE abbr_norm IS NOT NULL
+          AND btrim(abbr_norm) <> ''
+        ORDER BY regexp_replace(abbr_norm, '\\.+$', ''),
+          CASE WHEN source = 'author_aliases' THEN 0 ELSE 1 END
+      )
+      SELECT
+        x.abbr_norm,
+        x.full_name AS current_full_name,
+        x.full_name,
+        x.source
+      FROM dedup x
+      WHERE char_length(regexp_replace(x.abbr_norm, '[^[:alnum:]]+', '', 'g')) = $1::int
+      ${qFilter}
+      ORDER BY lower(x.abbr_norm)
+      LIMIT $2::int
+      `,
+      params
+    );
+
+    return res.json({ items: r.rows || [] });
+  } catch (e) {
+    console.error("GET /api/admin/abbreviations failed", e);
+    return res.status(500).json({
+      error: "abbreviations_list_failed",
+      detail: String(e?.message || e),
+    });
+  }
+});
+
+// GET /api/admin/abbreviations/:abbrNorm
+router.get("/abbreviations/:abbrNorm", async (req, res) => {
+  const pool = req.app.get("pgPool");
+  if (!pool) return res.status(500).json({ error: "pgPool missing" });
+
+  try {
+    const item = await findAuthorAssignment(pool, req.params.abbrNorm);
+    return res.json({ item });
+  } catch (e) {
+    console.error("GET /api/admin/abbreviations/:abbrNorm failed", e);
+    return res.status(500).json({
+      error: "abbreviation_lookup_failed",
+      detail: String(e?.message || e),
+    });
+  }
+});
+
+// PATCH /api/admin/abbreviations/:abbrNorm
+router.patch("/abbreviations/:abbrNorm", async (req, res) => {
+  const pool = req.app.get("pgPool");
+  if (!pool) return res.status(500).json({ error: "pgPool missing" });
+
+  const abbrNorm = normalizeAbbrDotted(req.params.abbrNorm);
+  const bare = normalizeAbbrBare(req.params.abbrNorm);
+  const authorId = String(req.body?.authorId || req.body?.author_id || "").trim();
+
+  let author = null;
+  let fullName = String(
+    req.body?.full_name ||
+      req.body?.fullName ||
+      req.body?.name_display ||
+      req.body?.authorName ||
+      ""
+  ).trim();
+
+  try {
+    if (authorId) {
+      author = await getAuthorForAbbreviation(pool, authorId);
+      if (!author) return res.status(404).json({ error: "author_not_found" });
+      // Store the canonical machine name when available, because old rows use values like "archer".
+      fullName = author.name || author.name_display || author.full_name || fullName;
+    }
+
+    if (!abbrNorm || !fullName) {
+      return res.status(400).json({ error: "missing_abbr_or_author" });
+    }
+  } catch (e) {
+    return res.status(500).json({ error: "author_lookup_failed", detail: String(e?.message || e) });
+  }
+
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+
+    // Keep public.authors.abbr in sync with author_aliases/abbrev_map.
+    // This moves the abbreviation from the old owner to the selected author atomically.
+    if (authorId) {
+      await client.query(
+        `
+        UPDATE public.authors
+        SET abbr = NULL
+        WHERE lower(abbr) = lower($1)
+          AND id <> $2::uuid
+        `,
+        [abbrNorm, authorId]
+      );
+
+      await client.query(
+        `
+        UPDATE public.authors
+        SET abbr = $1
+        WHERE id = $2::uuid
+        `,
+        [abbrNorm, authorId]
+      );
+
+      author.abbr = abbrNorm;
+    }
+
+    await client.query(
+      `
+      INSERT INTO public.author_aliases (abbr_norm, full_name)
+      VALUES ($1, $2)
+      ON CONFLICT (abbr_norm)
+      DO UPDATE SET full_name = excluded.full_name
+      `,
+      [abbrNorm, fullName]
+    );
+
+    await client.query(
+      `
+      INSERT INTO public.abbrev_map (abbr_norm, full_name, "type", abbr_raw, "full")
+      VALUES ($1, $2, 'author', $1, $2)
+      ON CONFLICT (abbr_norm)
+      DO UPDATE SET
+        full_name = excluded.full_name,
+        "type" = excluded."type",
+        abbr_raw = excluded.abbr_raw,
+        "full" = excluded."full"
+      `,
+      [abbrNorm, fullName]
+    );
+
+    if (bare && bare !== abbrNorm) {
+      await client.query(
+        `DELETE FROM public.author_aliases WHERE abbr_norm = $1`,
+        [bare]
+      );
+      await client.query(
+        `DELETE FROM public.abbrev_map WHERE abbr_norm = $1`,
+        [bare]
+      );
+    }
+
+    await client.query("COMMIT");
+    const item = author
+      ? abbreviationItemFromAuthor(abbrNorm, author)
+      : await findAuthorAssignment(pool, abbrNorm);
+    return res.json({ ok: true, item });
+  } catch (e) {
+    await client.query("ROLLBACK").catch(() => {});
+    console.error("PATCH /api/admin/abbreviations/:abbrNorm failed", e);
+    return res.status(500).json({
+      error: "abbreviation_update_failed",
+      detail: String(e?.message || e),
+    });
+  } finally {
+    client.release();
+  }
+});
+
+
+module.exports = router;
