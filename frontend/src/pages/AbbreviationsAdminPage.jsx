@@ -152,30 +152,18 @@ export default function AbbreviationsAdminPage() {
           if (!res.ok) throw new Error(data?.detail || data?.error || `Abbreviation lookup failed (${res.status})`);
           return data;
         })
-        .then((data) => {
-          if (ac.signal.aborted) return;
-          const item = data?.item || null;
-          setAssignedInfo(item);
+       .then((data) => {
+  if (ac.signal.aborted) return;
 
-          if (item?.current_author_id) {
-            const author = {
-              id: item.current_author_id,
-              name: item.current_author_name || item.full_name,
-              name_display: item.current_name_display,
-              full_name: item.current_author_full_name || item.current_full_name,
-              first_name: item.current_first_name,
-              last_name: item.current_last_name,
-              abbr: item.current_abbr || displayAbbr(abbrNorm),
-            };
-            setFreeAuthorId(author.id);
-            setFreeAuthor(author);
-            setAuthorOptions([author]);
-          } else {
-            setFreeAuthorId("");
-            setFreeAuthor(null);
-            setAuthorOptions([]);
-          }
-        })
+  const item = data?.item || null;
+  setAssignedInfo(item);
+
+  // show current assignment only; do not make it the pending selection
+  setFreeAuthorId("");
+  setFreeAuthor(null);
+  setAuthorQuery("");
+  setAuthorOptions([]);
+})
         .catch((e) => {
           if (!ac.signal.aborted) setErr(e?.message || String(e));
         })
@@ -252,21 +240,10 @@ export default function AbbreviationsAdminPage() {
       const data = await saveByAuthorId(abbrNorm, authorId);
       setNotice(`${displayAbbr(abbrNorm)} assigned to ${data.item.current_name_display || data.item.current_full_name}.`);
       setAssignedInfo(data.item);
-      const author = data.item?.current_author_id
-        ? {
-            id: data.item.current_author_id,
-            name: data.item.current_author_name || data.item.full_name,
-            name_display: data.item.current_name_display,
-            full_name: data.item.current_author_full_name || data.item.current_full_name,
-            first_name: data.item.current_first_name,
-            last_name: data.item.current_last_name,
-            abbr: data.item.current_abbr || displayAbbr(abbrNorm),
-          }
-        : null;
-      setFreeAuthor(author);
-      setFreeAuthorId(author?.id || "");
+      setFreeAuthor(null);
+      setFreeAuthorId("");
       setAuthorQuery("");
-      setAuthorOptions(author ? [author] : []);
+      setAuthorOptions([]);
       setLevel(String(abbrNorm.length));
       setQ(displayAbbr(abbrNorm));
       setReloadTick((n) => n + 1);

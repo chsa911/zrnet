@@ -3,7 +3,7 @@
   import { Link } from "react-router-dom";
   import { getApiRoot } from "../api/apiRoot";
   import "./AuthorsIndexPage.css";
-
+  import AdminAuthorAssignment from "../components/AdminAuthorAssignment";
   function num(v) {
     const n = Number(v);
     return Number.isFinite(n) ? n : 0;
@@ -58,6 +58,12 @@
     if (status) p.set("status", status);
     return `/search-update?${p.toString()}`;
   }
+function authorTitlesUrl(authorId, status = "") {
+  const p = new URLSearchParams();
+  p.set("author_id", authorId);
+  if (status) p.set("status", status);
+  return `/admin/authors/${authorId}/titles?${p.toString()}`;
+}
 
   export default function AuthorsIndexPage() {
     const [rows, setRows] = useState([]);
@@ -75,7 +81,7 @@
         setErr("");
 
         try {
-          const url = new URL(`${getApiRoot()}/public/authors/overview`, window.location.origin);
+          const url = new URL(`${getApiRoot()}/admin/authors/overview`, window.location.origin);
           url.searchParams.set("limit", "20000");
           url.searchParams.set("offset", "0");
 
@@ -149,7 +155,7 @@
 
     return (
       <section className="zr-section ao-filter-index" aria-busy={loading ? "true" : "false"}>
-        
+        <AdminAuthorAssignment />
         <div className="afi-grid">
           <div className="afi-filter-row">
             <div className="afi-cell">
@@ -221,7 +227,7 @@
                     </Link>
 
                     <Link className="afi-cell afi-count-link" to={searchUpdateUrl(id)} title="Total entries">
-                       TEST {totalCount}
+                        {totalCount}
                     </Link>
 
                     <Link className="afi-cell afi-count-link" to={searchUpdateUrl(id, "finished")} title="Completed">
