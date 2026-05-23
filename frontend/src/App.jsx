@@ -28,7 +28,7 @@ import AuthorsIndexPage from "./pages/AuthorsIndexPage";
 import BetaTestPage from "./pages/BetaTestPage";
 import AdminAuthorTitlesPage from "./pages/AdminAuthorTitlesPage";
 import AdminAuthorPage from "./pages/AdminAuthorPage";
-
+import HomeTitlesPage from "./pages/HomeTitlesPage";
 function NotFound() {
   return (
     <div style={{ padding: 24, fontFamily: "Arial, sans-serif" }}>
@@ -89,7 +89,7 @@ export default function App() {
         <Route path="checkout" element={<Navigate to="/" replace />} />
         <Route path="order/:orderId" element={<Navigate to="/" replace />} />
         <Route path="merchandise.html" element={<Navigate to="/" replace />} />
-
+<Route path="titles" element={<HomeTitlesPage />} />
         {/* newsletter */}
 {    /*    <Route path="newsletter" element={<NewsletterPage />} />
         <Route path="newsletter.html" element={<Navigate to="/newsletter" replace />} />
@@ -109,7 +109,6 @@ export default function App() {
         <Route path="impressum.html" element={<Navigate to="/info/impressum" replace />} />
         <Route path="impressum_d.html" element={<Navigate to="/info/impressum" replace />} />
         <Route path="datenschutz.html" element={<Navigate to="/info/datenschutz" replace />} />
-        <Route path="authors" element={<AuthorsIndexPage />} />
         <Route path="admin/authors/:authorId" element={<AdminAuthorPage />} />
         <Route path="admin/authors/:authorId/titles" element={<AdminAuthorTitlesPage />} />
         {/* book detail */}

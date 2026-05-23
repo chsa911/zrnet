@@ -121,32 +121,56 @@
 
         try {
           const r = await pool.query(`
-            SELECT
-              a.id::text AS id,
-              NULLIF(btrim(a.last_name), '') AS last_name,
-              NULLIF(btrim(a.first_name), '') AS first_name,
-              NULLIF(btrim(a.name_display), '') AS name_display,
-              NULLIF(btrim(a.name_display), '') AS author,
+  SELECT
+    a.id::text AS id,
+    NULLIF(btrim(a.last_name), '') AS last_name,
+    NULLIF(btrim(a.first_name), '') AS first_name,
+    NULLIF(btrim(a.name_display), '') AS name_display,
+    NULLIF(btrim(a.name_display), '') AS author,
+    NULLIF(btrim(a.namenszusatz), '') AS namenszusatz,
 
-              COUNT(b.id) FILTER (WHERE b.reading_status = 'finished')::int AS completed,
-              COUNT(b.id) FILTER (WHERE b.reading_status = 'abandoned')::int AS not_a_match,
-              COUNT(b.id) FILTER (
-                WHERE COALESCE(b.reading_status, 'in_stock') IN ('in_progress', 'in_stock')
-              )::int AS on_hand,
-              COUNT(b.id)::int AS total
-            FROM public.authors a
-            LEFT JOIN public.books b ON b.author_id = a.id
-            WHERE a.name_display IS NOT NULL
-              AND btrim(a.name_display) <> ''
-              AND regexp_replace(a.name_display, '[^A-Za-zÄÖÜäöüß0-9]+', '', 'g') <> ''
-            GROUP BY a.id, a.last_name, a.first_name, a.name_display
-            ORDER BY
-              LOWER(NULLIF(btrim(a.last_name), '')) ASC NULLS LAST,
-              LOWER(COALESCE(NULLIF(btrim(a.first_name), ''), '')) ASC,
-              LOWER(NULLIF(btrim(a.name_display), '')) ASC,
-              a.id ASC
-          `);
+    COUNT(b.id) FILTER (WHERE b.reading_status = 'finished')::int AS completed,
 
+    COUNT(b.id) FILTER (
+      WHERE b.reading_status = 'abandoned'
+    )::int AS not_a_match,
+
+    COUNT(b.id) FILTER (
+      WHERE COALESCE(b.reading_status, 'in_stock')
+      IN ('in_progress', 'in_stock')
+    )::int AS on_hand,
+COUNT(b.id)::int AS total,
+
+COUNT(b.id) FILTER (WHERE b.top_book = true)::int AS top_books
+  FROM public.authors a
+
+  LEFT JOIN public.books b
+    ON b.author_id = a.id
+
+
+  WHERE a.name_display IS NOT NULL
+    AND btrim(a.name_display) <> ''
+    AND regexp_replace(
+      a.name_display,
+      '[^A-Za-zÄÖÜäöüß0-9]+',
+      '',
+      'g'
+    ) <> ''
+
+  GROUP BY
+    a.id,
+    a.last_name,
+    a.first_name,
+    a.name_display,
+    a.namenszusatz
+    
+
+  ORDER BY
+    LOWER(NULLIF(btrim(a.last_name), '')) ASC NULLS LAST,
+    LOWER(COALESCE(NULLIF(btrim(a.first_name), ''), '')) ASC,
+    LOWER(NULLIF(btrim(a.name_display), '')) ASC,
+    a.id ASC
+`);
           return res.json({ items: r.rows || [] });
         } catch (e) {
           console.error("GET /api/admin/authors/overview failed", e);
@@ -1055,66 +1079,79 @@
         res.status(500).json({ error: "author_update_failed", detail: String(e?.message || e) });
       }
     });
-    // GET /api/admin/authors/:authorId/titles
-    router.get("/authors/:authorId/titles", async (req, res) => {
-      const pool = req.app.get("pgPool");
-      if (!pool) return res.status(500).json({ error: "pgPool missing" });
+   // Replace ONLY this route in backend/routes/admin.js:
+// GET /api/admin/authors/:authorId/titles
 
-      const { authorId } = req.params;
-      const status = String(req.query.status || "").trim();
+router.get("/authors/:authorId/titles", async (req, res) => {
+  const pool = req.app.get("pgPool");
+  if (!pool) return res.status(500).json({ error: "pgPool missing" });
 
-      try {
-        const params = [authorId];
+  const { authorId } = req.params;
+  const status = String(req.query.status || "").trim();
+  const topBookOnly = String(req.query.top_book || req.query.topBook || "").trim() === "1";
 
-        let sql = `
-          SELECT
-      b.id::text AS id,
-      b.title_display,
-      b.reading_status,
-      b.reading_status_updated_at,
-      b.registered_at,
-      b.added_at
+  try {
+    const params = [authorId];
+
+    let sql = `
+      SELECT
+        b.id::text AS id,
+        b.title_display,
+        b.reading_status,
+        b.reading_status_updated_at,
+        b.registered_at,
+        b.added_at,
+        COALESCE(b.top_book, false) AS top_book
       FROM public.books b
-          WHERE b.author_id = $1::uuid
-        `;
+      WHERE b.author_id = $1::uuid
+    `;
 
-        if (status) {
-          const statuses = status.split(",").map((s) => s.trim()).filter(Boolean);
-          params.push(statuses);
-          sql += ` AND b.reading_status = ANY($2::text[])`;
-        }
+    if (status) {
+      const statuses = status
+        .split(",")
+        .map((s) => s.trim())
+        .filter(Boolean);
 
-        sql += `
-        ORDER BY
-      COALESCE(b.reading_status_updated_at, b.registered_at, b.added_at) DESC NULLS LAST,
-      LOWER(COALESCE(b.title_display, '')) ASC
-        `;
-
-        const { rows } = await pool.query(sql, params);
-
-        res.json({
-          items: rows.map((row) => ({
-            ...row,
-            reading_history: [
-              {
-                status: row.reading_status,
-              date:
-      row.reading_status_updated_at ||
-      row.registered_at ||
-      row.added_at,
-              },
-            ],
-          })),
-        });
-      } catch (e) {
-        console.error("GET /api/admin/authors/:authorId/titles failed", e);
-        res.status(500).json({
-          error: "failed_to_load_author_titles",
-          detail: String(e?.message || e),
-        });
+      if (statuses.length) {
+        params.push(statuses);
+        sql += ` AND b.reading_status = ANY($${params.length}::text[])`;
       }
-    });
+    }
 
+    if (topBookOnly) {
+      sql += ` AND COALESCE(b.top_book, false) = true`;
+    }
+
+    sql += `
+      ORDER BY
+        COALESCE(b.reading_status_updated_at, b.registered_at, b.added_at) DESC NULLS LAST,
+        LOWER(COALESCE(b.title_display, '')) ASC
+    `;
+
+    const { rows } = await pool.query(sql, params);
+
+    res.json({
+      items: rows.map((row) => ({
+        ...row,
+        reading_history: [
+          {
+            status: row.reading_status,
+            date:
+              row.reading_status_updated_at ||
+              row.registered_at ||
+              row.added_at,
+          },
+        ],
+      })),
+    });
+  } catch (e) {
+    console.error("GET /api/admin/authors/:authorId/titles failed", e);
+    res.status(500).json({
+      error: "failed_to_load_author_titles",
+      detail: String(e?.message || e),
+    });
+  }
+});
 
     /* -------------------- abbreviation assignment -------------------- */
 

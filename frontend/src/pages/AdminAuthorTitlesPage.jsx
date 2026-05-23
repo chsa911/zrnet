@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { useParams, useSearchParams, Link } from "react-router-dom";
 import { getApiRoot } from "../api/apiRoot";
 import "./AuthorsIndexPage.css";
@@ -12,14 +12,30 @@ function fmt(v) {
   }
 }
 
+function titleForFilter(status, topBookOnly) {
+  if (topBookOnly) return "Top books";
+  if (status === "finished") return "Completed titles";
+  if (status === "abandoned") return "Not a match titles";
+  if (status === "in_stock,in_progress") return "On hand titles";
+  return "All titles";
+}
+
 export default function AdminAuthorTitlesPage() {
   const { authorId } = useParams();
   const [searchParams] = useSearchParams();
+
   const status = searchParams.get("status") || "";
+  const topBookOnly =
+    searchParams.get("top_book") === "1" || searchParams.get("topBook") === "1";
 
   const [titles, setTitles] = useState([]);
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState("");
+
+  const pageTitle = useMemo(
+    () => titleForFilter(status, topBookOnly),
+    [status, topBookOnly]
+  );
 
   useEffect(() => {
     const ac = new AbortController();
@@ -35,6 +51,7 @@ export default function AdminAuthorTitlesPage() {
         );
 
         if (status) url.searchParams.set("status", status);
+        if (topBookOnly) url.searchParams.set("top_book", "1");
 
         const res = await fetch(url.toString().replace(window.location.origin, ""), {
           credentials: "include",
@@ -58,7 +75,7 @@ export default function AdminAuthorTitlesPage() {
 
     load();
     return () => ac.abort();
-  }, [authorId, status]);
+  }, [authorId, status, topBookOnly]);
 
   return (
     <section className="authors-brutal-page">
@@ -66,8 +83,12 @@ export default function AdminAuthorTitlesPage() {
         <Link to="/admin/authors">← Back to authors</Link>
       </p>
 
+      <h1 style={{ margin: "0 0 24px", fontSize: 42, fontWeight: 900 }}>
+        {pageTitle}
+      </h1>
+
       <div className="authors-grid">
-        <div className="authors-row authors-head">
+        <div className="authors-row authors-head" style={{ gridTemplateColumns: "1fr 1.4fr" }}>
           <div className="authors-cell authors-name">Title</div>
           <div className="authors-cell authors-name">Reading history</div>
         </div>
@@ -96,7 +117,8 @@ export default function AdminAuthorTitlesPage() {
                   <div>
                     {t.reading_history.map((h, i) => (
                       <div key={i}>
-                        {h.status || h.action || "read"} — {fmt(h.read_at || h.created_at || h.date)}
+                        {h.status || h.action || "read"} —{" "}
+                        {fmt(h.read_at || h.created_at || h.date)}
                       </div>
                     ))}
                   </div>

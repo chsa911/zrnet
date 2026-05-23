@@ -1,0 +1,87 @@
+.home-titles-page {
+  width: min(1400px, 100%);
+  margin: 0 auto;
+  padding: 24px 16px 64px;
+}
+
+.home-titles-header {
+  margin-bottom: 32px;
+}
+
+.home-titles-header h1 {
+  margin: 0 0 10px;
+  font-size: 2rem;
+}
+
+.home-titles-header p {
+  margin: 0;
+  opacity: 0.7;
+}
+
+.home-titles-section {
+  margin-top: 40px;
+}
+
+.home-titles-section h2 {
+  margin-bottom: 18px;
+}
+
+.home-titles-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 18px;
+}
+
+.home-title-card {
+  display: flex;
+  flex-direction: column;
+  text-decoration: none;
+  color: inherit;
+  border-radius: 14px;
+  overflow: hidden;
+  background: rgba(255,255,255,0.03);
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.home-title-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 24px rgba(0,0,0,0.12);
+}
+
+.home-title-cover-wrap {
+  aspect-ratio: 2 / 3;
+  background: rgba(255,255,255,0.04);
+}
+
+.home-title-cover {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.home-title-placeholder {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0.5;
+  font-size: 0.9rem;
+}
+
+.home-title-content {
+  padding: 12px;
+}
+
+.home-title-content h3 {
+  margin: 0 0 6px;
+  font-size: 0.98rem;
+  line-height: 1.35;
+}
+
+.home-title-content p {
+  margin: 0;
+  opacity: 0.7;
+  font-size: 0.9rem;
+}

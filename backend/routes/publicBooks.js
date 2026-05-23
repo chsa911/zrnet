@@ -148,6 +148,51 @@ async function buildPurchaseLinks(pool, { isbn13, isbn10, bookId }) {
 }
 
 /**
+ * GET /api/public/books/home-titles
+ * Full page data for titles highlighted on Home:
+ * - top finished books
+ * - received / currently in-stock books
+ *
+ * IMPORTANT: this must stay above /:id routes.
+ */
+router.get("/home-titles", async (req, res) => {
+  try {
+    const pool = getPool(req);
+
+    const { rows } = await pool.query(`
+      SELECT
+        b.id::text AS id,
+        ${TITLE_EXPR} AS title,
+        ${AUTHOR_EXPR} AS author,
+        CASE
+          WHEN b.top_book = true THEN 'finished'
+          WHEN b.reading_status = 'in_stock' THEN 'received'
+          ELSE b.reading_status
+        END AS status,
+        b.reading_status,
+        b.reading_status_updated_at,
+        b.top_book,
+        b.top_book_set_at,
+        b.registered_at,
+        ('/media/covers/' || b.id::text || '.jpg') AS cover_url
+      FROM public.books b
+      LEFT JOIN public.authors a ON a.id = b.author_id
+      WHERE b.top_book = true
+         OR b.reading_status = 'in_stock'
+      ORDER BY
+        CASE WHEN b.top_book = true THEN 0 ELSE 1 END,
+        COALESCE(b.top_book_set_at, b.reading_status_updated_at, b.registered_at) DESC NULLS LAST,
+        title ASC
+    `);
+
+    res.json({ books: rows || [] });
+  } catch (err) {
+    console.error("GET /api/public/books/home-titles error", err);
+    res.status(500).json({ error: "internal_error" });
+  }
+});
+
+/**
  * GET /api/public/books
  */
 router.get("/", async (req, res) => {
@@ -917,4 +962,3 @@ router.get("/:id", async (req, res) => {
 });
 
 module.exports = router;
-    
