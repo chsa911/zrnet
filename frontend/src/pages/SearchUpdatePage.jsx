@@ -8,17 +8,10 @@ const getAuthor = (b) =>
   b?.name_display ?? b?.author_name_display ?? b?.author_name ?? "—";
 
 const getAuthorAbbr = (b) =>
-  b?.author_lastname ??
-  b?.author_last_name ??
-  b?.last_name ??
-  "—";
-  
+  b?.author_lastname ?? b?.author_last_name ?? b?.last_name ?? "—";
+
 const getKeyword = (b) =>
-  b?.title_display ??
-  b?.title_keyword ??
-  b?.keyword ??
-  b?.title ??
-  "—";  
+  b?.title_display ?? b?.title_keyword ?? b?.keyword ?? b?.title ?? "—";
 
 const getPages = (b) => (b?.pages ?? b?.pages === 0 ? b.pages : "—");
 
@@ -42,6 +35,51 @@ const fmtDate = (v) => {
     </>
   );
 };
+
+function InlineEditable({ value, disabled, onSave }) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(value || "");
+
+  useEffect(() => {
+    setDraft(value || "");
+  }, [value]);
+
+  async function save() {
+    setEditing(false);
+    await onSave(draft);
+  }
+
+  if (editing) {
+    return (
+      <input
+        autoFocus
+        className="su-inline-input"
+        value={draft}
+        disabled={disabled}
+        onChange={(e) => setDraft(e.target.value)}
+        onBlur={save}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") save();
+          if (e.key === "Escape") {
+            setDraft(value || "");
+            setEditing(false);
+          }
+        }}
+      />
+    );
+  }
+
+  return (
+    <button
+      type="button"
+      className="su-inline-edit"
+      disabled={disabled}
+      onClick={() => setEditing(true)}
+    >
+      {value || "—"}
+    </button>
+  );
+}
 
 export default function SearchUpdatePage() {
   const [q, setQ] = useState({
@@ -158,6 +196,35 @@ export default function SearchUpdatePage() {
     };
   }, [q.page, q.limit, q.sortBy, q.order, q.q, q.pages, q.status, refreshTick]);
 
+  async function saveInlineField(b, field, value) {
+    const id = idOf(b);
+    if (!id) return alert("Kein Datensatz-ID gefunden.");
+
+    const oldValue = b?.[field] ?? "";
+    const nextValue = value.trim();
+
+    if (nextValue === oldValue) return;
+
+    setUpdatingOn(id, true);
+
+    try {
+      const now = new Date().toISOString();
+
+      patchRow(id, {
+        [field]: nextValue,
+        updated_at: now,
+        last_action_at: now,
+      });
+
+      await updateBook(id, { [field]: nextValue });
+    } catch (e) {
+      patchRow(id, { [field]: oldValue });
+      alert(e?.message || "Update fehlgeschlagen");
+    } finally {
+      setUpdatingOn(id, false);
+    }
+  }
+
   async function setStatus(b, nextStatus) {
     const id = idOf(b);
     if (!id) return alert("Kein Datensatz-ID gefunden.");
@@ -222,8 +289,8 @@ export default function SearchUpdatePage() {
 
     try {
       const res = await fetch(
-  `/api/books/barcodes/${encodeURIComponent(barcode)}/history`
-);
+        `/api/books/barcodes/${encodeURIComponent(barcode)}/history`
+      );
       if (!res.ok) throw new Error("Barcode-History konnte nicht geladen werden");
 
       const data = await res.json();
@@ -379,9 +446,36 @@ export default function SearchUpdatePage() {
           flex-direction: column;
           gap: 6px;
           min-width: 0;
+          width: 100%;
           overflow: hidden;
           text-overflow: ellipsis;
           white-space: nowrap;
+        }
+
+        .su-inline-edit {
+          all: unset;
+          cursor: pointer;
+          width: 100%;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+        }
+
+        .su-inline-edit:hover {
+          background: #fff2a8;
+        }
+
+        .su-inline-input {
+          width: 100%;
+          min-width: 0;
+          border: 3px solid #111;
+          background: #fff;
+          color: #111;
+          font: inherit;
+          font-weight: inherit;
+          letter-spacing: inherit;
+          padding: 4px 6px;
+          box-sizing: border-box;
         }
 
         .su-sub,
@@ -739,7 +833,9 @@ export default function SearchUpdatePage() {
                     role="button"
                     tabIndex={0}
                     onKeyDown={(e) => {
-                      if (e.key === "Enter" || e.key === " ") openBarcodeHistory(getBarcode(b));
+                      if (e.key === "Enter" || e.key === " ") {
+                        openBarcodeHistory(getBarcode(b));
+                      }
                     }}
                   >
                     <span className="su-text">
@@ -749,11 +845,28 @@ export default function SearchUpdatePage() {
                   </div>
 
                   <div className="su-cell su-author" title={getAuthor(b)}>
-                    <span className="su-text">{getAuthorAbbr(b)}</span>
+                    <span className="su-text">
+                      <InlineEditable
+                        value={
+                          b?.author_lastname ??
+                          b?.author_last_name ??
+                          b?.last_name ??
+                          ""
+                        }
+                        disabled={isBusy}
+                        onSave={(val) => saveInlineField(b, "author_lastname", val)}
+                      />
+                    </span>
                   </div>
 
                   <div className="su-cell su-title" title={b?.title_display || getKeyword(b)}>
-                    <span className="su-text">{getKeyword(b)}</span>
+                    <span className="su-text">
+                      <InlineEditable
+                        value={b?.title_display ?? ""}
+                        disabled={isBusy}
+                        onSave={(val) => saveInlineField(b, "title_display", val)}
+                      />
+                    </span>
                   </div>
 
                   <div className="su-cell su-pages">
