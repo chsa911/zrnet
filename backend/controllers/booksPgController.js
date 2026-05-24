@@ -982,7 +982,13 @@ place_of_birth = COALESCE($9, place_of_birth)
             b.title_keyword3 ILIKE ${p} OR
             b.isbn10 ILIKE ${p} OR
             b.isbn13 ILIKE ${p} OR
-            bb.barcode ILIKE ${p}
+            bb.barcode ILIKE ${p} OR
+EXISTS (
+  SELECT 1
+  FROM public.barcode_assignments ba_hist
+  WHERE ba_hist.book_id = b.id
+    AND ba_hist.barcode ILIKE ${p}
+)
           )`
         );
       }
