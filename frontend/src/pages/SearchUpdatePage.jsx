@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { listBooks, getBook, updateBook } from "../api/books";
+import { listBooks, getBook, updateBook, highlightBook } from "../api/books";
 import BookForm from "../components/BookFormSwitcher";
 
 const getBarcode = (b) => b?.barcode ?? "—";
@@ -123,7 +123,7 @@ export default function SearchUpdatePage() {
   const [editingBook, setEditingBook] = useState(null);
   const [barcodeHistory, setBarcodeHistory] = useState(null);
   const [refreshTick, setRefreshTick] = useState(0);
-
+const [highlighted, setHighlighted] = useState({});
   const debounceRef = useRef(null);
 
   const totalPages = useMemo(
@@ -137,6 +137,35 @@ export default function SearchUpdatePage() {
   const idOf = (b) => b?._id || b?.id || "";
   const statusOf = (b) => String(b?.reading_status || "").toLowerCase();
 
+  async function handleHighlight(book, type) {
+  const id = idOf(book);
+  if (!id) return alert("Kein Datensatz-ID gefunden.");
+
+  const now = new Date().toISOString();
+
+  setUpdatingOn(id, true);
+
+  try {
+    await highlightBook(id, type);
+
+    setHighlighted((prev) => ({
+      ...prev,
+      [id]: type,
+    }));
+
+    patchRow(id, {
+      updated_at: now,
+      last_action_at: now,
+    });
+
+    setRefreshTick((v) => v + 1);
+  } catch (e) {
+    alert(e?.message || "Highlight failed");
+  } finally {
+    setUpdatingOn(id, false);
+  }
+}
+  
   function searchPatch(value) {
     const trimmed = value.trim();
     const isPages = /^\d+$/.test(trimmed);
@@ -390,7 +419,7 @@ const nextValue = value.trim();
         .su-book-row,
         .su-header-row {
           display: grid;
-          grid-template-columns: 105px 120px minmax(0, 1fr) 76px 70px 70px 44px 44px 44px 44px;
+          grid-template-columns: 105px 120px minmax(0, 1fr) 76px 70px 70px 44px 44px 44px 44px 44px 44px;
           align-items: stretch;
         }
 
@@ -469,7 +498,7 @@ const nextValue = value.trim();
         }
 
         .su-cell--filters {
-          grid-column: 4 / 11;
+          grid-column: 4 / 13;
           display: flex;
           align-items: center;
           gap: 10px;
@@ -656,7 +685,15 @@ const nextValue = value.trim();
           background: #f9a825;
           color: #fff;
         }
+.su-action--highlight-finished.is-highlighted {
+  background: #2e7d32;
+  color: #fff;
+}
 
+.su-action--highlight-received.is-highlighted {
+  background: #1565c0;
+  color: #fff;
+}
         .su-action--edit {
           font-size: 22px;
         }
@@ -771,7 +808,7 @@ const nextValue = value.trim();
           .su-search-row,
           .su-book-row,
           .su-header-row {
-            grid-template-columns: 100px 100px minmax(0, 1fr) 70px 64px 64px 40px 40px 40px 40px;
+            grid-template-columns: 100px 100px minmax(0, 1fr) 70px 64px 64px 40px 40px 40px 40px 40px 40px;
           }
 
           .su-action {
@@ -785,7 +822,7 @@ const nextValue = value.trim();
           .su-search-row,
           .su-book-row,
           .su-header-row {
-            grid-template-columns: 120px 64px minmax(0, 1fr) 40px 40px 40px 40px;
+            grid-template-columns: 120px 64px minmax(0, 1fr) 40px 40px 40px 40px 40px 40px;
           }
 
           .su-cell--search,
@@ -814,7 +851,7 @@ const nextValue = value.trim();
           .su-search-row,
           .su-book-row,
           .su-header-row {
-            grid-template-columns: 92px minmax(0, 1fr) 34px 34px 34px 34px;
+            grid-template-columns: 92px minmax(0, 1fr) 34px 34px 34px 34px 34px 34px;
           }
 
           .su-header-row .su-head:nth-child(2),
@@ -926,6 +963,8 @@ const nextValue = value.trim();
           <div className="su-head" title="Abandoned">✕</div>
           <div className="su-head" title="Finished">✓</div>
           <div className="su-head" title="Top Book">★</div>
+          <div className="su-head" title="Highlight Finished">HF</div>
+          <div className="su-head" title="Highlight Received">HR</div>
           <div className="su-head" title="Edit">✎</div>
         </div>
 
@@ -1075,6 +1114,28 @@ const nextValue = value.trim();
                     ★
                   </button>
 
+                  <button
+  disabled={isBusy}
+  onClick={() => handleHighlight(b, "finished")}
+  className={`su-action su-action--highlight-finished ${
+    highlighted[id] === "finished" ? "is-highlighted" : ""
+  }`}
+  title="Highlight as finished on homepage"
+  type="button"
+>
+  HF
+</button>
+         <button
+  disabled={isBusy}
+  onClick={() => handleHighlight(b, "received")}
+  className={`su-action su-action--highlight-received ${
+    highlighted[id] === "received" ? "is-highlighted" : ""
+  }`}
+  title="Highlight as received on homepage"
+  type="button"
+>
+  HR
+</button>
                   <button
                     disabled={isBusy}
                     onClick={() => openEditor(b)}

@@ -106,6 +106,22 @@ export async function updateBook(id, payload, { signal } = {}) {
   });
 }
 
+export async function highlightBook(bookId, presentedAs, { signal } = {}) {
+  if (!bookId) throw new Error("Missing book id");
+  if (!["finished", "received"].includes(presentedAs)) {
+    throw new Error("Invalid highlight type");
+  }
+
+  return http(`/books/highlights`, {
+    method: "POST",
+    json: {
+      book_id: bookId,
+      presented_as: presentedAs,
+    },
+    signal,
+  });
+}
+
 export async function deleteBook(id, { signal } = {}) {
   if (!id) throw new Error("Missing book id");
   return http(`/books/${encodeURIComponent(id)}`, {
@@ -220,22 +236,4 @@ export async function listMostReadAuthors({ limit = 50, signal } = {}) {
   const qs = qsFromObject({ limit });
   const data = await http(`/public/books/most-read-authors?${qs}`, { signal });
   return Array.isArray(data) ? data : [];
-}
-export async function highlightBook(bookId, presentedAs) {
-  const res = await fetch("/api/books/highlights", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      book_id: bookId,
-      presented_as: presentedAs,
-    }),
-  });
-
-  if (!res.ok) {
-    throw new Error("Highlight failed");
-  }
-
-  return res.json();
 }
