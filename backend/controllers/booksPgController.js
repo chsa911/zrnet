@@ -289,6 +289,15 @@ function makeTitleKeyword(title) {
       reading_status: row.reading_status ?? null,
       reading_status_updated_at: row.reading_status_updated_at ?? null,
       registered_at: row.registered_at ?? null,
+      added_at: row.added_at ?? null,
+      updated_at: row.updated_at ?? null,
+      last_action_at:
+        row.last_action_at ??
+        row.updated_at ??
+        row.reading_status_updated_at ??
+        row.registered_at ??
+        row.added_at ??
+        null,
 
       home_featured_slot: row.home_featured_slot ?? null,
       homeFeaturedSlot: row.home_featured_slot ?? null,
@@ -919,30 +928,27 @@ place_of_birth = COALESCE($9, place_of_birth)
   }
 
   /* --------------------------------- list ----------------------------------- */
-function mapSort(sortByRaw) {
-  const sortBy = String(sortByRaw || "").trim();
 
-  const lastActionExpr = `GREATEST(
-    COALESCE(b.reading_status_updated_at, '-infinity'::timestamptz),
-    COALESCE(b.registered_at, '-infinity'::timestamptz),
-    COALESCE(b.added_at, '-infinity'::timestamptz),
-    COALESCE(b.updated_at, '-infinity'::timestamptz)
-  )`;
-
-  const map = {
-    last_action_at: lastActionExpr,
-    registered_at: "b.registered_at",
-    author_name_display: AUTHOR_SORT_EXPR,
-    publisher_name_display: PUBLISHER_SORT_EXPR,
-    title_keyword: "b.title_keyword",
-    reading_status_updated_at: "COALESCE(b.reading_status_updated_at, b.registered_at)",
-    added_at: "b.added_at",
-    updated_at: "b.updated_at",
-    pages: "b.pages",
-  };
-
-  return map[sortBy] || lastActionExpr;
-}
+  function mapSort(sortByRaw) {
+    const sortBy = String(sortByRaw || "").trim();
+    const map = {
+      registered_at: "b.registered_at",
+      author_name_display: AUTHOR_SORT_EXPR,
+      publisher_name_display: PUBLISHER_SORT_EXPR,
+      title_keyword: "b.title_keyword",
+      reading_status_updated_at: "COALESCE(b.reading_status_updated_at, b.registered_at)",
+      last_action_at: `GREATEST(
+        COALESCE(b.updated_at, '-infinity'::timestamptz),
+        COALESCE(b.reading_status_updated_at, '-infinity'::timestamptz),
+        COALESCE(b.registered_at, '-infinity'::timestamptz),
+        COALESCE(b.added_at, '-infinity'::timestamptz)
+      )`,
+      updated_at: "b.updated_at",
+      added_at: "b.added_at",
+      pages: "b.pages",
+    };
+    return map[sortBy] || map.last_action_at;
+  }
 
   async function listBooks(req, res) {
     try {
@@ -954,7 +960,7 @@ function mapSort(sortByRaw) {
 
       const order =
         String(req.query.order || req.query.sortDir || "desc").toLowerCase() === "asc" ? "ASC" : "DESC";
-      const sortCol = mapSort(req.query.sortBy || req.query.sort || "last_action_at");
+      const sortCol = mapSort(req.query.sortBy || req.query.sort);
 
       const where = [];
       const params = [];
@@ -1697,6 +1703,10 @@ if (authorId) {
         ? normalizeHomeFeaturedSlot(body.home_featured_slot ?? body.homeFeaturedSlot)
         : undefined;
 
+      if (cols.has("updated_at")) {
+        updates.updated_at = new Date().toISOString();
+      }
+
       const setObj = pickKnownColumns(cols, updates);
       const keys = Object.keys(setObj).filter((k) => setObj[k] !== undefined);
       if (keys.length) {
@@ -2174,6 +2184,23 @@ if (authorId) {
       const nextHomeFeaturedSlot = hasHomeFeaturedSlot
         ? normalizeHomeFeaturedSlot(patch.home_featured_slot ?? patch.homeFeaturedSlot)
         : undefined;
+
+      const nonUpdatedAtKeys = Object.keys(updates).filter(
+        (k) =>
+          updates[k] !== undefined &&
+          ![
+            "reading_status",
+            "reading_status_updated_at",
+            "registered_at",
+            "added_at",
+            "updated_at",
+            "top_book_set_at",
+          ].includes(k)
+      );
+
+      if (cols.has("updated_at") && (nonUpdatedAtKeys.length > 0 || hasHomeFeaturedSlot)) {
+        updates.updated_at = new Date().toISOString();
+      }
 
       const setObj = pickKnownColumns(cols, updates);
       const keys = Object.keys(setObj).filter((k) => setObj[k] !== undefined);

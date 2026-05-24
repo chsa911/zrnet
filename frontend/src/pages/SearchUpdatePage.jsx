@@ -19,14 +19,32 @@ const getKeyword = (b) => b?.title_keyword ?? b?.keyword ?? b?.title ?? "—";
 const getPages = (b) =>
   b?.pages ?? b?.pages === 0 ? b.pages : "—";
 
-const fmtDate = (v) => (v ? new Date(v).toLocaleDateString() : "—");
+  const fmtDate = (v) => {
+  if (!v) return "—";
 
+  const d = new Date(v);
+
+  return (
+    <>
+      {d.toLocaleDateString("de-DE", {
+        day: "2-digit",
+        month: "2-digit",
+        year: "2-digit",
+      })}
+      <br />
+      {d.toLocaleTimeString("de-DE", {
+        hour: "2-digit",
+        minute: "2-digit",
+      })}
+    </>
+  );
+};
 export default function SearchUpdatePage() {
   const [q, setQ] = useState({
     q: "",
     page: 1,
     limit: 20,
-    sortBy: "registered_at",
+    sortBy: "last_action_at",
     order: "desc",
     status: "",
   });
@@ -54,6 +72,17 @@ export default function SearchUpdatePage() {
   const idOf = (b) => b?._id || b?.id || "";
   const statusOf = (b) => String(b?.reading_status || "").toLowerCase();
 
+  function searchPatch(value) {
+    const trimmed = value.trim();
+    const isPages = /^\d+$/.test(trimmed);
+
+    return {
+      q: isPages ? "" : trimmed,
+      pages: isPages ? Number(trimmed) : undefined,
+      page: 1,
+    };
+  }
+
   function setQuery(patch) {
     setQ((prev) => ({ ...prev, ...patch }));
   }
@@ -79,7 +108,7 @@ export default function SearchUpdatePage() {
     if (debounceRef.current) clearTimeout(debounceRef.current);
 
     debounceRef.current = setTimeout(() => {
-      setQ((prev) => ({ ...prev, q: searchText, page: 1 }));
+      setQ((prev) => ({ ...prev, ...searchPatch(searchText) }));
     }, 250);
 
     return () => {
@@ -122,7 +151,7 @@ export default function SearchUpdatePage() {
     return () => {
       cancelled = true;
     };
-  }, [q.page, q.limit, q.sortBy, q.order, q.q, q.status, refreshTick]);
+  }, [q.page, q.limit, q.sortBy, q.order, q.q, q.pages, q.status, refreshTick]);
 
   async function setStatus(b, nextStatus) {
     const id = idOf(b);
@@ -132,9 +161,12 @@ export default function SearchUpdatePage() {
     setUpdatingOn(id, true);
 
     try {
+      const now = new Date().toISOString();
+
       patchRow(id, {
         reading_status: nextStatus,
-        reading_status_updated_at: new Date().toISOString(),
+        reading_status_updated_at: now,
+        last_action_at: now,
       });
 
       await updateBook(id, { reading_status: nextStatus });
@@ -487,13 +519,12 @@ export default function SearchUpdatePage() {
         }
       `}</style>
 
-      
       <div className="su-grid">
         <form
           className="su-search-row"
           onSubmit={(e) => {
             e.preventDefault();
-            setQ((prev) => ({ ...prev, q: searchText, page: 1 }));
+            setQ((prev) => ({ ...prev, ...searchPatch(searchText) }));
           }}
         >
           <div className="su-cell su-cell--search">
@@ -513,6 +544,7 @@ export default function SearchUpdatePage() {
               onChange={(e) => setQuery({ sortBy: e.target.value, page: 1 })}
               aria-label="Sortieren"
             >
+              <option value="last_action_at">Letzte Aktion</option>
               <option value="registered_at">Registriert</option>
               <option value="author_name_display">Autor</option>
               <option value="reading_status_updated_at">Status</option>
@@ -528,7 +560,7 @@ export default function SearchUpdatePage() {
                   setQuery({
                     status: v,
                     page: 1,
-                    sortBy: "reading_status_updated_at",
+                    sortBy: "last_action_at",
                     order: "desc",
                   });
                 } else {
@@ -685,12 +717,24 @@ export default function SearchUpdatePage() {
             submitLabel="Speichern"
             onCancel={closeEditor}
             onSuccess={({ payload, saved }) => {
-              const patch = saved && typeof saved === "object" ? saved : payload;
+              const now = new Date().toISOString();
+              const patch =
+                saved && typeof saved === "object"
+                  ? {
+                      ...saved,
+                      updated_at: saved.updated_at || now,
+                      last_action_at: saved.last_action_at || now,
+                    }
+                  : {
+                      ...(payload || {}),
+                      updated_at: now,
+                      last_action_at: now,
+                    };
               const currentId = idOf(editingBook);
 
               patchRow(currentId, patch);
               closeEditor();
-              setRefreshTick((  ) => n + 1);
+              setRefreshTick((n) => n + 1);
             }}
           />
         </div>
