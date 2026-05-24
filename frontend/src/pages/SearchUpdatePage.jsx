@@ -8,18 +8,21 @@ const getAuthor = (b) =>
   b?.name_display ?? b?.author_name_display ?? b?.author_name ?? "—";
 
 const getAuthorAbbr = (b) =>
-  b?.author_abbreviation ??
-  b?.author_abbr ??
-  b?.author_code ??
-  b?.author_short ??
-  getAuthor(b);
+  b?.author_lastname ??
+  b?.author_last_name ??
+  b?.last_name ??
+  "—";
+  
+const getKeyword = (b) =>
+  b?.title_display ??
+  b?.title_keyword ??
+  b?.keyword ??
+  b?.title ??
+  "—";  
 
-const getKeyword = (b) => b?.title_keyword ?? b?.keyword ?? b?.title ?? "—";
+const getPages = (b) => (b?.pages ?? b?.pages === 0 ? b.pages : "—");
 
-const getPages = (b) =>
-  b?.pages ?? b?.pages === 0 ? b.pages : "—";
-
-  const fmtDate = (v) => {
+const fmtDate = (v) => {
   if (!v) return "—";
 
   const d = new Date(v);
@@ -39,6 +42,7 @@ const getPages = (b) =>
     </>
   );
 };
+
 export default function SearchUpdatePage() {
   const [q, setQ] = useState({
     q: "",
@@ -57,6 +61,7 @@ export default function SearchUpdatePage() {
   const [err, setErr] = useState("");
   const [updating, setUpdating] = useState(() => new Set());
   const [editingBook, setEditingBook] = useState(null);
+  const [barcodeHistory, setBarcodeHistory] = useState(null);
   const [refreshTick, setRefreshTick] = useState(0);
 
   const debounceRef = useRef(null);
@@ -177,39 +182,57 @@ export default function SearchUpdatePage() {
       setUpdatingOn(id, false);
     }
   }
-async function setTopBook(b) {
-  const id = idOf(b);
-  if (!id) return alert("Kein Datensatz-ID gefunden.");
 
-  const oldTopBook = !!b?.top_book;
-  const oldTopBookSetAt = b?.top_book_set_at ?? null;
+  async function setTopBook(b) {
+    const id = idOf(b);
+    if (!id) return alert("Kein Datensatz-ID gefunden.");
 
-  const nextTopBook = !oldTopBook;
-  const now = new Date().toISOString();
+    const oldTopBook = !!b?.top_book;
+    const oldTopBookSetAt = b?.top_book_set_at ?? null;
 
-  setUpdatingOn(id, true);
+    const nextTopBook = !oldTopBook;
+    const now = new Date().toISOString();
 
-  try {
-    patchRow(id, {
-      top_book: nextTopBook,
-      top_book_set_at: nextTopBook ? now : null,
-      last_action_at: now,
-    });
+    setUpdatingOn(id, true);
 
-    await updateBook(id, {
-      top_book: nextTopBook,
-      top_book_set_at: nextTopBook ? now : null,
-    });
-  } catch (e) {
-    patchRow(id, {
-      top_book: oldTopBook,
-      top_book_set_at: oldTopBookSetAt,
-    });
-    alert(e?.message || "Update TopBook fehlgeschlagen");
-  } finally {
-    setUpdatingOn(id, false);
+    try {
+      patchRow(id, {
+        top_book: nextTopBook,
+        top_book_set_at: nextTopBook ? now : null,
+        last_action_at: now,
+      });
+
+      await updateBook(id, {
+        top_book: nextTopBook,
+        top_book_set_at: nextTopBook ? now : null,
+      });
+    } catch (e) {
+      patchRow(id, {
+        top_book: oldTopBook,
+        top_book_set_at: oldTopBookSetAt,
+      });
+      alert(e?.message || "Update TopBook fehlgeschlagen");
+    } finally {
+      setUpdatingOn(id, false);
+    }
   }
-}
+
+  async function openBarcodeHistory(barcode) {
+    if (!barcode || barcode === "—") return;
+
+    try {
+      const res = await fetch(
+  `/api/books/barcodes/${encodeURIComponent(barcode)}/history`
+);
+      if (!res.ok) throw new Error("Barcode-History konnte nicht geladen werden");
+
+      const data = await res.json();
+      setBarcodeHistory({ barcode, items: data?.items || data || [] });
+    } catch (e) {
+      alert(e?.message || "Barcode-History fehlgeschlagen");
+    }
+  }
+
   async function openEditor(b) {
     const id = idOf(b);
     if (!id) return alert("Kein Datensatz-ID gefunden.");
@@ -383,6 +406,19 @@ async function setTopBook(b) {
           letter-spacing: -0.04em;
         }
 
+        .su-code--clickable {
+          cursor: pointer;
+        }
+
+        .su-code--clickable:hover {
+          background: #111;
+          color: #fff;
+        }
+
+        .su-code--clickable:hover .su-sub {
+          color: #fff;
+        }
+
         .su-author {
           color: #333;
           font-size: clamp(18px, 1.7vw, 30px);
@@ -415,7 +451,7 @@ async function setTopBook(b) {
 
         .su-action {
           height: 100%;
-          min-width: 104px;
+          min-width: 96px;
           border: 0;
           border-right: 4px solid #666;
           border-radius: 0;
@@ -430,6 +466,11 @@ async function setTopBook(b) {
           align-items: center;
           justify-content: center;
           gap: 6px;
+        }
+
+        .su-action--abandoned {
+          min-width: 102px;
+          font-size: 17px;
         }
 
         .su-action:last-child {
@@ -507,6 +548,45 @@ async function setTopBook(b) {
           border: 4px solid #666;
           padding: 18px;
           background: #fff;
+        }
+
+        .su-history-head {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 16px;
+          margin-bottom: 14px;
+        }
+
+        .su-history-title {
+          margin: 0;
+          font-size: 24px;
+          font-weight: 850;
+        }
+
+        .su-history-close {
+          border: 3px solid #666;
+          background: #fff;
+          color: #111;
+          font-size: 16px;
+          font-weight: 850;
+          padding: 8px 12px;
+          cursor: pointer;
+        }
+
+        .su-history-row {
+          border-top: 3px solid #666;
+          padding: 10px 0;
+          font-size: 18px;
+          font-weight: 750;
+        }
+
+        .su-history-sub {
+          display: block;
+          margin-top: 4px;
+          color: #777;
+          font-size: 13px;
+          font-weight: 700;
         }
 
         @media (max-width: 980px) {
@@ -652,7 +732,16 @@ async function setTopBook(b) {
                   }`}
                   key={id}
                 >
-                  <div className="su-cell su-code">
+                  <div
+                    className="su-cell su-code su-code--clickable"
+                    onClick={() => openBarcodeHistory(getBarcode(b))}
+                    title="Barcode-History anzeigen"
+                    role="button"
+                    tabIndex={0}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") openBarcodeHistory(getBarcode(b));
+                    }}
+                  >
                     <span className="su-text">
                       {getBarcode(b)}
                       <span className="su-sub">{fmtDate(b.registered_at)}</span>
@@ -663,7 +752,7 @@ async function setTopBook(b) {
                     <span className="su-text">{getAuthorAbbr(b)}</span>
                   </div>
 
-                  <div className="su-cell su-title">
+                  <div className="su-cell su-title" title={b?.title_display || getKeyword(b)}>
                     <span className="su-text">{getKeyword(b)}</span>
                   </div>
 
@@ -678,10 +767,10 @@ async function setTopBook(b) {
                     <button
                       disabled={isBusy}
                       onClick={() => setStatus(b, "abandoned")}
-                      className={`su-action ${isAbandoned ? "is-active" : ""}`}
+                      className={`su-action su-action--abandoned ${isAbandoned ? "is-active" : ""}`}
                       type="button"
                     >
-                      Abandoned
+                      Aban.
                       <span className="su-action-sub">
                         {isAbandoned ? fmtDate(b.reading_status_updated_at) : "—"}
                       </span>
@@ -693,22 +782,24 @@ async function setTopBook(b) {
                       className={`su-action ${isFinished ? "is-active" : ""}`}
                       type="button"
                     >
-                      Finished
+                      Fin.
                       <span className="su-action-sub">
                         {isFinished ? fmtDate(b.reading_status_updated_at) : "—"}
                       </span>
                     </button>
-<button
-  disabled={isBusy}
-  onClick={() => setTopBook(b)}
-  className={`su-action ${b?.top_book ? "is-active" : ""}`}
-  type="button"
->
-  TopBook
-  <span className="su-action-sub">
-    {b?.top_book ? fmtDate(b.top_book_set_at) : "—"}
-  </span>
-</button>
+
+                    <button
+                      disabled={isBusy}
+                      onClick={() => setTopBook(b)}
+                      className={`su-action ${b?.top_book ? "is-active" : ""}`}
+                      type="button"
+                    >
+                      Top
+                      <span className="su-action-sub">
+                        {b?.top_book ? fmtDate(b.top_book_set_at) : "—"}
+                      </span>
+                    </button>
+
                     <button
                       disabled={isBusy}
                       onClick={() => openEditor(b)}
@@ -746,6 +837,38 @@ async function setTopBook(b) {
           Weiter →
         </button>
       </div>
+
+      {barcodeHistory ? (
+        <div className="su-editor">
+          <div className="su-history-head">
+            <h3 className="su-history-title">Barcode-History: {barcodeHistory.barcode}</h3>
+            <button
+              type="button"
+              className="su-history-close"
+              onClick={() => setBarcodeHistory(null)}
+            >
+              Schließen
+            </button>
+          </div>
+
+          {barcodeHistory.items.length ? (
+            barcodeHistory.items.map((h, i) => (
+              <div className="su-history-row" key={h.id || h.book_id || i}>
+                {h.title_display || h.title_keyword || h.book_title || h.book_id || "—"}
+                <span className="su-history-sub">
+                  {h.reading_status ? `${h.reading_status} · ` : ""}
+                  {h.assigned_at ? "assigned " : ""}
+                  {h.assigned_at ? fmtDate(h.assigned_at) : null}
+                  {h.freed_at ? " · freed " : ""}
+                  {h.freed_at ? fmtDate(h.freed_at) : null}
+                </span>
+              </div>
+            ))
+          ) : (
+            <div className="su-history-row">Keine History gefunden.</div>
+          )}
+        </div>
+      ) : null}
 
       {editingBook ? (
         <div id="edit-book-form" className="su-editor">

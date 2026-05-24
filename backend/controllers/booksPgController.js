@@ -2350,7 +2350,57 @@ if (authorId) {
       client.release();
     }
   }
+async function getBarcodeHistory(req, res) {
+  try {
+    const pool = getPool(req);
+    const barcode = String(req.params.barcode || "").trim();
 
+    if (!barcode) {
+      return res.status(400).json({ error: "missing_barcode" });
+    }
+
+    const { rows } = await pool.query(
+      `
+      SELECT
+        ba.barcode,
+        ba.book_id::text AS book_id,
+        ba.assigned_at,
+        ba.freed_at,
+
+        b.title_display,
+        b.title_keyword,
+        b.pages,
+        b.reading_status,
+        b.reading_status_updated_at,
+
+        a.name_display AS author_name_display,
+        a.last_name AS author_lastname,
+        a.abbr AS author_abbreviation
+
+      FROM public.barcode_assignments ba
+      LEFT JOIN public.books b
+        ON b.id = ba.book_id
+      LEFT JOIN public.authors a
+        ON a.id = b.author_id
+
+      WHERE lower(ba.barcode) = lower($1)
+
+      ORDER BY
+        ba.assigned_at DESC NULLS LAST,
+        ba.freed_at DESC NULLS LAST
+      `,
+      [barcode]
+    );
+
+    return res.json({
+      barcode,
+      items: rows,
+    });
+  } catch (err) {
+    console.error("getBarcodeHistory error", err);
+    return res.status(500).json({ error: "internal_error" });
+  }
+}
   module.exports = {
     listBooks,
     getBook,
@@ -2359,4 +2409,5 @@ if (authorId) {
     registerExistingBook,
     updateBook,
     dropBook,
+    getBarcodeHistory,    
   };

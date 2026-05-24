@@ -8,6 +8,7 @@ const {
   registerBook,
   updateBook,
   dropBook,
+  getBarcodeHistory,
 } = require("../controllers/booksPgController");
 
 // List + search
@@ -16,6 +17,9 @@ router.get("/list", listBooks);
 
 // Autocomplete
 router.get("/autocomplete", autocomplete);
+
+// Barcode history
+router.get("/barcodes/:barcode/history", getBarcodeHistory);
 
 // Read one
 router.get("/:id", getBook);
