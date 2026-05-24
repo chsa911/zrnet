@@ -235,6 +235,7 @@ function makeTitleKeyword(title) {
   }
 
   function rowToApi(row) {
+    
     if (!row) return null;
 
     const widthCm = row.width != null ? row.width / 10 : null;
@@ -266,7 +267,18 @@ function makeTitleKeyword(title) {
       male_female: row.male_female ?? null,
       published_titles: row.published_titles ?? null,
       number_of_millionsellers: row.number_of_millionsellers ?? null,
+genre_id: row.genre_id ?? null,
+sub_genre_id: row.sub_genre_id ?? null,
 
+genre_name: row.genre_name ?? null,
+subgenre_name: row.subgenre_name ?? null,
+
+genre_abbr: row.genre_abbr ?? row.genre ?? null,
+subgenre_abbr: row.subgenre_abbr ?? row.sub_genre ?? null,
+sub_genre_abbr: row.subgenre_abbr ?? row.sub_genre ?? null,
+
+genre: row.genre_abbr ?? row.genre ?? null,
+sub: row.subgenre_abbr ?? row.sub_genre ?? null,
       publisher_id: row.publisher_id ?? null,
       publisher_name: publisherName,
       publisher_name_display: publisherNameDisplay,
@@ -913,11 +925,17 @@ place_of_birth = COALESCE($9, place_of_birth)
       SELECT
         b.*, 
         bb.barcode,
-        ${AUTHOR_RESOLVE_SELECT_SQL},
+        g.abbr AS genre_abbr,
+sg.abbr AS subgenre_abbr,
+g.genre_display AS genre_name,
+sg.name AS subgenre_name,
+${AUTHOR_RESOLVE_SELECT_SQL},
         ${PUBLISHER_RESOLVE_SELECT_SQL}
       FROM public.books b
       ${AUTHOR_RESOLVE_JOIN_SQL}
       ${PUBLISHER_RESOLVE_JOIN_SQL}
+      LEFT JOIN public.genres g ON g.id = b.genre_id
+LEFT JOIN public.sub_genres sg ON sg.id = b.sub_genre_id
       LEFT JOIN LATERAL (
         SELECT barcode FROM public.book_barcodes bb WHERE bb.book_id = b.id LIMIT 1
       ) bb ON true
@@ -936,7 +954,9 @@ place_of_birth = COALESCE($9, place_of_birth)
       registered_at: "b.registered_at",
       author_name_display: AUTHOR_SORT_EXPR,
       publisher_name_display: PUBLISHER_SORT_EXPR,
-      title_keyword: "b.title_keyword",
+      genre_abbr: "g.abbr",
+subgenre_abbr: "sg.abbr",
+title_keyword: "b.title_keyword",
       reading_status_updated_at: "COALESCE(b.reading_status_updated_at, b.registered_at)",
       last_action_at: `GREATEST(
         COALESCE(b.updated_at, '-infinity'::timestamptz),
@@ -952,146 +972,157 @@ place_of_birth = COALESCE($9, place_of_birth)
   }
 
   async function listBooks(req, res) {
-    try {
-      const pool = getPool(req);
+  try {
+    const pool = getPool(req);
 
-      const page = clampInt(req.query.page, 1, 1, 500000);
-      const limit = clampInt(req.query.limit, 50, 1, 500); // ✅ allow bigger result set for dropdown
-      const offset = (page - 1) * limit;
+    const page = clampInt(req.query.page, 1, 1, 500000);
+    const limit = clampInt(req.query.limit, 50, 1, 500);
+    const offset = (page - 1) * limit;
 
-      const order =
-        String(req.query.order || req.query.sortDir || "desc").toLowerCase() === "asc" ? "ASC" : "DESC";
-      const sortCol = mapSort(req.query.sortBy || req.query.sort);
+    const order =
+      String(req.query.order || req.query.sortDir || "desc").toLowerCase() === "asc"
+        ? "ASC"
+        : "DESC";
 
-      const where = [];
-      const params = [];
+    const sortCol = mapSort(req.query.sortBy || req.query.sort);
 
-      // q (freitext)
-      const q = normalizeStr(req.query.q);
-      if (q) {
-        params.push(`%${q}%`);
-        const p = `$${params.length}`;
-        where.push(
-          `(
-            b.title_display ILIKE ${p} OR
-            ${AUTHOR_SORT_EXPR} ILIKE ${p} OR
-            ${PUBLISHER_SORT_EXPR} ILIKE ${p} OR
-            p.abbr ILIKE ${p} OR
-            b.title_keyword ILIKE ${p} OR
-            b.title_keyword2 ILIKE ${p} OR
-            b.title_keyword3 ILIKE ${p} OR
-            b.isbn10 ILIKE ${p} OR
-            b.isbn13 ILIKE ${p} OR
-            bb.barcode ILIKE ${p} OR
-EXISTS (
-  SELECT 1
-  FROM public.barcode_assignments ba_hist
-  WHERE ba_hist.book_id = b.id
-    AND ba_hist.barcode ILIKE ${p}
-)
-          )`
-        );
-      }
-const authorId = normalizeUuid(req.query.author_id ?? req.query.authorId);
+    const where = [];
+    const params = [];
 
-if (authorId) {
-  params.push(authorId);
-  where.push(`b.author_id = $${params.length}::uuid`);
-}
-      // ✅ pages exakt (unabhängig von q)
-      const pagesEq = normalizeInt(req.query.pages ?? req.query.BSeiten);
-      if (pagesEq !== null) {
-        params.push(pagesEq);
-        where.push(`b.pages = $${params.length}`);
-      }
+    const q = normalizeStr(req.query.q);
+    if (q) {
+      params.push(`%${q}%`);
+      const p = `$${params.length}`;
 
-      // status filter (supports single value or CSV like "finished,abandoned")
-      const statusRaw = normalizeStr(req.query.status || req.query.reading_status);
-      if (statusRaw) {
-        const parts = String(statusRaw)
-          .split(",")
-          .map((s) => mapReadingStatus(String(s || "").trim()))
-          .filter(Boolean);
-
-        const uniq = Array.from(new Set(parts));
-
-        if (uniq.length === 1) {
-          params.push(uniq[0]);
-          where.push(`b.reading_status = $${params.length}`);
-        } else if (uniq.length > 1) {
-          params.push(uniq);
-          where.push(`b.reading_status = ANY($${params.length}::text[])`);
-        }
-      }
-
-      const topOnly = normalizeBool(req.query.topOnly ?? req.query.top);
-      if (topOnly === true) {
-        where.push(`b.top_book = true`);
-      }
-
-      const since = normalizeStr(req.query.since);
-      if (since) {
-        params.push(since);
-        where.push(`b.registered_at >= $${params.length}::date`);
-      }
-
-      // ✅ theme filter (CSV field b.themes, exact token match like "mt.")
-      const theme = normalizeStr(req.query.theme);
-      if (theme) {
-        params.push(String(theme).toLowerCase().trim());
-        const p = `$${params.length}`;
-        where.push(
-          `regexp_split_to_array(lower(coalesce(b.themes,'')), '\\s*,\\s*') @> ARRAY[${p}]`
-        );
-      }
-
-      const whereSql = where.length ? `WHERE ${where.join(" AND ")}` : "";
-
-      const countRes = await pool.query(
-        `
-        SELECT count(*)::int AS total
-        FROM public.books b
-        ${AUTHOR_RESOLVE_JOIN_SQL}
-        ${PUBLISHER_RESOLVE_JOIN_SQL}
-        LEFT JOIN LATERAL (
-          SELECT barcode FROM public.book_barcodes bb WHERE bb.book_id = b.id LIMIT 1
-        ) bb ON true
-        ${whereSql}
-        `,
-        params
+      where.push(
+        `(
+          b.title_display ILIKE ${p} OR
+          ${AUTHOR_SORT_EXPR} ILIKE ${p} OR
+          ${PUBLISHER_SORT_EXPR} ILIKE ${p} OR
+          p.abbr ILIKE ${p} OR
+          g.abbr ILIKE ${p} OR
+          sg.abbr ILIKE ${p} OR
+          b.title_keyword ILIKE ${p} OR
+          b.title_keyword2 ILIKE ${p} OR
+          b.title_keyword3 ILIKE ${p} OR
+          b.isbn10 ILIKE ${p} OR
+          b.isbn13 ILIKE ${p} OR
+          bb.barcode ILIKE ${p} OR
+          EXISTS (
+            SELECT 1
+            FROM public.barcode_assignments ba_hist
+            WHERE ba_hist.book_id = b.id
+              AND ba_hist.barcode ILIKE ${p}
+          )
+        )`
       );
-      const total = countRes.rows[0]?.total ?? 0;
-
-      const listRes = await pool.query(
-        `
-        SELECT
-          b.*, 
-          bb.barcode,
-          ${AUTHOR_RESOLVE_SELECT_SQL},
-          ${PUBLISHER_RESOLVE_SELECT_SQL}
-        FROM public.books b
-        ${AUTHOR_RESOLVE_JOIN_SQL}
-        ${PUBLISHER_RESOLVE_JOIN_SQL}
-        LEFT JOIN LATERAL (
-          SELECT barcode FROM public.book_barcodes bb WHERE bb.book_id = b.id LIMIT 1
-        ) bb ON true
-        ${whereSql}
-        ORDER BY ${sortCol} ${order} NULLS LAST
-        LIMIT $${params.length + 1} OFFSET $${params.length + 2}
-        `,
-        [...params, limit, offset]
-      );
-
-      const items = listRes.rows.map(rowToApi);
-      const pages = Math.max(1, Math.ceil(total / limit) || 1);
-
-      return res.json({ items, data: items, total, page, limit, pages });
-    } catch (err) {
-      console.error("listBooks error", err);
-      return res.status(500).json({ error: "internal_error" });
     }
-  }
 
+    const authorId = normalizeUuid(req.query.author_id ?? req.query.authorId);
+    if (authorId) {
+      params.push(authorId);
+      where.push(`b.author_id = $${params.length}::uuid`);
+    }
+
+    const pagesEq = normalizeInt(req.query.pages ?? req.query.BSeiten);
+    if (pagesEq !== null) {
+      params.push(pagesEq);
+      where.push(`b.pages = $${params.length}`);
+    }
+
+    const statusRaw = normalizeStr(req.query.status || req.query.reading_status);
+    if (statusRaw) {
+      const parts = String(statusRaw)
+        .split(",")
+        .map((s) => mapReadingStatus(String(s || "").trim()))
+        .filter(Boolean);
+
+      const uniq = Array.from(new Set(parts));
+
+      if (uniq.length === 1) {
+        params.push(uniq[0]);
+        where.push(`b.reading_status = $${params.length}`);
+      } else if (uniq.length > 1) {
+        params.push(uniq);
+        where.push(`b.reading_status = ANY($${params.length}::text[])`);
+      }
+    }
+
+    const topOnly = normalizeBool(req.query.topOnly ?? req.query.top);
+    if (topOnly === true) {
+      where.push(`b.top_book = true`);
+    }
+
+    const since = normalizeStr(req.query.since);
+    if (since) {
+      params.push(since);
+      where.push(`b.registered_at >= $${params.length}::date`);
+    }
+
+    const theme = normalizeStr(req.query.theme);
+    if (theme) {
+      params.push(String(theme).toLowerCase().trim());
+      const p = `$${params.length}`;
+      where.push(
+        `regexp_split_to_array(lower(coalesce(b.themes,'')), '\\s*,\\s*') @> ARRAY[${p}]`
+      );
+    }
+
+    const whereSql = where.length ? `WHERE ${where.join(" AND ")}` : "";
+
+    const fromJoinSql = `
+      FROM public.books b
+      ${AUTHOR_RESOLVE_JOIN_SQL}
+      ${PUBLISHER_RESOLVE_JOIN_SQL}
+      LEFT JOIN public.genres g ON g.id = b.genre_id
+      LEFT JOIN public.sub_genres sg ON sg.id = b.sub_genre_id
+      LEFT JOIN LATERAL (
+        SELECT barcode
+        FROM public.book_barcodes bb
+        WHERE bb.book_id = b.id
+        LIMIT 1
+      ) bb ON true
+    `;
+
+    const countRes = await pool.query(
+      `
+      SELECT count(*)::int AS total
+      ${fromJoinSql}
+      ${whereSql}
+      `,
+      params
+    );
+
+    const total = countRes.rows[0]?.total ?? 0;
+
+    const listRes = await pool.query(
+      `
+      SELECT
+        b.*,
+        bb.barcode,
+       g.abbr AS genre_abbr,
+sg.abbr AS subgenre_abbr,
+g.genre_display AS genre_name,
+sg.name AS subgenre_name,
+${AUTHOR_RESOLVE_SELECT_SQL},
+        ${PUBLISHER_RESOLVE_SELECT_SQL}
+      ${fromJoinSql}
+      ${whereSql}
+      ORDER BY ${sortCol} ${order} NULLS LAST
+      LIMIT $${params.length + 1} OFFSET $${params.length + 2}
+      `,
+      [...params, limit, offset]
+    );
+
+    const items = listRes.rows.map(rowToApi);
+    const pages = Math.max(1, Math.ceil(total / limit) || 1);
+
+    return res.json({ items, data: items, total, page, limit, pages });
+  } catch (err) {
+    console.error("listBooks error", err);
+    return res.status(500).json({ error: "internal_error" });
+  }
+}
   /* ------------------------------ read one ---------------------------------- */
 
   // Return a full book record (all columns) plus UI-friendly alias fields.
@@ -1106,12 +1137,18 @@ if (authorId) {
         `
         SELECT
           b.*,
-          bb.barcode,
+          g.abbr AS genre_abbr,
+sg.abbr AS subgenre_abbr,
+g.genre_display AS genre_name,
+sg.name AS subgenre_name,
+bb.barcode,
           ${AUTHOR_RESOLVE_SELECT_SQL},
           ${PUBLISHER_RESOLVE_SELECT_SQL}
         FROM public.books b
         ${AUTHOR_RESOLVE_JOIN_SQL}
         ${PUBLISHER_RESOLVE_JOIN_SQL}
+        LEFT JOIN public.genres g ON g.id = b.genre_id
+LEFT JOIN public.sub_genres sg ON sg.id = b.sub_genre_id
         LEFT JOIN LATERAL (
           SELECT barcode FROM public.book_barcodes bb WHERE bb.book_id = b.id LIMIT 1
         ) bb ON true
@@ -1417,7 +1454,8 @@ if (authorId) {
         const bookInsert = {
           author_id: authorRow?.id ?? null,
           publisher_id: publisherRow?.id ?? null,
-
+          genre_id: normalizeInt(body.genre_id),
+sub_genre_id: normalizeInt(body.sub_genre_id),   
           title_keyword:
   normalizeStr(body.title_keyword) ||
   makeTitleKeyword(body.title_display),
@@ -1580,7 +1618,13 @@ if (authorId) {
         reading_status_updated_at: null,
         registered_at: null,
       };
+if (body.genre_id !== undefined && cols.has("genre_id")) {
+  updates.genre_id = normalizeInt(body.genre_id);
+}
 
+if (body.sub_genre_id !== undefined && cols.has("sub_genre_id")) {
+  updates.sub_genre_id = normalizeInt(body.sub_genre_id);
+}
       const authorIdRaw = normalizeUuid(body.author_id);
       const effectiveAuthorId = authorIdRaw || cur.author_id || null;
       const authorLastRaw = normalizeStr(body.author_lastname);
@@ -1824,41 +1868,50 @@ if (authorId) {
       const publisherDispRaw = normalizeStr(body.publisher_name_display);
       const publisherAbbrRaw = normalizePublisherAbbr(body.publisher_abbr);
       const publisherKeyRaw = normalizeKey(publisherDispRaw || publisherAbbrRaw);
+const updates = {
+  reading_status: "in_progress",
+  registered_at: nowIso,
+  reading_status_updated_at: null,
+};
 
-      const updates = {
-        reading_status: "in_progress",
-        registered_at: nowIso,
-        reading_status_updated_at: null,
-      };
+if (body.genre_id !== undefined && cols.has("genre_id")) {
+  updates.genre_id = normalizeInt(body.genre_id);
+}
 
-      if (
-        authorIdRaw ||
-        authorLastRaw ||
-        authorFirstRaw ||
-        authorDispRaw ||
-        authorAbbrRaw ||
-        authorPublishedTitlesRaw !== null ||
-        authorMillionsRaw !== null ||
-        authorNationalityRaw ||
-        authorPlaceOfBirthRaw ||
-        authorMaleFemaleRaw
-      ) {
-        const authorRow = await upsertAuthor(client, {
-          authorId: effectiveAuthorId,
-          key: authorDispRaw || authorLastRaw,
-          firstName: authorFirstRaw,
-          lastName: authorLastRaw,
-          nameDisplay: authorDispRaw,
-          abbreviation: authorAbbrRaw,
-          publishedTitles: authorPublishedTitlesRaw,
-          numberOfMillionSellers: authorMillionsRaw,
-          maleFemale: authorMaleFemaleRaw,
-          authorNationality: authorNationalityRaw,
-          placeOfBirth: authorPlaceOfBirthRaw,
-        });
-        if (cols.has("author_id")) updates.author_id = authorRow?.id ?? effectiveAuthorId ?? null;
-      }
+if (body.sub_genre_id !== undefined && cols.has("sub_genre_id")) {
+  updates.sub_genre_id = normalizeInt(body.sub_genre_id);
+}
 
+if (
+  authorIdRaw ||
+  authorLastRaw ||
+  authorFirstRaw ||
+  authorDispRaw ||
+  authorAbbrRaw ||
+  authorPublishedTitlesRaw !== null ||
+  authorMillionsRaw !== null ||
+  authorNationalityRaw ||
+  authorPlaceOfBirthRaw ||
+  authorMaleFemaleRaw
+) {
+  const authorRow = await upsertAuthor(client, {
+    authorId: effectiveAuthorId,
+    key: authorDispRaw || authorLastRaw,
+    firstName: authorFirstRaw,
+    lastName: authorLastRaw,
+    nameDisplay: authorDispRaw,
+    abbreviation: authorAbbrRaw,
+    publishedTitles: authorPublishedTitlesRaw,
+    numberOfMillionSellers: authorMillionsRaw,
+    maleFemale: authorMaleFemaleRaw,
+    authorNationality: authorNationalityRaw,
+    placeOfBirth: authorPlaceOfBirthRaw,
+  });
+
+  if (cols.has("author_id")) {
+    updates.author_id = authorRow?.id ?? effectiveAuthorId ?? null;
+  }
+}
       if (publisherIdRaw || publisherDispRaw || publisherAbbrRaw) {
         const publisherRow = await upsertPublisher(client, {
           publisherId: effectivePublisherId,
@@ -2030,7 +2083,70 @@ if (authorId) {
       const cur = curRes.rows[0];
 
       const updates = {};
+      if (patch.genre_id !== undefined && cols.has("genre_id")) {
+  updates.genre_id = normalizeInt(patch.genre_id);
+}
 
+if (patch.sub_genre_id !== undefined && cols.has("sub_genre_id")) {
+  updates.sub_genre_id = normalizeInt(patch.sub_genre_id);
+}
+if (patch.genre_abbr !== undefined) {
+  const genreAbbr = normalizeStr(patch.genre_abbr);
+
+  if (!genreAbbr) {
+    updates.genre_id = null;
+    updates.sub_genre_id = null;
+  } else {
+    const genreRes = await client.query(
+      `
+      SELECT id
+      FROM public.genres
+      WHERE lower(abbr) = lower($1)
+      LIMIT 1
+      `,
+      [genreAbbr]
+    );
+
+    if (!genreRes.rowCount) {
+      await client.query("ROLLBACK");
+      return res.status(400).json({ error: "unknown_genre_abbr" });
+    }
+
+    updates.genre_id = genreRes.rows[0].id;
+  }
+}
+
+if ((patch.sub_genre_abbr ?? patch.subgenre_abbr) !== undefined) {
+  const subAbbr = normalizeStr(patch.sub_genre_abbr ?? patch.subgenre_abbr);
+  if (!subAbbr) {
+    updates.sub_genre_id = null;
+  } else {
+    const subRes = await client.query(
+      `
+      SELECT sg.id, sg.genre_id
+      FROM public.sub_genres sg
+      WHERE lower(sg.abbr) = lower($1)
+        AND (
+          $2::bigint IS NULL
+          OR sg.genre_id = $2::bigint
+        )
+      LIMIT 1
+      `,
+      [subAbbr, updates.genre_id ?? null]
+    );
+
+    if (!subRes.rowCount) {
+      await client.query("ROLLBACK");
+      return res.status(400).json({ error: "unknown_subgenre_abbr" });
+    }
+
+    updates.sub_genre_id = subRes.rows[0].id;
+
+    if (updates.genre_id === undefined) {
+      updates.genre_id = subRes.rows[0].genre_id;
+    }
+  }
+}
       const isbnProvided =
         patch.isbn13 !== undefined ||
         patch.isbn10 !== undefined ||
@@ -2293,7 +2409,7 @@ if (authorId) {
   }
   /* --------------------------------- drop --------------------------------- */
 
-  async function dropBook(req, res) {
+    async function dropBook(req, res) {
     const pool = getPool(req);
     const id = String(req.params.id || "").trim();
     if (!UUID_RE.test(id)) return res.status(400).json({ error: "invalid_id" });
@@ -2302,9 +2418,11 @@ if (authorId) {
     try {
       await client.query("BEGIN");
 
-      const exists = await client.query(`SELECT id FROM public.books WHERE id = $1::uuid FOR UPDATE`, [
-        id,
-      ]);
+      const exists = await client.query(
+        `SELECT id FROM public.books WHERE id = $1::uuid FOR UPDATE`,
+        [id]
+      );
+
       if (!exists.rowCount) {
         await client.query("ROLLBACK");
         return res.status(404).json({ error: "not_found" });
@@ -2330,26 +2448,13 @@ if (authorId) {
         await client.query("ROLLBACK");
       } catch {}
 
-      if (String(e?.code) === "23503") {
-        return res.status(409).json({
-          error: "conflict_foreign_key",
-          detail: "Book is referenced by other records; cannot delete.",
-        });
-      }
-
-      if (String(e?.code) === "42501") {
-        return res.status(403).json({
-          error: "permission_denied",
-          detail: "Missing DB privileges (need DELETE on public.books).",
-        });
-      }
-
       console.error("dropBook error", e);
       return res.status(500).json({ error: "delete_failed", detail: String(e?.message || e) });
     } finally {
       client.release();
     }
   }
+
 async function getBarcodeHistory(req, res) {
   try {
     const pool = getPool(req);

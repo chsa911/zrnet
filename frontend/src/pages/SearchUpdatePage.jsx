@@ -7,13 +7,21 @@ const getBarcode = (b) => b?.barcode ?? "—";
 const getAuthor = (b) =>
   b?.name_display ?? b?.author_name_display ?? b?.author_name ?? "—";
 
-const getAuthorAbbr = (b) =>
-  b?.author_lastname ?? b?.author_last_name ?? b?.last_name ?? "—";
-
 const getKeyword = (b) =>
   b?.title_display ?? b?.title_keyword ?? b?.keyword ?? b?.title ?? "—";
 
 const getPages = (b) => (b?.pages ?? b?.pages === 0 ? b.pages : "—");
+
+const getGenreAbbr = (b) => b?.genre_abbr ?? b?.genre ?? "";
+
+const getSubgenreAbbr = (b) =>
+  b?.subgenre_abbr ?? b?.sub_genre_abbr ?? b?.sub ?? "";
+
+const getGenreTitle = (b) =>
+  b?.genre_name ?? b?.genre ?? b?.genre_abbr ?? b?.genre_code ?? "";
+
+const getSubgenreTitle = (b) =>
+  b?.subgenre_name ?? b?.subgenre ?? b?.subgenre_abbr ?? b?.subgenre_code ?? "";
 
 const fmtDate = (v) => {
   if (!v) return "—";
@@ -34,6 +42,20 @@ const fmtDate = (v) => {
       })}
     </>
   );
+};
+
+const fmtDateTitle = (v) => {
+  if (!v) return "—";
+
+  const d = new Date(v);
+
+  return d.toLocaleString("de-DE", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
 };
 
 function InlineEditable({ value, disabled, onSave }) {
@@ -200,8 +222,13 @@ export default function SearchUpdatePage() {
     const id = idOf(b);
     if (!id) return alert("Kein Datensatz-ID gefunden.");
 
-    const oldValue = b?.[field] ?? "";
-    const nextValue = value.trim();
+    const oldValue =
+  field === "genre_abbr"
+    ? getGenreAbbr(b)
+    : field === "sub_genre_abbr" || field === "subgenre_abbr"
+      ? getSubgenreAbbr(b)
+      : b?.[field] ?? "";
+const nextValue = value.trim();
 
     if (nextValue === oldValue) return;
 
@@ -211,11 +238,16 @@ export default function SearchUpdatePage() {
       const now = new Date().toISOString();
 
       patchRow(id, {
-        [field]: nextValue,
-        updated_at: now,
-        last_action_at: now,
-      });
-
+  [field]: nextValue,
+  ...(field === "subgenre_abbr"
+  ? { sub_genre_abbr: nextValue, sub: nextValue }
+  : {}),
+  ...(field === "genre_abbr"
+    ? { genre: nextValue }
+    : {}),
+  updated_at: now,
+  last_action_at: now,
+});
       await updateBook(id, { [field]: nextValue });
     } catch (e) {
       patchRow(id, { [field]: oldValue });
@@ -230,6 +262,7 @@ export default function SearchUpdatePage() {
     if (!id) return alert("Kein Datensatz-ID gefunden.");
 
     const oldStatus = b?.reading_status ?? null;
+    const oldStatusUpdatedAt = b?.reading_status_updated_at ?? null;
     setUpdatingOn(id, true);
 
     try {
@@ -243,7 +276,10 @@ export default function SearchUpdatePage() {
 
       await updateBook(id, { reading_status: nextStatus });
     } catch (e) {
-      patchRow(id, { reading_status: oldStatus });
+      patchRow(id, {
+        reading_status: oldStatus,
+        reading_status_updated_at: oldStatusUpdatedAt,
+      });
       alert(e?.message || "Update Status fehlgeschlagen");
     } finally {
       setUpdatingOn(id, false);
@@ -351,17 +387,62 @@ export default function SearchUpdatePage() {
         }
 
         .su-search-row,
-        .su-book-row {
+        .su-book-row,
+        .su-header-row {
           display: grid;
-          grid-template-columns: 105px 120px minmax(0, 1fr) 76px 390px;
+          grid-template-columns: 105px 120px minmax(0, 1fr) 76px 70px 70px 44px 44px 44px 44px;
           align-items: stretch;
-          min-height: 72px;
-          border-bottom: 4px solid #666;
         }
 
         .su-search-row {
           min-height: 86px;
           background: #f1f1f1;
+          border-bottom: 4px solid #666;
+        }
+
+        .su-header-row {
+          min-height: 34px;
+          background: #111;
+          border-bottom: 4px solid #666;
+        }
+
+        .su-book-row {
+          min-height: 72px;
+          background: #fff;
+          border-bottom: 4px solid #666;
+        }
+
+        .su-book-row:nth-child(even) {
+          background: #fafafa;
+        }
+
+        .su-book-row.is-finished {
+          background: #f4f4f4;
+        }
+
+        .su-book-row.is-abandoned {
+          background: #ededed;
+        }
+
+        .su-head {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          min-width: 0;
+          padding: 0 6px;
+          border-right: 4px solid #666;
+          color: #fff;
+          font-size: 13px;
+          font-weight: 900;
+          letter-spacing: 0;
+          line-height: 1;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+        }
+
+        .su-head:last-child {
+          border-right: 0;
         }
 
         .su-cell {
@@ -388,7 +469,7 @@ export default function SearchUpdatePage() {
         }
 
         .su-cell--filters {
-          grid-column: 4 / 6;
+          grid-column: 4 / 11;
           display: flex;
           align-items: center;
           gap: 10px;
@@ -423,22 +504,6 @@ export default function SearchUpdatePage() {
           font-weight: 700;
           padding: 0 8px;
           max-width: 150px;
-        }
-
-        .su-book-row {
-          background: #fff;
-        }
-
-        .su-book-row:nth-child(even) {
-          background: #fafafa;
-        }
-
-        .su-book-row.is-finished {
-          background: #f4f4f4;
-        }
-
-        .su-book-row.is-abandoned {
-          background: #ededed;
         }
 
         .su-text {
@@ -478,19 +543,13 @@ export default function SearchUpdatePage() {
           box-sizing: border-box;
         }
 
-        .su-sub,
-        .su-action-sub {
+        .su-sub {
           display: block;
           font-size: 13px;
           font-weight: 700;
           color: #777;
           line-height: 1;
           letter-spacing: 0;
-        }
-
-        .su-action.is-active .su-action-sub,
-        .su-action:hover .su-action-sub {
-          color: #fff;
         }
 
         .su-code {
@@ -535,46 +594,71 @@ export default function SearchUpdatePage() {
           letter-spacing: -0.035em;
         }
 
-        .su-actions {
-          display: flex;
-          align-items: center;
-          justify-content: flex-end;
-          gap: 0;
-          padding: 0;
+        .su-genre,
+        .su-subgenre {
+          justify-content: center;
+          text-align: center;
+          color: #333;
+          font-size: clamp(17px, 1.5vw, 28px);
+          font-weight: 850;
+          letter-spacing: -0.035em;
+          padding: 0 8px;
+        }
+
+        .su-genre .su-inline-edit,
+        .su-subgenre .su-inline-edit {
+          text-align: center;
         }
 
         .su-action {
+          width: 44px;
+          min-width: 44px;
           height: 100%;
-          min-width: 96px;
           border: 0;
           border-right: 4px solid #666;
           border-radius: 0;
-          background: transparent;
+          background: #fff;
           color: #111;
           cursor: pointer;
-          font-size: 18px;
-          font-weight: 850;
-          letter-spacing: -0.03em;
+          font-size: 24px;
+          font-weight: 900;
+          line-height: 1;
           display: flex;
-          flex-direction: column;
           align-items: center;
           justify-content: center;
-          gap: 6px;
-        }
-
-        .su-action--abandoned {
-          min-width: 102px;
-          font-size: 17px;
         }
 
         .su-action:last-child {
           border-right: 0;
         }
 
-        .su-action:hover,
-        .su-action.is-active {
-          background: #111;
+        .su-action:hover {
+          background: #eee;
+        }
+
+        .su-action--abandoned {
+          border-color: #111;
+          background: #fff;
+          color: #111;
+        }
+
+        .su-action--abandoned.is-active {
+          background: #e53935;
           color: #fff;
+        }
+
+        .su-action--finished.is-active {
+          background: #2e7d32;
+          color: #fff;
+        }
+
+        .su-action--top.is-active {
+          background: #f9a825;
+          color: #fff;
+        }
+
+        .su-action--edit {
+          font-size: 22px;
         }
 
         .su-action:disabled {
@@ -683,10 +767,25 @@ export default function SearchUpdatePage() {
           font-weight: 700;
         }
 
-        @media (max-width: 980px) {
+        @media (max-width: 1180px) {
           .su-search-row,
-          .su-book-row {
-            grid-template-columns: 120px 64px minmax(0, 1fr) 70px;
+          .su-book-row,
+          .su-header-row {
+            grid-template-columns: 100px 100px minmax(0, 1fr) 70px 64px 64px 40px 40px 40px 40px;
+          }
+
+          .su-action {
+            width: 40px;
+            min-width: 40px;
+            font-size: 22px;
+          }
+        }
+
+        @media (max-width: 700px) {
+          .su-search-row,
+          .su-book-row,
+          .su-header-row {
+            grid-template-columns: 120px 64px minmax(0, 1fr) 40px 40px 40px 40px;
           }
 
           .su-cell--search,
@@ -698,24 +797,35 @@ export default function SearchUpdatePage() {
             border-top: 4px solid #666;
           }
 
-          .su-actions {
-            grid-column: 1 / -1;
-            border-top: 4px solid #666;
+          .su-header-row .su-head:nth-child(4),
+          .su-book-row .su-pages {
+            display: none;
           }
 
-          .su-action {
-            flex: 1;
+          .su-header-row .su-head:nth-child(5),
+          .su-header-row .su-head:nth-child(6),
+          .su-book-row .su-genre,
+          .su-book-row .su-subgenre {
+            display: none;
           }
         }
 
         @media (max-width: 620px) {
           .su-search-row,
-          .su-book-row {
-            grid-template-columns: 92px 52px minmax(0, 1fr);
+          .su-book-row,
+          .su-header-row {
+            grid-template-columns: 92px minmax(0, 1fr) 34px 34px 34px 34px;
           }
 
-          .su-pages {
+          .su-header-row .su-head:nth-child(2),
+          .su-book-row .su-author {
             display: none;
+          }
+
+          .su-action {
+            width: 34px;
+            min-width: 34px;
+            font-size: 19px;
           }
 
           .su-filter {
@@ -755,6 +865,8 @@ export default function SearchUpdatePage() {
               <option value="author_name_display">Autor</option>
               <option value="reading_status_updated_at">Status</option>
               <option value="pages">Seiten</option>
+              <option value="genre_abbr">Genre</option>
+              <option value="subgenre_abbr">Subgenre</option>
             </select>
 
             <select
@@ -804,6 +916,19 @@ export default function SearchUpdatePage() {
           </div>
         </form>
 
+        <div className="su-header-row">
+          <div className="su-head">Bookcode</div>
+          <div className="su-head">Lastname</div>
+          <div className="su-head">Title</div>
+          <div className="su-head">Pages</div>
+          <div className="su-head">Genre</div>
+          <div className="su-head">Sub</div>
+          <div className="su-head" title="Abandoned">✕</div>
+          <div className="su-head" title="Finished">✓</div>
+          <div className="su-head" title="Top Book">★</div>
+          <div className="su-head" title="Edit">✎</div>
+        </div>
+
         {err ? <div className="su-alert su-alert--error">{err}</div> : null}
         {loading ? <div className="su-alert">Lade…</div> : null}
 
@@ -827,23 +952,25 @@ export default function SearchUpdatePage() {
                   key={id}
                 >
                   <div
-                    className="su-cell su-code su-code--clickable"
-                    onClick={() => openBarcodeHistory(getBarcode(b))}
-                    title="Barcode-History anzeigen"
-                    role="button"
-                    tabIndex={0}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter" || e.key === " ") {
-                        openBarcodeHistory(getBarcode(b));
-                      }
-                    }}
-                  >
-                    <span className="su-text">
-                      {getBarcode(b)}
-                      <span className="su-sub">{fmtDate(b.registered_at)}</span>
-                    </span>
-                  </div>
-
+  className="su-cell su-code su-code--clickable"
+  onClick={() => openBarcodeHistory(getBarcode(b))}
+  title={
+    b?.registered_at
+      ? `Registered: ${fmtDateTitle(b.registered_at)}`
+      : "Barcode-History anzeigen"
+  }
+  role="button"
+  tabIndex={0}
+  onKeyDown={(e) => {
+    if (e.key === "Enter" || e.key === " ") {
+      openBarcodeHistory(getBarcode(b));
+    }
+  }}
+>
+  <span className="su-text">
+    {getBarcode(b)}
+  </span>
+</div>
                   <div className="su-cell su-author" title={getAuthor(b)}>
                     <span className="su-text">
                       <InlineEditable
@@ -869,60 +996,99 @@ export default function SearchUpdatePage() {
                     </span>
                   </div>
 
-                  <div className="su-cell su-pages">
+                  <div
+  className="su-cell su-pages"
+  title={
+    b?.added_at
+      ? `Added: ${fmtDateTitle(b.added_at)}`
+      : "Added: —"
+  }
+>
+  <span className="su-text">
+    {getPages(b)}
+  </span>
+</div>
+                  <div className="su-cell su-genre" title={getGenreTitle(b)}>
                     <span className="su-text">
-                      {getPages(b)}
-                      <span className="su-sub">{fmtDate(b.added_at)}</span>
+                      <InlineEditable
+                        value={getGenreAbbr(b)}
+                        disabled={isBusy}
+                        onSave={(val) => saveInlineField(b, "genre_abbr", val)}
+                      />
                     </span>
                   </div>
 
-                  <div className="su-cell su-actions">
-                    <button
-                      disabled={isBusy}
-                      onClick={() => setStatus(b, "abandoned")}
-                      className={`su-action su-action--abandoned ${isAbandoned ? "is-active" : ""}`}
-                      type="button"
-                    >
-                      Aban.
-                      <span className="su-action-sub">
-                        {isAbandoned ? fmtDate(b.reading_status_updated_at) : "—"}
-                      </span>
-                    </button>
-
-                    <button
-                      disabled={isBusy}
-                      onClick={() => setStatus(b, "finished")}
-                      className={`su-action ${isFinished ? "is-active" : ""}`}
-                      type="button"
-                    >
-                      Fin.
-                      <span className="su-action-sub">
-                        {isFinished ? fmtDate(b.reading_status_updated_at) : "—"}
-                      </span>
-                    </button>
-
-                    <button
-                      disabled={isBusy}
-                      onClick={() => setTopBook(b)}
-                      className={`su-action ${b?.top_book ? "is-active" : ""}`}
-                      type="button"
-                    >
-                      Top
-                      <span className="su-action-sub">
-                        {b?.top_book ? fmtDate(b.top_book_set_at) : "—"}
-                      </span>
-                    </button>
-
-                    <button
-                      disabled={isBusy}
-                      onClick={() => openEditor(b)}
-                      className="su-action"
-                      type="button"
-                    >
-                      Edit
-                      <span className="su-action-sub">{fmtDate(b.updated_at)}</span>
-                    </button>
+                  <div className="su-cell su-subgenre" title={getSubgenreTitle(b)}>
+                    <span className="su-text">
+                      <InlineEditable
+                        value={getSubgenreAbbr(b)}
+                        disabled={isBusy}
+                     onSave={(val) => saveInlineField(b, "subgenre_abbr", val)}
+                      />
+                    </span>
                   </div>
+
+                  <button
+                    disabled={isBusy}
+                    onClick={() => setStatus(b, "abandoned")}
+                    className={`su-action su-action--abandoned ${
+                      isAbandoned ? "is-active" : ""
+                    }`}
+                    title={
+                      isAbandoned
+                        ? `Abandoned: ${fmtDateTitle(b.reading_status_updated_at)}`
+                        : "Set abandoned"
+                    }
+                    type="button"
+                  >
+                    ✕
+                  </button>
+
+                  <button
+                    disabled={isBusy}
+                    onClick={() => setStatus(b, "finished")}
+                    className={`su-action su-action--finished ${
+                      isFinished ? "is-active" : ""
+                    }`}
+                    title={
+                      isFinished
+                        ? `Finished: ${fmtDateTitle(b.reading_status_updated_at)}`
+                        : "Set finished"
+                    }
+                    type="button"
+                  >
+                    ✓
+                  </button>
+
+                  <button
+                    disabled={isBusy}
+                    onClick={() => setTopBook(b)}
+                    className={`su-action su-action--top ${
+                      b?.top_book ? "is-active" : ""
+                    }`}
+                    title={
+                      b?.top_book
+                        ? `Top: ${fmtDateTitle(b.top_book_set_at)}`
+                        : "Set top book"
+                    }
+                    type="button"
+                  >
+                    ★
+                  </button>
+
+                  <button
+                    disabled={isBusy}
+                    onClick={() => openEditor(b)}
+                    className="su-action su-action--edit"
+                    title={
+                      b?.updated_at
+                        ? `Edit · updated: ${fmtDateTitle(b.updated_at)}`
+                        : "Edit"
+                    }
+                    type="button"
+                  >
+                    ✎
+                  </button>
                 </div>
               );
             })
