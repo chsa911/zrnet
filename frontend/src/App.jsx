@@ -29,6 +29,7 @@ import BetaTestPage from "./pages/BetaTestPage";
 import AdminAuthorTitlesPage from "./pages/AdminAuthorTitlesPage";
 import AdminAuthorPage from "./pages/AdminAuthorPage";
 import HomeTitlesPage from "./pages/HomeTitlesPage";
+
 function NotFound() {
   return (
     <div style={{ padding: 24, fontFamily: "Arial, sans-serif" }}>
@@ -73,6 +74,7 @@ export default function App() {
       {/* ✅ Make the layout route explicit */}
       <Route path="/" element={<Layout />}>
         <Route index element={<Home />} />
+        <Route path="titles" element={<HomeTitlesPage />} />
 
         {/* book themes */}
         <Route path="bookthemes" element={<BookThemesPage />} />
@@ -89,7 +91,7 @@ export default function App() {
         <Route path="checkout" element={<Navigate to="/" replace />} />
         <Route path="order/:orderId" element={<Navigate to="/" replace />} />
         <Route path="merchandise.html" element={<Navigate to="/" replace />} />
-<Route path="titles" element={<HomeTitlesPage />} />
+
         {/* newsletter */}
 {    /*    <Route path="newsletter" element={<NewsletterPage />} />
         <Route path="newsletter.html" element={<Navigate to="/newsletter" replace />} />

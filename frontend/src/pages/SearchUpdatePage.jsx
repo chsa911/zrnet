@@ -19,6 +19,8 @@ const getKeyword = (b) => b?.title_keyword ?? b?.keyword ?? b?.title ?? "—";
 const getPages = (b) =>
   b?.pages ?? b?.pages === 0 ? b.pages : "—";
 
+const fmtDate = (v) => (v ? new Date(v).toLocaleDateString() : "—");
+
 export default function SearchUpdatePage() {
   const [q, setQ] = useState({
     q: "",
@@ -286,11 +288,28 @@ export default function SearchUpdatePage() {
         }
 
         .su-text {
-          display: block;
+          display: flex;
+          flex-direction: column;
+          gap: 6px;
           min-width: 0;
           overflow: hidden;
           text-overflow: ellipsis;
           white-space: nowrap;
+        }
+
+        .su-sub,
+        .su-action-sub {
+          display: block;
+          font-size: 13px;
+          font-weight: 700;
+          color: #777;
+          line-height: 1;
+          letter-spacing: 0;
+        }
+
+        .su-action.is-active .su-action-sub,
+        .su-action:hover .su-action-sub {
+          color: #fff;
         }
 
         .su-code {
@@ -342,6 +361,11 @@ export default function SearchUpdatePage() {
           font-size: 18px;
           font-weight: 850;
           letter-spacing: -0.03em;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          gap: 6px;
         }
 
         .su-action:last-child {
@@ -565,7 +589,10 @@ export default function SearchUpdatePage() {
                   key={id}
                 >
                   <div className="su-cell su-code">
-                    <span className="su-text">{getBarcode(b)}</span>
+                    <span className="su-text">
+                      {getBarcode(b)}
+                      <span className="su-sub">{fmtDate(b.registered_at)}</span>
+                    </span>
                   </div>
 
                   <div className="su-cell su-author" title={getAuthor(b)}>
@@ -577,7 +604,10 @@ export default function SearchUpdatePage() {
                   </div>
 
                   <div className="su-cell su-pages">
-                    <span className="su-text">{getPages(b)}</span>
+                    <span className="su-text">
+                      {getPages(b)}
+                      <span className="su-sub">{fmtDate(b.added_at)}</span>
+                    </span>
                   </div>
 
                   <div className="su-cell su-actions">
@@ -588,6 +618,9 @@ export default function SearchUpdatePage() {
                       type="button"
                     >
                       Abandoned
+                      <span className="su-action-sub">
+                        {isAbandoned ? fmtDate(b.reading_status_updated_at) : "—"}
+                      </span>
                     </button>
 
                     <button
@@ -597,6 +630,9 @@ export default function SearchUpdatePage() {
                       type="button"
                     >
                       Finished
+                      <span className="su-action-sub">
+                        {isFinished ? fmtDate(b.reading_status_updated_at) : "—"}
+                      </span>
                     </button>
 
                     <button
@@ -606,6 +642,7 @@ export default function SearchUpdatePage() {
                       type="button"
                     >
                       Edit
+                      <span className="su-action-sub">{fmtDate(b.updated_at)}</span>
                     </button>
                   </div>
                 </div>

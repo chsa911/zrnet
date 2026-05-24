@@ -147,13 +147,13 @@ async function buildPurchaseLinks(pool, { isbn13, isbn10, bookId }) {
   return { best: candidates[0] || null, candidates };
 }
 
+
 /**
  * GET /api/public/books/home-titles
- * Full page data for titles highlighted on Home:
- * - top finished books
- * - received / currently in-stock books
+ * Full history of titles shown on Home as Top Finished and Top Received.
+ * Uses public.highlights, not current book flags, so it preserves history.
  *
- * IMPORTANT: this must stay above /:id routes.
+ * IMPORTANT: keep this route above all /:id routes.
  */
 router.get("/home-titles", async (req, res) => {
   try {
@@ -161,28 +161,41 @@ router.get("/home-titles", async (req, res) => {
 
     const { rows } = await pool.query(`
       SELECT
+        h.id,
+        h.presented_as,
+        h.presented_at,
+        h.presented_till,
+
         b.id::text AS id,
+        b.id::text AS book_id,
+
         ${TITLE_EXPR} AS title,
         ${AUTHOR_EXPR} AS author,
-        CASE
-          WHEN b.top_book = true THEN 'finished'
-          WHEN b.reading_status = 'in_stock' THEN 'received'
-          ELSE b.reading_status
-        END AS status,
-        b.reading_status,
-        b.reading_status_updated_at,
-        b.top_book,
-        b.top_book_set_at,
-        b.registered_at,
+
         ('/media/covers/' || b.id::text || '.jpg') AS cover_url
-      FROM public.books b
-      LEFT JOIN public.authors a ON a.id = b.author_id
-      WHERE b.top_book = true
-         OR b.reading_status = 'in_stock'
+
+      FROM (
+        SELECT DISTINCT ON (presented_as, book_id)
+          *
+        FROM public.highlights
+        WHERE presented_as IN ('finished', 'received')
+        ORDER BY
+          presented_as,
+          book_id,
+          presented_at DESC,
+          id DESC
+      ) h
+
+      JOIN public.books b
+        ON b.id = h.book_id
+
+      LEFT JOIN public.authors a
+        ON a.id = b.author_id
+
       ORDER BY
-        CASE WHEN b.top_book = true THEN 0 ELSE 1 END,
-        COALESCE(b.top_book_set_at, b.reading_status_updated_at, b.registered_at) DESC NULLS LAST,
-        title ASC
+        h.presented_as,
+        h.presented_at DESC,
+        h.id DESC
     `);
 
     res.json({ books: rows || [] });
@@ -962,3 +975,4 @@ router.get("/:id", async (req, res) => {
 });
 
 module.exports = router;
+    

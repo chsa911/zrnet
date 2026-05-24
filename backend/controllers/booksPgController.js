@@ -919,19 +919,30 @@ place_of_birth = COALESCE($9, place_of_birth)
   }
 
   /* --------------------------------- list ----------------------------------- */
+function mapSort(sortByRaw) {
+  const sortBy = String(sortByRaw || "").trim();
 
-  function mapSort(sortByRaw) {
-    const sortBy = String(sortByRaw || "").trim();
-    const map = {
-      registered_at: "b.registered_at",
-      author_name_display: AUTHOR_SORT_EXPR,
-      publisher_name_display: PUBLISHER_SORT_EXPR,
-      title_keyword: "b.title_keyword",
-      reading_status_updated_at: "COALESCE(b.reading_status_updated_at, b.registered_at)",
-      pages: "b.pages",
-    };
-    return map[sortBy] || "b.registered_at";
-  }
+  const lastActionExpr = `GREATEST(
+    COALESCE(b.reading_status_updated_at, '-infinity'::timestamptz),
+    COALESCE(b.registered_at, '-infinity'::timestamptz),
+    COALESCE(b.added_at, '-infinity'::timestamptz),
+    COALESCE(b.updated_at, '-infinity'::timestamptz)
+  )`;
+
+  const map = {
+    last_action_at: lastActionExpr,
+    registered_at: "b.registered_at",
+    author_name_display: AUTHOR_SORT_EXPR,
+    publisher_name_display: PUBLISHER_SORT_EXPR,
+    title_keyword: "b.title_keyword",
+    reading_status_updated_at: "COALESCE(b.reading_status_updated_at, b.registered_at)",
+    added_at: "b.added_at",
+    updated_at: "b.updated_at",
+    pages: "b.pages",
+  };
+
+  return map[sortBy] || lastActionExpr;
+}
 
   async function listBooks(req, res) {
     try {
@@ -943,7 +954,7 @@ place_of_birth = COALESCE($9, place_of_birth)
 
       const order =
         String(req.query.order || req.query.sortDir || "desc").toLowerCase() === "asc" ? "ASC" : "DESC";
-      const sortCol = mapSort(req.query.sortBy || req.query.sort);
+      const sortCol = mapSort(req.query.sortBy || req.query.sort || "last_action_at");
 
       const where = [];
       const params = [];
