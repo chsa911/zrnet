@@ -2506,6 +2506,73 @@ async function getBarcodeHistory(req, res) {
     return res.status(500).json({ error: "internal_error" });
   }
 }
+async function setHighlight(req, res) {
+  const pool = getPool(req);
+
+  const { book_id, presented_as } = req.body;
+
+  if (!book_id) {
+    return res.status(400).json({
+      error: "book_id required",
+    });
+  }
+
+  if (!["finished", "received"].includes(presented_as)) {
+    return res.status(400).json({
+      error: "invalid presented_as",
+    });
+  }
+
+  const client = await pool.connect();
+
+  try {
+    await client.query("BEGIN");
+
+    await client.query(
+      `
+      UPDATE highlights
+      SET presented_till = now()
+      WHERE presented_as = $1
+        AND presented_till IS NULL
+      `,
+      [presented_as]
+    );
+
+    const { rows } = await client.query(
+      `
+      INSERT INTO highlights (
+        book_id,
+        presented_as,
+        presented_at,
+        source
+      )
+      VALUES (
+        $1,
+        $2,
+        now(),
+        'manual'
+      )
+      RETURNING *
+      `,
+      [book_id, presented_as]
+    );
+
+    await client.query("COMMIT");
+
+    res.json(rows[0]);
+  } catch (err) {
+    await client.query("ROLLBACK");
+
+    console.error("setHighlight error", err);
+
+    res.status(500).json({
+      error: "Could not set highlight",
+    });
+  } finally {
+    client.release();
+  }
+}
+
   module.exports = {
     listBooks,
     getBook,
@@ -2514,5 +2581,6 @@ async function getBarcodeHistory(req, res) {
     registerExistingBook,
     updateBook,
     dropBook,
-    getBarcodeHistory,    
+    getBarcodeHistory, 
+    setHighlight,   
   };

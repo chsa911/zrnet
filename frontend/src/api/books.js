@@ -221,3 +221,21 @@ export async function listMostReadAuthors({ limit = 50, signal } = {}) {
   const data = await http(`/public/books/most-read-authors?${qs}`, { signal });
   return Array.isArray(data) ? data : [];
 }
+export async function highlightBook(bookId, presentedAs) {
+  const res = await fetch("/api/books/highlights", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      book_id: bookId,
+      presented_as: presentedAs,
+    }),
+  });
+
+  if (!res.ok) {
+    throw new Error("Highlight failed");
+  }
+
+  return res.json();
+}

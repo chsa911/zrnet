@@ -986,16 +986,15 @@ const nextValue = value.trim();
                     </span>
                   </div>
 
-                  <div className="su-cell su-title" title={b?.title_display || getKeyword(b)}>
-                    <span className="su-text">
-                      <InlineEditable
-                        value={b?.title_display ?? ""}
-                        disabled={isBusy}
-                        onSave={(val) => saveInlineField(b, "title_display", val)}
-                      />
-                    </span>
-                  </div>
-
+                  <div className="su-cell su-title" title={b?.title_display || "—"}>
+  <span className="su-text">
+    <InlineEditable
+      value={b?.title_keyword ?? ""}
+      disabled={isBusy}
+      onSave={(val) => saveInlineField(b, "title_keyword", val)}
+    />
+  </span>
+</div>
                   <div
   className="su-cell su-pages"
   title={
