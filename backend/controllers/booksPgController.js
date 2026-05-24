@@ -286,6 +286,7 @@ function makeTitleKeyword(title) {
       height_cm: heightCm,
 
       top_book: !!row.top_book,
+      top_book_set_at: row.top_book_set_at ?? null,
       reading_status: row.reading_status ?? null,
       reading_status_updated_at: row.reading_status_updated_at ?? null,
       registered_at: row.registered_at ?? null,

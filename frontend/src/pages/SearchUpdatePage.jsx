@@ -177,7 +177,39 @@ export default function SearchUpdatePage() {
       setUpdatingOn(id, false);
     }
   }
+async function setTopBook(b) {
+  const id = idOf(b);
+  if (!id) return alert("Kein Datensatz-ID gefunden.");
 
+  const oldTopBook = !!b?.top_book;
+  const oldTopBookSetAt = b?.top_book_set_at ?? null;
+
+  const nextTopBook = !oldTopBook;
+  const now = new Date().toISOString();
+
+  setUpdatingOn(id, true);
+
+  try {
+    patchRow(id, {
+      top_book: nextTopBook,
+      top_book_set_at: nextTopBook ? now : null,
+      last_action_at: now,
+    });
+
+    await updateBook(id, {
+      top_book: nextTopBook,
+      top_book_set_at: nextTopBook ? now : null,
+    });
+  } catch (e) {
+    patchRow(id, {
+      top_book: oldTopBook,
+      top_book_set_at: oldTopBookSetAt,
+    });
+    alert(e?.message || "Update TopBook fehlgeschlagen");
+  } finally {
+    setUpdatingOn(id, false);
+  }
+}
   async function openEditor(b) {
     const id = idOf(b);
     if (!id) return alert("Kein Datensatz-ID gefunden.");
@@ -231,7 +263,7 @@ export default function SearchUpdatePage() {
         .su-search-row,
         .su-book-row {
           display: grid;
-          grid-template-columns: 150px 78px minmax(0, 1fr) 86px 330px;
+          grid-template-columns: 105px 120px minmax(0, 1fr) 76px 390px;
           align-items: stretch;
           min-height: 72px;
           border-bottom: 4px solid #666;
@@ -666,7 +698,17 @@ export default function SearchUpdatePage() {
                         {isFinished ? fmtDate(b.reading_status_updated_at) : "—"}
                       </span>
                     </button>
-
+<button
+  disabled={isBusy}
+  onClick={() => setTopBook(b)}
+  className={`su-action ${b?.top_book ? "is-active" : ""}`}
+  type="button"
+>
+  TopBook
+  <span className="su-action-sub">
+    {b?.top_book ? fmtDate(b.top_book_set_at) : "—"}
+  </span>
+</button>
                     <button
                       disabled={isBusy}
                       onClick={() => openEditor(b)}
