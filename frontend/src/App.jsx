@@ -28,7 +28,7 @@ import ThemeSubthemesAuthorsPage from "./pages/ThemeSubthemesAuthorsPage";
 import BetaTestPage from "./pages/BetaTestPage";
 
 import { processUploadQueue } from "./utils/uploadQueue";
-
+import HighlightReceivedPage from "./pages/HighlightReceivedPage";
 function NotFound() {
   return (
     <div style={{ padding: 24, fontFamily: "Arial, sans-serif" }}>
@@ -151,6 +151,10 @@ export default function App() {
             </RequireAdmin>
           }
         />
+        {/* inside routes*/}
+
+<Route path="admin/highlights/received" element={<RequireAdmin><HighlightReceivedPage /></RequireAdmin>} />
+      
         <Route
           path="admin/search-update"
           element={

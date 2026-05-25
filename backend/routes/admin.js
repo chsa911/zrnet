@@ -585,5 +585,28 @@ router.get("/drafts/find", adminAuthRequired, async (req, res) => {
     res.status(500).json({ error: "internal_error" });
   }
 });
+router.get("/books/highlight-received", adminAuthRequired, async (req, res) => {
+  try {
+    const pool = getPool(req);
+    const { rows } = await pool.query(`
+      SELECT
+        b.id::text AS id,
+        COALESCE(NULLIF(b.title_display, ''), b.id::text) AS title_display,
+        b.reading_status,
+        b.highlight_status,
+        b.added_at,
+        ('/media/covers/' || b.id::text || '.jpg') AS cover
+      FROM public.books b
+      WHERE b.highlight_status = 'received'
+      ORDER BY b.added_at DESC NULLS LAST
+      LIMIT 100
+    `);
 
+    res.setHeader("Cache-Control", "no-store");
+    res.json({ items: rows });
+  } catch (err) {
+    console.error("GET /api/admin/books/highlight-received error", err);
+    res.status(500).json({ error: "internal_error" });
+  }
+});
 module.exports = router;   

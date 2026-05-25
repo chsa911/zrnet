@@ -231,3 +231,7 @@
     signal,
   });
 }
+
+export async function listReceivedHighlights({ signal } = {}) {
+  return http(`/admin/books/highlight-received`, { signal });
+}
