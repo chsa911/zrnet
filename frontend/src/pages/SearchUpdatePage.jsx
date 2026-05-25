@@ -149,6 +149,7 @@ export default function SearchUpdatePage() {
   const [barcodeHistory, setBarcodeHistory] = useState(null);
   const [refreshTick, setRefreshTick] = useState(0);
   const [highlighted, setHighlighted] = useState({});
+  const [featureBusy, setFeatureBusy] = useState(null);
   const debounceRef = useRef(null);
 
   const totalPages = useMemo(
@@ -163,35 +164,56 @@ export default function SearchUpdatePage() {
   const statusOf = (b) => String(b?.reading_status || "").toLowerCase();
 
   async function handleHighlight(book, type) {
-    const id = idOf(book);
-    if (!id) return alert("Kein Datensatz-ID gefunden.");
+  if (featureBusy) return;
 
-    const now = new Date().toISOString();
+  const id = idOf(book);
+  if (!id) return alert("Kein Datensatz-ID gefunden.");
 
-    setUpdatingOn(id, true);
+  const now = new Date().toISOString();
 
-    try {
-      await highlightBook(id, type);
+  setFeatureBusy(type);
+  setUpdatingOn(id, true);
 
-      setHighlighted((prev) => ({
-        ...prev,
-        [id]: type,
-      }));
+  try {
+    await highlightBook(id, type);
 
-      patchRow(id, {
-        home_featured_slot: type,
-        ...(type === "finished" ? { home_featured_finished_at: now } : {}),
-        ...(type === "received" ? { home_featured_received_at: now } : {}),
-        updated_at: now,
-        last_action_at: now,
-      });
-    } catch (e) {
-      alert(e?.message || "Highlight failed");
-    } finally {
-      setUpdatingOn(id, false);
-    }
+    setHighlighted(() => ({
+      [id]: type,
+    }));
+
+    setItems((prev) =>
+      prev.map((it) => {
+        const rowId = idOf(it);
+
+        if (rowId === id) {
+          return {
+            ...it,
+            home_featured_slot: type,
+            ...(type === "finished" ? { home_featured_finished_at: now } : {}),
+            ...(type === "received" ? { home_featured_received_at: now } : {}),
+            updated_at: now,
+            last_action_at: now,
+          };
+        }
+
+        if (type === "finished" && it?.home_featured_slot === "finished") {
+          return { ...it, home_featured_slot: null };
+        }
+
+        if (type === "received" && it?.home_featured_slot === "received") {
+          return { ...it, home_featured_slot: null };
+        }
+
+        return it;
+      })
+    );
+  } catch (e) {
+    alert(e?.message || "Highlight failed");
+  } finally {
+    setUpdatingOn(id, false);
+    setFeatureBusy(null);
   }
-
+}
   function searchPatch(value) {
     const trimmed = value.trim();
     const isPages = /^\d+$/.test(trimmed);
@@ -746,7 +768,8 @@ export default function SearchUpdatePage() {
           color: #fff;
         }
 .su-action--cover {
-  cursor: default;
+  cursor: pointer;
+  text-decoration: none;
 }
 
 .su-action--cover.is-active {
@@ -1232,8 +1255,8 @@ export default function SearchUpdatePage() {
                   </button>
 
                   <button
-                    disabled={isBusy}
-                    onClick={() => handleHighlight(b, "finished")}
+                   disabled={isBusy || featureBusy !== null}
+                   onClick={() => handleHighlight(b, "finished")}
                     className={`su-action su-action--highlight-finished ${
                       highlighted[id] === "finished" ||
                       b?.home_featured_slot === "finished"
@@ -1247,7 +1270,7 @@ export default function SearchUpdatePage() {
                   </button>
 
                   <button
-                    disabled={isBusy}
+                    disabled={isBusy || featureBusy !== null}
                     onClick={() => handleHighlight(b, "received")}
                     className={`su-action su-action--highlight-received ${
                       highlighted[id] === "received" ||
