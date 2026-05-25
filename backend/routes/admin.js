@@ -608,5 +608,5 @@ router.get("/books/highlight-received", adminAuthRequired, async (req, res) => {
     console.error("GET /api/admin/books/highlight-received error", err);
     res.status(500).json({ error: "internal_error" });
   }
-});
+}); 
 module.exports = router;   
