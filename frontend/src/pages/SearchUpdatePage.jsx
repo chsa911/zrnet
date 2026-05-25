@@ -6,7 +6,13 @@ import { Link } from "react-router-dom";
 const getBarcode = (b) => b?.barcode ?? "—";
 
 const getAuthor = (b) =>
-  b?.name_display ?? b?.author_name_display ?? b?.author_name ?? "—";
+  b?.author_abbreviation ??
+  b?.author_abbr ??
+  b?.abbr ??
+  b?.author_lastname ??
+  b?.author_last_name ??
+  b?.last_name ??
+  "—";
 
 const getAuthorId = (b) =>
   b?.author_id ?? b?.authorId ?? b?.author_uuid ?? b?.author?.id ?? null;
@@ -297,6 +303,7 @@ export default function SearchUpdatePage() {
         last_action_at: now,
       });
       await updateBook(id, { [field]: nextValue });
+   setRefreshTick((n) => n + 1);
     } catch (e) {
       patchRow(id, { [field]: oldValue });
       alert(e?.message || "Update fehlgeschlagen");
@@ -439,7 +446,7 @@ export default function SearchUpdatePage() {
         .su-header-row {
           display: grid;
           grid-template-columns:
-            105px 100px minmax(220px, 1fr) 64px 96px 64px 44px 44px 44px 44px 44px 44px 34px;
+           105px 100px minmax(220px, 1fr) 64px 96px 64px 44px 44px 44px 44px 44px 44px 44px 34px;  
           align-items: stretch;
           width: 100%;
           min-width: 0;
@@ -520,7 +527,7 @@ export default function SearchUpdatePage() {
         }
 
         .su-cell--filters {
-          grid-column: 4 / 14;
+          grid-column: 4 / 15;
           display: flex;
           align-items: center;
           gap: 10px;
@@ -738,7 +745,14 @@ export default function SearchUpdatePage() {
           background: #1565c0;
           color: #fff;
         }
+.su-action--cover {
+  cursor: default;
+}
 
+.su-action--cover.is-active {
+  background: #2e7d32;
+  color: #fff;
+}
         .su-action:disabled {
           cursor: wait;
           opacity: 0.45;
@@ -1030,6 +1044,7 @@ export default function SearchUpdatePage() {
           <div className="su-head" title="Top Book">★</div>
           <div className="su-head" title="Highlight Finished">HF</div>
           <div className="su-head" title="Highlight Received">HR</div>
+          <div className="su-head" title="Cover Image">IMG</div>
           <div className="su-head" title="Edit">✎</div>
         </div>
 
@@ -1095,7 +1110,7 @@ export default function SearchUpdatePage() {
                     <span className="su-text">{getBarcode(b)}</span>
                   </div>
 
-                  <div className="su-cell su-author" title={getAuthor(b)}>
+                  <div className="su-cell su-author" title={b?.name_display ?? b?.author_name_display ?? b?.author_name ?? getAuthor(b)}>
                     {getAuthorId(b) ? (
                       <Link
                         to={`/admin/authors/${getAuthorId(b)}`}
@@ -1245,7 +1260,18 @@ export default function SearchUpdatePage() {
                   >
                     HR
                   </button>
-
+<div
+  className={`su-action su-action--cover ${
+    b?.cover_available ? "is-active" : ""
+  }`}
+  title={
+    b?.cover_available
+      ? `Cover available${b?.cover_url ? `: ${b.cover_url}` : ""}`
+      : "No cover image"
+  }
+>
+  {b?.cover_available ? "✓" : "—"}
+</div>
                   <button
                     disabled={isBusy}
                     onClick={() => openEditor(b)}
