@@ -218,3 +218,11 @@ export async function listMostReadAuthors({ limit = 50, signal } = {}) {
   const data = await http(`/public/books/most-read-authors?${qs}`, { signal });
   return Array.isArray(data) ? data : [];
 }
+export async function highlightBook(id, status = "received", { signal } = {}) {
+  if (!id) throw new Error("Missing book id");
+  return http(`/books/${encodeURIComponent(id)}/highlight`, {
+    method: "POST",
+    json: { status },
+    signal,
+  });
+}
