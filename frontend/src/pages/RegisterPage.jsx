@@ -8,10 +8,8 @@ function isStandalonePwa() {
     window.navigator.standalone === true
   );
 }
-
 export default function RegisterPage(props) {
   const isStaging = import.meta.env.VITE_APP_ENV === "staging";
-  const usePwaForm = isStaging && isStandalonePwa();
 
-  return usePwaForm ? <BookFormStagingPwa {...props} /> : <BookForm {...props} />;
+  return isStaging ? <BookFormStagingPwa {...props} /> : <BookForm {...props} />;
 }
