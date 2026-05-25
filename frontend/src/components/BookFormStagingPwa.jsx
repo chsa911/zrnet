@@ -6,6 +6,7 @@ import {
   registerBook,
   updateBook,
   uploadCover,
+  highlightBook,
 } from "../api/books";
 import { previewBarcode } from "../api/barcodes";
 import { startIsbnScanner } from "../utils/isbnScanner";
@@ -341,6 +342,7 @@ export default function BookFormStagingPwa({
   const [scannerOpen, setScannerOpen] = useState(false);
   const [scannerStarting, setScannerStarting] = useState(false);
   const [barcodePreview, setBarcodePreview] = useState(null);
+  const [markHighlightReceived, setMarkHighlightReceived] = useState(false);
   const [barcodePreviewErr, setBarcodePreviewErr] = useState("");
   const explicitSubmitRef = useRef(false);
   const isbnPhotoInputRef = useRef(null);
@@ -706,6 +708,10 @@ export default function BookFormStagingPwa({
         initialBook?._id ||
         initialBook?.id;
 
+      if (!isEdit && markHighlightReceived && savedId) {
+        await highlightBook(savedId, "received");
+      }
+
       let coverUploadFailed = false;
       if (coverFile && savedId) {
         try {
@@ -724,6 +730,7 @@ export default function BookFormStagingPwa({
         setV(initialStateFromBook({}));
         setBarcodePreview(null);
         setBarcodePreviewErr("");
+        setMarkHighlightReceived(false);
       }
     } catch (err) {
       setMsg(err?.message || "Fehler beim Speichern");
@@ -778,6 +785,28 @@ export default function BookFormStagingPwa({
           />
         ) : null}
       </div>
+
+      {!isEdit ? (
+        <label
+          className="zr-card"
+          style={{
+            display: "flex",
+            gap: 10,
+            alignItems: "center",
+            border: "1px solid rgba(255,180,0,0.35)",
+            background: "rgba(255,180,0,0.06)",
+          }}
+        >
+          <input
+            type="checkbox"
+            checked={markHighlightReceived}
+            onChange={(e) => setMarkHighlightReceived(e.target.checked)}
+            disabled={busy || coverPrepBusy}
+            style={{ width: 22, height: 22 }}
+          />
+          <span style={{ fontWeight: 900 }}>Für Highlights merken</span>
+        </label>
+      ) : null}
 
       <div className="zr-card" style={{ display: "grid", gap: 10 }}>
         <div style={{ fontWeight: 900 }}>2. ISBN</div>
