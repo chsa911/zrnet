@@ -1,3 +1,6 @@
+  const fs = require("fs");
+const path = require("path");
+  
   // backend/controllers/booksPgController.js
   // Postgres implementation for /api/books endpoints.
 
@@ -8,7 +11,30 @@
   }
 
   const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const UPLOAD_ROOT =
+  process.env.UPLOAD_ROOT ||
+  path.resolve(__dirname, "../../uploads");
 
+const COVERS_DIR = path.join(UPLOAD_ROOT, "covers");
+
+function buildCoverMap() {
+  const map = new Map();
+
+  if (!fs.existsSync(COVERS_DIR)) return map;
+
+  for (const file of fs.readdirSync(COVERS_DIR)) {
+    const match = file.match(
+      /^([0-9a-f-]{36})(?:-[^.]+)?\.(jpg|jpeg|png|webp)$/i
+    );
+
+    if (!match) continue;
+
+    const bookId = match[1];
+    map.set(bookId, `/media/covers/${file}`);
+  }
+
+  return map;
+}
   const clampInt = (x, def, min, max) => {
     const n = Number.parseInt(x, 10);
     if (!Number.isFinite(n)) return def;
@@ -253,7 +279,8 @@ function makeTitleKeyword(title) {
     return {
       id: row.id,
       _id: row.id,
-
+cover_available: false,
+cover_url: null,
       barcode: row.barcode ?? null,
 
       author_id: row.author_id ?? null,
@@ -1116,7 +1143,18 @@ ${AUTHOR_RESOLVE_SELECT_SQL},
       [...params, limit, offset]
     );
 
-    const items = listRes.rows.map(rowToApi);
+    const coverMap = buildCoverMap();
+
+const items = listRes.rows.map((row) => {
+  const book = rowToApi(row);
+  const coverUrl = coverMap.get(String(book.id));
+
+  return {
+    ...book,
+    cover_available: !!coverUrl,
+    cover_url: coverUrl || null,
+  };
+});
     const pages = Math.max(1, Math.ceil(total / limit) || 1);
 
     return res.json({ items, data: items, total, page, limit, pages });
@@ -1163,7 +1201,16 @@ LEFT JOIN public.sub_genres sg ON sg.id = b.sub_genre_id
       if (!rows.length) return res.status(404).json({ error: "not_found" });
 
       const row = rows[0];
-      return res.json({ ...row, ...rowToApi(row) });
+      const book = rowToApi(row);
+const coverMap = buildCoverMap();
+const coverUrl = coverMap.get(String(book.id));
+
+return res.json({
+  ...row,
+  ...book,
+  cover_available: !!coverUrl,
+  cover_url: coverUrl || null,
+});
     } catch (err) {
       console.error("getBook error", err);
       return res.status(500).json({ error: "internal_error" });

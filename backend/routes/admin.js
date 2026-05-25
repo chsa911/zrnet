@@ -257,15 +257,13 @@ COUNT(b.id) FILTER (WHERE b.top_book = true)::int AS top_books
           const dir = path.join(uploadRoot, "covers");
           await fs.mkdir(dir, { recursive: true });
 
-          const ts = new Date().toISOString().replace(/[:.]/g, "-");
-          const main = path.join(dir, `${id}.jpg`);
-          const archive = path.join(dir, `${id}-${ts}.jpg`);
+        const main = path.join(dir, `${id}.jpg`);
+const raw = path.join(dir, `${id}-raw.jpg`);
 
-          await Promise.all([
-            fs.writeFile(main, req.file.buffer),
-            fs.writeFile(archive, req.file.buffer),
-          ]);
-
+await Promise.all([
+  fs.writeFile(main, req.file.buffer),
+  fs.writeFile(raw, req.file.buffer),
+]);
           // Mark cover presence on the book row (and verify the book exists)
           const upd = await pool.query(
             `
@@ -284,11 +282,11 @@ COUNT(b.id) FILTER (WHERE b.top_book = true)::int AS top_books
 
           if (!upd.rowCount) {
             try {
-              await fs.unlink(main);
-            } catch {}
-            try {
-              await fs.unlink(archive);
-            } catch {}
+  await fs.unlink(main);
+} catch {}
+try {
+  await fs.unlink(raw);
+} catch {}
             return res.status(404).json({ error: "book_not_found_for_cover", id });
           }
 
