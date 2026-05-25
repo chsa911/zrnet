@@ -1,8 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { Link, useParams } from "react-router-dom";
 import { getApiRoot } from "../api/apiRoot";
 import "./AuthorsIndexPage.css";
-
+import { Link, useNavigate, useParams } from "react-router-dom";
 const EDITABLE_FIELDS = [
   "first_name",
   "last_name",
@@ -30,10 +29,10 @@ function formatValue(value) {
   if (typeof value === "object") return JSON.stringify(value, null, 2);
   return String(value);
 }
-
+ 
 export default function AdminAuthorPage() {
+  const navigate = useNavigate();
   const { authorId } = useParams();
-
   const [author, setAuthor] = useState(null);
   const [form, setForm] = useState({});
   const [loading, setLoading] = useState(false);
@@ -139,7 +138,13 @@ export default function AdminAuthorPage() {
   return (
     <section className="authors-brutal-page" aria-busy={loading ? "true" : "false"}>
       <p>
-        <Link to="/admin/authors">← Back to authors</Link>
+        <button
+  type="button"
+  onClick={() => navigate(-1)}
+  className="author-back-link"
+>
+  ← Back
+</button>
       </p>
 
       {loading ? <div className="authors-message">Loading…</div> : null}

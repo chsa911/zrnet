@@ -7,8 +7,10 @@ const getBarcode = (b) => b?.barcode ?? "—";
 
 const getAuthor = (b) =>
   b?.name_display ?? b?.author_name_display ?? b?.author_name ?? "—";
-const getAuthorId = (b) =>  
+
+const getAuthorId = (b) =>
   b?.author_id ?? b?.authorId ?? b?.author_uuid ?? b?.author?.id ?? null;
+
 const getPages = (b) => (b?.pages ?? b?.pages === 0 ? b.pages : "—");
 
 const getFirstPublishYear = (b) => b?.year_first_published ?? "";
@@ -49,11 +51,27 @@ const fmtDateTitle = (v) => {
   if (!v) return "—";
 
   const d = new Date(v);
+  if (Number.isNaN(d.getTime())) return "—";
 
   return d.toLocaleString("de-DE", {
     day: "2-digit",
     month: "2-digit",
     year: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+};
+
+const formatPushedAt = (value) => {
+  if (!value) return "";
+
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return "";
+
+  return d.toLocaleString("de-DE", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
     hour: "2-digit",
     minute: "2-digit",
   });
@@ -137,14 +155,7 @@ export default function SearchUpdatePage() {
 
   const idOf = (b) => b?._id || b?.id || "";
   const statusOf = (b) => String(b?.reading_status || "").toLowerCase();
-const highlightOf = (b) =>
-  String(
-    b?.highlight_type ??
-    b?.homepage_highlight ??
-    b?.highlight_status ??
-    b?.highlight ??
-    ""
-  ).toLowerCase();
+
   async function handleHighlight(book, type) {
     const id = idOf(book);
     if (!id) return alert("Kein Datensatz-ID gefunden.");
@@ -160,11 +171,14 @@ const highlightOf = (b) =>
         ...prev,
         [id]: type,
       }));
-patchRow(id, {
-  home_featured_slot: type,
-  updated_at: now,
-  last_action_at: now,
-});
+
+      patchRow(id, {
+        home_featured_slot: type,
+        ...(type === "finished" ? { home_featured_finished_at: now } : {}),
+        ...(type === "received" ? { home_featured_received_at: now } : {}),
+        updated_at: now,
+        last_action_at: now,
+      });
     } catch (e) {
       alert(e?.message || "Highlight failed");
     } finally {
@@ -424,10 +438,11 @@ patchRow(id, {
         .su-book-row,
         .su-header-row {
           display: grid;
-          grid-template-columns: 105px 100px minmax(0, 220px) 64px 96px 64px 44px 44px 44px 44px 44px 44px 34px;
+          grid-template-columns:
+            105px 100px minmax(220px, 1fr) 64px 96px 64px 44px 44px 44px 44px 44px 44px 34px;
           align-items: stretch;
-          width: max-content;
-          min-width: 100%;
+          width: 100%;
+          min-width: 0;
         }
 
         .su-search-row {
@@ -686,6 +701,13 @@ patchRow(id, {
           background: #eee;
         }
 
+        .su-action--edit {
+          width: 34px;
+          min-width: 34px;
+          max-width: 34px;
+          font-size: 16px;
+        }
+
         .su-action--abandoned {
           border-color: #111;
           background: #fff;
@@ -715,12 +737,6 @@ patchRow(id, {
         .su-action--highlight-received.is-highlighted {
           background: #1565c0;
           color: #fff;
-        }
-
-        .su-action--edit {
-          width: 34px;
-          min-width: 34px;
-          font-size: 16px;
         }
 
         .su-action:disabled {
@@ -819,6 +835,19 @@ patchRow(id, {
           padding: 10px 0;
           font-size: 18px;
           font-weight: 750;
+        }
+
+        .su-author-link {
+          color: inherit;
+          text-decoration: none;
+          min-width: 0;
+          width: 100%;
+          display: flex;
+          overflow: hidden;
+        }
+
+        .su-author-link:hover {
+          text-decoration: underline;
         }
 
         .su-history-sub {
@@ -1019,6 +1048,27 @@ patchRow(id, {
               const isAbandoned = status === "abandoned";
               const isFinished = status === "finished";
 
+              const hfDate =
+                b?.home_featured_finished_at ??
+                b?.highlight_finished_at ??
+                b?.hf_pushed_at ??
+                (b?.home_featured_slot === "finished" ? b?.updated_at : null);
+
+              const hrDate =
+                b?.home_featured_received_at ??
+                b?.highlight_received_at ??
+                b?.highlight_ready_at ??
+                b?.hr_pushed_at ??
+                (b?.home_featured_slot === "received" ? b?.updated_at : null);
+
+              const hfTooltip = hfDate
+                ? `HF pushed: ${formatPushedAt(hfDate)}`
+                : "HF not pushed yet";
+
+              const hrTooltip = hrDate
+                ? `HR pushed: ${formatPushedAt(hrDate)}`
+                : "HR not pushed yet";
+
               return (
                 <div
                   className={`su-book-row ${
@@ -1046,18 +1096,18 @@ patchRow(id, {
                   </div>
 
                   <div className="su-cell su-author" title={getAuthor(b)}>
-                    <span className="su-text">
-                      <InlineEditable
-                        value={
-                          b?.author_lastname ??
-                          b?.author_last_name ??
-                          b?.last_name ??
-                          ""
-                        }
-                        disabled={isBusy}
-                        onSave={(val) => saveInlineField(b, "author_lastname", val)}
-                      />
-                    </span>
+                    {getAuthorId(b) ? (
+                      <Link
+                        to={`/admin/authors/${getAuthorId(b)}`}
+                        onClick={(e) => e.stopPropagation()}
+                        className="su-author-link"
+                        title="Edit author"
+                      >
+                        <span className="su-text">{getAuthor(b)}</span>
+                      </Link>
+                    ) : (
+                      <span className="su-text">{getAuthor(b)}</span>
+                    )}
                   </div>
 
                   <div className="su-cell su-title" title={b?.title_display || "—"}>
@@ -1153,7 +1203,9 @@ patchRow(id, {
                   <button
                     disabled={isBusy}
                     onClick={() => setTopBook(b)}
-                    className={`su-action su-action--top ${b?.top_book ? "is-active" : ""}`}
+                    className={`su-action su-action--top ${
+                      b?.top_book ? "is-active" : ""
+                    }`}
                     title={
                       b?.top_book
                         ? `Top: ${fmtDateTitle(b.top_book_set_at)}`
@@ -1167,13 +1219,13 @@ patchRow(id, {
                   <button
                     disabled={isBusy}
                     onClick={() => handleHighlight(b, "finished")}
-             className={`su-action su-action--highlight-finished ${
-  highlighted[id] === "finished" ||
-  b?.home_featured_slot === "finished"
-    ? "is-highlighted"
-    : ""
-}`}
-                    title="Highlight as finished on homepage"
+                    className={`su-action su-action--highlight-finished ${
+                      highlighted[id] === "finished" ||
+                      b?.home_featured_slot === "finished"
+                        ? "is-highlighted"
+                        : ""
+                    }`}
+                    title={hfTooltip}
                     type="button"
                   >
                     HF
@@ -1183,12 +1235,12 @@ patchRow(id, {
                     disabled={isBusy}
                     onClick={() => handleHighlight(b, "received")}
                     className={`su-action su-action--highlight-received ${
-  highlighted[id] === "received" ||
-  b?.home_featured_slot === "received"
-    ? "is-highlighted"
-    : ""
-}`}
-                    title="Highlight as received on homepage"
+                      highlighted[id] === "received" ||
+                      b?.home_featured_slot === "received"
+                        ? "is-highlighted"
+                        : ""
+                    }`}
+                    title={hrTooltip}
                     type="button"
                   >
                     HR
@@ -1223,7 +1275,8 @@ patchRow(id, {
         </button>
 
         <div className="su-pager-info">
-          Seite <strong>&nbsp;{q.page}&nbsp;</strong> / <strong>&nbsp;{totalPages}</strong>
+          Seite <strong>&nbsp;{q.page}&nbsp;</strong> /{" "}
+          <strong>&nbsp;{totalPages}</strong>
         </div>
 
         <button
