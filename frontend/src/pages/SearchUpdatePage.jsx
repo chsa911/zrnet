@@ -1,16 +1,17 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { listBooks, getBook, updateBook, highlightBook } from "../api/books";
 import BookForm from "../components/BookFormSwitcher";
+import { Link } from "react-router-dom";
 
 const getBarcode = (b) => b?.barcode ?? "—";
 
 const getAuthor = (b) =>
   b?.name_display ?? b?.author_name_display ?? b?.author_name ?? "—";
-
-const getKeyword = (b) =>
-  b?.title_display ?? b?.title_keyword ?? b?.keyword ?? b?.title ?? "—";
-
+const getAuthorId = (b) =>  
+  b?.author_id ?? b?.authorId ?? b?.author_uuid ?? b?.author?.id ?? null;
 const getPages = (b) => (b?.pages ?? b?.pages === 0 ? b.pages : "—");
+
+const getFirstPublishYear = (b) => b?.year_first_published ?? "";
 
 const getGenreAbbr = (b) => b?.genre_abbr ?? b?.genre ?? "";
 
@@ -123,7 +124,7 @@ export default function SearchUpdatePage() {
   const [editingBook, setEditingBook] = useState(null);
   const [barcodeHistory, setBarcodeHistory] = useState(null);
   const [refreshTick, setRefreshTick] = useState(0);
-const [highlighted, setHighlighted] = useState({});
+  const [highlighted, setHighlighted] = useState({});
   const debounceRef = useRef(null);
 
   const totalPages = useMemo(
@@ -136,36 +137,41 @@ const [highlighted, setHighlighted] = useState({});
 
   const idOf = (b) => b?._id || b?.id || "";
   const statusOf = (b) => String(b?.reading_status || "").toLowerCase();
-
+const highlightOf = (b) =>
+  String(
+    b?.highlight_type ??
+    b?.homepage_highlight ??
+    b?.highlight_status ??
+    b?.highlight ??
+    ""
+  ).toLowerCase();
   async function handleHighlight(book, type) {
-  const id = idOf(book);
-  if (!id) return alert("Kein Datensatz-ID gefunden.");
+    const id = idOf(book);
+    if (!id) return alert("Kein Datensatz-ID gefunden.");
 
-  const now = new Date().toISOString();
+    const now = new Date().toISOString();
 
-  setUpdatingOn(id, true);
+    setUpdatingOn(id, true);
 
-  try {
-    await highlightBook(id, type);
+    try {
+      await highlightBook(id, type);
 
-    setHighlighted((prev) => ({
-      ...prev,
-      [id]: type,
-    }));
-
-    patchRow(id, {
-      updated_at: now,
-      last_action_at: now,
-    });
-
-    setRefreshTick((v) => v + 1);
-  } catch (e) {
-    alert(e?.message || "Highlight failed");
-  } finally {
-    setUpdatingOn(id, false);
+      setHighlighted((prev) => ({
+        ...prev,
+        [id]: type,
+      }));
+patchRow(id, {
+  home_featured_slot: type,
+  updated_at: now,
+  last_action_at: now,
+});
+    } catch (e) {
+      alert(e?.message || "Highlight failed");
+    } finally {
+      setUpdatingOn(id, false);
+    }
   }
-}
-  
+
   function searchPatch(value) {
     const trimmed = value.trim();
     const isPages = /^\d+$/.test(trimmed);
@@ -252,12 +258,13 @@ const [highlighted, setHighlighted] = useState({});
     if (!id) return alert("Kein Datensatz-ID gefunden.");
 
     const oldValue =
-  field === "genre_abbr"
-    ? getGenreAbbr(b)
-    : field === "sub_genre_abbr" || field === "subgenre_abbr"
-      ? getSubgenreAbbr(b)
-      : b?.[field] ?? "";
-const nextValue = value.trim();
+      field === "genre_abbr"
+        ? getGenreAbbr(b)
+        : field === "sub_genre_abbr" || field === "subgenre_abbr"
+        ? getSubgenreAbbr(b)
+        : b?.[field] ?? "";
+
+    const nextValue = value === null ? null : String(value ?? "").trim();
 
     if (nextValue === oldValue) return;
 
@@ -267,16 +274,14 @@ const nextValue = value.trim();
       const now = new Date().toISOString();
 
       patchRow(id, {
-  [field]: nextValue,
-  ...(field === "subgenre_abbr"
-  ? { sub_genre_abbr: nextValue, sub: nextValue }
-  : {}),
-  ...(field === "genre_abbr"
-    ? { genre: nextValue }
-    : {}),
-  updated_at: now,
-  last_action_at: now,
-});
+        [field]: nextValue,
+        ...(field === "subgenre_abbr"
+          ? { sub_genre_abbr: nextValue, sub: nextValue }
+          : {}),
+        ...(field === "genre_abbr" ? { genre: nextValue } : {}),
+        updated_at: now,
+        last_action_at: now,
+      });
       await updateBook(id, { [field]: nextValue });
     } catch (e) {
       patchRow(id, { [field]: oldValue });
@@ -331,9 +336,9 @@ const nextValue = value.trim();
       patchRow(id, {
         top_book: nextTopBook,
         top_book_set_at: nextTopBook ? now : null,
+        updated_at: now,
         last_action_at: now,
       });
-
       await updateBook(id, {
         top_book: nextTopBook,
         top_book_set_at: nextTopBook ? now : null,
@@ -419,8 +424,10 @@ const nextValue = value.trim();
         .su-book-row,
         .su-header-row {
           display: grid;
-          grid-template-columns: 105px 120px minmax(0, 1fr) 76px 70px 70px 44px 44px 44px 44px 44px 44px;
+          grid-template-columns: 105px 100px minmax(0, 220px) 64px 96px 64px 44px 44px 44px 44px 44px 44px 34px;
           align-items: stretch;
+          width: max-content;
+          min-width: 100%;
         }
 
         .su-search-row {
@@ -498,7 +505,7 @@ const nextValue = value.trim();
         }
 
         .su-cell--filters {
-          grid-column: 4 / 13;
+          grid-column: 4 / 14;
           display: flex;
           align-items: center;
           gap: 10px;
@@ -623,6 +630,20 @@ const nextValue = value.trim();
           letter-spacing: -0.035em;
         }
 
+        .su-year {
+          justify-content: flex-end;
+          color: #555;
+          font-size: clamp(18px, 1.7vw, 30px);
+          font-weight: 750;
+          letter-spacing: -0.035em;
+        }
+
+        .su-year .su-inline-edit {
+          overflow: visible;
+          text-overflow: unset;
+          white-space: nowrap;
+        }
+
         .su-genre,
         .su-subgenre {
           justify-content: center;
@@ -685,17 +706,21 @@ const nextValue = value.trim();
           background: #f9a825;
           color: #fff;
         }
-.su-action--highlight-finished.is-highlighted {
-  background: #2e7d32;
-  color: #fff;
-}
 
-.su-action--highlight-received.is-highlighted {
-  background: #1565c0;
-  color: #fff;
-}
+        .su-action--highlight-finished.is-highlighted {
+          background: #2e7d32;
+          color: #fff;
+        }
+
+        .su-action--highlight-received.is-highlighted {
+          background: #1565c0;
+          color: #fff;
+        }
+
         .su-action--edit {
-          font-size: 22px;
+          width: 34px;
+          min-width: 34px;
+          font-size: 16px;
         }
 
         .su-action:disabled {
@@ -808,7 +833,7 @@ const nextValue = value.trim();
           .su-search-row,
           .su-book-row,
           .su-header-row {
-            grid-template-columns: 100px 100px minmax(0, 1fr) 70px 64px 64px 40px 40px 40px 40px 40px 40px;
+            grid-template-columns: 100px 100px minmax(0, 1fr) 70px 96px 64px 40px 40px 40px 40px 40px 40px 34px;
           }
 
           .su-action {
@@ -816,13 +841,19 @@ const nextValue = value.trim();
             min-width: 40px;
             font-size: 22px;
           }
+
+          .su-action--edit {
+            width: 34px;
+            min-width: 34px;
+            font-size: 16px;
+          }
         }
 
         @media (max-width: 700px) {
           .su-search-row,
           .su-book-row,
           .su-header-row {
-            grid-template-columns: 120px 64px minmax(0, 1fr) 40px 40px 40px 40px 40px 40px;
+            grid-template-columns: 120px 64px minmax(0, 1fr) 40px 40px 40px 40px 40px 34px;
           }
 
           .su-cell--search,
@@ -863,6 +894,10 @@ const nextValue = value.trim();
             width: 34px;
             min-width: 34px;
             font-size: 19px;
+          }
+
+          .su-action--edit {
+            font-size: 15px;
           }
 
           .su-filter {
@@ -958,6 +993,7 @@ const nextValue = value.trim();
           <div className="su-head">Lastname</div>
           <div className="su-head">Title</div>
           <div className="su-head">Pages</div>
+          <div className="su-head">Year</div>
           <div className="su-head">Genre</div>
           <div className="su-head">Sub</div>
           <div className="su-head" title="Abandoned">✕</div>
@@ -991,25 +1027,24 @@ const nextValue = value.trim();
                   key={id}
                 >
                   <div
-  className="su-cell su-code su-code--clickable"
-  onClick={() => openBarcodeHistory(getBarcode(b))}
-  title={
-    b?.registered_at
-      ? `Registered: ${fmtDateTitle(b.registered_at)}`
-      : "Barcode-History anzeigen"
-  }
-  role="button"
-  tabIndex={0}
-  onKeyDown={(e) => {
-    if (e.key === "Enter" || e.key === " ") {
-      openBarcodeHistory(getBarcode(b));
-    }
-  }}
->
-  <span className="su-text">
-    {getBarcode(b)}
-  </span>
-</div>
+                    className="su-cell su-code su-code--clickable"
+                    onClick={() => openBarcodeHistory(getBarcode(b))}
+                    title={
+                      b?.registered_at
+                        ? `Registered: ${fmtDateTitle(b.registered_at)}`
+                        : "Barcode-History anzeigen"
+                    }
+                    role="button"
+                    tabIndex={0}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        openBarcodeHistory(getBarcode(b));
+                      }
+                    }}
+                  >
+                    <span className="su-text">{getBarcode(b)}</span>
+                  </div>
+
                   <div className="su-cell su-author" title={getAuthor(b)}>
                     <span className="su-text">
                       <InlineEditable
@@ -1026,26 +1061,43 @@ const nextValue = value.trim();
                   </div>
 
                   <div className="su-cell su-title" title={b?.title_display || "—"}>
-  <span className="su-text">
-    <InlineEditable
-      value={b?.title_keyword ?? ""}
-      disabled={isBusy}
-      onSave={(val) => saveInlineField(b, "title_keyword", val)}
-    />
-  </span>
-</div>
+                    <span className="su-text">
+                      <InlineEditable
+                        value={b?.title_keyword ?? ""}
+                        disabled={isBusy}
+                        onSave={(val) => saveInlineField(b, "title_keyword", val)}
+                      />
+                    </span>
+                  </div>
+
                   <div
-  className="su-cell su-pages"
-  title={
-    b?.added_at
-      ? `Added: ${fmtDateTitle(b.added_at)}`
-      : "Added: —"
-  }
->
-  <span className="su-text">
-    {getPages(b)}
-  </span>
-</div>
+                    className="su-cell su-pages"
+                    title={
+                      b?.added_at ? `Added: ${fmtDateTitle(b.added_at)}` : "Added: —"
+                    }
+                  >
+                    <span className="su-text">{getPages(b)}</span>
+                  </div>
+
+                  <div
+                    className="su-cell su-pages su-year"
+                    title={getFirstPublishYear(b) || "-"}
+                  >
+                    <span className="su-text">
+                      <InlineEditable
+                        value={getFirstPublishYear(b)}
+                        disabled={isBusy}
+                        onSave={(val) =>
+                          saveInlineField(
+                            b,
+                            "year_first_published",
+                            val === "" ? null : Number(val)
+                          )
+                        }
+                      />
+                    </span>
+                  </div>
+
                   <div className="su-cell su-genre" title={getGenreTitle(b)}>
                     <span className="su-text">
                       <InlineEditable
@@ -1061,7 +1113,7 @@ const nextValue = value.trim();
                       <InlineEditable
                         value={getSubgenreAbbr(b)}
                         disabled={isBusy}
-                     onSave={(val) => saveInlineField(b, "subgenre_abbr", val)}
+                        onSave={(val) => saveInlineField(b, "subgenre_abbr", val)}
                       />
                     </span>
                   </div>
@@ -1101,9 +1153,7 @@ const nextValue = value.trim();
                   <button
                     disabled={isBusy}
                     onClick={() => setTopBook(b)}
-                    className={`su-action su-action--top ${
-                      b?.top_book ? "is-active" : ""
-                    }`}
+                    className={`su-action su-action--top ${b?.top_book ? "is-active" : ""}`}
                     title={
                       b?.top_book
                         ? `Top: ${fmtDateTitle(b.top_book_set_at)}`
@@ -1115,27 +1165,35 @@ const nextValue = value.trim();
                   </button>
 
                   <button
-  disabled={isBusy}
-  onClick={() => handleHighlight(b, "finished")}
-  className={`su-action su-action--highlight-finished ${
-    highlighted[id] === "finished" ? "is-highlighted" : ""
-  }`}
-  title="Highlight as finished on homepage"
-  type="button"
->
-  HF
-</button>
-         <button
-  disabled={isBusy}
-  onClick={() => handleHighlight(b, "received")}
-  className={`su-action su-action--highlight-received ${
-    highlighted[id] === "received" ? "is-highlighted" : ""
-  }`}
-  title="Highlight as received on homepage"
-  type="button"
->
-  HR
-</button>
+                    disabled={isBusy}
+                    onClick={() => handleHighlight(b, "finished")}
+             className={`su-action su-action--highlight-finished ${
+  highlighted[id] === "finished" ||
+  b?.home_featured_slot === "finished"
+    ? "is-highlighted"
+    : ""
+}`}
+                    title="Highlight as finished on homepage"
+                    type="button"
+                  >
+                    HF
+                  </button>
+
+                  <button
+                    disabled={isBusy}
+                    onClick={() => handleHighlight(b, "received")}
+                    className={`su-action su-action--highlight-received ${
+  highlighted[id] === "received" ||
+  b?.home_featured_slot === "received"
+    ? "is-highlighted"
+    : ""
+}`}
+                    title="Highlight as received on homepage"
+                    type="button"
+                  >
+                    HR
+                  </button>
+
                   <button
                     disabled={isBusy}
                     onClick={() => openEditor(b)}

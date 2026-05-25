@@ -294,6 +294,8 @@ sub: row.subgenre_abbr ?? row.sub_genre ?? null,
       title_keyword3_position: row.title_keyword3_position ?? null,
 
       pages: row.pages ?? null,
+      year_first_published: row.year_first_published ?? null,
+      first_publish_year: row.year_first_published ?? null,
       width_cm: widthCm,
       height_cm: heightCm,
 
@@ -1466,6 +1468,7 @@ sub_genre_id: normalizeInt(body.sub_genre_id),
           title_keyword3_position: normalizeInt(body.title_keyword3_position),
 
           pages: normalizeInt(body.pages),
+          year_first_published: normalizeInt(body.year_first_published ?? body.first_publish_year),
           width: Number.isFinite(wMm) ? wMm : null,
           height: Number.isFinite(hMm) ? hMm : null,
 
@@ -1728,6 +1731,9 @@ if (body.sub_genre_id !== undefined && cols.has("sub_genre_id")) {
       }
 
       if (body.pages !== undefined) updates.pages = normalizeInt(body.pages);
+      if ((body.year_first_published ?? body.first_publish_year) !== undefined) {
+        updates.year_first_published = normalizeInt(body.year_first_published ?? body.first_publish_year);
+      }
 
       if (body.width_cm !== undefined) {
         const w = toNum(body.width_cm);
@@ -1964,6 +1970,9 @@ if (
       }
 
       if (body.pages !== undefined) updates.pages = normalizeInt(body.pages);
+      if ((body.year_first_published ?? body.first_publish_year) !== undefined) {
+        updates.year_first_published = normalizeInt(body.year_first_published ?? body.first_publish_year);
+      }
 
       if (body.width_cm !== undefined) {
         const w = toNum(body.width_cm);
@@ -2266,6 +2275,9 @@ if ((patch.sub_genre_abbr ?? patch.subgenre_abbr) !== undefined) {
       }
 
       if (patch.pages !== undefined) updates.pages = normalizeInt(patch.pages);
+      if ((patch.year_first_published ?? patch.first_publish_year) !== undefined) {
+        updates.year_first_published = normalizeInt(patch.year_first_published ?? patch.first_publish_year);
+      }
 
       if (patch.width_cm !== undefined) {
         const w = toNum(patch.width_cm);
