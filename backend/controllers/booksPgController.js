@@ -191,7 +191,7 @@ const AUTHOR_RESOLVE_SELECT_SQL = `
   a.name_display AS author_name_display,
   a.first_name AS author_first_name,
   a.last_name AS author_last_name,
-  a.abbreviation AS author_abbreviation,
+  a.abbr AS author_abbreviation,
   a.author_nationality AS author_nationality,
   a.place_of_birth AS place_of_birth,
   a.male_female AS male_female,
@@ -936,7 +936,7 @@ async function autocomplete(req, res) {
           a.first_name,
           a.last_name,
           a.name_display,
-          a.abbreviation,
+          a.abbr,
           a.author_nationality,
           a.place_of_birth,
           a.male_female,
@@ -946,12 +946,12 @@ async function autocomplete(req, res) {
         WHERE a.last_name ILIKE $1
            OR a.name_display ILIKE $1
            OR concat_ws(' ', a.first_name, a.last_name) ILIKE $1
-           OR a.abbreviation ILIKE $1
+           OR a.abbr ILIKE $1
         ORDER BY
           CASE
             WHEN lower(a.last_name) = lower($2) THEN 1
             WHEN lower(a.name_display) = lower($2) THEN 2
-            WHEN lower(a.abbreviation) = lower($2) THEN 3
+            WHEN lower(a.abbr) = lower($2) THEN 3
             ELSE 99
           END,
           a.name_display NULLS LAST,

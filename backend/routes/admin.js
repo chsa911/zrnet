@@ -87,7 +87,7 @@ router.get("/authors/overview", adminAuthRequired, async (req, res) => {
         OR a.last_name ILIKE $1
         OR a.first_name ILIKE $1
         OR a.name_display ILIKE $1
-        OR a.abbreviation ILIKE $1
+        OR a.abbr ILIKE $1
       )
       GROUP BY a.id, a.first_name, a.last_name, a.name_display
       ORDER BY
@@ -123,26 +123,26 @@ router.get("/abbreviations", adminAuthRequired, async (req, res) => {
         a.last_name AS author_last_name,
         a.first_name,
         a.last_name,
-        regexp_replace(COALESCE(a.abbreviation, ''), '\\.+$', '') AS abbr_norm,
+        regexp_replace(COALESCE(a.abbr, ''), '\\.+$', '') AS abbr_norm,
         CASE
-          WHEN NULLIF(regexp_replace(COALESCE(a.abbreviation, ''), '\\.+$', ''), '') IS NULL THEN NULL
-          ELSE regexp_replace(COALESCE(a.abbreviation, ''), '\\.+$', '') || '.'
+          WHEN NULLIF(regexp_replace(COALESCE(a.abbr, ''), '\\.+$', ''), '') IS NULL THEN NULL
+          ELSE regexp_replace(COALESCE(a.abbr, ''), '\\.+$', '') || '.'
         END AS abbr_display,
         COUNT(DISTINCT au.book_id)::int AS title_count,
         COALESCE(a.published_titles, COUNT(DISTINCT au.book_id))::int AS published_titles
       FROM public.authors a
       JOIN authored au ON au.author_id = a.id
-      WHERE NULLIF(regexp_replace(COALESCE(a.abbreviation, ''), '\\.+$', ''), '') IS NOT NULL
+      WHERE NULLIF(regexp_replace(COALESCE(a.abbr, ''), '\\.+$', ''), '') IS NOT NULL
         AND (
           $1::text IS NULL
           OR a.last_name ILIKE $1
           OR a.first_name ILIKE $1
           OR a.name_display ILIKE $1
-          OR a.abbreviation ILIKE $1
+          OR a.abbr ILIKE $1
         )
-      GROUP BY a.id, a.first_name, a.last_name, a.abbreviation, a.published_titles, a.name_display
+      GROUP BY a.id, a.first_name, a.last_name, a.abbr, a.published_titles, a.name_display
       ORDER BY
-        LOWER(regexp_replace(COALESCE(a.abbreviation, ''), '\\.+$', '')) ASC,
+        LOWER(regexp_replace(COALESCE(a.abbr, ''), '\\.+$', '')) ASC,
         LOWER(COALESCE(NULLIF(a.last_name, ''), NULLIF(a.name_display, ''), '')) ASC,
         LOWER(COALESCE(NULLIF(a.first_name, ''), '')) ASC,
         a.id ASC
