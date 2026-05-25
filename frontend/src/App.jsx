@@ -1,5 +1,5 @@
-import React, { useEffect } from "react";
-import { Routes, Route, Navigate } from "react-router-dom";
+import React, { useEffect, useState } from "react";
+import { Routes, Route, Navigate, useLocation } from "react-router-dom";
 import Layout from "./components/Layout";
 import Home from "./pages/Home";
 import AnalyticsPage from "./pages/AnalyticsPage";
@@ -29,6 +29,54 @@ import BetaTestPage from "./pages/BetaTestPage";
 import AdminAuthorTitlesPage from "./pages/AdminAuthorTitlesPage";
 import AdminAuthorPage from "./pages/AdminAuthorPage";
 import HomeTitlesPage from "./pages/HomeTitlesPage";
+import { API_BASE } from "./api/config";
+
+const ENV_BASE = (import.meta?.env?.VITE_API_BASE_URL || import.meta?.env?.VITE_API_BASE || "").trim();
+const BASE = String(ENV_BASE || API_BASE || "/api").replace(/\/$/, "");
+
+function buildApiUrl(path) {
+  if (/^https?:\/\//i.test(path)) return path;
+  const p = path.startsWith("/") ? path : `/${path}`;
+  if (BASE.endsWith("/api") && p.startsWith("/api/")) return `${BASE}${p.slice(4)}`;
+  return `${BASE}${p}`;
+}
+
+function RequireAdmin({ children }) {
+  const location = useLocation();
+  const [state, setState] = useState("checking");
+
+  useEffect(() => {
+    let cancelled = false;
+
+    (async () => {
+      try {
+        const res = await fetch(buildApiUrl("/admin/me"), { credentials: "include" });
+        if (!cancelled) setState(res.ok ? "ok" : "denied");
+      } catch {
+        if (!cancelled) setState("denied");
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [location.pathname]);
+
+  if (state === "checking") {
+    return <div className="zr-card">Checking login…</div>;
+  }
+
+  if (state !== "ok") {
+    const next = `${location.pathname}${location.search || ""}`;
+    return <Navigate to={`/admin?next=${encodeURIComponent(next)}`} replace />;
+  }
+
+  return children;
+}
+
+function AdminOnly({ children }) {
+  return <RequireAdmin>{children}</RequireAdmin>;
+}
 
 function NotFound() {
   return (
@@ -111,8 +159,8 @@ export default function App() {
         <Route path="impressum.html" element={<Navigate to="/info/impressum" replace />} />
         <Route path="impressum_d.html" element={<Navigate to="/info/impressum" replace />} />
         <Route path="datenschutz.html" element={<Navigate to="/info/datenschutz" replace />} />
-        <Route path="admin/authors/:authorId" element={<AdminAuthorPage />} />
-        <Route path="admin/authors/:authorId/titles" element={<AdminAuthorTitlesPage />} />
+        <Route path="admin/authors/:authorId" element={<AdminOnly><AdminAuthorPage /></AdminOnly>} />
+        <Route path="admin/authors/:authorId/titles" element={<AdminOnly><AdminAuthorTitlesPage /></AdminOnly>} />
         {/* book detail */}
         <Route path="book/:id" element={<BookPage />} />
         {/* author detail */}
@@ -122,14 +170,14 @@ export default function App() {
         <Route path="authors" element={<AuthorsOverviewPage />} />
         <Route path="bookthemes/:abbr/subthemes" element={<ThemeSubthemesAuthorsPage />} />
         {/* admin */}
-        <Route path="admin/abbreviations" element={<AbbreviationsAdminPage />} />
+        <Route path="admin/abbreviations" element={<AdminOnly><AbbreviationsAdminPage /></AdminOnly>} />
         <Route path="admin" element={<AdminPage />} />
-        <Route path="admin/register" element={<RegisterPage />} />
-        <Route path="admin/authors" element={<AdminAuthorsOverviewPage />} />
-        <Route path="admin/search-update" element={<SearchUpdatePage />} />
-        <Route path="admin/sync-issues" element={<SyncIssuePage />} />
-        <Route path="admin/barcodes" element={<BarcodeDashboardPage />} />
-        <Route path="admin/comments" element={<AdminCommentsPage />} />
+        <Route path="admin/register" element={<AdminOnly><RegisterPage /></AdminOnly>} />
+        <Route path="admin/authors" element={<AdminOnly><AdminAuthorsOverviewPage /></AdminOnly>} />
+        <Route path="admin/search-update" element={<AdminOnly><SearchUpdatePage /></AdminOnly>} />
+        <Route path="admin/sync-issues" element={<AdminOnly><SyncIssuePage /></AdminOnly>} />
+        <Route path="admin/barcodes" element={<AdminOnly><BarcodeDashboardPage /></AdminOnly>} />
+        <Route path="admin/comments" element={<AdminOnly><AdminCommentsPage /></AdminOnly>} />
         <Route path="login" element={<Navigate to="/admin" replace />} />
         <Route path="login.html" element={<Navigate to="/admin" replace />} />
 
