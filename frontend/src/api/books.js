@@ -218,9 +218,14 @@
     const data = await http(`/public/books/most-read-authors?${qs}`, { signal });
     return Array.isArray(data) ? data : [];
   }
-  export async function highlightBook(id, status = "received", { signal } = {}) {
+ export async function highlightBook(id, status = "received", { signal } = {}) {
   if (!id) throw new Error("Missing book id");
-  return http(`/admin/books/${encodeURIComponent(id)}/highlight/${encodeURIComponent(status)}`, {
+
+  if (status !== "received") {
+    throw new Error(`Unsupported highlight status: ${status}`);
+  }
+
+  return http(`/admin/books/${encodeURIComponent(id)}/highlight-received`, {
     method: "POST",
     json: {},
     signal,

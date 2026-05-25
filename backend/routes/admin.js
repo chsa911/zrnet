@@ -402,6 +402,34 @@ router.get("/barcodes", adminAuthRequired, async (req, res) => {
 
 router.post("/books/:id/register", adminAuthRequired, registerExistingBook);
 
+router.post("/books/:id/highlight-received", adminAuthRequired, async (req, res) => {
+  try {
+    const pool = getPool(req);
+    const id = String(req.params.id || "").trim();
+    if (!isUuid(id)) return res.status(400).json({ error: "invalid_id" });
+
+    const { rows } = await pool.query(
+      `
+      UPDATE public.books
+      SET highlight_status = 'received'
+      WHERE id = $1::uuid
+      RETURNING id::text, highlight_status
+      `,
+      [id]
+    );
+
+    if (!rows[0]) return res.status(404).json({ error: "not_found" });
+
+    res.json({ ok: true, item: rows[0] });
+  } catch (err) {
+    console.error("POST /api/admin/books/:id/highlight-received error", err);
+    res.status(500).json({
+      error: "internal_error",
+      detail: String(err?.message || err),
+    });
+  }
+});
+
 router.post("/books/:id/make-highlight", adminAuthRequired, async (req, res) => {
   try {
     const pool = getPool(req);
