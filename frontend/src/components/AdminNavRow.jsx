@@ -77,6 +77,14 @@ export default function AdminNavRow({ style }) {
       </Link>
 
       <Link
+        to="/admin/newsletter"
+        className="zr-btn2 zr-btn2--ghost"
+        style={baseBtn(pathname === "/admin/newsletter")}
+      >
+        ✉️ Newsletter
+      </Link>
+
+      <Link
         to="/admin/comments"
         className="zr-btn2 zr-btn2--ghost"
         style={baseBtn(pathname === "/admin/comments")}

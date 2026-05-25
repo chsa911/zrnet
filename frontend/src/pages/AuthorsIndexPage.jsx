@@ -1,221 +1,255 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
-import { getApiRoot } from "../api/apiRoot";
-import { useI18n } from "../context/I18nContext";
-import "./AuthorsIndexPage.css";
+  // frontend/src/pages/AuthorsIndexPage.jsx
+  import React, { useEffect, useMemo, useState } from "react";
+  import { Link } from "react-router-dom";
+  import { getApiRoot } from "../api/apiRoot";
+  import "./AuthorsIndexPage.css";
+  import AdminAuthorAssignment from "../components/AdminAuthorAssignment";
+  function num(v) {
+    const n = Number(v);
+    return Number.isFinite(n) ? n : 0;
+  }
 
-const LETTERS = [..."ABCDEFGHIJKLMNOPQRSTUVWXYZ", "#0-9"];
+  function getAuthorName(a) {
+    return (
+      a?.name_display ||
+      a?.author ||
+      a?.name ||
+      [a?.first_name || a?.first, a?.last_name || a?.last].filter(Boolean).join(" ") ||
+      "—"
+    );
+  }
 
-function bucketFor(lastOrName) {
-  const s = String(lastOrName || "").trim();
-  if (!s) return "#0-9";
+  function getFinished(a) {
+    return num(a?.finished ?? a?.completed);
+  }
 
-  // normalize diacritics: Ä -> A, É -> E, etc
-  const c0 = s[0]
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .toUpperCase();
+  function getAbandoned(a) {
+    return num(a?.abandoned ?? a?.not_match);
+  }
 
-  if (/[0-9]/.test(c0)) return "#0-9";
-  if (/^[A-Z]$/.test(c0)) return c0;
-  return "#0-9";
+  function getInStock(a) {
+    return num(a?.in_stock ?? a?.notStarted ?? a?.not_started);
+  }
+
+  function getInProgress(a) {
+    return num(a?.in_progress ?? a?.inProgress);
+  }
+
+  function getTotal(a) {
+    return (
+      num(a?.total) ||
+      getFinished(a) + getAbandoned(a) + getInStock(a) + getInProgress(a) + num(a?.wishlist)
+    );
+  }
+
+  function getYearCount(a, year) {
+    return num(
+      a?.[`entries_${year}`] ??
+        a?.[`total_${year}`] ??
+        a?.[`registered_${year}`] ??
+        a?.years?.[year] ??
+        a?.by_year?.[year]
+    );
+  }
+
+  function searchUpdateUrl(authorId, status = "") {
+    const p = new URLSearchParams();
+    p.set("author_id", authorId);
+    if (status) p.set("status", status);
+    return `/search-update?${p.toString()}`;
+  }
+function authorTitlesUrl(authorId, status = "") {
+  const p = new URLSearchParams();
+  p.set("author_id", authorId);
+  if (status) p.set("status", status);
+  return `/admin/authors/${authorId}/titles?${p.toString()}`;
 }
 
-export default function AuthorsIndexPage() {
-  const { t } = useI18n();
-  const topRef = useRef(null);
+  export default function AuthorsIndexPage() {
+    const [rows, setRows] = useState([]);
+    const [total, setTotal] = useState(0);
+    const [q, setQ] = useState("");
+    const [sort, setSort] = useState("most_entries");
+    const [loading, setLoading] = useState(false);
+    const [err, setErr] = useState("");
 
-  const [rows, setRows] = useState([]);
-  const [total, setTotal] = useState(0);
-  const [q, setQ] = useState("");
-  const [activeLetter, setActiveLetter] = useState("A");
-  const [loading, setLoading] = useState(false);
-  const [err, setErr] = useState("");
+    useEffect(() => {
+      const ac = new AbortController();
 
-  useEffect(() => {
-    const ac = new AbortController();
-    setLoading(true);
-    setErr("");
+      async function loadAuthors() {
+        setLoading(true);
+        setErr("");
 
-    (async () => {
-      try {
-        const url = new URL(`${getApiRoot()}/public/authors/overview`, window.location.origin);
-        url.searchParams.set("limit", "20000");
-        url.searchParams.set("offset", "0");
+        try {
+          const url = new URL(`${getApiRoot()}/admin/authors/overview`, window.location.origin);
+          url.searchParams.set("limit", "20000");
+          url.searchParams.set("offset", "0");
 
-        const res = await fetch(url.toString().replace(window.location.origin, ""), {
-          credentials: "include",
-          cache: "no-store",
-          signal: ac.signal,
-        });
-        if (!res.ok) throw new Error(`overview_failed_${res.status}`);
+          const res = await fetch(url.toString().replace(window.location.origin, ""), {
+            credentials: "include",
+            cache: "no-store",
+            signal: ac.signal,
+          });
 
-        const json = await res.json();
-        const items = Array.isArray(json?.items) ? json.items : [];
-        setRows(items);
-        setTotal(Number(json?.total ?? items.length) || items.length);
-      } catch (e) {
-        if (!ac.signal.aborted) {
-          setErr(e?.message || String(e));
-          setRows([]);
-          setTotal(0);
+          if (!res.ok) throw new Error(`overview_failed_${res.status}`);
+
+          const json = await res.json();
+          const items = Array.isArray(json?.items) ? json.items : [];
+
+          setRows(items);
+          setTotal(Number(json?.total ?? items.length) || items.length);
+        } catch (e) {
+          if (!ac.signal.aborted) {
+            setRows([]);
+            setTotal(0);
+            setErr(e?.message || "Failed to load authors");
+          }
+        } finally {
+          if (!ac.signal.aborted) setLoading(false);
         }
-      } finally {
-        if (!ac.signal.aborted) setLoading(false);
       }
-    })();
 
-    return () => ac.abort();
-  }, []);
+      loadAuthors();
 
-  const filtered = useMemo(() => {
-    const qq = q.trim().toLowerCase();
-    if (!qq) return rows;
+      return () => ac.abort();
+    }, []);
 
-    return rows.filter((a) => {
-      const name = String(a.author || a.name_display || "").toLowerCase();
-      const last = String(a.last || a.last_name || "").toLowerCase();
-      const first = String(a.first || a.first_name || "").toLowerCase();
-      return name.includes(qq) || last.includes(qq) || first.includes(qq);
-    });
-  }, [rows, q]);
+    const filtered = useMemo(() => {
+      const needle = q.trim().toLowerCase();
 
-  const groups = useMemo(() => {
-    const g = Object.fromEntries(LETTERS.map((L) => [L, []]));
-    for (const a of filtered) {
-      const lastOrName = a.last || a.last_name || a.author || a.name_display;
-      const b = bucketFor(lastOrName);
-      (g[b] || (g[b] = [])).push(a);
-    }
-    return g;
-  }, [filtered]);
+      const list = !needle
+        ? rows
+        : rows.filter((a) => {
+            const name = getAuthorName(a).toLowerCase();
+            const last = String(a?.last || a?.last_name || "").toLowerCase();
+            const first = String(a?.first || a?.first_name || "").toLowerCase();
+            return name.includes(needle) || last.includes(needle) || first.includes(needle);
+          });
 
-  const counts = useMemo(() => {
-    const c = {};
-    for (const L of LETTERS) c[L] = (groups[L] || []).length;
-    return c;
-  }, [groups]);
+      return list.slice().sort((a, b) => {
+        const an = getAuthorName(a);
+        const bn = getAuthorName(b);
 
-  const title = t("ao_title");
-  const lede = t("ao_lede");
-  const searchLabel = t("ao_search");
-  const searchPh = t("ao_search_ph");
+        if (sort === "name") return an.localeCompare(bn, "de", { sensitivity: "base" });
 
-  const h = t("ao_on_hand_short");      // H
-  const f = t("ao_finished_short");     // F
-  const nm = t("ao_not_match_short");   // NM
-  const w = t("ao_wishlist_short");     // W
+        const diff =
+          sort === "most_entries_2026"
+            ? getYearCount(b, 2026) - getYearCount(a, 2026)
+            : sort === "most_entries_2025"
+              ? getYearCount(b, 2025) - getYearCount(a, 2025)
+              : sort === "most_entries_2024"
+                ? getYearCount(b, 2024) - getYearCount(a, 2024)
+                : sort === "most_finished"
+                  ? getFinished(b) - getFinished(a)
+                  : sort === "most_abandoned"
+                    ? getAbandoned(b) - getAbandoned(a)
+                    : sort === "most_in_stock"
+                      ? getInStock(b) - getInStock(a)
+                      : sort === "most_in_progress"
+                        ? getInProgress(b) - getInProgress(a)
+                        : getTotal(b) - getTotal(a);
 
-  return (
-    <section className="zr-section ao" aria-busy={loading ? "true" : "false"}>
-      <div ref={topRef} id="top" />
+        return diff || an.localeCompare(bn, "de", { sensitivity: "base" });
+      });
+    }, [rows, q, sort]);
 
-      <h1>{title}</h1>
-      <p className="zr-lede">{lede}</p>
+    return (
+      <section className="zr-section ao-filter-index" aria-busy={loading ? "true" : "false"}>
+        <AdminAuthorAssignment />
+        <div className="afi-grid">
+          <div className="afi-filter-row">
+            <div className="afi-cell">
+              <input
+                className="afi-search"
+                value={q}
+                onChange={(e) => setQ(e.target.value)}
+                placeholder="Name"
+                aria-label="Filter authors by name"
+              />
+            </div>
 
-      <div className="zr-card ao-card">
-        {err ? <div className="zr-alert zr-alert--error">{err}</div> : null}
-        {loading ? <div className="zr-alert">{t("ao_loading")}</div> : null}
-
-        <div className="ao-tools">
-          <label className="ao-search">
-            <div className="ao-search-label">{searchLabel}</div>
-            <input
-              value={q}
-              onChange={(e) => setQ(e.target.value)}
-              placeholder={searchPh}
-              className="ao-search-input"
-            />
-          </label>
-
-          <div className="ao-count">
-            {filtered.length} / {total} {t("ao_authors")}
-          </div>
-        </div>
-
-        <div className="ao-letters" aria-label="Alphabet navigation">
-          {LETTERS.map((L) => {
-            const disabled = (counts[L] || 0) === 0;
-            const href = L === "#0-9" ? "#letter-0-9" : `#letter-${L}`;
-
-            if (disabled) {
-              return (
-                <span key={L} className="ao-letter ao-letter--disabled" aria-disabled="true">
-                  {L}
-                </span>
-              );
-            }
-
-            return (
-              <a
-                key={L}
-                className={`ao-letter${activeLetter === L ? " is-active" : ""}`}
-                href={href}
-                onClick={() => setActiveLetter(L)}
-                title={`${counts[L]} ${t("ao_authors")}`}
+            <div className="afi-cell">
+              <select
+                className="afi-select"
+                value={sort}
+                onChange={(e) => setSort(e.target.value)}
+                aria-label="Sort authors"
               >
-                {L}
-              </a>
-            );
-          })}
-        </div>
+                <option value="name">Name</option>
+                <option value="most_entries">Most entries</option>
+                <option value="most_entries_2026">Most entries 2026</option>
+                <option value="most_entries_2025">Most entries 2025</option>
+                <option value="most_entries_2024">Most entries 2024</option>
+                <option value="most_finished">Most completed</option>
+                <option value="most_abandoned">Most abandoned</option>
+                <option value="most_in_stock">Most in stock</option>
+                <option value="most_in_progress">Most in progress</option>
+              </select>
+            </div>
 
-        <div className="ao-sections">
-          {LETTERS.map((L) => {
-            const list = groups[L] || [];
-            if (!list.length) return null;
+            <div className="afi-cell afi-count">{filtered.length} / {total}</div>
+          </div>
 
-            const sectionId = L === "#0-9" ? "letter-0-9" : `letter-${L}`;
+          {err ? <div className="afi-alert afi-alert--error">{err}</div> : null}
+          {loading ? <div className="afi-alert">Loading…</div> : null}
 
-            return (
-              <div key={L} id={sectionId} className="ao-section">
-                <div className="ao-section-head">
-                  <div className="ao-section-letter">{L}</div>
-                  <a className="ao-backtop" href="#top">
-                    {t("ao_back_to_top")}
-                  </a>
-                </div>
-
-                <ul className="ao-list">
-                  {list.map((a) => {
-                    const id = a.id;
-                    const name = a.author || a.name_display || "—";
-                    const nat = a.nationality_abbr || a.nationality || null;
-
-                    return (
-                      <li key={id} className="ao-item">
-                    <span className="ao-link">{name}</span>
-                        <span className="ao-meta">
-                          {nat ? <span className="ao-badge">{nat}</span> : null}
-                          <span className="ao-badge">
-                            {h}
-                            {a.on_hand ?? 0}
-                          </span>
-                          <span className="ao-badge">
-                            {f}
-                            {a.finished ?? a.completed ?? 0}
-                          </span>
-                          <span className="ao-badge">
-                            {nm}
-                            {a.not_match ?? 0}
-                          </span>
-                          <span className="ao-badge">
-                            {w}
-                            {a.wishlist ?? 0}
-                          </span>
-                        </span>
-                      </li>
-                    );
-                  })}
-                </ul>
-              </div>
-            );
-          })}
-
-          {!loading && filtered.length === 0 ? (
-            <div className="ao-empty">{t("ao_empty")}</div>
+          {!loading && !err && filtered.length === 0 ? (
+            <div className="afi-empty">No authors found.</div>
           ) : null}
+
+          {!loading && !err
+            ? filtered.map((a, index) => {
+                const id = a?.id;
+                const name = getAuthorName(a);
+                const totalCount = getTotal(a);
+                const finished = getFinished(a);
+                const abandoned = getAbandoned(a);
+                const inStock = getInStock(a);
+                const inProgress = getInProgress(a);
+                const key = id || `${name}-${index}`;
+
+                if (!id) {
+                  return (
+                    <div className="afi-author-row" key={key}>
+                      <span className="afi-cell afi-name afi-muted">{name}</span>
+                      <span className="afi-cell afi-count-link">{totalCount}</span>
+                      <span className="afi-cell afi-count-link">{finished}</span>
+                      <span className="afi-cell afi-count-link">{abandoned}</span>
+                      <span className="afi-cell afi-count-link">{inStock + inProgress}</span>
+                    </div>
+                  );
+                }
+
+                return (
+                  <div className="afi-author-row" key={key}>
+                    <Link className="afi-cell afi-name" to={searchUpdateUrl(id)} title="All entries">
+                      {name}
+                    </Link>
+
+                    <Link className="afi-cell afi-count-link" to={searchUpdateUrl(id)} title="Total entries">
+                        {totalCount}
+                    </Link>
+
+                    <Link className="afi-cell afi-count-link" to={searchUpdateUrl(id, "finished")} title="Completed">
+                      {finished}
+                    </Link>
+
+                    <Link className="afi-cell afi-count-link" to={searchUpdateUrl(id, "abandoned")} title="Abandoned">
+                      {abandoned}
+                    </Link>
+
+                    <Link
+                      className="afi-cell afi-count-link"
+                      to={authorTitlesUrl(id, "in_stock,in_progress")}
+                      title="In stock + in progress"
+                    >
+                      {inStock + inProgress}
+                    </Link>
+                  </div>
+                );
+              })
+            : null}
         </div>
-      </div>
-    </section>
-  );
-}
+      </section>
+    );
+  }

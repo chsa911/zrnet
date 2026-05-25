@@ -181,7 +181,7 @@ export default function BookPage() {
                   {t("book.no_cover_image")}
                   {safeId ? (
                     <div className="zr-bookpage__coverHint">
-                      {t("book.expected")} <code>/media/covers/{safeId}.jpg</code>
+                      {t("book.expected")} <code>/media.  /covers/{safeId}.jpg</code>
                     </div>
                   ) : null}
                 </div>

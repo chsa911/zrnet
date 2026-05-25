@@ -1,5 +1,3 @@
-import { apiUrl } from "../api/apiRoot";
-
 // frontend/src/utils/uploadQueue.js
 // IndexedDB upload queue (iPhone-safe).
 //
@@ -334,7 +332,7 @@ async function uploadCreateStep(job) {
   const payload = job?.skipIsbn ? stripIsbnFields(rawPayload) : rawPayload;
   const body = { ...payload, requestId: payload.requestId || job.id };
 
-  const book = await fetchJson(apiUrl("/books"), {
+  const book = await fetchJson("/api/books", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
@@ -354,7 +352,7 @@ async function uploadFinalizeStep(job) {
   const rawPayload = job?.payload && typeof job.payload === "object" ? job.payload : {};
   const payload = job?.skipIsbn ? stripIsbnFields(rawPayload) : rawPayload;
 
-  const book = await fetchJson(apiUrl(`/admin/books/${encodeURIComponent(targetId)}/register`), {
+  const book = await fetchJson(`/api/admin/books/${encodeURIComponent(targetId)}/register`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),
@@ -377,7 +375,7 @@ async function uploadCoverStep(job, bookIdOverride) {
   const fd = new FormData();
   fd.append("cover", file, job?.coverName || file.name || "cover.jpg");
 
-  await fetchJson(apiUrl(`/books/${encodeURIComponent(bookId)}/cover`), {
+  await fetchJson(`/api/admin/books/${encodeURIComponent(bookId)}/cover`, {
     method: "POST",
     body: fd,
   });

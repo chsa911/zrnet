@@ -19,16 +19,19 @@ export default function BooksTable() {
   async function load() {
     setBusy(true);
     try {
-      const res = await fetchBooks({
-        q,
-        page,
-        limit: 10,
-        sortBy: "BEind",
-        sortDir: "desc",
-        ...(status ? { status } : {}),
-        ...(topOnly ? { topOnly: true } : {}),
-        ...(since ? { since } : {}),
-      });
+      const trimmed = q.trim();
+const isPages = /^\d+$/.test(trimmed);
+
+const res = await fetchBooks({
+  ...(isPages ? { pages: Number(trimmed) } : { q: trimmed }),
+  page,
+  limit: 10,
+  sortBy: "BEind",
+  sortDir: "desc",
+  ...(status ? { status } : {}),
+  ...(topOnly ? { topOnly: true } : {}),
+  ...(since ? { since } : {}),
+});
       setItems(res.items);
       setPages(res.pages);
       setTotal(res.total);

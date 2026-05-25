@@ -1,4 +1,3 @@
-// frontend/src/components/BookForm.jsx
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { createWorker, PSM } from "tesseract.js";
 import { BrowserMultiFormatReader } from "@zxing/browser";
@@ -142,20 +141,8 @@ function computeKeywordFromTitle(title) {
   const t = String(title || "").trim();
   if (!t) return { keyword: "", pos: "" };
   const articles = [
-    "der",
-    "die",
-    "das",
-    "ein",
-    "eine",
-    "einer",
-    "eines",
-    "the",
-    "a",
-    "an",
-    "la",
-    "le",
-    "les",
-    "el",
+    "der", "die", "das", "ein", "eine", "einer", "eines",
+    "the", "a", "an", "la", "le", "les", "el",
   ];
   const m = t.match(/^([A-Za-zÄÖÜäöüß]+)\s+(.*)$/);
   if (!m) return { keyword: t, pos: "0" };
@@ -435,8 +422,6 @@ export default function BookForm({
   const [coverPreviewUrl, setCoverPreviewUrl] = useState("");
 
   const [pendingUploads, setPendingUploads] = useState(0);
-  const msgRef = useRef(null);
-
   const refreshPending = async () => {
     try {
       setPendingUploads(await getPendingUploadCount());
@@ -444,6 +429,8 @@ export default function BookForm({
       // ignore
     }
   };
+
+  const msgRef = useRef(null);
 
   useEffect(() => {
     refreshPending();
@@ -649,8 +636,8 @@ export default function BookForm({
           ? "ISBN gefunden ✔ (Felder wurden ergänzt)"
           : "ISBN gefunden, aber es kamen nur wenige Metadaten zurück."
       );
-    } catch (err) {
-      setMsg(err?.message || "ISBN Lookup fehlgeschlagen");
+    } catch (e) {
+      setMsg(e?.message || "ISBN Lookup fehlgeschlagen");
     } finally {
       setIsbnBusy(false);
     }
@@ -780,12 +767,10 @@ export default function BookForm({
       ["author_lastname", v.author_lastname],
       ["author_firstname", v.author_firstname],
       ["name_display", v.name_display],
-      ["author_abbreviation", v.author_abbreviation],
       ["author_nationality", v.author_nationality],
       ["place_of_birth", v.place_of_birth],
       ["male_female", v.male_female],
       ["publisher_name_display", v.publisher_name_display],
-      ["publisher_abbr", v.publisher_abbr],
       ["title_display", v.title_display],
       ["subtitle_display", v.subtitle_display],
       ["title_keyword", v.title_keyword],
@@ -838,6 +823,12 @@ export default function BookForm({
 
     if (!coverFile && !isEdit) {
       setMsg("Bitte zuerst ein Cover-Foto aufnehmen.");
+      return;
+    }
+
+    const pages = parseIntOrNull(v.pages);
+    if (pages === null || pages <= 0) {
+      setMsg("Bitte Seitenzahl eingeben.");
       return;
     }
 
@@ -1060,6 +1051,7 @@ export default function BookForm({
           className="zr-input"
           type="text"
           inputMode="numeric"
+          required
           value={v.pages}
           onChange={(e) => setField("pages", e.target.value)}
           placeholder="320"

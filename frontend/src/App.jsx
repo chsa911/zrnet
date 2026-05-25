@@ -1,9 +1,6 @@
-import React, { useEffect } from "react";
-import { Routes, Route, Navigate } from "react-router-dom";
-
+import React, { useEffect, useState } from "react";
+import { Routes, Route, Navigate, useLocation } from "react-router-dom";
 import Layout from "./components/Layout";
-import RequireAdmin from "./components/RequireAdmin";
-
 import Home from "./pages/Home";
 import AnalyticsPage from "./pages/AnalyticsPage";
 import LegacyHtmlPage from "./pages/LegacyHtmlPage";
@@ -11,7 +8,6 @@ import InfoPage from "./pages/InfoPage";
 import AdminCommentsPage from "./pages/AdminCommentsPage";
 import AdminPage from "./pages/AdminPage";
 import AdminAuthorsOverviewPage from "./pages/AdminAuthorsOverviewPage";
-import AbbreviationsAdminPage from "./pages/AbbreviationsAdminPage";
 import RegisterPage from "./pages/RegisterPage";
 import SearchUpdatePage from "./pages/SearchUpdatePage";
 import SyncIssuePage from "./pages/SyncIssuePage";
@@ -23,12 +19,65 @@ import MostReadAuthorsPage from "./pages/MostReadAuthorsPage";
 import AuthorsOverviewPage from "./pages/AuthorsOverviewPage";
 import AuthorPage from "./pages/AuthorPage";
 import BookPage from "./pages/BookPage";
-/* import NewsletterPage from "./pages/NewsletterPage"; */
+import AbbreviationsAdminPage from "./pages/AbbreviationsAdminPage";
+/*import NewsletterPage from "./pages/NewsletterPage";
+*/
 import ThemeSubthemesAuthorsPage from "./pages/ThemeSubthemesAuthorsPage";
-import BetaTestPage from "./pages/BetaTestPage";
-
 import { processUploadQueue } from "./utils/uploadQueue";
-import HighlightReceivedPage from "./pages/HighlightReceivedPage";
+import AuthorsIndexPage from "./pages/AuthorsIndexPage";
+import BetaTestPage from "./pages/BetaTestPage";
+import AdminAuthorTitlesPage from "./pages/AdminAuthorTitlesPage";
+import AdminAuthorPage from "./pages/AdminAuthorPage";
+import HomeTitlesPage from "./pages/HomeTitlesPage";
+import { API_BASE } from "./api/config";
+
+const ENV_BASE = (import.meta?.env?.VITE_API_BASE_URL || import.meta?.env?.VITE_API_BASE || "").trim();
+const BASE = String(ENV_BASE || API_BASE || "/api").replace(/\/$/, "");
+
+function buildApiUrl(path) {
+  if (/^https?:\/\//i.test(path)) return path;
+  const p = path.startsWith("/") ? path : `/${path}`;
+  if (BASE.endsWith("/api") && p.startsWith("/api/")) return `${BASE}${p.slice(4)}`;
+  return `${BASE}${p}`;
+}
+
+function RequireAdmin({ children }) {
+  const location = useLocation();
+  const [state, setState] = useState("checking");
+
+  useEffect(() => {
+    let cancelled = false;
+
+    (async () => {
+      try {
+        const res = await fetch(buildApiUrl("/admin/me"), { credentials: "include" });
+        if (!cancelled) setState(res.ok ? "ok" : "denied");
+      } catch {
+        if (!cancelled) setState("denied");
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [location.pathname]);
+
+  if (state === "checking") {
+    return <div className="zr-card">Checking login…</div>;
+  }
+
+  if (state !== "ok") {
+    const next = `${location.pathname}${location.search || ""}`;
+    return <Navigate to={`/admin?next=${encodeURIComponent(next)}`} replace />;
+  }
+
+  return children;
+}
+
+function AdminOnly({ children }) {
+  return <RequireAdmin>{children}</RequireAdmin>;
+}
+
 function NotFound() {
   return (
     <div style={{ padding: 24, fontFamily: "Arial, sans-serif" }}>
@@ -39,6 +88,7 @@ function NotFound() {
 }
 
 export default function App() {
+  // Safety net: retry any locally queued registrations/uploads when the app opens or comes online.
   useEffect(() => {
     let alive = true;
 
@@ -52,10 +102,7 @@ export default function App() {
 
     run();
 
-    const onOnline = () => {
-      if (alive) run();
-    };
-
+    const onOnline = () => alive && run();
     const onVis = () => {
       if (!alive) return;
       if (document.visibilityState === "visible") run();
@@ -63,7 +110,6 @@ export default function App() {
 
     window.addEventListener("online", onOnline);
     document.addEventListener("visibilitychange", onVis);
-
     return () => {
       alive = false;
       window.removeEventListener("online", onOnline);
@@ -73,14 +119,15 @@ export default function App() {
 
   return (
     <Routes>
+      {/* ✅ Make the layout route explicit */}
       <Route path="/" element={<Layout />}>
         <Route index element={<Home />} />
+        <Route path="titles" element={<HomeTitlesPage />} />
 
         {/* book themes */}
         <Route path="bookthemes" element={<BookThemesPage />} />
         <Route path="bookthemes/:abbr" element={<ThemeBooksPage />} />
         <Route path="bookthemes.html" element={<Navigate to="/bookthemes" replace />} />
-        <Route path="bookthemes/:abbr/subthemes" element={<ThemeSubthemesAuthorsPage />} />
 
         <Route path="beta-test" element={<BetaTestPage />} />
 
@@ -94,20 +141,13 @@ export default function App() {
         <Route path="merchandise.html" element={<Navigate to="/" replace />} />
 
         {/* newsletter */}
-        {/*
-        <Route path="newsletter" element={<NewsletterPage />} />
+{    /*    <Route path="newsletter" element={<NewsletterPage />} />
         <Route path="newsletter.html" element={<Navigate to="/newsletter" replace />} />
-        */}
-
-        {/* static info pages */}
+*/}
+        {/* static info pages (React + i18n) */}
         <Route path="info/:slug" element={<InfoPage />} />
 
-        {/* legacy static routes */}
-        <Route path="technik" element={<Navigate to="/info/so-funktionierts" replace />} />
-        <Route path="faq" element={<Navigate to="/info/faq" replace />} />
-        <Route path="impressum" element={<Navigate to="/info/impressum" replace />} />
-        <Route path="datenschutz" element={<Navigate to="/info/datenschutz" replace />} />
-
+        {/* legacy static routes → info/:slug */}
         <Route path="technik.html" element={<Navigate to="/info/so-funktionierts" replace />} />
         <Route path="info/technik" element={<Navigate to="/info/so-funktionierts" replace />} />
         <Route path="info/ausruestung" element={<Navigate to="/info/so-funktionierts" replace />} />
@@ -119,75 +159,25 @@ export default function App() {
         <Route path="impressum.html" element={<Navigate to="/info/impressum" replace />} />
         <Route path="impressum_d.html" element={<Navigate to="/info/impressum" replace />} />
         <Route path="datenschutz.html" element={<Navigate to="/info/datenschutz" replace />} />
-
-        {/* public authors / books */}
-        <Route path="authors" element={<AuthorsOverviewPage />} />
-        <Route path="author/:author" element={<AuthorPage />} />
+        <Route path="admin/authors/:authorId" element={<AdminOnly><AdminAuthorPage /></AdminOnly>} />
+        <Route path="admin/authors/:authorId/titles" element={<AdminOnly><AdminAuthorTitlesPage /></AdminOnly>} />
+        {/* book detail */}
         <Route path="book/:id" element={<BookPage />} />
-
+        {/* author detail */}
+        <Route path="author/:author" element={<AuthorPage />} />
+        {/* alphabetical authors overview (public) */}
+        
+        <Route path="authors" element={<AuthorsOverviewPage />} />
+        <Route path="bookthemes/:abbr/subthemes" element={<ThemeSubthemesAuthorsPage />} />
         {/* admin */}
+        <Route path="admin/abbreviations" element={<AdminOnly><AbbreviationsAdminPage /></AdminOnly>} />
         <Route path="admin" element={<AdminPage />} />
-        <Route
-          path="admin/register"
-          element={
-            <RequireAdmin>
-              <RegisterPage />
-            </RequireAdmin>
-          }
-        />
-        <Route
-          path="admin/authors"
-          element={
-            <RequireAdmin>
-              <AdminAuthorsOverviewPage />
-            </RequireAdmin>
-          }
-        />
-        <Route
-          path="admin/abbreviations"
-          element={
-            <RequireAdmin>
-              <AbbreviationsAdminPage />
-            </RequireAdmin>
-          }
-        />
-        {/* inside routes*/}
-
-<Route path="admin/highlights/received" element={<RequireAdmin><HighlightReceivedPage /></RequireAdmin>} />
-      
-        <Route
-          path="admin/search-update"
-          element={
-            <RequireAdmin>
-              <SearchUpdatePage />
-            </RequireAdmin>
-          }
-        />
-        <Route
-          path="admin/sync-issues"
-          element={
-            <RequireAdmin>
-              <SyncIssuePage />
-            </RequireAdmin>
-          }
-        />
-        <Route
-          path="admin/barcodes"
-          element={
-            <RequireAdmin>
-              <BarcodeDashboardPage />
-            </RequireAdmin>
-          }
-        />
-        <Route
-          path="admin/comments"
-          element={
-            <RequireAdmin>
-              <AdminCommentsPage />
-            </RequireAdmin>
-          }
-        />
-
+        <Route path="admin/register" element={<AdminOnly><RegisterPage /></AdminOnly>} />
+        <Route path="admin/authors" element={<AdminOnly><AdminAuthorsOverviewPage /></AdminOnly>} />
+        <Route path="admin/search-update" element={<AdminOnly><SearchUpdatePage /></AdminOnly>} />
+        <Route path="admin/sync-issues" element={<AdminOnly><SyncIssuePage /></AdminOnly>} />
+        <Route path="admin/barcodes" element={<AdminOnly><BarcodeDashboardPage /></AdminOnly>} />
+        <Route path="admin/comments" element={<AdminOnly><AdminCommentsPage /></AdminOnly>} />
         <Route path="login" element={<Navigate to="/admin" replace />} />
         <Route path="login.html" element={<Navigate to="/admin" replace />} />
 
@@ -199,12 +189,12 @@ export default function App() {
         {/* stats */}
         <Route path="stats/:type" element={<StatsDetailPage />} />
 
-        {/* top authors */}
+        {/* Top authors */}
         <Route path="top-authors" element={<MostReadAuthorsPage />} />
         <Route path="autoren_meistgelesen.html" element={<Navigate to="/top-authors" replace />} />
         <Route path="autoren_meist_gelesen.html" element={<Navigate to="/top-authors" replace />} />
 
-        {/* other legacy html routes */}
+        {/* other legacy html routes (fallback) */}
         <Route path=":page.html" element={<LegacyHtmlPage />} />
 
         <Route path="*" element={<NotFound />} />

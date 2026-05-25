@@ -1,6 +1,17 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { apiUrl } from "../api/apiRoot";
+import { API_BASE } from "../api/config";
+
+// Same base logic as your api modules (avoids /api/api duplication)
+const ENV_BASE = (import.meta?.env?.VITE_API_BASE_URL || import.meta?.env?.VITE_API_BASE || "").trim();
+const BASE = String(ENV_BASE || API_BASE || "/api").replace(/\/$/, "");
+
+function buildUrl(path) {
+  if (/^https?:\/\//i.test(path)) return path;
+  const p = path.startsWith("/") ? path : `/${path}`;
+  if (BASE.endsWith("/api") && p.startsWith("/api/")) return `${BASE}${p.slice(4)}`;
+  return `${BASE}${p}`;
+}
 
 export default function AdminPage() {
   const nav = useNavigate();
@@ -26,7 +37,7 @@ export default function AdminPage() {
   useEffect(() => {
     (async () => {
       try {
-        const res = await fetch(apiUrl("/admin/me"), { credentials: "include" });
+        const res = await fetch(buildUrl("/admin/me"), { credentials: "include" });
         setLoggedIn(res.ok);
       } catch {
         setLoggedIn(false);
@@ -46,7 +57,7 @@ export default function AdminPage() {
     setMsg("");
     setBusy(true);
     try {
-      const res = await fetch(apiUrl("/admin/login"), {
+      const res = await fetch(buildUrl("/admin/login"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",

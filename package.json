@@ -15,7 +15,9 @@
     "dev:web": "wait-on http://127.0.0.1:4000/api/health && npm run dev --workspace frontend",
     "dev": "concurrently -n api,web -c blue,green \"npm run dev:api\" \"npm run dev:web\"",
     "lint": "npm run lint --workspace frontend",
-    "test": "npm run test --workspace backend"
+    "test": "npm run test --workspace backend",
+    "build:mobile": "npm run build:mobile --workspace frontend",
+    "build:admin": "npm run build:admin --workspace frontend"
   },
   "dependencies": {
     "cookie-parser": "^1.4.7",

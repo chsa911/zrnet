@@ -2,8 +2,6 @@ import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { useI18n } from "../context/I18nContext";
 import { apiUrl } from "../api/apiRoot";
-import "./home_minimal.css";
-import HomeLiveBlock from "../components/HomeLiveBlock";
 
 function toIntOrNull(v) {
   if (v === null || v === undefined) return null;
@@ -20,7 +18,6 @@ function HighlightCard({ item, label, to, bgImage, left = false }) {
     >
       <div className="zr-splitHighlight__overlay zr-splitHighlight__overlay--top">
         <div className="zr-splitHighlight__badge">{label}</div>
-
         <div className="zr-splitHighlight__value">
           <strong>{item?.authorNameDisplay || "—"}</strong>
           <div>{item?.titleDisplay || "—"}</div>
@@ -29,10 +26,10 @@ function HighlightCard({ item, label, to, bgImage, left = false }) {
     </Link>
   );
 }
-export default function Home() {
+
+export default function HomeLiveBlock() {
   const { t } = useI18n();
   const year = 2026;
-  const HERO_IMG = "/assets/images/allgemein/hosentasche_link.jpeg";
   const HIGHLIGHT_FALLBACK = "";
 
   const [hl, setHl] = useState(null);
@@ -42,41 +39,22 @@ export default function Home() {
     top: null,
   });
 
-  const heroParagraphs = useMemo(
-    () => [t("home_hero_p1"), t("home_hero_p2"), t("home_hero_p3")].filter(Boolean),
-    [t]
-  );
-
-  const bullets = useMemo(
-    () =>
-      [
-        t("home_bullet_1"),
-        t("home_bullet_2"),
-        t("home_bullet_3"),
-        t("home_bullet_4"),
-      ].filter(Boolean),
-    [t]
-  );
-
   const proofStats = useMemo(
     () => [
       {
         key: "total_books",
         label: t("home_proof_in_stock_label"),
         meta: t("home_proof_in_stock_meta"),
-        to: "/stats/stock",
       },
       {
         key: "finished",
         label: t("home_proof_finished_label"),
         meta: t("home_proof_finished_meta"),
-        to: "/stats/finished",
       },
       {
         key: "top",
         label: t("home_proof_top_label"),
         meta: t("home_proof_top_meta"),
-        to: "/stats/top",
       },
     ],
     [t]
@@ -93,8 +71,7 @@ export default function Home() {
           headers: { Accept: "application/json" },
         });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        const data = await res.json();
-        setHl(data);
+        setHl(await res.json());
       } catch {
         setHl(null);
       }
@@ -150,9 +127,10 @@ export default function Home() {
   const received = hl?.received || {};
 
   const pickCover = useMemo(
-  () => (x) => x?.cover_home || x?.cover_full || x?.cover || HIGHLIGHT_FALLBACK,
-  []
-);
+    () => (x) => x?.cover_home || x?.cover_full || x?.cover || HIGHLIGHT_FALLBACK,
+    []
+  );
+
   const buildLink = (x) => {
     if (!x?.id) return "/";
     const sp = new URLSearchParams();
@@ -163,37 +141,6 @@ export default function Home() {
 
   return (
     <>
-      <section className="pil-hero">
-        <div className="pil-hero__content">
-          <div className="pil-eyebrow">{t("home_eyebrow")}</div>
-          <h1>{t("home_title")}</h1>
-
-          <div className="pil-heroText">
-            {heroParagraphs.map((text, index) => (
-              <p key={`${index}-${text}`} className={index === 0 ? "pil-lede" : undefined}>
-                {text}
-              </p>
-            ))}
-          </div>
-
-          <div className="pil-actions">
-            <Link className="zr-btn2 zr-btn2--primary" to="/beta-test#beta-signup">
-              {t("home_secondary_cta")}
-            </Link>
-          </div>
-
-          <ul className="zr-bullets pil-bullets">
-            {bullets.map((item) => (
-              <li key={item}>{item}</li>
-            ))}
-          </ul>
-        </div>
-
-        <div className="pil-hero__media">
-          <img className="pil-hero__image" src={HERO_IMG} alt={t("home_hero_image_alt")} />
-        </div>
-      </section>
-
       <section className="pil-proofStrip" aria-label={t("home_proof_title")}>
         <div className="pil-proofStrip__head">
           <div className="pil-eyebrow pil-eyebrow--muted">{t("home_proof_label")}</div>
@@ -215,22 +162,23 @@ export default function Home() {
         <div className="pil-sectionHead">
           <div className="pil-eyebrow pil-eyebrow--muted">{t("home_highlight_title")}</div>
         </div>
-<div className="zr-splitHighlight">
-  <HighlightCard
-    item={finished}
-    label={t("home_highlight_left")}
-    to={buildLink(finished)}
-    bgImage={pickCover(finished)}
-    left
-  />
 
-  <HighlightCard
-    item={received}
-    label={t("home_highlight_right")}
-    to={buildLink(received)}
-    bgImage={pickCover(received)}
-  />
-</div>
+        <div className="zr-splitHighlight">
+          <HighlightCard
+            item={finished}
+            label={t("home_highlight_left")}
+            to={buildLink(finished)}
+            bgImage={pickCover(finished)}
+            left
+          />
+
+          <HighlightCard
+            item={received}
+            label={t("home_highlight_right")}
+            to={buildLink(received)}
+            bgImage={pickCover(received)}
+          />
+        </div>
       </section>
     </>
   );
