@@ -1075,8 +1075,8 @@ export default function BookForm({
   }
 
   return (
-    <form onSubmit={onSubmit} noValidate style={ display: "grid", gap: 12 }>
-      <h2 style={ margin: 0 }>{isEdit ? "Edit Book" : "Register Book"}</h2>
+    <form onSubmit={onSubmit} noValidate style={{ display: "grid", gap: 12 }}>
+      <h2 style={{ margin: 0 }}>{isEdit ? "Edit Book" : "Register Book"}</h2>
 
       {msg ? (
         <div
