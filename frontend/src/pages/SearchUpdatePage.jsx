@@ -1260,18 +1260,18 @@ export default function SearchUpdatePage() {
                   >
                     HR
                   </button>
-<div
+<a
+  href={b?.cover_url || `/media/covers/${id}.jpg`}
+  target="_blank"
+  rel="noreferrer"
+  onClick={(e) => e.stopPropagation()}
   className={`su-action su-action--cover ${
     b?.cover_available ? "is-active" : ""
   }`}
-  title={
-    b?.cover_available
-      ? `Cover available${b?.cover_url ? `: ${b.cover_url}` : ""}`
-      : "No cover image"
-  }
+  title={b?.cover_available ? "Open cover image" : "No cover image"}
 >
   {b?.cover_available ? "✓" : "—"}
-</div>
+</a>
                   <button
                     disabled={isBusy}
                     onClick={() => openEditor(b)}
