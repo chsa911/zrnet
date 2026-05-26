@@ -121,7 +121,13 @@ export default function TopBar() {
 <Link to="/admin/abbreviations">Abbreviations</Link>
 <Link to="/admin/sync-issues">Sync Issues</Link>
 <Link to="/admin/barcodes">Barcodes</Link>
-            <hr/>
+
+{/* new pages */}
+<Link to="/titles">Highlights History</Link>
+<Link to="/admin/highlights/received">Highlight Candidates</Link>
+
+<hr />
+      
 
               <Link to="/info/impressum">{t("nav_impressum")}</Link>
               <Link to="/info/datenschutz">{t("nav_privacy")}</Link>
