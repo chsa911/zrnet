@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { getApiRoot } from "../api/apiRoot";
+import { autocomplete } from "../api/books";
 
 function asText(value) {
   return String(value || "").trim();
@@ -18,6 +19,18 @@ function displayAbbr(rowOrValue) {
       ? asText(rowOrValue?.abbr_norm)
       : normalizeAbbr(rowOrValue);
   return norm ? `${norm}.` : "—";
+}
+
+function bookLabel(b) {
+  const title = asText(b?.title_display || b?.main_title_display || b?.title || b?.name);
+  const author = asText(b?.author_name_display || b?.author_display || b?.name_display);
+  return author ? `${title} · ${author}` : title || "Untitled";
+}
+
+function isExactAuthorAbbr(query, author) {
+  const q = normalizeAbbr(query);
+  const abbr = normalizeAbbr(author?.abbr || author?.abbreviation || author?.author_abbreviation);
+  return !!q && !!abbr && q === abbr;
 }
 
 function authorLabel(a) {
@@ -46,7 +59,17 @@ export default function AbbreviationsAdminPage() {
   const [assignedInfo, setAssignedInfo] = useState(null);
   const [assignedLoading, setAssignedLoading] = useState(false);
 
+  const [titleQuery, setTitleQuery] = useState("");
+  const [titleOptions, setTitleOptions] = useState([]);
+  const [selectedBook, setSelectedBook] = useState(null);
+  const [titleAuthorQuery, setTitleAuthorQuery] = useState("");
+  const [titleAuthorOptions, setTitleAuthorOptions] = useState([]);
+  const [selectedTitleAuthor, setSelectedTitleAuthor] = useState(null);
+  const [titleSaving, setTitleSaving] = useState(false);
+
   const lookupRef = useRef(null);
+  const titleLookupRef = useRef(null);
+  const titleAuthorLookupRef = useRef(null);
 
   useEffect(() => {
     if (lookupRef.current) lookupRef.current.abort();
@@ -59,24 +82,20 @@ export default function AbbreviationsAdminPage() {
 
     const ac = new AbortController();
     lookupRef.current = ac;
-    const handle = setTimeout(() => {
-      const params = new URLSearchParams({ q: query, limit: "25" });
-      fetch(`${getApiRoot()}/admin/authors/lookup?${params.toString()}`, {
-        credentials: "include",
-        cache: "no-store",
-        signal: ac.signal,
-      })
-        .then(async (res) => {
-          const data = await res.json().catch(() => ({}));
-          if (!res.ok) throw new Error(data?.detail || data?.error || `Lookup failed (${res.status})`);
-          return data;
-        })
-        .then((data) => {
-          if (!ac.signal.aborted) setAuthorOptions(Array.isArray(data?.items) ? data.items : []);
-        })
-        .catch((e) => {
-          if (!ac.signal.aborted) setErr(e?.message || String(e));
-        });
+    const handle = setTimeout(async () => {
+      try {
+        const items = await autocomplete("author_lastname", query, { limit: 200, signal: ac.signal });
+        if (ac.signal.aborted) return;
+        const next = Array.isArray(items) ? items : [];
+        setAuthorOptions(next);
+
+        if (next.length === 1 && isExactAuthorAbbr(query, next[0])) {
+          setFreeAuthor(next[0]);
+          setFreeAuthorId(asText(next[0]?.id || next[0]?.author_id));
+        }
+      } catch (e) {
+        if (!ac.signal.aborted && e?.name !== "AbortError") setErr(e?.message || String(e));
+      }
     }, 180);
 
     return () => {
@@ -165,6 +184,103 @@ export default function AbbreviationsAdminPage() {
       setErr(e?.message || String(e));
     } finally {
       setFreeSaving(false);
+    }
+  }
+
+  useEffect(() => {
+    if (titleLookupRef.current) titleLookupRef.current.abort();
+    const query = titleQuery.trim();
+
+    if (query.length < 1) {
+      setTitleOptions([]);
+      setSelectedBook(null);
+      return;
+    }
+
+    const ac = new AbortController();
+    titleLookupRef.current = ac;
+    const handle = setTimeout(async () => {
+      try {
+        const items = await autocomplete("title_display", query, { limit: 200, signal: ac.signal });
+        if (ac.signal.aborted) return;
+        const next = Array.isArray(items) ? items : [];
+        setTitleOptions(next);
+        setSelectedBook((prev) => (prev?.id && next.some((x) => x.id === prev.id) ? prev : next.length === 1 ? next[0] : null));
+      } catch (e) {
+        if (!ac.signal.aborted && e?.name !== "AbortError") setErr(e?.message || String(e));
+      }
+    }, 180);
+
+    return () => {
+      clearTimeout(handle);
+      ac.abort();
+    };
+  }, [titleQuery]);
+
+  useEffect(() => {
+    if (titleAuthorLookupRef.current) titleAuthorLookupRef.current.abort();
+    const query = titleAuthorQuery.trim();
+
+    if (query.length < 1) {
+      setTitleAuthorOptions([]);
+      setSelectedTitleAuthor(null);
+      return;
+    }
+
+    const ac = new AbortController();
+    titleAuthorLookupRef.current = ac;
+    const handle = setTimeout(async () => {
+      try {
+        const items = await autocomplete("author_lastname", query, { limit: 200, signal: ac.signal });
+        if (ac.signal.aborted) return;
+        const next = Array.isArray(items) ? items : [];
+        setTitleAuthorOptions(next);
+
+        if (next.length === 1 && isExactAuthorAbbr(query, next[0])) {
+          setSelectedTitleAuthor(next[0]);
+        }
+      } catch (e) {
+        if (!ac.signal.aborted && e?.name !== "AbortError") setErr(e?.message || String(e));
+      }
+    }, 180);
+
+    return () => {
+      clearTimeout(handle);
+      ac.abort();
+    };
+  }, [titleAuthorQuery]);
+
+  async function assignTitleToAuthor() {
+    const bookId = asText(selectedBook?.id);
+    const authorId = asText(selectedTitleAuthor?.id || selectedTitleAuthor?.author_id);
+    if (!bookId || !authorId) return;
+
+    setTitleSaving(true);
+    setErr("");
+    setNotice("");
+
+    try {
+      const res = await fetch(`${getApiRoot()}/admin/books/${encodeURIComponent(bookId)}/assign-author`, {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ authorId }),
+      });
+
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data?.detail || data?.error || `Assign failed (${res.status})`);
+
+      setNotice(`Assigned "${bookLabel(selectedBook)}" to ${authorLabel(selectedTitleAuthor)}.`);
+      setTitleQuery("");
+      setTitleOptions([]);
+      setSelectedBook(null);
+      setTitleAuthorQuery("");
+      setTitleAuthorOptions([]);
+      setSelectedTitleAuthor(null);
+    } catch (e) {
+      setErr(e?.message || String(e));
+    } finally {
+      setTitleSaving(false);
     }
   }
 
@@ -422,6 +538,106 @@ export default function AbbreviationsAdminPage() {
               onClick={createFreeAbbreviation}
             >
               {freeSaving ? "Saving…" : "Assign / save"}
+            </button>
+          </div>
+        </div>
+
+        <div className="ab-top" style={{ borderTop: "4px solid #666" }}>
+          <div className="ab-cell">
+            <label className="ab-label">
+              Title lookup
+              <input
+                className="ab-input"
+                value={titleQuery}
+                onChange={(e) => {
+                  setTitleQuery(e.target.value);
+                  setSelectedBook(null);
+                }}
+                placeholder="type title…"
+                autoComplete="off"
+              />
+            </label>
+
+            <div className="ab-pills" style={{ marginTop: 10 }}>
+              {titleOptions.map((b) => (
+                <button
+                  key={b.id}
+                  type="button"
+                  className={`ab-pill ${selectedBook?.id === b.id ? "is-active" : ""}`}
+                  onClick={() => setSelectedBook(b)}
+                >
+                  {bookLabel(b)}
+                </button>
+              ))}
+            </div>
+
+            {selectedBook ? (
+              <div className="ab-muted" style={{ marginTop: 10 }}>
+                Selected title: <strong>{bookLabel(selectedBook)}</strong>
+              </div>
+            ) : titleQuery.trim().length >= 1 ? (
+              <div className="ab-muted" style={{ marginTop: 10 }}>
+                {titleOptions.length ? "Select a title above." : "No title matches."}
+              </div>
+            ) : (
+              <div className="ab-muted" style={{ marginTop: 10 }}>
+                Type a title prefix, for example shall.
+              </div>
+            )}
+          </div>
+
+          <div className="ab-cell">
+            <label className="ab-label">
+              Assign author
+              <input
+                className="ab-input"
+                value={titleAuthorQuery}
+                onChange={(e) => {
+                  setTitleAuthorQuery(e.target.value);
+                  setSelectedTitleAuthor(null);
+                }}
+                placeholder="type abbreviation or author…"
+                autoComplete="off"
+              />
+            </label>
+
+            <div className="ab-pills" style={{ marginTop: 10 }}>
+              {titleAuthorOptions.map((a) => (
+                <button
+                  key={a.id || a.author_id}
+                  type="button"
+                  className={`ab-pill ${asText(selectedTitleAuthor?.id || selectedTitleAuthor?.author_id) === asText(a.id || a.author_id) ? "is-active" : ""}`}
+                  onClick={() => setSelectedTitleAuthor(a)}
+                >
+                  {authorLabel(a)}
+                </button>
+              ))}
+            </div>
+
+            {selectedBook && selectedTitleAuthor ? (
+              <div className="ab-muted" style={{ marginTop: 10 }}>
+                Will assign <strong>{bookLabel(selectedBook)}</strong> to {" "}
+                <strong>{authorLabel(selectedTitleAuthor)}</strong>.
+              </div>
+            ) : titleAuthorQuery.trim().length >= 1 ? (
+              <div className="ab-muted" style={{ marginTop: 10 }}>
+                {titleAuthorOptions.length ? "Select an author above." : "No author matches."}
+              </div>
+            ) : (
+              <div className="ab-muted" style={{ marginTop: 10 }}>
+                Type an abbreviation like a. or an author name.
+              </div>
+            )}
+          </div>
+
+          <div className="ab-cell" style={{ display: "flex", alignItems: "end" }}>
+            <button
+              className="ab-btn"
+              type="button"
+              disabled={!selectedBook?.id || !asText(selectedTitleAuthor?.id || selectedTitleAuthor?.author_id) || titleSaving}
+              onClick={assignTitleToAuthor}
+            >
+              {titleSaving ? "Saving…" : "Assign title"}
             </button>
           </div>
         </div>

@@ -1345,6 +1345,37 @@ return res.json({
         return res.json(rows);
       }
 
+      if (field === "title_display") {
+        const { rows } = await pool.query(
+          `
+          SELECT
+            b.id::text AS id,
+            b.title_display,
+            b.subtitle_display,
+            b.pages,
+            b.author_id::text AS author_id,
+            a.name_display AS author_name_display,
+            a.first_name AS author_first_name,
+            a.last_name AS author_last_name,
+            a.abbr AS author_abbreviation
+          FROM public.books b
+          LEFT JOIN public.authors a ON a.id = b.author_id
+          WHERE b.title_display ILIKE $1
+          ORDER BY
+            CASE
+              WHEN lower(b.title_display) = lower($2) THEN 1
+              WHEN lower(b.title_display) LIKE lower($2) || '%' THEN 2
+              ELSE 99
+            END,
+            b.title_display NULLS LAST,
+            b.id
+          LIMIT $3
+          `,
+          [contains, q, max]
+        );
+        return res.json(rows);
+      }
+
       if (field === "title_keyword") {
         const selects = [];
         if (columns.has("title_keyword")) selects.push("SELECT title_keyword AS v FROM public.books");

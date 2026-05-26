@@ -1682,4 +1682,41 @@ await pool.query(
     });
   }
 });
+// POST /api/admin/books/:id/assign-author
+// Reassign a selected book/title to the chosen author.
+router.post("/books/:id/assign-author", async (req, res) => {
+  const pool = req.app.get("pgPool");
+  if (!pool) return res.status(500).json({ error: "pgPool missing" });
+
+  const bookId = String(req.params.id || "").trim();
+  const authorId = String(req.body?.authorId || "").trim();
+
+  if (!bookId || !authorId) {
+    return res.status(400).json({ error: "missing_book_or_author" });
+  }
+
+  try {
+    const upd = await pool.query(
+      `
+      UPDATE public.books
+      SET author_id = $2::uuid,
+          updated_at = now()
+      WHERE id = $1::uuid
+      RETURNING id::text, title_display, author_id::text
+      `,
+      [bookId, authorId]
+    );
+
+    if (!upd.rowCount) return res.status(404).json({ error: "book_not_found" });
+
+    return res.json({ ok: true, item: upd.rows[0] });
+  } catch (e) {
+    console.error("POST /api/admin/books/:id/assign-author failed", e);
+    return res.status(500).json({
+      error: "assign_author_failed",
+      detail: String(e?.message || e),
+    });
+  }
+});
+
 module.exports = router;
