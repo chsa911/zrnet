@@ -30,7 +30,7 @@ import AdminAuthorTitlesPage from "./pages/AdminAuthorTitlesPage";
 import AdminAuthorPage from "./pages/AdminAuthorPage";
 import HomeTitlesPage from "./pages/HomeTitlesPage";
 import { API_BASE } from "./api/config";
-
+import HighlightReceivedPage from "./pages/HighlightReceivedPage";
 const ENV_BASE = (import.meta?.env?.VITE_API_BASE_URL || import.meta?.env?.VITE_API_BASE || "").trim();
 const BASE = String(ENV_BASE || API_BASE || "/api").replace(/\/$/, "");
 
@@ -180,7 +180,14 @@ export default function App() {
         <Route path="admin/comments" element={<AdminOnly><AdminCommentsPage /></AdminOnly>} />
         <Route path="login" element={<Navigate to="/admin" replace />} />
         <Route path="login.html" element={<Navigate to="/admin" replace />} />
-
+<Route
+  path="admin/highlights/received"
+  element={
+    <RequireAdmin>
+      <HighlightReceivedPage />
+    </RequireAdmin>
+  }
+/>
         {/* legacy admin links */}
         <Route path="register" element={<Navigate to="/admin/register" replace />} />
         <Route path="update" element={<Navigate to="/admin/search-update" replace />} />

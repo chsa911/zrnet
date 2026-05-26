@@ -645,9 +645,17 @@ place_of_birth = COALESCE($9, place_of_birth)
 
   async function upsertPublisher(db, { publisherId, key, nameDisplay, abbr }) {
     const publisherUuid = normalizeUuid(publisherId);
-    const disp = normalizeStr(nameDisplay);
-    const ab = normalizePublisherAbbr(abbr);
-    const k = normalizeKey(key || disp || ab);
+const rawDisp = normalizeStr(nameDisplay);
+const explicitAbbr = normalizePublisherAbbr(abbr);
+
+const displayLooksLikeAbbr =
+  rawDisp && /^[A-Za-z0-9]{1,10}\.$/.test(rawDisp);
+
+const disp = displayLooksLikeAbbr && !explicitAbbr ? null : rawDisp;
+const ab = explicitAbbr || (displayLooksLikeAbbr ? normalizePublisherAbbr(rawDisp) : null);
+
+const k = normalizeKey(key || disp || ab);
+
     if (!publisherUuid && !k) return null;
 
     const baseCols = `id, name, name_display, abbr`;
@@ -793,6 +801,7 @@ place_of_birth = COALESCE($9, place_of_birth)
     const p = String(pos || "").toLowerCase();
     if (p === "d") return "d";
     if (p === "l") return "l";
+    if (p === "r") return "r";
     return "o";
   }
 
@@ -808,32 +817,14 @@ place_of_birth = COALESCE($9, place_of_birth)
    * - lowest rank_in_inventory
    */
   async function pickBestBarcode(pool, rule) {
-  const fallbackByPrefix = {
-    di: ["ri"],
-    db: ["rb"],
-    os: ["ros"],
-    dik: ["rik"],
-    dkg: ["rkg"],
-    ln: ["rln"],
-    dki: ["rki"],
-    oi: ["roi"],
-    dk: ["rk"],
-  };
+  const rulePos = String(rule?.pos || "").trim().toLowerCase();
 
-  const ruleColor = String(rule?.color || "").trim().toLowerCase();
-  const primaryPrefix = expectedPrefixFromRule(rule);
-
-  const prefixes =
-    ruleColor === "ik"
-      ? [
-          expectedPrefixFromRule({ ...rule, color: "i" }),
-          expectedPrefixFromRule({ ...rule, color: "ik" }),
-        ]
-      : [
-          primaryPrefix,
-          ...(fallbackByPrefix[primaryPrefix] || []),
-        ];
-
+const primaryPrefix = expectedPrefixFromRule(rule);
+const backupPrefix =
+  rulePos === "d"
+    ? expectedPrefixFromRule({ ...rule, pos: "r" })
+    : null;
+const prefixes = [primaryPrefix, backupPrefix];
   const cleanPrefixes = prefixes.filter(Boolean).map((x) => x.toLowerCase());
   if (!cleanPrefixes.length) return null;
 

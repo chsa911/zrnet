@@ -14,6 +14,7 @@ app.set("trust proxy", 1);
 const UPLOAD_ROOT =
   process.env.UPLOAD_ROOT || path.resolve(__dirname, "../uploads");
 const COVERS_DIR = path.join(UPLOAD_ROOT, "covers");
+
 fs.mkdirSync(COVERS_DIR, { recursive: true });
 
 /* ---------- middleware (before routes) ---------- */

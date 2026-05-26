@@ -388,18 +388,41 @@ export default function BookFormDesktop({
     const abbr = String(it.abbr || it.publisher_abbr || "").trim();
     return [display, abbr].filter(Boolean).join(" · ");
   }
+ async function runAutocomplete(field, q) {
+  const t = String(q || "").trim();
+  if (t.length < 1) return setAc({ field: "", items: [] });
 
-  async function runAutocomplete(field, q) {
-    const t = String(q || "").trim();
-    if (t.length < 1) return setAc({ field: "", items: [] });
-    try {
-      const items = await autocomplete(field, t, { limit: 200 });
-      if (Array.isArray(items)) setAc({ field, items });
-    } catch {
-      setAc({ field: "", items: [] });
+  try {
+    const items = await autocomplete(field, t, { limit: 200 });
+
+    if (Array.isArray(items)) {
+      const filtered =
+        field === "publisher_name_display"
+          ? items.filter((it) => {
+              const display = String(
+                it?.name_display ||
+                  it?.publisher_name_display ||
+                  it?.name ||
+                  it ||
+                  ""
+              ).trim();
+
+              const abbr = String(it?.abbr || it?.publisher_abbr || "").trim();
+              const needle = t.toLowerCase();
+
+              return (
+                display.toLowerCase().startsWith(needle) ||
+                abbr.toLowerCase().startsWith(needle)
+              );
+            })
+          : items;
+
+      setAc({ field, items: filtered });
     }
+  } catch {
+    setAc({ field: "", items: [] });
   }
-
+}
   function applyAuthorMatch(match) {
     if (!match) return;
     if (typeof match === "string") {

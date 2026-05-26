@@ -237,3 +237,24 @@ export async function listMostReadAuthors({ limit = 50, signal } = {}) {
   const data = await http(`/public/books/most-read-authors?${qs}`, { signal });
   return Array.isArray(data) ? data : [];
 }
+
+export async function listReceivedCandidates({ signal } = {}) {
+  return http(`/admin/highlights/received-candidates`, { signal });
+}
+
+export async function removeReceivedCandidate(id, { signal } = {}) {
+  if (!id) throw new Error("Missing book id");
+  return http(`/admin/books/${encodeURIComponent(id)}/remove-received-candidate`, {
+    method: "POST",
+    json: {},
+    signal,
+  });
+}
+export async function makeHighlight(id, { signal } = {}) {
+  if (!id) throw new Error("Missing book id");
+  return http(`/admin/books/${encodeURIComponent(id)}/make-highlight`, {
+    method: "POST",
+    json: {},
+    signal,
+  });
+}

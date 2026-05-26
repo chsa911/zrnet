@@ -1562,4 +1562,124 @@ router.post("/author-assignment/assign", async (req, res) => {
     });
   }
 });
-    module.exports = router;
+// GET /api/admin/highlights/received-candidates
+router.get("/highlights/received-candidates", async (req, res) => {
+  const pool = req.app.get("pgPool");
+  if (!pool) {
+    return res.status(500).json({ error: "pgPool missing" });
+  }
+
+  try {
+    const { rows } = await pool.query(`
+      SELECT
+        id::text AS id,
+        title_display,
+        title_keyword,
+        pages,
+        added_at,
+        raw->'capture'->>'receivedCandidate' AS received_candidate
+      FROM public.books
+      WHERE raw->'capture'->>'receivedCandidate' = 'true'
+      ORDER BY added_at DESC NULLS LAST
+      LIMIT 100
+    `);
+
+    res.json({ items: rows });
+  } catch (err) {
+    console.error(
+      "GET /api/admin/highlights/received-candidates error",
+      err
+    );
+
+    res.status(500).json({
+      error: "internal_error",
+      detail: String(err?.message || err),
+    });
+  }
+});
+
+router.post("/books/:id/make-highlight", async (req, res) => {
+  const pool = req.app.get("pgPool");
+  if (!pool) {
+    return res.status(500).json({ error: "pgPool missing" });
+  }
+
+  const id = String(req.params.id || "").trim();
+
+  try {
+    // close current received highlight
+    await pool.query(`
+      UPDATE public.highlights
+      SET presented_till = now()
+      WHERE presented_as = 'received'
+        AND presented_till IS NULL
+    `);
+
+    // create new received highlight
+    await pool.query(
+      `
+      INSERT INTO public.highlights (
+        presented_as,
+        book_id,
+        presented_at,
+        source
+      )
+      VALUES (
+        'received',
+        $1::uuid,
+        now(),
+        'manual'
+      )
+      `,
+      [id]
+    );
+// 1 close old received highlight
+
+// 2 insert new received highlight
+
+// 3 clear previous homepage received slot
+await pool.query(`
+  UPDATE public.books
+  SET home_featured_slot = NULL
+  WHERE home_featured_slot = 'received'
+`);
+
+// 4 set this book as homepage received
+await pool.query(
+  `
+  UPDATE public.books
+  SET home_featured_slot = 'received',
+      received_at = now()
+  WHERE id = $1::uuid
+  `,
+  [id]
+);
+
+// 5 remove from candidate queue
+    // remove from candidate queue
+    await pool.query(
+      `
+      UPDATE public.books
+      SET raw = jsonb_set(
+        coalesce(raw, '{}'::jsonb),
+        '{capture}',
+        coalesce(raw->'capture', '{}'::jsonb)
+          - 'receivedCandidate',
+        true
+      )
+      WHERE id = $1::uuid
+      `,
+      [id]
+    );
+
+    res.json({ ok: true });
+  } catch (err) {
+    console.error("make-highlight failed", err);
+
+    res.status(500).json({
+      error: "make_highlight_failed",
+      detail: String(err?.message || err),
+    });
+  }
+});
+module.exports = router;

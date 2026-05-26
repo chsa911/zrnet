@@ -4,6 +4,7 @@ const POSITIONS = {
   o: { label: "Up", arrow: "↑" },
   d: { label: "Down", arrow: "↓" },
   l: { label: "Left", arrow: "←" },
+   r: { label: "Right", arrow: "→" },
 };
 
 const COLORS = {
@@ -30,7 +31,7 @@ function getColor(colorCode) {
 
 export function parseBookCode(code) {
   const s = String(code || "").trim().toLowerCase();
-  const m = s.match(/^([odl])([a-z]{1,2})([0-9]{3})$/);
+  const m = s.match(/^([odlr])([a-z]{1,2})([0-9]{3})$/);
   if (!m) return null;
 
   const [, posCode, toolCode, nums] = m;

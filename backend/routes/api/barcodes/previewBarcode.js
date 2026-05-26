@@ -67,6 +67,7 @@ function posToPrefixLead(pos) {
   const p = String(pos || "").toLowerCase();
   if (p === "d") return "d";
   if (p === "l") return "l";
+  if (p === "r") return "r";
   return "o";
 }
 
@@ -96,16 +97,16 @@ router.get("/preview-barcode", async (req, res) => {
 
     const band = posToBand(rule.pos);
     const sizegroup = rule.sizeRuleId;
-    const ruleColor = String(rule.color || "").trim().toLowerCase();
+    
+const rulePos = String(rule?.pos || "").trim().toLowerCase();
 
-const expectedPrefixes =
-  ruleColor === "ik"
-    ? [
-        expectedPrefixFromRule({ ...rule, color: "i" }),
-        expectedPrefixFromRule({ ...rule, color: "ik" }),
-      ]
-    : [expectedPrefixFromRule(rule)];
+const primaryPrefix = expectedPrefixFromRule(rule);
+const backupPrefix =
+  rulePos === "d"
+    ? expectedPrefixFromRule({ ...rule, pos: "r" })
+    : null;
 
+const expectedPrefixes = [primaryPrefix, backupPrefix];
 const cleanPrefixes = expectedPrefixes.filter(Boolean).map((x) => x.toLowerCase());
 
 if (!cleanPrefixes.length) {
