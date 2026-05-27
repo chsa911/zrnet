@@ -115,6 +115,7 @@ function TitleSection({ title, books }) {
 function BookCover({ book }) {
   const [failed, setFailed] = useState(false);
   const title = book.title || "Book";
+  const src = coverUrl(book);
 
   return (
     <Link
@@ -124,14 +125,14 @@ function BookCover({ book }) {
       title={title}
     >
       <div className="home-title-cover-wrap">
-        {book.cover_url && !failed ? (
+        {src && !failed ? (
           <img
-  src={coverUrl(book)}
-  alt={title}
-  className="home-title-cover"
-  loading="lazy"
-  onError={() => setFailed(true)}
-/>
+            src={src}
+            alt={title}
+            className="home-title-cover"
+            loading="lazy"
+            onError={() => setFailed(true)}
+          />
         ) : (
           <div className="home-title-placeholder" aria-hidden="true" />
         )}

@@ -150,8 +150,8 @@ export default function Home() {
   const finished = hl?.finished || {};
   const received = hl?.received || {};
 
-  const pickCover = useMemo(
-  () => (x) => x?.cover_home || x?.cover_full || x?.cover || HIGHLIGHT_FALLBACK,
+const pickCover = useMemo(
+  () => (x) => x?.cover_home || x?.cover_full || x?.cover || coverUrl(x) || HIGHLIGHT_FALLBACK,
   []
 );
   const buildLink = (x) => {
