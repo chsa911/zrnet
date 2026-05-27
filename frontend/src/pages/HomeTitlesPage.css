@@ -59,8 +59,8 @@
 }
 
 .home-title-card {
-  flex: 0 0 clamp(145px, 12.5vw, 190px);
-  width: clamp(145px, 12.5vw, 190px);
+  flex: 0 0 clamp(180px, 14vw, 200px);
+  width: clamp(180px, 14vw, 200px);
   display: block;
   color: inherit;
   text-decoration: none;

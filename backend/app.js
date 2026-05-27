@@ -5,6 +5,8 @@ const morgan = require("morgan");
 const path = require("path");
 const fs = require("fs");
 const cookieParser = require("cookie-parser");
+const multer = require("multer");
+const sharp = require("sharp");
 
 const app = express();
 
@@ -13,9 +15,14 @@ app.set("trust proxy", 1);
 
 const UPLOAD_ROOT =
   process.env.UPLOAD_ROOT || path.resolve(__dirname, "../uploads");
+
 const COVERS_DIR = path.join(UPLOAD_ROOT, "covers");
+const COVERS_RAW_DIR = path.join(COVERS_DIR, "raw");
+const COVERS_NORMALIZED_DIR = path.join(COVERS_DIR, "normalized");
 
 fs.mkdirSync(COVERS_DIR, { recursive: true });
+fs.mkdirSync(COVERS_RAW_DIR, { recursive: true });
+fs.mkdirSync(COVERS_NORMALIZED_DIR, { recursive: true });
 
 /* ---------- middleware (before routes) ---------- */
 app.use(morgan("dev"));
@@ -83,6 +90,72 @@ const corsOptions = makeCorsOptions();
 app.use(cors(corsOptions));
 app.options("*", cors(corsOptions));
 
+/* ---------- cover upload ---------- */
+/**
+ * Upload behavior:
+ * - User may upload any image filename.
+ * - Backend stores the original image in uploads/covers/raw/<book_id>.<original-ext>
+ * - Backend creates/overwrites normalized JPG in uploads/covers/normalized/<book_id>.jpg
+ * - Normalized image keeps full image visible using fit: "contain" on an 800x1200 white canvas.
+ */
+const coverUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: {
+    fileSize: 15 * 1024 * 1024,
+  },
+});
+
+app.post("/api/books/:bookId/cover", coverUpload.single("cover"), async (req, res) => {
+  try {
+    const bookId = String(req.params.bookId || "").trim();
+
+    if (!bookId) {
+      return res.status(400).json({ error: "book_id_missing" });
+    }
+
+    if (!req.file) {
+      return res.status(400).json({ error: "cover_file_missing" });
+    }
+
+    if (!String(req.file.mimetype || "").startsWith("image/")) {
+      return res.status(400).json({ error: "file_is_not_image" });
+    }
+
+    const originalExt =
+      path.extname(req.file.originalname || "").toLowerCase() || ".jpg";
+
+    const rawPath = path.join(COVERS_RAW_DIR, `${bookId}${originalExt}`);
+    const normalizedPath = path.join(COVERS_NORMALIZED_DIR, `${bookId}.jpg`);
+
+    const replaced = fs.existsSync(normalizedPath);
+
+    await fs.promises.writeFile(rawPath, req.file.buffer);
+
+    await sharp(req.file.buffer)
+      .rotate()
+      .resize(800, 1200, {
+        fit: "contain",
+        background: { r: 255, g: 255, b: 255 },
+      })
+      .jpeg({
+        quality: 90,
+        progressive: true,
+      })
+      .toFile(normalizedPath);
+
+    res.json({
+      ok: true,
+      replaced,
+      book_id: bookId,
+      raw: `/media/covers/raw/${bookId}${originalExt}`,
+      normalized: `/media/covers/normalized/${bookId}.jpg`,
+    });
+  } catch (err) {
+    console.error("POST /api/books/:bookId/cover error", err);
+    res.status(500).json({ error: "cover_upload_failed" });
+  }
+});
+
 /* ---------- public endpoints (must be after CORS) ---------- */
 app.get("/api/public/home-highlights", async (req, res) => {
   try {
@@ -95,9 +168,9 @@ app.get("/api/public/home-highlights", async (req, res) => {
         b.id::text AS id,
         a.name_display AS author_name_display,
         COALESCE(NULLIF(b.title_display, ''), NULLIF(b.title_keyword, '')) AS title_display,
-        ('/media/covers/' || b.id::text || '.jpg') AS cover_home,
-        ('/media/covers/' || b.id::text || '.jpg') AS cover_full,
-        ('/media/covers/' || b.id::text || '.jpg') AS cover,
+        ('/media/covers/normalized/' || b.id::text || '.jpg') AS cover_home,
+        ('/media/covers/normalized/' || b.id::text || '.jpg') AS cover_full,
+        ('/media/covers/normalized/' || b.id::text || '.jpg') AS cover,
         b.purchase_url AS buy
       FROM public.books b
       LEFT JOIN public.authors a ON a.id = b.author_id

@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import { listBooks, getBook, updateBook, highlightBook } from "../api/books";
 import BookForm from "../components/BookFormSwitcher";
 import { Link, useNavigate } from "react-router-dom";
-
+import { uploadBookCover } from "../api/books";
 const getBarcode = (b) => b?.barcode ?? "—";
 const getKauflink = (b) => b?.kauflink ?? "";
 const getAuthor = (b) =>
@@ -126,7 +126,63 @@ function InlineEditable({ value, disabled, onSave }) {
     </button>
   );
 }
+function CoverImageButton({ book, bookId, isBusy, onUploaded }) {
+  const inputRef = useRef(null);
+  const hasCover = !!book?.cover_available;
+  const coverUrl = book?.cover_url || `/media/covers/normalized/${bookId}.jpg`;
 
+  async function handleFile(file) {
+    if (!file || !bookId) return;
+
+    try {
+      await uploadBookCover(bookId, file);
+      onUploaded?.();
+    } catch (e) {
+      console.error(e);
+      alert("Cover upload failed");
+    } finally {
+      if (inputRef.current) inputRef.current.value = "";
+    }
+  }
+
+  return (
+    <>
+      <button
+        type="button"
+        disabled={isBusy}
+        className={`su-action su-action--cover ${hasCover ? "is-active" : ""}`}
+        title={
+          hasCover
+            ? `Cover exists for book_id ${bookId}. Click to replace.`
+            : `Upload cover for book_id ${bookId}`
+        }
+        onClick={() => {
+          if (hasCover) {
+            const replace = window.confirm(
+              `A cover already exists for book_id ${bookId}. Replace it?`
+            );
+            if (!replace) {
+              window.open(coverUrl, "_blank", "noopener,noreferrer");
+              return;
+            }
+          }
+
+          inputRef.current?.click();
+        }}
+      >
+        {hasCover ? "✓" : "—"}
+      </button>
+
+      <input
+        ref={inputRef}
+        type="file"
+        accept="image/*"
+        hidden
+        onChange={(e) => handleFile(e.target.files?.[0])}
+      />
+    </>
+  );
+}
 export default function SearchUpdatePage() {
  const navigate = useNavigate();
 
@@ -1316,18 +1372,18 @@ export default function SearchUpdatePage() {
   {getKauflink(b) ? "K" : "-"}
 </div>
 
-<a
-  href={b?.cover_url || `/media/covers/${id}.jpg`}
-  target="_blank"
-  rel="noreferrer"
-  onClick={(e) => e.stopPropagation()}
-  className={`su-action su-action--cover ${
-    b?.cover_available ? "is-active" : ""
-  }`}
-  title={b?.cover_available ? "Open cover image" : "No cover image"}
->
-  {b?.cover_available ? "✓" : "—"}
-</a>
+<CoverImageButton
+  book={b}
+  bookId={id}
+  isBusy={isBusy}
+  onUploaded={() => {
+    patchRow(id, {
+      cover_available: true,
+      cover_url: `/media/covers/normalized/${id}.jpg?t=${Date.now()}`,
+    });
+    setRefreshTick((n) => n + 1);
+  }}
+/>
                   <button
                     disabled={isBusy}
                     onClick={() => openEditor(b)}
