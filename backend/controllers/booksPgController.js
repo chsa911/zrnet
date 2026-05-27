@@ -16,45 +16,34 @@ const UPLOAD_ROOT =
   path.resolve(__dirname, "../../uploads");
 
 const COVERS_DIR = path.join(UPLOAD_ROOT, "covers");
-
+const COVERS_NORMALIZED_DIR = path.join(COVERS_DIR, "normalized");
 function buildCoverMap() {
   const map = new Map();
 
-  if (!fs.existsSync(COVERS_DIR)) return map;
+  try {
+    if (fs.existsSync(COVERS_DIR)) {
+      for (const file of fs.readdirSync(COVERS_DIR)) {
+        if (!/\.(jpg|jpeg|png|webp)$/i.test(file)) continue;
 
-  for (const file of fs.readdirSync(COVERS_DIR)) {
-    const match = file.match(
-      /^([0-9a-f-]{36})(?:-[^.]+)?\.(jpg|jpeg|png|webp)$/i
-    );
+        const bookId = file.replace(/\.(jpg|jpeg|png|webp)$/i, "");
+        map.set(bookId, `/media/covers/${file}`);
+      }
+    }
 
-    if (!match) continue;
+    if (fs.existsSync(COVERS_NORMALIZED_DIR)) {
+      for (const file of fs.readdirSync(COVERS_NORMALIZED_DIR)) {
+        if (!/\.(jpg|jpeg|png|webp)$/i.test(file)) continue;
 
-    const bookId = match[1];
-    map.set(bookId, `/media/covers/${file}`);
+        const bookId = file.replace(/\.(jpg|jpeg|png|webp)$/i, "");
+        map.set(bookId, `/media/covers/normalized/${file}`);
+      }
+    }
+  } catch (err) {
+    console.error("buildCoverMap failed", err);
   }
 
   return map;
 }
-  const clampInt = (x, def, min, max) => {
-    const n = Number.parseInt(x, 10);
-    if (!Number.isFinite(n)) return def;
-    return Math.max(min, Math.min(max, n));
-  };
-
-  const toNum = (v) => {
-    if (v === null || v === undefined) return NaN;
-    const s = String(v).trim().replace(",", ".");
-    const n = Number(s);
-    return Number.isFinite(n) ? n : NaN;
-  };
-
-  const cmToMm = (cm) => Math.round(Number(cm) * 10);
-
-  function normalizeStr(v) {
-    if (v === undefined || v === null) return null;
-    const s = String(v).trim();
-    return s === "" ? null : s;
-  }
 function makeTitleKeyword(title) {
   const value = String(title || "").trim();
 
