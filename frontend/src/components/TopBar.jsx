@@ -1,7 +1,8 @@
 import { Link } from "react-router-dom";
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import "./topbar.css";
 import { useI18n } from "../context/I18nContext";
+import { API_BASE } from "../api/config";
 
 // Language "identity" colors (used as font + dot color in the dropdown,
 // and as font color on the green button for non-EN).
@@ -34,6 +35,24 @@ export default function TopBar() {
   const { locale, setLocale, t } = useI18n();
 
   const activeLang = useMemo(() => metaForLocale(locale), [locale]);
+  const [isAdmin, setIsAdmin] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+
+    fetch(`${API_BASE || "/api"}/admin/me`, { credentials: "include" })
+      .then((res) => {
+        if (active) setIsAdmin(res.ok);
+      })
+      .catch(() => {
+        if (active) setIsAdmin(false);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
 
   // Button font rule:
   // - EN => black on green
@@ -115,19 +134,15 @@ export default function TopBar() {
                 if (e.target.closest?.("a")) closeMore();
               }}
               >
+{isAdmin ? (<>
 <Link to="/admin/register">Register</Link>
 <Link to="/admin/search-update">Search / Update</Link>
 <Link to="/admin/authors">Authors</Link>
 <Link to="/admin/abbreviations">Abbreviations</Link>
 <Link to="/admin/sync-issues">Sync Issues</Link>
 <Link to="/admin/barcodes">Barcodes</Link>
-
-{/* new pages */}
-<Link to="/titles">Highlights History</Link>
-<Link to="/admin/highlights/received">Highlight Candidates</Link>
-
-<hr />
-      
+<hr/>
+</>) : null}
 
               <Link to="/info/impressum">{t("nav_impressum")}</Link>
               <Link to="/info/datenschutz">{t("nav_privacy")}</Link>
