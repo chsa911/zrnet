@@ -1,18 +1,12 @@
-// frontend/src/utils/covers.js
-
 export const COVER_BASE = "/uploads/covers";
-export const FALLBACK_COVER = "/assets/fallback-cover.jpg";
 
 export function coverUrl(book) {
-  if (!book) return FALLBACK_COVER;
+  const id = book?.book_id || book?.id;
 
-  // Keep existing API-provided cover if present
-  if (book.cover_home) return book.cover_home;
-  if (book.cover_full) return book.cover_full;
-  if (book.cover) return book.cover;
+  if (book?.cover_home) return book.cover_home;
+  if (book?.cover_full) return book.cover_full;
+  if (book?.cover_url) return book.cover_url;
+  if (book?.cover) return book.cover;
 
-  // New unified default
-  if (book.id) return `${COVER_BASE}/${book.id}.jpg`;
-
-  return FALLBACK_COVER;
+  return id ? `${COVER_BASE}/${id}.jpg` : "";
 }
