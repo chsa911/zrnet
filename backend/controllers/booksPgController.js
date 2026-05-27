@@ -61,6 +61,11 @@ function makeTitleKeyword(title) {
     if (!Number.isFinite(n)) return null;
     return Math.trunc(n);
   }
+  function normalizeStr(v) {
+  if (v === undefined || v === null) return null;
+  const s = String(v).trim();
+  return s === "" ? null : s;
+}
 function clampInt(v, fallback, min, max) {
   const n = Number(v);
   if (!Number.isFinite(n)) return fallback;
