@@ -294,7 +294,7 @@ try {
             ok: true,
             id,
             bytes: req.file.buffer.length,
-            cover: `/uploads/covers${id}.jpg`,
+            cover: `/uploads/covers/${id}.jpg`,
             coverUploadedAt: upd.rows?.[0]?.coveruploadedat || null,
           });
         } catch (e) {

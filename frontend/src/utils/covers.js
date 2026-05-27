@@ -1,4 +1,4 @@
-export const COVER_BASE = "/uploads/covers";
+    export const COVER_BASE = "/uploads/covers";
 
 export function coverUrl(book) {
   const id = book?.book_id || book?.id;
