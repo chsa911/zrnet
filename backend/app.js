@@ -158,7 +158,7 @@ if (pool) {
       ok: true,
       replaced,
       book_id: bookId,
-      raw: `/assets/coversraw/${bookId}${originalExt}`,
+      raw: `/assets/covers/raw/${bookId}${originalExt}`,
       normalized: `/uploads/covers/${bookId}.jpg`,
     });
   } catch (err) {
@@ -299,7 +299,7 @@ app.get("/", (req, res) => {
 
 // SPA fallback for client-side routes (e.g. /admin/register, /admin/needs-review)
 // Only serve index.html for browser navigations (Accept: text/html) and non-API/non-media paths.
-app.get(/^\/(?!api\/|media\/).*/, (req, res, next) => {
+app.get(/^\/(?!api\/|media\/|uploads\/).*/, (req, res, next) => {
   if (req.method !== "GET") return next();
   const accept = String(req.headers.accept || "");
   if (!accept.includes("text/html")) return next();
