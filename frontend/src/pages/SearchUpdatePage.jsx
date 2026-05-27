@@ -139,7 +139,7 @@ function InlineEditable({ value, disabled, onSave }) {
 function CoverImageButton({ book, bookId, isBusy, onUploaded }) {
   const inputRef = useRef(null);
   const hasCover = !!book?.cover_available;
-  const coverUrl = book?.cover_url || `/assets/covers/${bookId}.jpg`;
+  const coverUrl = book?.cover_url || `/uploads/covers/${bookId}.jpg`;
 
   async function handleFile(file) {
     if (!file || !bookId) return;
@@ -1402,7 +1402,7 @@ export default function SearchUpdatePage() {
 
   patchRow(id, {
     cover_available: true,
-    cover_url: `/assets/covers/${id}.jpg?t=${Date.now()}`,
+    cover_url: `/uploads/covers/${id}.jpg?t=${Date.now()}`,
     updated_at: now,
     last_action_at: now,
   });

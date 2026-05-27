@@ -1,6 +1,6 @@
 // frontend/src/utils/covers.js
 
-export const COVER_BASE = "/assets/covers";
+export const COVER_BASE = "/uploads/covers";
 export const FALLBACK_COVER = "/assets/fallback-cover.jpg";
 
 export function coverUrl(book) {

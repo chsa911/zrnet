@@ -41,5 +41,5 @@ Thumbs.db
 *.seed
 
 # Uploaded cover images
-backend/public/assets/covers*
-!backend/public/assets/covers.gitkeep
+backend/public/uploads/covers*
+!backend/public/uploads/covers.gitkeep

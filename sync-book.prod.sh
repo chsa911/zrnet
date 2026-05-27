@@ -40,5 +40,5 @@ ssh "$REMOTE_HOST" "
 
 echo
 echo "Testing live URLs..."
-curl -I "https://pagesinline.com/assets/covers${BOOK_ID}.jpg?v=$(date +%s)" || true
-curl -I "https://pagesinline.com/assets/covers${BOOK_ID}-home.jpg?v=$(date +%s)" || true
+curl -I "https://pagesinline.com/uploads/covers${BOOK_ID}.jpg?v=$(date +%s)" || true
+curl -I "https://pagesinline.com/uploads/covers${BOOK_ID}-home.jpg?v=$(date +%s)" || true

@@ -159,7 +159,7 @@ if (pool) {
       replaced,
       book_id: bookId,
       raw: `/assets/coversraw/${bookId}${originalExt}`,
-      normalized: `/assets/covers/${bookId}.jpg`,
+      normalized: `/uploads/covers/${bookId}.jpg`,
     });
   } catch (err) {
     console.error("POST /api/books/:bookId/cover error", err);
@@ -179,9 +179,9 @@ app.get("/api/public/home-highlights", async (req, res) => {
         b.id::text AS id,
         a.name_display AS author_name_display,
         COALESCE(NULLIF(b.title_display, ''), NULLIF(b.title_keyword, '')) AS title_display,
-        ('/assets/covers/' || b.id::text || '.jpg') AS cover_home,
-        ('/assets/covers/' || b.id::text || '.jpg') AS cover_full,
-        ('/assets/covers/' || b.id::text || '.jpg') AS cover,
+        ('/uploads/covers/' || b.id::text || '.jpg') AS cover_home,
+        ('/uploads/covers/' || b.id::text || '.jpg') AS cover_full,
+        ('/uploads/covers/' || b.id::text || '.jpg') AS cover,
         b.purchase_url AS buy
       FROM public.books b
       LEFT JOIN public.authors a ON a.id = b.author_id
@@ -282,7 +282,7 @@ app.use("/api/mobile", require("./routes/mobileSync"));
 app.use("/api/mobile-sync", require("./routes/mobileSync"));
 
 /* ---------- uploaded media ---------- */
-app.use("/assets/covers", express.static(COVERS_DIR));
+app.use("/uploads/covers", express.static(COVERS_DIR));
 
 /* ---------- static frontend ---------- */
 const frontendDist = path.resolve(__dirname, "../frontend/dist");
