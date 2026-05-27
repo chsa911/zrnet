@@ -43,7 +43,7 @@ function buildCoverMap() {
   }
 
   return map;
-}
+} 
 function makeTitleKeyword(title) {
   const value = String(title || "").trim();
 
@@ -61,7 +61,11 @@ function makeTitleKeyword(title) {
     if (!Number.isFinite(n)) return null;
     return Math.trunc(n);
   }
-
+function clampInt(v, fallback, min, max) {
+  const n = Number(v);
+  if (!Number.isFinite(n)) return fallback;
+  return Math.max(min, Math.min(max, Math.trunc(n)));
+}
   function normalizeBool(v) {
     if (v === true || v === false) return v;
     if (v === "true") return true;
