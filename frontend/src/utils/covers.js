@@ -1,12 +1,23 @@
 export const COVER_BASE = "/uploads/covers";
 
+function normalize(url) {
+  if (!url) return "";
+
+  return String(url)
+    .replace("/uploads/covers", "/uploads/covers/")
+    .replace("/uploads/covers//", "/uploads/covers/");
+}
+
 export function coverUrl(book) {
   const id = book?.book_id || book?.id;
 
-  if (book?.cover_home) return book.cover_home;
-  if (book?.cover_full) return book.cover_full;
-  if (book?.cover_url) return book.cover_url;
-  if (book?.cover) return book.cover;
+  const existing =
+    book?.cover_home ||
+    book?.cover_full ||
+    book?.cover_url ||
+    book?.cover;
+
+  if (existing) return normalize(existing);
 
   return id ? `${COVER_BASE}/${id}.jpg` : "";
 }
