@@ -10,6 +10,10 @@ function toIntOrNull(v) {
 }
 
 function HighlightCard({ item, label, to, bgImage, left = false }) {
+  console.log("CARD", {
+  bgImage,
+  item,
+});
   return (
     <Link
       className={`zr-splitHighlight__half ${left ? "zr-splitHighlight__half--left" : ""}`}

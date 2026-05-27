@@ -457,7 +457,7 @@ try {
             ...row,
             width_cm: row.width != null ? row.width / 10 : null,
             height_cm: row.height != null ? row.height / 10 : null,
-            coverUrl: `/uploads/covers${row.id}.jpg`,
+            coverUrl: `/uploads/covers/${row.id}.jpg`,
           }));
           return res.json({ items });
         } catch (e) {

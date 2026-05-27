@@ -489,12 +489,7 @@
     border-top:1px solid #ddd;
     text-align:left;
   }
-
-  .zr-splitHighlight__half{
-    height:210px;
-    background-position:center bottom 8px;
-    background-size:auto 72%;
-  }
+  
   .zr-splitHighlight__half{
     height:210px;
     background-position:center bottom 8px;

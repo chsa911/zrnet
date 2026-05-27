@@ -26,7 +26,7 @@ function buildCoverMap() {
         if (!/\.(jpg|jpeg|png|webp)$/i.test(file)) continue;
 
         const bookId = file.replace(/\.(jpg|jpeg|png|webp)$/i, "");
-        map.set(bookId, `/uploads/covers${file}`);
+        map.set(bookId, `/uploads/covers/${file}`);
       }
     }
 
