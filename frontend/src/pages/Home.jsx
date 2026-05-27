@@ -4,6 +4,7 @@ import { useI18n } from "../context/I18nContext";
 import { apiUrl } from "../api/apiRoot";
 import "./home_minimal.css";
 import HomeLiveBlock from "../components/HomeLiveBlock";
+import { coverUrl } from "../utils/covers";
 
 function toIntOrNull(v) {
   if (v === null || v === undefined) return null;

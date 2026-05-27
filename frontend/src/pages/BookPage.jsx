@@ -4,6 +4,7 @@ import { useI18n } from "../context/I18nContext";
 import { getPublicBook } from "../api/books";
 import { createPublicBookComment, listPublicBookComments } from "../api/comments";
 import "./BookPage.css";
+import { coverUrl } from "../utils/covers";
 
 function isAbortError(e) {
   return (
@@ -170,12 +171,12 @@ export default function BookPage() {
           <div className="zr-bookpage__grid">
             <div className="zr-bookpage__coverCard">
               {coverSrc && !coverBroken ? (
-                <img
-                  className="zr-bookpage__coverImg"
-                  src={coverSrc}
-                  alt={`${title} ${t("book.cover_suffix")}`}
-                  onError={() => setCoverBroken(true)}
-                />
+               <img
+  className="zr-bookpage__coverImg"
+  src={coverUrl(book)}
+  alt={`${title} ${t("book.cover_suffix")}`}
+  onError={() => setCoverBroken(true)}
+/>
               ) : (
                 <div className="zr-bookpage__coverEmpty">
                   {t("book.no_cover_image")}

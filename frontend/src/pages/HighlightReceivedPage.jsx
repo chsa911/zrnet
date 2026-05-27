@@ -5,7 +5,7 @@ import {
   makeHighlight,
   removeReceivedCandidate,
 } from "../api/books";
-
+import { coverUrl } from "../utils/covers";
 function coverFor(id) {
   return id ? `/media/covers/${encodeURIComponent(id)}.jpg` : "";
 }

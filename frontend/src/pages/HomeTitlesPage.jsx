@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import "./HomeTitlesPage.css";
-
+import { coverUrl } from "../utils/covers";
 const API_ROOT = import.meta.env.VITE_API_ROOT || "";
 
 export default function HomeTitlesPage() {
@@ -126,12 +126,12 @@ function BookCover({ book }) {
       <div className="home-title-cover-wrap">
         {book.cover_url && !failed ? (
           <img
-            src={book.cover_url}
-            alt={title}
-            className="home-title-cover"
-            loading="lazy"
-            onError={() => setFailed(true)}
-          />
+  src={coverUrl(book)}
+  alt={title}
+  className="home-title-cover"
+  loading="lazy"
+  onError={() => setFailed(true)}
+/>
         ) : (
           <div className="home-title-placeholder" aria-hidden="true" />
         )}

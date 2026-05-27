@@ -8,6 +8,7 @@ import {
 } from "../api/books";
 import BookForm from "../components/BookFormSwitcher";
 import { Link, useNavigate } from "react-router-dom";
+import { coverUrl } from "../utils/covers";
 
 const getBarcode = (b) => b?.barcode ?? "—";
 const getKauflink = (b) => b?.kauflink ?? "";

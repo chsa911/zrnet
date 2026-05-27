@@ -3,7 +3,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import { listBooks } from "../api/books";
 import { listThemesSummary } from "../api/themes";
 import "./ThemeSubthemesAuthorsPage.css";
-
+import { coverUrl } from "../utils/covers";
 // Same tile look as your Featured tiles on BookThemesPage.
 // Left side: subtheme tiles (K2, Mount Everest, ...)
 // Right side: author tiles (Messner, Kammerlander, Krakauer, ...) with images.
@@ -266,7 +266,7 @@ export default function ThemeSubthemesAuthorsPage() {
       if (!key) continue;
 
       if (!map.has(key)) {
-        const cover = b && b.id ? ("/assets/covers/" + String(b.id).trim() + ".jpg") : themeImg;
+        const cover = b && b.id ? ("/media/covers/" + String(b.id).trim() + ".jpg") : themeImg;
         map.set(key, { name: key, count: 0, img: cover });
       }
 

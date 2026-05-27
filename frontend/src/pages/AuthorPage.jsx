@@ -5,6 +5,7 @@ import { getBook, listPublicBooks } from "../api/books";
 import { getApiRoot } from "../api/apiRoot";
 import BookForm from "../components/BookForm";
 import "./AuthorPage.css";
+import { coverUrl } from "../utils/covers";
 
 function isAbortError(e) {
   return (
@@ -356,7 +357,7 @@ export default function AuthorPage() {
           raw?.title ||
           raw?.BTitle ||
           "—",
-        cover: raw?.cover || (id ? `/assets/covers/${id}.jpg` : ""),
+        cover: raw?.cover || (id ? `/media/covers/${id}.jpg` : null),
         purchaseUrl: raw?.purchaseUrl || raw?.purchase_url || "",
         readingStatus,
         st,
@@ -661,16 +662,16 @@ export default function AuthorPage() {
             <Link className="zr-author__topOneCover" to={"/book/" + encodeURIComponent(topBook.id)}>
               {topBook.cover ? (
                 <img
-                  className="zr-author__cover"
-                  src={topBook.cover}
-                  alt={topBook.title + " cover"}
-                  loading="lazy"
-                  onError={(e) => {
-                    e.currentTarget.style.display = "none";
-                    const next = e.currentTarget.nextElementSibling;
-                    if (next) next.style.display = "flex";
-                  }}
-                />
+    className="zr-author__cover"
+    src={coverUrl(topBook)}
+    alt={topBook.title + " cover"}
+    loading="lazy"
+    onError={(e) => {
+      e.currentTarget.style.display = "none";
+      const next = e.currentTarget.nextElementSibling;
+      if (next) next.style.display = "flex";
+    }}
+  />
               ) : null}
               <div className="zr-author__coverEmpty">No cover</div>
             </Link>
