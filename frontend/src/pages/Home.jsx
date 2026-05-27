@@ -218,7 +218,7 @@ const pickCover = useMemo(
     {t("home_highlight_title")}
   </div>
 
-  <Link className="pil-historyLink" to="/highlight-history">
+  <Link className="pil-historyLink" to="/titles">
     Highlight History
   </Link>
 </div>
