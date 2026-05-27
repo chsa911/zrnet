@@ -11,18 +11,19 @@ export default function KauflinkUpdatePage() {
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
-    getBook(bookId).then((b) => {
-      setBook(b);
-      setKauflink(b?.kauflink || "");
-    });
-  }, [bookId]);
+  getBook(bookId).then((b) => {
+    setBook(b);
+    setKauflink(b?.purchase_url || "");
+  });
+}, [bookId]);
 
   async function save() {
     setBusy(true);
     try {
       await updateBook(bookId, {
-        kauflink: kauflink.trim() || null,
-      });
+  purchase_url: kauflink.trim() || null,
+  purchase_source: kauflink.trim() ? "manual" : null,
+});
       navigate(-1);
     } finally {
       setBusy(false);
