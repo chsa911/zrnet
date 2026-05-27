@@ -142,7 +142,20 @@ app.post("/api/books/:bookId/cover", coverUpload.single("cover"), async (req, re
         progressive: true,
       })
       .toFile(normalizedPath);
+const pool = req.app.get("pgPool");
 
+if (pool) {
+  await pool.query(
+    `
+    UPDATE books
+    SET
+      updated_at = NOW(),
+      last_action_at = NOW()
+    WHERE id = $1
+    `,
+    [bookId]
+  );
+}
     res.json({
       ok: true,
       replaced,
