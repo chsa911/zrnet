@@ -50,7 +50,7 @@ export default function BookPage() {
   const coverSrc = useMemo(() => {
     if (coverFromQS) return coverFromQS;
     if (!safeId) return "";
-    return `/media/covers/${encodeURIComponent(safeId)}.jpg`;
+    return `/assets/covers/${encodeURIComponent(safeId)}.jpg`;
   }, [coverFromQS, safeId]);
 
   useEffect(() => {

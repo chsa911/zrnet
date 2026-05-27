@@ -7,7 +7,7 @@ import {
 } from "../api/books";
 import { coverUrl } from "../utils/covers";
 function coverFor(id) {
-  return id ? `/media/covers/${encodeURIComponent(id)}.jpg` : "";
+  return id ? `/assets/covers/${encodeURIComponent(id)}.jpg` : "";
 }
 
 export default function HighlightReceivedPage() {
