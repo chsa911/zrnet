@@ -1,10 +1,17 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { listBooks, getBook, updateBook, highlightBook } from "../api/books";
+import {
+  listBooks,
+  getBook,
+  updateBook,
+  highlightBook,
+  uploadBookCover,
+} from "../api/books";
 import BookForm from "../components/BookFormSwitcher";
 import { Link, useNavigate } from "react-router-dom";
-import { uploadBookCover } from "../api/books";
+
 const getBarcode = (b) => b?.barcode ?? "—";
 const getKauflink = (b) => b?.kauflink ?? "";
+
 const getAuthor = (b) =>
   b?.author_abbreviation ??
   b?.author_abbr ??
@@ -13,6 +20,7 @@ const getAuthor = (b) =>
   b?.author_last_name ??
   b?.last_name ??
   "—";
+
 const getAuthorId = (b) =>
   b?.author_id ?? b?.authorId ?? b?.author_uuid ?? b?.author?.id ?? null;
 
@@ -126,6 +134,7 @@ function InlineEditable({ value, disabled, onSave }) {
     </button>
   );
 }
+
 function CoverImageButton({ book, bookId, isBusy, onUploaded }) {
   const inputRef = useRef(null);
   const hasCover = !!book?.cover_available;
@@ -139,7 +148,7 @@ function CoverImageButton({ book, bookId, isBusy, onUploaded }) {
       onUploaded?.();
     } catch (e) {
       console.error(e);
-      alert("Cover upload failed");
+      alert(e?.message || "Cover upload failed");
     } finally {
       if (inputRef.current) inputRef.current.value = "";
     }
@@ -161,6 +170,7 @@ function CoverImageButton({ book, bookId, isBusy, onUploaded }) {
             const replace = window.confirm(
               `A cover already exists for book_id ${bookId}. Replace it?`
             );
+
             if (!replace) {
               window.open(coverUrl, "_blank", "noopener,noreferrer");
               return;
@@ -183,8 +193,9 @@ function CoverImageButton({ book, bookId, isBusy, onUploaded }) {
     </>
   );
 }
+
 export default function SearchUpdatePage() {
- const navigate = useNavigate();
+  const navigate = useNavigate();
 
   const [q, setQ] = useState({
     q: "",
@@ -221,56 +232,57 @@ export default function SearchUpdatePage() {
   const statusOf = (b) => String(b?.reading_status || "").toLowerCase();
 
   async function handleHighlight(book, type) {
-  if (featureBusy) return;
+    if (featureBusy) return;
 
-  const id = idOf(book);
-  if (!id) return alert("Kein Datensatz-ID gefunden.");
+    const id = idOf(book);
+    if (!id) return alert("Kein Datensatz-ID gefunden.");
 
-  const now = new Date().toISOString();
+    const now = new Date().toISOString();
 
-  setFeatureBusy(type);
-  setUpdatingOn(id, true);
+    setFeatureBusy(type);
+    setUpdatingOn(id, true);
 
-  try {
-    await highlightBook(id, type);
+    try {
+      await highlightBook(id, type);
 
-    setHighlighted(() => ({
-      [id]: type,
-    }));
+      setHighlighted(() => ({
+        [id]: type,
+      }));
 
-    setItems((prev) =>
-      prev.map((it) => {
-        const rowId = idOf(it);
+      setItems((prev) =>
+        prev.map((it) => {
+          const rowId = idOf(it);
 
-        if (rowId === id) {
-          return {
-            ...it,
-            home_featured_slot: type,
-            ...(type === "finished" ? { home_featured_finished_at: now } : {}),
-            ...(type === "received" ? { home_featured_received_at: now } : {}),
-            updated_at: now,
-            last_action_at: now,
-          };
-        }
+          if (rowId === id) {
+            return {
+              ...it,
+              home_featured_slot: type,
+              ...(type === "finished" ? { home_featured_finished_at: now } : {}),
+              ...(type === "received" ? { home_featured_received_at: now } : {}),
+              updated_at: now,
+              last_action_at: now,
+            };
+          }
 
-        if (type === "finished" && it?.home_featured_slot === "finished") {
-          return { ...it, home_featured_slot: null };
-        }
+          if (type === "finished" && it?.home_featured_slot === "finished") {
+            return { ...it, home_featured_slot: null };
+          }
 
-        if (type === "received" && it?.home_featured_slot === "received") {
-          return { ...it, home_featured_slot: null };
-        }
+          if (type === "received" && it?.home_featured_slot === "received") {
+            return { ...it, home_featured_slot: null };
+          }
 
-        return it;
-      })
-    );
-  } catch (e) {
-    alert(e?.message || "Highlight failed");
-  } finally {
-    setUpdatingOn(id, false);
-    setFeatureBusy(null);
+          return it;
+        })
+      );
+    } catch (e) {
+      alert(e?.message || "Highlight failed");
+    } finally {
+      setUpdatingOn(id, false);
+      setFeatureBusy(null);
+    }
   }
-}
+
   function searchPatch(value) {
     const trimmed = value.trim();
     const isPages = /^\d+$/.test(trimmed);
@@ -382,7 +394,7 @@ export default function SearchUpdatePage() {
         last_action_at: now,
       });
       await updateBook(id, { [field]: nextValue });
-   setRefreshTick((n) => n + 1);
+      setRefreshTick((n) => n + 1);
     } catch (e) {
       patchRow(id, { [field]: oldValue });
       alert(e?.message || "Update fehlgeschlagen");
@@ -824,15 +836,17 @@ export default function SearchUpdatePage() {
           background: #1565c0;
           color: #fff;
         }
-.su-action--cover {
-  cursor: pointer;
-  text-decoration: none;
-}
 
-.su-action--cover.is-active {
-  background: #2e7d32;
-  color: #fff;
-}
+        .su-action--cover {
+          cursor: pointer;
+          text-decoration: none;
+        }
+
+        .su-action--cover.is-active {
+          background: #2e7d32;
+          color: #fff;
+        }
+
         .su-action:disabled {
           cursor: wait;
           opacity: 0.45;
@@ -952,6 +966,24 @@ export default function SearchUpdatePage() {
           font-weight: 700;
         }
 
+        .su-kauflink {
+          min-width: 90px;
+          text-align: center;
+        }
+
+        .su-kauflink.has-link {
+          background: rgba(0, 180, 0, 0.08);
+        }
+
+        .su-kauflink.missing-link {
+          background: rgba(255, 140, 0, 0.08);
+        }
+
+        .su-kauflink .su-text {
+          width: 100%;
+          display: block;
+        }
+
         @media (max-width: 1180px) {
           .su-search-row,
           .su-book-row,
@@ -1028,23 +1060,6 @@ export default function SearchUpdatePage() {
             flex: 1 1 120px;
           }
         }
-          .su-kauflink {
-  min-width: 90px;
-  text-align: center;
-}
-
-.su-kauflink.has-link {
-  background: rgba(0, 180, 0, 0.08);
-}
-
-.su-kauflink.missing-link {
-  background: rgba(255, 140, 0, 0.08);
-}
-
-.su-kauflink .su-text {
-  width: 100%;
-  display: block;
-}
       `}</style>
 
       <div className="su-grid">
@@ -1142,10 +1157,9 @@ export default function SearchUpdatePage() {
           <div className="su-head" title="Highlight Finished">HF</div>
           <div className="su-head" title="Highlight Received">HR</div>
           <div className="su-head" title="Kauflink">K</div>
-<div className="su-head" title="Cover Image">IMG</div>
-<div className="su-head" title="Edit">✎</div>
-          
-                  </div>
+          <div className="su-head" title="Cover Image">IMG</div>
+          <div className="su-head" title="Edit">✎</div>
+        </div>
 
         {err ? <div className="su-alert su-alert--error">{err}</div> : null}
         {loading ? <div className="su-alert">Lade…</div> : null}
@@ -1209,7 +1223,15 @@ export default function SearchUpdatePage() {
                     <span className="su-text">{getBarcode(b)}</span>
                   </div>
 
-                  <div className="su-cell su-author" title={b?.name_display ?? b?.author_name_display ?? b?.author_name ?? getAuthor(b)}>
+                  <div
+                    className="su-cell su-author"
+                    title={
+                      b?.name_display ??
+                      b?.author_name_display ??
+                      b?.author_name ??
+                      getAuthor(b)
+                    }
+                  >
                     {getAuthorId(b) ? (
                       <Link
                         to={`/admin/authors/${getAuthorId(b)}`}
@@ -1281,6 +1303,7 @@ export default function SearchUpdatePage() {
                       />
                     </span>
                   </div>
+
                   <button
                     disabled={isBusy}
                     onClick={() => setStatus(b, "abandoned")}
@@ -1330,8 +1353,8 @@ export default function SearchUpdatePage() {
                   </button>
 
                   <button
-                   disabled={isBusy || featureBusy !== null}
-                   onClick={() => handleHighlight(b, "finished")}
+                    disabled={isBusy || featureBusy !== null}
+                    onClick={() => handleHighlight(b, "finished")}
                     className={`su-action su-action--highlight-finished ${
                       highlighted[id] === "finished" ||
                       b?.home_featured_slot === "finished"
@@ -1358,32 +1381,30 @@ export default function SearchUpdatePage() {
                   >
                     HR
                   </button>
-<div
-  className={`su-cell su-kauflink ${
-    getKauflink(b) ? "has-link" : "missing-link"
-  }`}
-  title={
-    getKauflink(b)
-      ? "Kauflink bearbeiten"
-      : "Kauflink hinzufügen"
-  }
-  onClick={() => navigate(`/admin/books/${b.id}/kauflink`)}
->
-  {getKauflink(b) ? "K" : "-"}
-</div>
 
-<CoverImageButton
-  book={b}
-  bookId={id}
-  isBusy={isBusy}
-  onUploaded={() => {
-    patchRow(id, {
-      cover_available: true,
-      cover_url: `/media/covers/normalized/${id}.jpg?t=${Date.now()}`,
-    });
-    setRefreshTick((n) => n + 1);
-  }}
-/>
+                  <div
+                    className={`su-cell su-kauflink ${
+                      getKauflink(b) ? "has-link" : "missing-link"
+                    }`}
+                    title={getKauflink(b) ? "Kauflink bearbeiten" : "Kauflink hinzufügen"}
+                    onClick={() => navigate(`/admin/books/${b.id}/kauflink`)}
+                  >
+                    {getKauflink(b) ? "K" : "-"}
+                  </div>
+
+                  <CoverImageButton
+                    book={b}
+                    bookId={id}
+                    isBusy={isBusy}
+                    onUploaded={() => {
+                      patchRow(id, {
+                        cover_available: true,
+                        cover_url: `/media/covers/normalized/${id}.jpg?t=${Date.now()}`,
+                      });
+                      setRefreshTick((n) => n + 1);
+                    }}
+                  />
+
                   <button
                     disabled={isBusy}
                     onClick={() => openEditor(b)}
@@ -1429,7 +1450,9 @@ export default function SearchUpdatePage() {
       {barcodeHistory ? (
         <div className="su-editor">
           <div className="su-history-head">
-            <h3 className="su-history-title">Barcode-History: {barcodeHistory.barcode}</h3>
+            <h3 className="su-history-title">
+              Barcode-History: {barcodeHistory.barcode}
+            </h3>
             <button
               type="button"
               className="su-history-close"
