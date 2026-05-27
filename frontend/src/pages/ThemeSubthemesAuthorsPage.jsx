@@ -266,7 +266,7 @@ export default function ThemeSubthemesAuthorsPage() {
       if (!key) continue;
 
       if (!map.has(key)) {
-        const cover = b && b.id ? ("/assets/covers/" + String(b.id).trim() + ".jpg") : themeImg;
+        const cover = b && b.id ? ("/assets/covers" + String(b.id).trim() + ".jpg") : themeImg;
         map.set(key, { name: key, count: 0, img: cover });
       }
 

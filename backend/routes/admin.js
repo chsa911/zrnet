@@ -294,7 +294,7 @@ try {
             ok: true,
             id,
             bytes: req.file.buffer.length,
-            cover: `/assets/covers/${id}.jpg`,
+            cover: `/assets/covers${id}.jpg`,
             coverUploadedAt: upd.rows?.[0]?.coveruploadedat || null,
           });
         } catch (e) {
@@ -457,7 +457,7 @@ try {
             ...row,
             width_cm: row.width != null ? row.width / 10 : null,
             height_cm: row.height != null ? row.height / 10 : null,
-            coverUrl: `/assets/covers/${row.id}.jpg`,
+            coverUrl: `/assets/covers${row.id}.jpg`,
           }));
           return res.json({ items });
         } catch (e) {

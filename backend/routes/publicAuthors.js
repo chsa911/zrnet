@@ -376,7 +376,7 @@ router.get("/top-books", async (req, res) => {
         b.top_book_set_at,
         b.registered_at,
         b.purchase_url,
-        ('/assets/covers/' || b.id::text || '.jpg') AS cover
+        ('/assets/covers' || b.id::text || '.jpg') AS cover
       FROM public.books b
       LEFT JOIN public.authors a ON a.id = $1::uuid
       WHERE
