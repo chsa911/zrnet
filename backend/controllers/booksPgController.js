@@ -35,7 +35,7 @@ function buildCoverMap() {
         if (!/\.(jpg|jpeg|png|webp)$/i.test(file)) continue;
 
         const bookId = file.replace(/\.(jpg|jpeg|png|webp)$/i, "");
-        map.set(bookId, `/assets/covers/normalized/${file}`);
+        map.set(bookId, `/assets/covers//${file}`);
       }
     }
   } catch (err) {

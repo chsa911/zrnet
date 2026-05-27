@@ -159,7 +159,7 @@ if (pool) {
       replaced,
       book_id: bookId,
       raw: `/assets/covers/raw/${bookId}${originalExt}`,
-      normalized: `/assets/covers/normalized/${bookId}.jpg`,
+      normalized: `/assets/covers//${bookId}.jpg`,
     });
   } catch (err) {
     console.error("POST /api/books/:bookId/cover error", err);
@@ -179,9 +179,9 @@ app.get("/api/public/home-highlights", async (req, res) => {
         b.id::text AS id,
         a.name_display AS author_name_display,
         COALESCE(NULLIF(b.title_display, ''), NULLIF(b.title_keyword, '')) AS title_display,
-        ('/assets/covers/normalized/' || b.id::text || '.jpg') AS cover_home,
-        ('/assets/covers/normalized/' || b.id::text || '.jpg') AS cover_full,
-        ('/assets/covers/normalized/' || b.id::text || '.jpg') AS cover,
+        ('/assets/covers//' || b.id::text || '.jpg') AS cover_home,
+        ('/assets/covers//' || b.id::text || '.jpg') AS cover_full,
+        ('/assets/covers//' || b.id::text || '.jpg') AS cover,
         b.purchase_url AS buy
       FROM public.books b
       LEFT JOIN public.authors a ON a.id = b.author_id
