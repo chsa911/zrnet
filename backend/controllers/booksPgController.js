@@ -345,6 +345,7 @@ sub: row.subgenre_abbr ?? row.sub_genre ?? null,
       homeFeaturedSlot: row.home_featured_slot ?? null,
 
       purchase_url: row.purchase_url ?? null,
+      kauflink: row.kauflink ?? null,
       isbn13: row.isbn13 ?? null,
       isbn10: row.isbn10 ?? null,
       title_en: row.title_en ?? null,
@@ -1779,7 +1780,9 @@ if (body.sub_genre_id !== undefined && cols.has("sub_genre_id")) {
       if (body.comment !== undefined && cols.has("comment")) {
         updates.comment = normalizeStr(body.comment);
       }
-
+      if (body.kauflink !== undefined && cols.has("kauflink")) {
+  updates.kauflink = normalizeStr(body.kauflink);
+}
   if (body.title_keyword !== undefined) {
   updates.title_keyword =
     normalizeStr(body.title_keyword) ||
@@ -2314,6 +2317,9 @@ if ((patch.sub_genre_abbr ?? patch.subgenre_abbr) !== undefined) {
       if (patch.purchase_url !== undefined && cols.has("purchase_url")) {
         updates.purchase_url = normalizeStr(patch.purchase_url);
       }
+      if (patch.kauflink !== undefined && cols.has("kauflink")) {
+  updates.kauflink = normalizeStr(patch.kauflink);
+}
       if (patch.original_language !== undefined && cols.has("original_language")) {
         updates.original_language = normalizeStr(patch.original_language);
       }

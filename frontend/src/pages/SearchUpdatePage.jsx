@@ -1,10 +1,10 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { listBooks, getBook, updateBook, highlightBook } from "../api/books";
 import BookForm from "../components/BookFormSwitcher";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 
 const getBarcode = (b) => b?.barcode ?? "—";
-
+const getKauflink = (b) => b?.kauflink ?? "";
 const getAuthor = (b) =>
   b?.author_abbreviation ??
   b?.author_abbr ??
@@ -13,7 +13,6 @@ const getAuthor = (b) =>
   b?.author_last_name ??
   b?.last_name ??
   "—";
-
 const getAuthorId = (b) =>
   b?.author_id ?? b?.authorId ?? b?.author_uuid ?? b?.author?.id ?? null;
 
@@ -129,6 +128,8 @@ function InlineEditable({ value, disabled, onSave }) {
 }
 
 export default function SearchUpdatePage() {
+ const navigate = useNavigate();
+
   const [q, setQ] = useState({
     q: "",
     page: 1,
@@ -468,7 +469,7 @@ export default function SearchUpdatePage() {
         .su-header-row {
           display: grid;
           grid-template-columns:
-           105px 100px minmax(220px, 1fr) 64px 96px 64px 44px 44px 44px 44px 44px 44px 44px 34px;  
+            105px 100px minmax(220px, 1fr) 64px 96px 64px 44px 44px 44px 44px 44px 44px 44px 44px 34px;
           align-items: stretch;
           width: 100%;
           min-width: 0;
@@ -549,7 +550,7 @@ export default function SearchUpdatePage() {
         }
 
         .su-cell--filters {
-          grid-column: 4 / 15;
+          grid-column: 4 / 16;
           display: flex;
           align-items: center;
           gap: 10px;
@@ -971,6 +972,23 @@ export default function SearchUpdatePage() {
             flex: 1 1 120px;
           }
         }
+          .su-kauflink {
+  min-width: 90px;
+  text-align: center;
+}
+
+.su-kauflink.has-link {
+  background: rgba(0, 180, 0, 0.08);
+}
+
+.su-kauflink.missing-link {
+  background: rgba(255, 140, 0, 0.08);
+}
+
+.su-kauflink .su-text {
+  width: 100%;
+  display: block;
+}
       `}</style>
 
       <div className="su-grid">
@@ -1067,9 +1085,11 @@ export default function SearchUpdatePage() {
           <div className="su-head" title="Top Book">★</div>
           <div className="su-head" title="Highlight Finished">HF</div>
           <div className="su-head" title="Highlight Received">HR</div>
-          <div className="su-head" title="Cover Image">IMG</div>
-          <div className="su-head" title="Edit">✎</div>
-        </div>
+          <div className="su-head" title="Kauflink">K</div>
+<div className="su-head" title="Cover Image">IMG</div>
+<div className="su-head" title="Edit">✎</div>
+          
+                  </div>
 
         {err ? <div className="su-alert su-alert--error">{err}</div> : null}
         {loading ? <div className="su-alert">Lade…</div> : null}
@@ -1205,7 +1225,6 @@ export default function SearchUpdatePage() {
                       />
                     </span>
                   </div>
-
                   <button
                     disabled={isBusy}
                     onClick={() => setStatus(b, "abandoned")}
@@ -1283,6 +1302,20 @@ export default function SearchUpdatePage() {
                   >
                     HR
                   </button>
+<div
+  className={`su-cell su-kauflink ${
+    getKauflink(b) ? "has-link" : "missing-link"
+  }`}
+  title={
+    getKauflink(b)
+      ? "Kauflink bearbeiten"
+      : "Kauflink hinzufügen"
+  }
+  onClick={() => navigate(`/admin/books/${b.id}/kauflink`)}
+>
+  {getKauflink(b) ? "K" : "-"}
+</div>
+
 <a
   href={b?.cover_url || `/media/covers/${id}.jpg`}
   target="_blank"

@@ -31,6 +31,8 @@ import AdminAuthorPage from "./pages/AdminAuthorPage";
 import HomeTitlesPage from "./pages/HomeTitlesPage";
 import { API_BASE } from "./api/config";
 import HighlightReceivedPage from "./pages/HighlightReceivedPage";
+import KauflinkUpdatePage from "./pages/KauflinkUpdatePage";
+
 const ENV_BASE = (import.meta?.env?.VITE_API_BASE_URL || import.meta?.env?.VITE_API_BASE || "").trim();
 const BASE = String(ENV_BASE || API_BASE || "/api").replace(/\/$/, "");
 
@@ -180,6 +182,14 @@ export default function App() {
         <Route path="admin/comments" element={<AdminOnly><AdminCommentsPage /></AdminOnly>} />
         <Route path="login" element={<Navigate to="/admin" replace />} />
         <Route path="login.html" element={<Navigate to="/admin" replace />} />
+<Route
+  path="admin/books/:bookId/kauflink"
+  element={
+    <AdminOnly>
+      <KauflinkUpdatePage />
+    </AdminOnly>
+  }
+/>
 <Route
   path="admin/highlights/received"
   element={
