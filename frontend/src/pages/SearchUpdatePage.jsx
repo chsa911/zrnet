@@ -1396,13 +1396,24 @@ export default function SearchUpdatePage() {
                     book={b}
                     bookId={id}
                     isBusy={isBusy}
-                    onUploaded={() => {
-                      patchRow(id, {
-                        cover_available: true,
-                        cover_url: `/media/covers/normalized/${id}.jpg?t=${Date.now()}`,
-                      });
-                      setRefreshTick((n) => n + 1);
-                    }}
+                   onUploaded={() => {
+  const now = new Date().toISOString();
+
+  patchRow(id, {
+    cover_available: true,
+    cover_url: `/media/covers/normalized/${id}.jpg?t=${Date.now()}`,
+    updated_at: now,
+    last_action_at: now,
+  });
+
+  setQuery({
+    page: 1,
+    sortBy: "last_action_at",
+    order: "desc",
+  });
+
+  setRefreshTick((n) => n + 1);
+}}
                   />
 
                   <button
