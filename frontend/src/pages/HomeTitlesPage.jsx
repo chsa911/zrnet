@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import "./HomeTitlesPage.css";
 
@@ -31,7 +31,9 @@ export default function HomeTitlesPage() {
     }
 
     load();
-    return () => { mounted = false; };
+    return () => {
+      mounted = false;
+    };
   }, []);
 
   const finishedBooks = useMemo(
@@ -49,59 +51,91 @@ export default function HomeTitlesPage() {
 
   return (
     <main className="home-titles-page">
-      <header className="home-titles-header">
-        <h1>Homepage Title History</h1>
-        <p>All titles that appeared on Home as Top Finished or Top Received.</p>
-      </header>
-
-      <TitleSection title="Top Finished" books={finishedBooks} />
-      <TitleSection title="Top Received" books={receivedBooks} />
+      
+      <div className="home-titles-rows">
+        <TitleSection title="Top Finished" books={finishedBooks} />
+        <TitleSection title="Top Received" books={receivedBooks} />
+      </div>
     </main>
   );
 }
 
 function TitleSection({ title, books }) {
+  const scrollRef = useRef(null);
+
+  const scrollByPage = (direction) => {
+    const el = scrollRef.current;
+    if (!el) return;
+
+    el.scrollBy({
+      left: direction * Math.round(el.clientWidth * 0.82),
+      behavior: "smooth",
+    });
+  };
+
   return (
     <section className="home-titles-section">
       <div className="home-titles-section-head">
         <h2>{title}</h2>
-        <span>{books.length}</span>
       </div>
 
       {books.length === 0 ? (
         <p className="home-titles-empty">No titles yet.</p>
       ) : (
-        <div className="home-titles-grid">
-          {books.map((book) => (
-            <Link
-              key={`${book.presented_as}-${book.highlight_id || book.id}`}
-              to={`/book/${book.book_id || book.id}`}
-              className="home-title-card"
-            >
-              <div className="home-title-cover-wrap">
-                {book.cover_url ? (
-                  <img
-                    src={book.cover_url}
-                    alt={book.title || "Book cover"}
-                    className="home-title-cover"
-                    loading="lazy"
-                  />
-                ) : (
-                  <div className="home-title-placeholder">No Cover</div>
-                )}
-              </div>
+        <div className="home-titles-carousel">
+          <button
+            type="button"
+            className="home-titles-arrow home-titles-arrow--left"
+            onClick={() => scrollByPage(-1)}
+            aria-label={`Scroll ${title} left`}
+          >
+            ‹
+          </button>
 
-              <div className="home-title-content">
-                <h3>{book.title || "Untitled"}</h3>
-                {book.author && <p>{book.author}</p>}
-                {book.presented_at && (
-                  <small>{new Date(book.presented_at).toLocaleDateString()}</small>
-                )}
-              </div>
-            </Link>
-          ))}
+          <div className="home-titles-scroll" ref={scrollRef} aria-label={title}>
+            {books.map((book) => (
+              <BookCover key={`${book.presented_as}-${book.highlight_id || book.id}`} book={book} />
+            ))}
+          </div>
+
+          <button
+            type="button"
+            className="home-titles-arrow home-titles-arrow--right"
+            onClick={() => scrollByPage(1)}
+            aria-label={`Scroll ${title} right`}
+          >
+            ›
+          </button>
         </div>
       )}
     </section>
+  );
+}
+
+function BookCover({ book }) {
+  const [failed, setFailed] = useState(false);
+  const title = book.title || "Book";
+
+  return (
+    <Link
+      to={`/book/${book.book_id || book.id}`}
+      className="home-title-card"
+      aria-label={`Open ${title}`}
+      title={title}
+    >
+      <div className="home-title-cover-wrap">
+        {book.cover_url && !failed ? (
+          <img
+            src={book.cover_url}
+            alt={title}
+            className="home-title-cover"
+            loading="lazy"
+            onError={() => setFailed(true)}
+          />
+        ) : (
+          <div className="home-title-placeholder" aria-hidden="true" />
+        )}
+      </div>
+    </Link>
   );
 }
