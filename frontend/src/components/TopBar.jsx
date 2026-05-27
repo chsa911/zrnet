@@ -144,7 +144,7 @@ export default function TopBar() {
 <Link to="/admin/barcodes">Barcodes</Link>
 <hr/>
 </>) : null}
-<Link to="/highlights">Recent Highlights</Link>
+<Link to="/recent-highlights">Recent Highlights</Link>
               <Link to="/info/impressum">{t("nav_impressum")}</Link>
               <Link to="/info/datenschutz">{t("nav_privacy")}</Link>
             </div>
