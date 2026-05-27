@@ -95,11 +95,13 @@ const receivedBooks = useMemo(
             </button>
 
             <div className="home-titles-scroll" ref={scrollRef} aria-label={title}>
-              {books.map((book) => (
-                <BookCover key={`${book.presented_as}-${book.highlight_id || book.id}`} book={book} />
-              ))}
-            </div>
-
+  {books.map((book) => (
+    <BookCover
+      key={`${book.presented_as}-${book.highlight_id || book.id}`}
+      book={book}
+    />
+  ))}
+</div>
             <button
               type="button"
               className="home-titles-arrow home-titles-arrow--right"
@@ -114,29 +116,30 @@ const receivedBooks = useMemo(
     );
   }
 
-  function BookCover({ book }) {
-    const [failed, setFailed] = useState(false);
-    const title = book.title || "Book";
-    const src = coverUrl(book);
+ function BookCover({ book }) {
+  const [failed, setFailed] = useState(false);
 
-    return (
-      <Link
-        to={`/book/${book.book_id || book.id}`}
-        className="home-title-card"
-        aria-label={`Open ${title}`}
-        title={title}
-      >
-        <div className="home-title-cover-wrap">
-          {src && !failed ? (
-  <img
-    src={src}
-    alt={title}
-    className="home-title-cover"
-    loading="lazy"
-    onError={() => setFailed(true)}
-  />
-) : null}
-        </div>
-      </Link>
-    );
-  }
+  const title = book.title || "Book";
+  const src = coverUrl(book);
+
+  if (!src || failed) return null;
+
+  return (
+    <Link
+      to={`/book/${book.book_id || book.id}`}
+      className="home-title-card"
+      aria-label={`Open ${title}`}
+      title={title}
+    >
+      <div className="home-title-cover-wrap">
+        <img
+          src={src}
+          alt={title}
+          className="home-title-cover"
+          loading="lazy"
+          onError={() => setFailed(true)}
+        />
+      </div>
+    </Link>
+  );
+}
