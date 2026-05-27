@@ -147,10 +147,8 @@ const pool = req.app.get("pgPool");
 if (pool) {
   await pool.query(
     `
-    UPDATE books
-    SET
-      updated_at = NOW(),
-      last_action_at = NOW()
+    UPDATE public.books
+    SET updated_at = NOW()
     WHERE id = $1
     `,
     [bookId]
