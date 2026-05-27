@@ -213,9 +213,16 @@ const pickCover = useMemo(
       </section>
 
       <section className="zr-section pil-highlights">
-        <div className="pil-sectionHead">
-          <div className="pil-eyebrow pil-eyebrow--muted">{t("home_highlight_title")}</div>
-        </div>
+        <div className="pil-sectionHead pil-sectionHead--split">
+  <div className="pil-eyebrow pil-eyebrow--muted">
+    {t("home_highlight_title")}
+  </div>
+
+  <Link className="pil-historyLink" to="/highlight-history">
+    Highlight History
+  </Link>
+</div>
+
 <div className="zr-splitHighlight">
   <HighlightCard
     item={finished}
