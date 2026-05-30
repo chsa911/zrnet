@@ -7,7 +7,12 @@ function toNum(v) {
   const n = Number(String(v || "").replace(",", "."));
   return Number.isFinite(n) ? n : null;
 }
-  function getPool(req) {
+
+function cmToMm(v) {
+  const n = Number(String(v || "").replace(",", "."));
+  return Number.isFinite(n) ? Math.round(n * 10) : null;
+}
+function getPool(req) {
     const pool = req.app.get("pgPool");
     if (!pool) throw new Error("pgPool missing on app");
     return pool;
