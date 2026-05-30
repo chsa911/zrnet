@@ -630,7 +630,7 @@ export default function BookFormStagingPwa({
     }
 
     const payload = {};
-    if (!isEdit) payload.assign_barcode = !!assignBarcode;
+    if (!isEdit) payload.assign_barcode = false;
 
     const nextBarcode = String(v.barcode || "").trim();
     const suggestedBarcode = String(barcodePreview?.candidate || "").trim();
