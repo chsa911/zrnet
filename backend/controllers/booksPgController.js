@@ -3,7 +3,10 @@
   // Add this near your other variable definitions
   // backend/controllers/booksPgController.js
   // Postgres implementation for /api/books endpoints.
-
+function toNum(v) {
+  const n = Number(String(v || "").replace(",", "."));
+  return Number.isFinite(n) ? n : null;
+}
   function getPool(req) {
     const pool = req.app.get("pgPool");
     if (!pool) throw new Error("pgPool missing on app");
