@@ -638,15 +638,6 @@ export default function BookFormStagingPwa({
 
     const widthCm = parseFloatOrNull(v.width_cm);
     const heightCm = parseFloatOrNull(v.height_cm);
-    if (!isEdit && assignBarcode && !finalBarcode) {
-      const ok =
-        Number.isFinite(widthCm) && widthCm > 0 &&
-        Number.isFinite(heightCm) && heightCm > 0;
-      if (!ok) {
-        setMsg("Bitte unter „Weitere Felder“ Barcode angeben oder Breite + Höhe eintragen.");
-        return;
-      }
-    }
 
     if (!isEdit && assignBarcode && finalBarcode) payload.barcode = finalBarcode;
     if (!isEdit && Number.isFinite(widthCm) && widthCm > 0) payload.width_cm = widthCm;
