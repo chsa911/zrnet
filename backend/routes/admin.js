@@ -433,7 +433,7 @@ try {
               a.last_name AS author_last_name,
               a.name_display AS author_name_display,
               
-            NULL::text AS author_abbreviation,
+            NULL::text AS ,
               a.author_nationality,
               a.place_of_birth,
               a.male_female,
@@ -824,7 +824,7 @@ try {
           author_lastname: body.author_lastname,
           author_firstname: body.author_firstname,
           name_display: body.name_display,
-          author_abbreviation: body.author_abbreviation,
+          author_abbr: body.author_abbr,
           author_nationality: body.author_nationality,
           place_of_birth: body.place_of_birth,
           male_female: body.male_female,

@@ -378,7 +378,7 @@ export default function BookFormDesktop({
       String(it.name_display || "").trim() ||
       [it.first_name, it.last_name].filter(Boolean).join(" ").trim() ||
       String(it.last_name || "").trim();
-    const abbr = String(it.abbreviation || it.author_abbreviation || "").trim();
+    const abbr = String(it.abbreviation || it.author_abbr || "").trim();
     return [display, abbr].filter(Boolean).join(" · ");
   }
 

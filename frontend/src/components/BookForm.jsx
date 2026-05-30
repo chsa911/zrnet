@@ -22,7 +22,10 @@ function pick(b, aliases) {
   }
   return undefined;
 }
-
+function toNum(v) {
+  const n = Number(String(v || "").replace(",", "."));
+  return Number.isFinite(n) ? n : null;
+}
 const toStr = (v) => (v === undefined || v === null ? "" : String(v));
 
 const parseIntOrNull = (s) => {
@@ -375,7 +378,7 @@ export default function BookForm({
       author_lastname: toStr(pick(b, ["author_lastname"])),
       author_firstname: toStr(pick(b, ["author_firstname"])),
       name_display: toStr(pick(b, ["name_display", "author_name_display"])),
-      author_abbreviation: toStr(pick(b, ["author_abbreviation", "abbreviation"])),
+      author_abbr: toStr(pick(b, ["author_abbr", "abbreviation"])),
       published_titles: toStr(pick(b, ["published_titles"])),
       number_of_millionsellers: toStr(pick(b, ["number_of_millionsellers"])),
       author_nationality: toStr(pick(b, ["author_nationality"])),
@@ -590,8 +593,8 @@ export default function BookForm({
           next.name_display = String(s.name_display || display).trim();
           changed = true;
         }
-        if (!String(prev.author_abbreviation || "").trim() && String(s.author_abbreviation || "").trim()) {
-          next.author_abbreviation = String(s.author_abbreviation).trim();
+        if (!String(prev.author_abbr || "").trim() && String(s.author_abbr || "").trim()) {
+          next.aut = String(s.author_abbr).trim();
           changed = true;
         }
         if (!String(prev.author_nationality || "").trim() && String(s.author_nationality || "").trim()) {

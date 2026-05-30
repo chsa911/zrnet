@@ -29,7 +29,7 @@ function bookLabel(b) {
 
 function isExactAuthorAbbr(query, author) {
   const q = normalizeAbbr(query);
-  const abbr = normalizeAbbr(author?.abbr || author?.abbreviation || author?.author_abbreviation);
+  const abbr = normalizeAbbr(author?.abbr || author?.abbreviation || author?.author_abbr);
   return !!q && !!abbr && q === abbr;
 }
 

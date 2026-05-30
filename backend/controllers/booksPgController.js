@@ -1,6 +1,6 @@
   const fs = require("fs");
-const path = require("path");
-  
+  const path = require("path");
+  // Add this near your other variable definitions
   // backend/controllers/booksPgController.js
   // Postgres implementation for /api/books endpoints.
 
@@ -286,7 +286,7 @@ cover_url: null,
       author_firstname: authorFirst,
       name_display: authorNameDisplay || null,
       author_name_display: authorNameDisplay || null,
-      author_abbreviation: row.author_abbreviation ?? null,
+   
       author_nationality: row.author_nationality ?? null,
       place_of_birth: row.place_of_birth ?? null,
       male_female: row.male_female ?? null,
@@ -375,7 +375,7 @@ sub: row.subgenre_abbr ?? row.sub_genre ?? null,
     a.name_display AS author_name_display,
     a.first_name AS author_first_name,
     a.last_name AS author_last_name,
-    a.abbr AS author_abbreviation,
+    a.abbr AS author_abbr,
     a.author_nationality AS author_nationality,
     a.place_of_birth AS place_of_birth,
     a.male_female AS male_female,
@@ -492,6 +492,7 @@ sub: row.subgenre_abbr ?? row.sub_genre ?? null,
     const effFirst = first ?? guessed.first;
     const effLast = last ?? guessed.last;
     const effDisplay = disp || computeAuthorDisplay(effFirst, effLast);
+    const effAbbr = normalizeStr(abbreviation);
 
     const effPublished = normalizeInt(publishedTitles);
     const effMillions = normalizeInt(numberOfMillionSellers);
@@ -574,17 +575,26 @@ place_of_birth = COALESCE($9, place_of_birth)
       if (byName.rows[0]) return mergeAuthor(byName.rows[0]);
     }
 
+       // CORRECTED CODE:
     if (effLast) {
       const uniqueLast = await db.query(
         `
         SELECT ${baseCols}
         FROM public.authors
         WHERE lower(last_name) = lower($1)
+          -- ENFORCE STRICT MATCHING:
+          -- Only match if first_name matches (if provided) OR abbr matches (if provided)
+          AND (
+            ($2::text IS NOT NULL AND lower(first_name) = lower($2)) 
+            OR 
+            ($3::text IS NOT NULL AND lower(abbr) = lower($3))
+          )
         ORDER BY name_display NULLS LAST, id
         LIMIT 2
         `,
-        [effLast]
+        [effLast, effFirst, effAbbr] // Pass effFirst and effAbbr here
       );
+      
       if (uniqueLast.rows.length === 1) return mergeAuthor(uniqueLast.rows[0]);
     }
 
@@ -1236,7 +1246,7 @@ return res.json({
               a.last_name,
               a.name_display,
               a.abbr,
-              a.abbr AS author_abbreviation,
+              a.abbr AS author_abbr,
               a.author_nationality,
               a.place_of_birth,
               a.male_female,
@@ -1255,7 +1265,7 @@ return res.json({
               a.last_name,
               a.name_display,
               a.abbr,
-              a.abbr AS author_abbreviation,
+              a.abbr AS author_abbr,
               a.author_nationality,
               a.place_of_birth,
               a.male_female,
@@ -1356,7 +1366,7 @@ return res.json({
             a.name_display AS author_name_display,
             a.first_name AS author_first_name,
             a.last_name AS author_last_name,
-            a.abbr AS author_abbreviation
+            a.abbr AS author_abbr
           FROM public.books b
           LEFT JOIN public.authors a ON a.id = b.author_id
           WHERE b.title_display ILIKE $1
@@ -1485,7 +1495,7 @@ return res.json({
         const authorLastRaw = normalizeStr(body.author_lastname);
         const authorFirstRaw = normalizeStr(body.author_firstname);
         const authorDispRaw = normalizeStr(body.name_display ?? body.author_name_display);
-        const authorAbbrRaw = normalizeStr(body.author_abbreviation);
+        const authorAbbrRaw = normalizeStr(body.author_abbr);
         const authorPublishedTitlesRaw = normalizeInt(body.published_titles);
         const authorMillionsRaw = normalizeInt(body.number_of_millionsellers);
         const authorNationalityRaw = normalizeStr(body.author_nationality);
@@ -1701,7 +1711,7 @@ if (body.sub_genre_id !== undefined && cols.has("sub_genre_id")) {
       const authorLastRaw = normalizeStr(body.author_lastname);
       const authorFirstRaw = normalizeStr(body.author_firstname);
       const authorDispRaw = normalizeStr(body.name_display ?? body.author_name_display);
-      const authorAbbrRaw = normalizeStr(body.author_abbreviation);
+      const authorAbbrRaw = normalizeStr(body.author_abbr);
       const authorPublishedTitlesRaw = normalizeInt(body.published_titles);
       const authorMillionsRaw = normalizeInt(body.number_of_millionsellers);
       const authorNationalityRaw = normalizeStr(body.author_nationality);
@@ -1714,7 +1724,7 @@ if (body.sub_genre_id !== undefined && cols.has("sub_genre_id")) {
         body.author_firstname !== undefined ||
         body.name_display !== undefined ||
         body.author_name_display !== undefined ||
-        body.author_abbreviation !== undefined ||
+        body.author_abbr !== undefined ||
         body.published_titles !== undefined ||
         body.number_of_millionsellers !== undefined ||
         body.author_nationality !== undefined ||
@@ -1932,7 +1942,7 @@ if (body.sub_genre_id !== undefined && cols.has("sub_genre_id")) {
       const authorLastRaw = normalizeStr(body.author_lastname);
       const authorFirstRaw = normalizeStr(body.author_firstname);
       const authorDispRaw = normalizeStr(body.name_display ?? body.author_name_display);
-      const authorAbbrRaw = normalizeStr(body.author_abbreviation);
+      const authorAbbrRaw = normalizeStr(body.author_abbr);
       const authorPublishedTitlesRaw = normalizeInt(body.published_titles);
       const authorMillionsRaw = normalizeInt(body.number_of_millionsellers);
       const authorNationalityRaw = normalizeStr(body.author_nationality);
@@ -2247,7 +2257,7 @@ if ((patch.sub_genre_abbr ?? patch.subgenre_abbr) !== undefined) {
       const authorLastRaw = normalizeStr(patch.author_lastname);
       const authorFirstRaw = normalizeStr(patch.author_firstname);
       const authorDispRaw = normalizeStr(patch.name_display ?? patch.author_name_display);
-      const authorAbbrRaw = normalizeStr(patch.author_abbreviation);
+      const authorAbbrRaw = normalizeStr(patch.author_abbr);
       const authorPublishedTitlesRaw = normalizeInt(patch.published_titles);
       const authorMillionsRaw = normalizeInt(patch.number_of_millionsellers);
       const authorNationalityRaw = normalizeStr(patch.author_nationality);
@@ -2260,7 +2270,7 @@ if ((patch.sub_genre_abbr ?? patch.subgenre_abbr) !== undefined) {
         patch.author_firstname !== undefined ||
         patch.name_display !== undefined ||
         patch.author_name_display !== undefined ||
-        patch.author_abbreviation !== undefined ||
+        patch.author_abbr !== undefined ||
         patch.published_titles !== undefined ||
         patch.number_of_millionsellers !== undefined ||
         patch.author_nationality !== undefined ||
@@ -2565,7 +2575,7 @@ async function getBarcodeHistory(req, res) {
 
         a.name_display AS author_name_display,
         a.last_name AS author_lastname,
-        a.abbr AS author_abbreviation
+        a.abbr AS author_abbr
 
       FROM public.barcode_assignments ba
       LEFT JOIN public.books b

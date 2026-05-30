@@ -14,9 +14,8 @@ const getBarcode = (b) => b?.barcode ?? "—";
 const getKauflink = (b) => b?.kauflink ?? "";
 
 const getAuthor = (b) =>
-  b?.author_abbreviation ??
-  b?.author_abbr ??
-  b?.abbr ??
+  b?.author_first_name ??
+  b?.author_name ??
   b?.author_lastname ??
   b?.author_last_name ??
   b?.last_name ??
