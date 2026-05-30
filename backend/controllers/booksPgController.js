@@ -322,7 +322,7 @@ async function upsertAuthor(
 
   if (!authorUuid && !k) return null;
 
-  const baseCols = `id, name, name_display, first_name, last_name, abbreviation,
+  const baseCols = `id, name, name_display, first_name, last_name, abbr,
                     published_titles, number_of_millionsellers, male_female, author_nationality, place_of_birth`;
 
   const mergeAuthor = async (row) => {
@@ -334,7 +334,7 @@ async function upsertAuthor(
         name_display = COALESCE($2, name_display),
         first_name = COALESCE($3, first_name),
         last_name = COALESCE($4, last_name),
-        abbreviation = COALESCE(abbreviation, $5),
+        abbr = COALESCE(abbr, $5),
         published_titles = COALESCE($6, published_titles),
         number_of_millionsellers = COALESCE($7, number_of_millionsellers),
         male_female = COALESCE($8, male_female),
@@ -374,7 +374,7 @@ async function upsertAuthor(
 
   if (effAbbr) {
     const byAbbr = await db.query(
-      `SELECT ${baseCols} FROM public.authors WHERE lower(abbreviation) = lower($1) LIMIT 1`,
+      `SELECT ${baseCols} FROM public.authors WHERE lower(abbr) = lower($1) LIMIT 1`,
       [effAbbr]
     );
     if (byAbbr.rows[0]) return mergeAuthor(byAbbr.rows[0]);
@@ -437,7 +437,7 @@ async function upsertAuthor(
       `
       INSERT INTO public.authors (
         name, name_display, first_name, last_name,
-        abbreviation, published_titles, number_of_millionsellers,
+        abbr, published_titles, number_of_millionsellers,
         male_female, author_nationality, place_of_birth
       )
       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
@@ -445,7 +445,7 @@ async function upsertAuthor(
         name_display = COALESCE(EXCLUDED.name_display, public.authors.name_display),
         first_name   = COALESCE(EXCLUDED.first_name, public.authors.first_name),
         last_name    = COALESCE(EXCLUDED.last_name, public.authors.last_name),
-        abbreviation = COALESCE(public.authors.abbreviation, EXCLUDED.abbreviation),
+        abbr = COALESCE(public.authors.abbr, EXCLUDED.abbr),
         published_titles = COALESCE(EXCLUDED.published_titles, public.authors.published_titles),
         number_of_millionsellers = COALESCE(EXCLUDED.number_of_millionsellers, public.authors.number_of_millionsellers),
         male_female = COALESCE(EXCLUDED.male_female, public.authors.male_female),
@@ -472,7 +472,7 @@ async function upsertAuthor(
 
     if (effAbbr) {
       const byAbbr = await db.query(
-        `SELECT ${baseCols} FROM public.authors WHERE lower(abbreviation) = lower($1) LIMIT 1`,
+        `SELECT ${baseCols} FROM public.authors WHERE lower(abbr) = lower($1) LIMIT 1`,
         [effAbbr]
       );
       if (byAbbr.rows[0]) return mergeAuthor(byAbbr.rows[0]);
