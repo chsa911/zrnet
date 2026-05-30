@@ -594,7 +594,7 @@ export default function BookForm({
           changed = true;
         }
         if (!String(prev.author_abbr || "").trim() && String(s.author_abbr || "").trim()) {
-          next.aut = String(s.author_abbr).trim();
+          next.author_abbr = String(s.author_abbr).trim();
           changed = true;
         }
         if (!String(prev.author_nationality || "").trim() && String(s.author_nationality || "").trim()) {
