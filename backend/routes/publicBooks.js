@@ -172,7 +172,7 @@ router.get("/home-titles", async (req, res) => {
         ${TITLE_EXPR} AS title,
         ${AUTHOR_EXPR} AS author,
 
-        ('/uploads/covers' || b.id::text || '.jpg') AS cover_url
+        ('/uploads/covers/normalized/' || b.id::text || '.jpg') AS cover_url
 
       FROM (
         SELECT DISTINCT ON (presented_as, book_id)
@@ -369,7 +369,7 @@ router.get("/", async (req, res) => {
         a.published_titles,
         COALESCE(open_ba.barcode, bb.barcode) AS barcode,
         (open_ba.barcode IS NOT NULL OR b.reading_status = 'in_stock') AS is_in_stock,
-        ('/uploads/covers' || b.id::text || '.jpg') AS cover
+        ('/uploads/covers/normalized/' || b.id::text || '.jpg') AS cover
       ${fromSql}
       ${whereSql}
       ORDER BY ${orderBy}
