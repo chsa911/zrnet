@@ -1,0 +1,157 @@
+.sg-page {
+  width: min(1400px, 100%);
+  margin: 0 auto;
+  padding: 32px 16px 64px;
+}
+
+.sg-section {
+  margin-top: 16px;
+}
+
+.sg-section-head {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.sg-section-title {
+  margin: 0;
+  font-size: 1.75rem;
+  font-weight: 900;
+  letter-spacing: -0.02em;
+}
+
+.sg-count {
+  opacity: 0.5;
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+/* Carousel */
+.sg-carousel-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.sg-row {
+  display: flex;
+  gap: 14px;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  -webkit-overflow-scrolling: touch;
+  padding-bottom: 12px;
+  flex: 1;
+  min-width: 0;
+}
+
+/* hide scrollbar */
+.sg-row::-webkit-scrollbar { display: none; }
+.sg-row { scrollbar-width: none; }
+
+.sg-arrow {
+  flex-shrink: 0;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  border: none;
+  background: rgba(0,0,0,0.06);
+  font-size: 1.6rem;
+  line-height: 1;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s;
+  color: inherit;
+}
+
+.sg-arrow:hover {
+  background: rgba(0,0,0,0.14);
+}
+
+/* Card */
+.sg-card {
+  flex: 0 0 160px;
+  scroll-snap-align: start;
+  text-decoration: none;
+  color: inherit;
+  display: flex;
+  flex-direction: column;
+  border-radius: 12px;
+  overflow: hidden;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.sg-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 8px 20px rgba(0,0,0,0.10);
+}
+
+.sg-cover-wrap {
+  position: relative;
+  aspect-ratio: 2 / 3;
+  background: rgba(0,0,0,0.04);
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.sg-cover {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.sg-placeholder {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.8rem;
+  opacity: 0.4;
+}
+
+.sg-badge {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  background: #e8b84b;
+  color: #000;
+  font-size: 0.65rem;
+  font-weight: 800;
+  padding: 2px 6px;
+  border-radius: 20px;
+}
+
+.sg-card-body {
+  padding: 8px 4px 0;
+}
+
+.sg-book-title {
+  margin: 0 0 4px;
+  font-size: 0.85rem;
+  font-weight: 700;
+  line-height: 1.3;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.sg-book-author {
+  margin: 0;
+  font-size: 0.78rem;
+  opacity: 0.6;
+}
+
+.sg-empty {
+  opacity: 0.6;
+  font-size: 0.95rem;
+}
+
+.sg-loading { opacity: 0.6; }
+.sg-error   { color: #e05a5a; }

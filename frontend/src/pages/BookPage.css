@@ -3,7 +3,11 @@
   flex-direction: column;
   gap: 14px;
 }
-
+.zr-bookpage__similar-btn {
+  display: inline-block;
+  margin-bottom: 14px;
+  font-size: 14px;
+}
 .zr-bookpage__top {
   display: flex;
   align-items: center;

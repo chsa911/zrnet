@@ -895,9 +895,15 @@ router.get("/:id", async (req, res) => {
         b.top_book,
         b.top_book_set_at,
         b.registered_at,
-        bb.barcode
+        bb.barcode,
+        b.sub_genre_id,
+  sg.name AS sub_genre_name,
+  b.genre_id,
+  g.abbr  AS genre_abbr
       FROM public.books b
       LEFT JOIN public.authors a ON a.id = b.author_id
+      LEFT JOIN public.sub_genres sg ON sg.id = b.sub_genre_id
+  LEFT JOIN public.genres g ON g.id = b.genre_id
       LEFT JOIN LATERAL (
         SELECT barcode
         FROM public.book_barcodes bb
@@ -945,10 +951,13 @@ router.get("/:id", async (req, res) => {
 
       author: r.author_name_display || "",
       title: r.book_title_display || "",
-
       publisher: r.publisher,
       pages: r.pages,
       comment: r.comment,
+sub_genre_id: r.sub_genre_id || null,
+sub_genre_name: r.sub_genre_name || null,
+genre_id: r.genre_id || null,
+genre_abbr: r.genre_abbr || null,
       purchase_source: r.purchase_source || null,
       purchase_url: r.purchase_url,
       purchase_url_best: bestUrl || null,

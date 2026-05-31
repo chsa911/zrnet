@@ -32,7 +32,7 @@ import HomeTitlesPage from "./pages/HomeTitlesPage";
 import { API_BASE } from "./api/config";
 import HighlightReceivedPage from "./pages/HighlightReceivedPage";
 import KauflinkUpdatePage from "./pages/KauflinkUpdatePage";
-
+import SubGenrePage from "./pages/SubGenrePage";
 const ENV_BASE = (import.meta?.env?.VITE_API_BASE_URL || import.meta?.env?.VITE_API_BASE || "").trim();
 const BASE = String(ENV_BASE || API_BASE || "/api").replace(/\/$/, "");
 
@@ -166,6 +166,7 @@ export default function App() {
         <Route path="admin/authors/:authorId/titles" element={<AdminOnly><AdminAuthorTitlesPage /></AdminOnly>} />
         {/* book detail */}
         <Route path="book/:id" element={<BookPage />} />
+        <Route path="sub-genre/:id" element={<SubGenrePage />} />
         {/* author detail */}
         <Route path="author/:author" element={<AuthorPage />} />
         {/* alphabetical authors overview (public) */}

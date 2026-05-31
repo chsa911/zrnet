@@ -49,7 +49,7 @@ export default function BookPage() {
   const coverSrc = useMemo(() => {
     if (coverFromQS) return coverFromQS;
     if (!safeId) return "";
-    return `/uploads/covers/${encodeURIComponent(safeId)}.jpg`;
+    return `/media/covers/${encodeURIComponent(safeId)}.jpg`;
   }, [coverFromQS, safeId]);
 
   useEffect(() => {
@@ -137,6 +137,11 @@ export default function BookPage() {
     ? t("book.loading")
     : `${comments.length} ${t("book.approved")}`;
 
+  // Sub-genre link: needs sub_genre_id + sub_genre_name from API
+  const subGenreId   = book?.sub_genre_id ?? null;
+  const subGenreName = book?.sub_genre_name ?? book?.sub_genre ?? null;
+  const genreAbbr    = book?.genre_abbr ?? book?.genre ?? null;
+
   return (
     <div className="zr-bookpage">
       <div className="zr-bookpage__top">
@@ -170,18 +175,18 @@ export default function BookPage() {
           <div className="zr-bookpage__grid">
             <div className="zr-bookpage__coverCard">
               {coverSrc && !coverBroken ? (
-               <img
-  className="zr-bookpage__coverImg"
-  src={coverSrc}
-  alt={`${title} ${t("book.cover_suffix")}`}
-  onError={() => setCoverBroken(true)}
-/>
+                <img
+                  className="zr-bookpage__coverImg"
+                  src={coverSrc}
+                  alt={`${title} ${t("book.cover_suffix")}`}
+                  onError={() => setCoverBroken(true)}
+                />
               ) : (
                 <div className="zr-bookpage__coverEmpty">
                   {t("book.no_cover_image")}
                   {safeId ? (
                     <div className="zr-bookpage__coverHint">
-                      {t("book.expected")} <code>/uploads/covers/{safeId}.jpg</code>
+                      {t("book.expected")} <code>/media/covers/{safeId}.jpg</code>
                     </div>
                   ) : null}
                 </div>
@@ -191,6 +196,16 @@ export default function BookPage() {
             <div className="zr-bookpage__card">
               <h1 className="zr-bookpage__title">{title}</h1>
               <div className="zr-bookpage__author">{author || "—"}</div>
+
+              {/* Ähnliche Bücher Button */}
+              {subGenreId && subGenreName ? (
+                <Link
+                  to={`/sub-genre/${subGenreId}`}
+                  className="zr-btn2 zr-btn2--ghost zr-bookpage__similar-btn"
+                >
+                  Ähnliche Bücher · {subGenreName} →
+                </Link>
+              ) : null}
 
               <div className="zr-bookpage__leaveBox">
                 <div className="zr-bookpage__leaveHeader">

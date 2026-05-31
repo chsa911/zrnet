@@ -249,7 +249,7 @@ app.get("/api/health", async (req, res, next) => {
 });
 
 app.use("/api/themes", require("./routes/themes"));
-
+app.use("/api/public/sub-genres", require("./routes/publicSubGenres")); 
 // optional: make /api and /api/ not look broken
 app.get(["/api", "/api/"], (req, res) => {
   res.json({
