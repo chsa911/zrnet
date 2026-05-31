@@ -1,12 +1,4 @@
-export const COVER_BASE = "/uploads/covers";
-
-function normalize(url) {
-  if (!url) return "";
-
-  return String(url)
-    .replace("/uploads/covers", "/uploads/covers/")
-    .replace("/uploads/covers//", "/uploads/covers/");
-}
+export const COVER_BASE = "/uploads/covers/normalized";
 
 export function coverUrl(book) {
   const id = book?.book_id || book?.id;
@@ -17,7 +9,7 @@ export function coverUrl(book) {
     book?.cover_url ||
     book?.cover;
 
-  if (existing) return normalize(existing);
+  if (existing) return String(existing);
 
   return id ? `${COVER_BASE}/${id}.jpg` : "";
 }
