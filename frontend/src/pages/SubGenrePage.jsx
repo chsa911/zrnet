@@ -1,11 +1,13 @@
 import React, { useEffect, useRef, useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useParams, useSearchParams } from "react-router-dom";
 import "./SubGenrePage.css";
 
 const API_ROOT = import.meta.env.VITE_API_ROOT || "";
 
 export default function SubGenrePage() {
   const { id } = useParams();
+  const [sp] = useSearchParams();
+  const excludeId = sp.get("exclude") || null;
 
   const [data, setData]       = useState(null);
   const [loading, setLoading] = useState(true);
@@ -32,7 +34,10 @@ export default function SubGenrePage() {
   if (error)   return <main className="sg-page"><p className="sg-error">{error}</p></main>;
   if (!data)   return null;
 
-  const { subGenre, books } = data;
+  const { subGenre } = data;
+  const books = excludeId
+    ? (data.books || []).filter((b) => b.id !== excludeId)
+    : (data.books || []);
 
   return (
     <main className="sg-page">

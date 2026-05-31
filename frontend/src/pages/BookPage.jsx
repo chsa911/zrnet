@@ -49,7 +49,7 @@ export default function BookPage() {
   const coverSrc = useMemo(() => {
     if (coverFromQS) return coverFromQS;
     if (!safeId) return "";
-    return `/media/covers/${encodeURIComponent(safeId)}.jpg`;
+    return `/uploads/covers/${encodeURIComponent(safeId)}.jpg`;
   }, [coverFromQS, safeId]);
 
   useEffect(() => {
@@ -186,7 +186,7 @@ export default function BookPage() {
                   {t("book.no_cover_image")}
                   {safeId ? (
                     <div className="zr-bookpage__coverHint">
-                      {t("book.expected")} <code>/media/covers/{safeId}.jpg</code>
+                      {t("book.expected")} <code>/uploads/covers/{safeId}.jpg</code>
                     </div>
                   ) : null}
                 </div>
@@ -200,11 +200,11 @@ export default function BookPage() {
               {/* Ähnliche Bücher Button */}
               {subGenreId && subGenreName ? (
                 <Link
-                  to={`/sub-genre/${subGenreId}`}
-                  className="zr-btn2 zr-btn2--ghost zr-bookpage__similar-btn"
-                >
-                  Ähnliche Bücher · {subGenreName} →
-                </Link>
+  to={`/sub-genre/${book.sub_genre_id}?exclude=${book.id}`}
+  className="zr-btn2 zr-btn2--ghost zr-bookpage__similar-btn"
+>
+  Ähnliche Bücher · {book.sub_genre_name} →
+</Link>
               ) : null}
 
               <div className="zr-bookpage__leaveBox">
