@@ -940,9 +940,10 @@ router.get("/:id", async (req, res) => {
     const finalVendor = manualUrl
       ? normStr(r.purchase_source) || "manual"
       : bestVendor;
-
     return res.json({
       id: r.id,
+cover_url: `/uploads/covers/normalized/${r.id}.jpg`,
+cover: `/uploads/covers/normalized/${r.id}.jpg`,
 
       authorId: r.author_id || null,
 
