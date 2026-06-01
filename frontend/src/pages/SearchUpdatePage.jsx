@@ -321,44 +321,57 @@ export default function SearchUpdatePage() {
     }
   }
 
-  // Save genre: sets genre (text abbr) + genre_id, clears subgenre
   async function saveGenre(b, abbr) {
-    const id = idOf(b);
-    if (!id) return alert("Kein Datensatz-ID gefunden.");
-    const genre = genres.find((g) => g.abbr === abbr);
-    const patch = { genre: abbr, genre_id: genre?.id ?? null, sub_genre: null, sub_genre_id: null };
-    setUpdatingOn(id, true);
-    try {
-      const now = new Date().toISOString();
-      patchRow(id, { ...patch, updated_at: now, last_action_at: now });
-      await updateBook(id, patch);
-      setRefreshTick((n) => n + 1);
-    } catch (e) {
-      alert(e?.message || "Genre-Update fehlgeschlagen");
-    } finally {
-      setUpdatingOn(id, false);
-    }
+  const id = idOf(b);
+  if (!id) return alert("Kein Datensatz-ID gefunden.");
+  const genre = genres.find((g) => g.abbr === abbr);
+  setUpdatingOn(id, true);
+  try {
+    const now = new Date().toISOString();
+    setItems((prev) => prev.map((it) =>
+      it?.title_display === b?.title_display && getAuthorId(it) === getAuthorId(b)
+        ? { ...it, genre_abbr: abbr, genre_id: genre?.id ?? null, subgenre_abbr: null, sub_genre_id: null, updated_at: now }
+        : it
+    ));
+    await fetch(`${API_ROOT}/api/admin/books/by-title/genre`, {
+      method: "PATCH",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ title_display: b?.title_display, author_id: getAuthorId(b), genre_abbr: abbr, sub_genre_abbr: null }),
+    });
+    setRefreshTick((n) => n + 1);
+  } catch (e) {
+    alert(e?.message || "Genre-Update fehlgeschlagen");
+  } finally {
+    setUpdatingOn(id, false);
   }
+}
 
-  // Save subgenre: sets sub_genre (text abbr) + sub_genre_id
-  async function saveSubGenre(b, abbr) {
-    const id = idOf(b);
-    if (!id) return alert("Kein Datensatz-ID gefunden.");
-    const sg = subGenres.find((s) => s.abbr === abbr);
-    const patch = { sub_genre: abbr, sub_genre_id: sg?.id ?? null };
-    setUpdatingOn(id, true);
-    try {
-      const now = new Date().toISOString();
-      patchRow(id, { ...patch, updated_at: now, last_action_at: now });
-      await updateBook(id, patch);
-      setRefreshTick((n) => n + 1);
-    } catch (e) {
-      alert(e?.message || "Subgenre-Update fehlgeschlagen");
-    } finally {
-      setUpdatingOn(id, false);
-    }
+async function saveSubGenre(b, abbr) {
+  const id = idOf(b);
+  if (!id) return alert("Kein Datensatz-ID gefunden.");
+  const sg = subGenres.find((s) => s.abbr === abbr);
+  setUpdatingOn(id, true);
+  try {
+    const now = new Date().toISOString();
+    setItems((prev) => prev.map((it) =>
+      it?.title_display === b?.title_display && getAuthorId(it) === getAuthorId(b)
+        ? { ...it, subgenre_abbr: abbr, sub_genre_id: sg?.id ?? null, updated_at: now }
+        : it
+    ));
+    await fetch(`${API_ROOT}/api/admin/books/by-title/genre`, {
+      method: "PATCH",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ title_display: b?.title_display, author_id: getAuthorId(b), sub_genre_abbr: abbr }),
+    });
+    setRefreshTick((n) => n + 1);
+  } catch (e) {
+    alert(e?.message || "Subgenre-Update fehlgeschlagen");
+  } finally {
+    setUpdatingOn(id, false);
   }
-
+}
   async function setStatus(b, nextStatus) {
     const id = idOf(b);
     if (!id) return alert("Kein Datensatz-ID gefunden.");

@@ -1761,5 +1761,58 @@ router.post("/books/:id/assign-author", async (req, res) => {
     });
   }
 });
+router.patch("/books/by-title/genre", async (req, res) => {
+  const pool = req.app.get("pgPool");
+  if (!pool) return res.status(500).json({ error: "pgPool missing" });
+
+  const titleDisplay = String(req.body?.title_display || "").trim();
+  const authorId = String(req.body?.author_id || "").trim() || null;
+  const genreAbbr = req.body?.genre_abbr !== undefined ? String(req.body.genre_abbr || "").trim() || null : undefined;
+  const subGenreAbbr = req.body?.sub_genre_abbr !== undefined ? String(req.body.sub_genre_abbr || "").trim() || null : undefined;
+
+  if (!titleDisplay) return res.status(400).json({ error: "title_display required" });
+
+  try {
+    const sets = ["updated_at = now()"];
+    const params = [titleDisplay];
+
+    // WHERE clause: title_display + optional author_id
+    let whereClause = `title_display = $1`;
+    if (authorId) {
+      params.push(authorId);
+      whereClause += ` AND author_id = $${params.length}::uuid`;
+    }
+
+    if (genreAbbr !== undefined) {
+      const genreRes = await pool.query(
+        `SELECT id FROM public.genres WHERE lower(abbr) = lower($1) LIMIT 1`,
+        [genreAbbr]
+      );
+      params.push(genreRes.rows[0]?.id ?? null);
+      sets.push(`genre_id = $${params.length}`);
+      // Subgenre zurücksetzen wenn Genre geändert
+      sets.push(`sub_genre_id = NULL`);
+    }
+
+    if (subGenreAbbr !== undefined) {
+      const sgRes = await pool.query(
+        `SELECT id FROM public.sub_genres WHERE lower(abbr) = lower($1) LIMIT 1`,
+        [subGenreAbbr]
+      );
+      params.push(sgRes.rows[0]?.id ?? null);
+      sets.push(`sub_genre_id = $${params.length}`);
+    }
+
+    const r = await pool.query(
+      `UPDATE public.books SET ${sets.join(", ")} WHERE ${whereClause} RETURNING id`,
+      params
+    );
+
+    return res.json({ ok: true, updated: r.rowCount });
+  } catch (e) {
+    console.error("PATCH /api/admin/books/by-title/genre failed", e);
+    return res.status(500).json({ error: "genre_bulk_update_failed", detail: String(e?.message || e) });
+  }
+});
 
 module.exports = router;
