@@ -2,7 +2,34 @@
 // Read-only endpoints for sub-genre pages (e.g. Frauenschicksale)
  
 const express = require("express");
-const router = express.Router();
+const fs      = require("fs");
+const path    = require("path");
+const router  = express.Router();
+ 
+const UPLOAD_ROOT           = process.env.UPLOAD_ROOT || path.resolve(__dirname, "../../uploads");
+const COVERS_DIR            = path.join(UPLOAD_ROOT, "covers");
+const COVERS_NORMALIZED_DIR = path.join(COVERS_DIR, "normalized");
+ 
+function buildCoverMap() {
+  const map = new Map();
+  try {
+    if (fs.existsSync(COVERS_DIR)) {
+      for (const file of fs.readdirSync(COVERS_DIR)) {
+        if (!/\.(jpg|jpeg|png|webp)$/i.test(file)) continue;
+        map.set(file.replace(/\.(jpg|jpeg|png|webp)$/i, ""), `/uploads/covers/${file}`);
+      }
+    }
+    if (fs.existsSync(COVERS_NORMALIZED_DIR)) {
+      for (const file of fs.readdirSync(COVERS_NORMALIZED_DIR)) {
+        if (!/\.(jpg|jpeg|png|webp)$/i.test(file)) continue;
+        map.set(file.replace(/\.(jpg|jpeg|png|webp)$/i, ""), `/uploads/covers/normalized/${file}`);
+      }
+    }
+  } catch (err) {
+    console.error("buildCoverMap failed", err);
+  }
+  return map;
+}
  
 function getPool(req) {
   const pool = req.app.get("pgPool");
@@ -48,8 +75,8 @@ router.get("/:id/books", async (req, res) => {
       return res.status(400).json({ error: "invalid_id" });
     }
  
-    const page  = Math.max(1, Number.parseInt(req.query.page,  10) || 1);
-    const limit = Math.min(96, Math.max(1, Number.parseInt(req.query.limit, 10) || 48));
+    const page   = Math.max(1, Number.parseInt(req.query.page,  10) || 1);
+    const limit  = Math.min(96, Math.max(1, Number.parseInt(req.query.limit, 10) || 48));
     const offset = (page - 1) * limit;
  
     const allowedSort = ["registered_at", "title_display", "author_display"];
@@ -86,8 +113,7 @@ router.get("/:id/books", async (req, res) => {
          b.reading_status,
          b.top_book,
          b.genre,
-         b.sub_genre,
-         ('/uploads/covers/' || b.id::text || '.jpg') AS cover_url
+         b.sub_genre
        FROM public.books b
        WHERE b.sub_genre_id = $1
        ORDER BY ${sort} ${dir} NULLS LAST
@@ -95,13 +121,19 @@ router.get("/:id/books", async (req, res) => {
       [id, limit, offset]
     );
  
+    const coverMap = buildCoverMap();
+    const booksWithCovers = books.map((b) => ({
+      ...b,
+      cover_url: coverMap.get(String(b.id)) || null,
+    }));
+ 
     res.json({
       subGenre,
       total,
       page,
       limit,
       totalPages: Math.ceil(total / limit),
-      books,
+      books: booksWithCovers,
     });
   } catch (e) {
     console.error("GET /api/public/sub-genres/:id/books error:", e);
