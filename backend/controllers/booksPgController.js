@@ -29,8 +29,8 @@ function buildCoverMap() {
   const map = new Map();
 
   try {
-    if (fs.existsSync(COVERS_NORMALIZED_DIR)) {
-      for (const file of fs.readdirSync(COVERS_NORMALIZED_DIR)) {
+    if (fs.existsSync(COVERS_DIR)) {
+      for (const file of fs.readdirSync(COVERS_DIR)) {
         if (!/\.(jpg|jpeg|png|webp)$/i.test(file)) continue;
 
         const bookId = file.replace(/\.(jpg|jpeg|png|webp)$/i, "");
@@ -42,7 +42,7 @@ function buildCoverMap() {
         if (!/\.(jpg|jpeg|png|webp)$/i.test(file)) continue;
 
         const bookId = file.replace(/\.(jpg|jpeg|png|webp)$/i, "");
-        map.set(bookId, `/uploads/covers/${file}`);
+        map.set(bookId, `/uploads/covers/normalized/${file}`);
       }
     }
   } catch (err) {
