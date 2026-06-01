@@ -175,22 +175,6 @@ const saveAsNew = async (e) => {
 >
   ← Back
 </button>
-      <button
-  type="button"
-  onClick={saveAsNew}
-  disabled={savingNew}
-  style={{
-    border: "4px solid #555",
-    background: savingNew ? "#ddd" : "#555",
-    color: "#fff",
-    padding: "16px 24px",
-    fontSize: 24,
-    fontWeight: 900,
-    cursor: savingNew ? "not-allowed" : "pointer",
-  }}
->
-  {savingNew ? "Saving…" : "Save as new author"}
-</button>
       </p>
 
       {loading ? <div className="authors-message">Loading…</div> : null}
@@ -244,6 +228,22 @@ const saveAsNew = async (e) => {
                 >
                   {saving ? "Saving…" : "Save author"}
                 </button>
+      <button
+  type="button"
+  onClick={saveAsNew}
+  disabled={savingNew}
+  style={{
+    border: "4px solid #555",
+    background: savingNew ? "#ddd" : "#555",
+    color: "#fff",
+    padding: "16px 24px",
+    fontSize: 24,
+    fontWeight: 900,
+    cursor: savingNew ? "not-allowed" : "pointer",
+  }}
+>
+  {savingNew ? "Saving…" : "Save as new author"}
+</button>
 
                 <Link to={`/admin/authors/${authorId}/titles`}>
                   View titles
