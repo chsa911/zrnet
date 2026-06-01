@@ -35,9 +35,21 @@ export default function SubGenrePage() {
   if (!data)   return null;
 
   const { subGenre } = data;
-  const books = excludeId
-    ? (data.books || []).filter((b) => b.id !== excludeId)
-    : (data.books || []);
+
+  const books = (() => {
+    const source = excludeId
+      ? (data.books || []).filter((b) => b.id !== excludeId)
+      : (data.books || []);
+
+    const seenTitles = new Set();
+    return source.filter((b) => {
+      if (!b.cover_url) return false;
+      const title = (b.title || "").trim().toLowerCase();
+      if (seenTitles.has(title)) return false;
+      seenTitles.add(title);
+      return true;
+    });
+  })();
 
   return (
     <main className="sg-page">
@@ -57,17 +69,13 @@ export default function SubGenrePage() {
               books.map((book) => (
                 <Link key={book.id} to={`/book/${book.id}`} className="sg-card">
                   <div className="sg-cover-wrap">
-                    {book.cover_url ? (
-                      <img
-                        src={book.cover_url}
-                        alt={book.title || "Buchcover"}
-                        className="sg-cover"
-                        loading="lazy"
-                        onError={(e) => { e.target.style.display = "none"; }}
-                      />
-                    ) : (
-                      <div className="sg-placeholder">Kein Cover</div>
-                    )}
+                    <img
+                      src={book.cover_url}
+                      alt={book.title || "Buchcover"}
+                      className="sg-cover"
+                      loading="lazy"
+                      onError={(e) => { e.target.style.display = "none"; }}
+                    />
                     {book.top_book && <span className="sg-badge">Top</span>}
                   </div>
                   <div className="sg-card-body">
