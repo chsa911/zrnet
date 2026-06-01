@@ -355,7 +355,10 @@ sub: row.subgenre_abbr ?? row.sub_genre ?? null,
       isbn10: row.isbn10 ?? null,
       title_en: row.title_en ?? null,
       original_language: row.original_language ?? null,
-      comment: row.comment ?? null,
+     comment: row.comment ?? null,
+action_time_period_display: row.action_time_period_display ?? null,
+action_continent: row.action_continent ?? null,
+action_country: row.action_country ?? null,
     };
   }
 

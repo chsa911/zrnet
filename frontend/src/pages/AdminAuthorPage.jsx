@@ -101,7 +101,7 @@ const saveAsNew = async (e) => {
   setSavingNew(true);
   setErr("");
   setSaved(false);
-
+   
   try {
     const res = await fetch(`${getApiRoot()}/admin/authors`, {
       method: "POST",
@@ -117,8 +117,17 @@ const saveAsNew = async (e) => {
 
     const newId = json?.author?.id || json?.id;
     if (newId) {
-      navigate(`/admin/authors/${newId}`);
-    } else {
+   if (sourceBookId) {
+    await fetch(`${getApiRoot()}/books/${sourceBookId}`, {
+      method: "PATCH",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ author_id: newId }),
+    });
+  }
+  navigate(`/admin/authors/${newId}`);
+}
+  else {
       setSaved(true);
     }
   } catch (e2) {
