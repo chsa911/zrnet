@@ -41,6 +41,19 @@ const getGenreTitle = (b) =>
 const getSubgenreTitle = (b) =>
   b?.subgenre_name ?? b?.subgenre ?? b?.subgenre_abbr ?? b?.subgenre_code ?? "";
 
+const REGION_OPTIONS = [
+  { value: "0", label: "Asien" },
+  { value: "1", label: "Südliches Afrika" },
+  { value: "2", label: "Nordamerika" },
+  { value: "3", label: "Südamerika" },
+  { value: "4", label: "Mitteleuropa" },
+  { value: "5", label: "Ostaustralien" },
+  { value: "6", label: "Nordafrika" },
+  { value: "7", label: "Westaustralien" },
+  { value: "8", label: "Nordeuropa" },
+  { value: "9", label: "Südeuropa" },
+];
+
 const fmtDate = (v) => {
   if (!v) return "—";
   const d = new Date(v);
@@ -301,26 +314,34 @@ export default function SearchUpdatePage() {
     return () => { cancelled = true; };
   }, [q.page, q.limit, q.sortBy, q.order, q.q, q.pages, q.status, refreshTick]);
 
-  async function saveInlineField(b, field, value) {
-    const id = idOf(b);
-    if (!id) return alert("Kein Datensatz-ID gefunden.");
-    const oldValue = b?.[field] ?? "";
-    const nextValue = value === null ? null : String(value ?? "").trim();
-    if (nextValue === String(oldValue ?? "").trim()) return;
-    setUpdatingOn(id, true);
-    try {
-      const now = new Date().toISOString();
-      patchRow(id, { [field]: nextValue, updated_at: now, last_action_at: now });
-      await updateBook(id, { [field]: nextValue });
-      setRefreshTick((n) => n + 1);
-    } catch (e) {
-      patchRow(id, { [field]: oldValue });
-      alert(e?.message || "Update fehlgeschlagen");
-    } finally {
-      setUpdatingOn(id, false);
-    }
+  async function saveActionField(b, field, value) {
+  const id = idOf(b);
+  if (!id) return;
+  setUpdatingOn(id, true);
+  try {
+    const now = new Date().toISOString();
+    setItems((prev) => prev.map((it) =>
+      it?.title_display === b?.title_display && getAuthorId(it) === getAuthorId(b)
+        ? { ...it, [field]: value, updated_at: now }
+        : it
+    ));
+    await fetch(`${API_ROOT}/api/admin/books/by-title/action`, {
+      method: "PATCH",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        title_display: b?.title_display,
+        author_id: getAuthorId(b),
+        [field]: value,
+      }),
+    });
+    setRefreshTick((n) => n + 1);
+  } catch (e) {
+    alert(e?.message || "Update fehlgeschlagen");
+  } finally {
+    setUpdatingOn(id, false);
   }
-
+}
   async function saveGenre(b, abbr) {
   const id = idOf(b);
   if (!id) return alert("Kein Datensatz-ID gefunden.");
@@ -447,7 +468,7 @@ async function saveSubGenre(b, abbr) {
         .su-grid { width: 100%; border: 4px solid #666; border-bottom: 0; border-radius: 0; overflow: hidden; background: #fff; }
         .su-search-row, .su-book-row, .su-header-row {
           display: grid;
-          grid-template-columns: 105px 100px minmax(220px, 1fr) 64px 96px 64px 44px 44px 44px 44px 44px 44px 44px 44px 34px;
+          grid-template-columns: 105px 100px minmax(220px, 1fr) 64px 96px 64px 44px 120px 120px 120px 44px 44px 44px 44px 44px 44px 44px 44px 34px;
           align-items: stretch; width: 100%; min-width: 0;
         }
         .su-search-row { min-height: 86px; background: #f1f1f1; border-bottom: 4px solid #666; }
@@ -461,7 +482,7 @@ async function saveSubGenre(b, abbr) {
         .su-cell { display: flex; align-items: center; min-width: 0; padding: 0 12px; border-right: 4px solid #666; color: #5f5f5f; font-size: clamp(24px, 3vw, 50px); font-weight: 800; letter-spacing: -0.04em; line-height: 1; overflow: hidden; }
         .su-cell:last-child { border-right: 0; }
         .su-cell--search { grid-column: 1 / 4; background: #fff; }
-        .su-cell--filters { grid-column: 4 / 16; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; background: #e9e9e9; padding: 12px; }
+        .su-cell--filters { grid-column: 4 / 19; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; background: #e9e9e9; padding: 12px; }
         .su-search-input { width: 100%; border: 0; outline: 0; background: transparent; color: #111; font: inherit; line-height: 1; padding: 0; }
         .su-search-input::placeholder { color: #9a9a9a; opacity: 1; }
         .su-filter { height: 38px; border: 3px solid #666; border-radius: 0; background: #fff; color: #333; font-size: 15px; font-weight: 700; padding: 0 8px; max-width: 150px; }
@@ -549,6 +570,7 @@ async function saveSubGenre(b, abbr) {
               <option value="pages">Seiten</option>
               <option value="genre_abbr">Genre</option>
               <option value="subgenre_abbr">Subgenre</option>
+           
             </select>
             <select className="su-filter" value={q.status || ""} onChange={(e) => { const v = e.target.value || ""; if (v) setQuery({ status: v, page: 1, sortBy: "last_action_at", order: "desc" }); else setQuery({ status: "", page: 1 }); }} aria-label="Status">
               <option value="">Alle</option>
@@ -576,6 +598,9 @@ async function saveSubGenre(b, abbr) {
           <div className="su-head">Year</div>
           <div className="su-head">Genre</div>
           <div className="su-head">Sub</div>
+         <div className="su-head">Ära</div>
+<div className="su-head">Region</div>
+<div className="su-head">Land</div>
           <div className="su-head" title="Abandoned">✕</div>
           <div className="su-head" title="Finished">✓</div>
           <div className="su-head" title="Top Book">★</div>
@@ -626,7 +651,7 @@ async function saveSubGenre(b, abbr) {
 
                   <div className="su-cell su-title" title={b?.title_display || "—"}>
                     <span className="su-text">
-                      <InlineEditable value={b?.title_keyword ?? ""} disabled={isBusy} onSave={(val) => saveInlineField(b, "title_keyword", val)} />
+                      <InlineEditable value={b?.title_keyword ?? ""} disabled={isBusy} onSave={(val) => saveActionField(b, "title_keyword", val)} />
                     </span>
                   </div>
 
@@ -636,7 +661,7 @@ async function saveSubGenre(b, abbr) {
 
                   <div className="su-cell su-pages su-year" title={getFirstPublishYear(b) || "-"}>
                     <span className="su-text">
-                      <InlineEditable value={getFirstPublishYear(b)} disabled={isBusy} onSave={(val) => saveInlineField(b, "year_first_published", val === "" ? null : Number(val))} />
+                      <InlineEditable value={getFirstPublishYear(b)} disabled={isBusy} onSave={(val) => saveActionField(b, "year_first_published", val === "" ? null : Number(val))} />
                     </span>
                   </div>
 
@@ -663,7 +688,39 @@ async function saveSubGenre(b, abbr) {
                       />
                     </span>
                   </div>
+{/* Ära */}
+<div className="su-cell su-genre" title={b?.action_time_period_display || "—"}>
+  <span className="su-text">
+    <InlineEditable
+      value={b?.action_time_period_display ?? ""}
+      disabled={isBusy}
+      onSave={(val) => saveActionField(b, "action_time_period_display", val || null)}
+    />
+  </span>
+</div>
 
+{/* Region */}
+<div className="su-cell su-genre" title={REGION_OPTIONS.find(r => String(r.value) === String(b?.action_continent))?.label || "—"}>
+  <span className="su-text">
+    <InlineSelect
+      value={b?.action_continent != null ? String(b.action_continent) : ""}
+      disabled={isBusy}
+      options={REGION_OPTIONS}
+      onSave={(val) => saveActionField(b, "action_continent", val === "" ? null : Number(val))}
+    />
+  </span>
+</div>
+
+{/* Land */}
+<div className="su-cell su-genre" title={b?.action_country || "—"}>
+  <span className="su-text">
+    <InlineEditable
+      value={b?.action_country ?? ""}
+      disabled={isBusy}
+      onSave={(val) => saveActionField(b, "action_country", val || null)}
+    />
+  </span>
+</div>
                   <button disabled={isBusy} onClick={() => setStatus(b, "abandoned")} className={`su-action su-action--abandoned ${isAbandoned ? "is-active" : ""}`} title={isAbandoned ? `Abandoned: ${fmtDateTitle(b.reading_status_updated_at)}` : "Set abandoned"} type="button">✕</button>
                   <button disabled={isBusy} onClick={() => setStatus(b, "finished")} className={`su-action su-action--finished ${isFinished ? "is-active" : ""}`} title={isFinished ? `Finished: ${fmtDateTitle(b.reading_status_updated_at)}` : "Set finished"} type="button">✓</button>
                   <button disabled={isBusy} onClick={() => setTopBook(b)} className={`su-action su-action--top ${b?.top_book ? "is-active" : ""}`} title={b?.top_book ? `Top: ${fmtDateTitle(b.top_book_set_at)}` : "Set top book"} type="button">★</button>

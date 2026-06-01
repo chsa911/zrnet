@@ -1814,5 +1814,44 @@ router.patch("/books/by-title/genre", async (req, res) => {
     return res.status(500).json({ error: "genre_bulk_update_failed", detail: String(e?.message || e) });
   }
 });
+// PATCH /api/admin/books/by-title/action
+router.patch("/books/by-title/action", async (req, res) => {
+  const pool = req.app.get("pgPool");
+  if (!pool) return res.status(500).json({ error: "pgPool missing" });
 
+  const titleDisplay = String(req.body?.title_display || "").trim();
+  const authorId = String(req.body?.author_id || "").trim() || null;
+
+  if (!titleDisplay) return res.status(400).json({ error: "title_display required" });
+
+  const allowed = ["action_time_period_display", "action_continent", "action_country"];
+  const sets = ["updated_at = now()"];
+  const params = [titleDisplay];
+
+  let whereClause = `title_display = $1`;
+  if (authorId) {
+    params.push(authorId);
+    whereClause += ` AND author_id = $${params.length}::uuid`;
+  }
+
+  for (const field of allowed) {
+    if (Object.prototype.hasOwnProperty.call(req.body, field)) {
+      params.push(req.body[field] === "" ? null : req.body[field]);
+      sets.push(`${field} = $${params.length}`);
+    }
+  }
+
+  if (sets.length === 1) return res.status(400).json({ error: "no_fields" });
+
+  try {
+    const r = await pool.query(
+      `UPDATE public.books SET ${sets.join(", ")} WHERE ${whereClause} RETURNING id`,
+      params
+    );
+    return res.json({ ok: true, updated: r.rowCount });
+  } catch (e) {
+    console.error("PATCH /api/admin/books/by-title/action failed", e);
+    return res.status(500).json({ error: "action_bulk_update_failed", detail: String(e?.message || e) });
+  }
+});
 module.exports = router;
