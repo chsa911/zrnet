@@ -43,42 +43,6 @@ const [savingNew, setSavingNew] = useState(false);
   
 useEffect(() => {
     const ac = new AbortController();
-async function saveAsNew(e) {
-  e.preventDefault();
-  setSavingNew(true);
-  setErr("");
-  setSaved(false);
-
-  try {
-    const url = new URL(
-      `${getApiRoot()}/admin/authors`,
-      window.location.origin
-    );
-
-    const res = await fetch(url.toString().replace(window.location.origin, ""), {
-      method: "POST",
-      credentials: "include",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(form),
-    });
-
-    const json = await res.json().catch(() => ({}));
-    if (!res.ok) {
-      throw new Error(json?.detail || json?.error || `Request failed (${res.status})`);
-    }
-
-    const newId = json?.author?.id || json?.id;
-    if (newId) {
-      navigate(`/admin/authors/${newId}`);
-    } else {
-      setSaved(true);
-    }
-  } catch (e2) {
-    setErr(e2?.message || "Failed to create author");
-  } finally {
-    setSavingNew(false);
-  }
-}
     async function loadAuthor() {
       setLoading(true);
       setErr("");
@@ -130,7 +94,37 @@ async function saveAsNew(e) {
     setSaved(false);
     setForm((current) => ({ ...current, [key]: value }));
   }
+const saveAsNew = async (e) => {
+  e.preventDefault();
+  setSavingNew(true);
+  setErr("");
+  setSaved(false);
 
+  try {
+    const res = await fetch(`${getApiRoot()}/admin/authors`, {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(form),
+    });
+
+    const json = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      throw new Error(json?.detail || json?.error || `Request failed (${res.status})`);
+    }
+
+    const newId = json?.author?.id || json?.id;
+    if (newId) {
+      navigate(`/admin/authors/${newId}`);
+    } else {
+      setSaved(true);
+    }
+  } catch (e2) {
+    setErr(e2?.message || "Failed to create author");
+  } finally {
+    setSavingNew(false);
+  }
+};
   async function saveAuthor(e) {
     e.preventDefault();
     setSaving(true);
