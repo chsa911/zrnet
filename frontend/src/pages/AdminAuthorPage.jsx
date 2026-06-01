@@ -39,10 +39,46 @@ export default function AdminAuthorPage() {
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState("");
   const [saved, setSaved] = useState(false);
-
-  useEffect(() => {
+const [savingNew, setSavingNew] = useState(false);
+  
+useEffect(() => {
     const ac = new AbortController();
+async function saveAsNew(e) {
+  e.preventDefault();
+  setSavingNew(true);
+  setErr("");
+  setSaved(false);
 
+  try {
+    const url = new URL(
+      `${getApiRoot()}/admin/authors`,
+      window.location.origin
+    );
+
+    const res = await fetch(url.toString().replace(window.location.origin, ""), {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(form),
+    });
+
+    const json = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      throw new Error(json?.detail || json?.error || `Request failed (${res.status})`);
+    }
+
+    const newId = json?.author?.id || json?.id;
+    if (newId) {
+      navigate(`/admin/authors/${newId}`);
+    } else {
+      setSaved(true);
+    }
+  } catch (e2) {
+    setErr(e2?.message || "Failed to create author");
+  } finally {
+    setSavingNew(false);
+  }
+}
     async function loadAuthor() {
       setLoading(true);
       setErr("");
@@ -145,6 +181,22 @@ export default function AdminAuthorPage() {
 >
   ← Back
 </button>
+      <button
+  type="button"
+  onClick={saveAsNew}
+  disabled={savingNew}
+  style={{
+    border: "4px solid #555",
+    background: savingNew ? "#ddd" : "#555",
+    color: "#fff",
+    padding: "16px 24px",
+    fontSize: 24,
+    fontWeight: 900,
+    cursor: savingNew ? "not-allowed" : "pointer",
+  }}
+>
+  {savingNew ? "Saving…" : "Save as new author"}
+</button>
       </p>
 
       {loading ? <div className="authors-message">Loading…</div> : null}
@@ -225,3 +277,4 @@ export default function AdminAuthorPage() {
     </section>
   );
 }
+ 

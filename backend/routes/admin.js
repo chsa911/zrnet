@@ -1005,6 +1005,49 @@ try {
           });
         }
       });
+      // POST /api/admin/authors
+router.post("/authors", async (req, res) => {
+  const pool = req.app.get("pgPool");
+  if (!pool) return res.status(500).json({ error: "pgPool missing" });
+
+  const allowed = [
+    "first_name",
+    "last_name",
+    "name_display",
+    "author_nationality",
+    "place_of_birth",
+    "male_female",
+    "published_titles",
+    "number_of_millionsellers",
+  ];
+
+  const keys = [];
+  const values = [];
+
+  for (const key of allowed) {
+    if (Object.prototype.hasOwnProperty.call(req.body || {}, key)) {
+      const v = req.body[key] === "" ? null : req.body[key];
+      keys.push(key);
+      values.push(v);
+    }
+  }
+
+  if (!keys.length) return res.status(400).json({ error: "nothing_to_insert" });
+
+  const cols = keys.join(", ");
+  const placeholders = keys.map((_, i) => `$${i + 1}`).join(", ");
+
+  try {
+    const r = await pool.query(
+      `INSERT INTO public.authors (${cols}) VALUES (${placeholders}) RETURNING *`,
+      values
+    );
+    return res.status(201).json({ author: r.rows[0] });
+  } catch (e) {
+    console.error("POST /api/admin/authors failed", e);
+    return res.status(500).json({ error: "author_create_failed", detail: String(e?.message || e) });
+  }
+});
     // GET /api/admin/authors/:authorId
     router.get("/authors/:authorId", async (req, res) => {
       const pool = req.app.get("pgPool");
