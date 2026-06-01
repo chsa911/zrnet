@@ -616,7 +616,7 @@ async function saveSubGenre(b, abbr) {
 
                   <div className="su-cell su-author" title={b?.name_display ?? b?.author_name_display ?? b?.author_name ?? getAuthor(b)}>
                     {getAuthorId(b) ? (
-                      <Link to={`/admin/authors/${getAuthorId(b)}`} onClick={(e) => e.stopPropagation()} className="su-author-link" title="Edit author">
+                      <Link to={`/admin/authors/${getAuthorId(b)}?bookId=${idOf(b)}`} onClick={(e) => e.stopPropagation()} className="su-author-link" title="Edit author">
                         <span className="su-text">{getAuthor(b)}</span>
                       </Link>
                     ) : (

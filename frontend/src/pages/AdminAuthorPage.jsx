@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { getApiRoot } from "../api/apiRoot";
 import "./AuthorsIndexPage.css";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 const EDITABLE_FIELDS = [
   "first_name",
   "last_name",
@@ -33,6 +33,8 @@ function formatValue(value) {
 export default function AdminAuthorPage() {
   const navigate = useNavigate();
   const { authorId } = useParams();
+  const [searchParams] = useSearchParams();
+const sourceBookId = searchParams.get("bookId");
   const [author, setAuthor] = useState(null);
   const [form, setForm] = useState({});
   const [loading, setLoading] = useState(false);
