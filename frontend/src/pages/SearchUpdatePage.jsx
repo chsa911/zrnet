@@ -240,6 +240,13 @@ export default function SearchUpdatePage() {
     if (featureBusy) return;
     const id = idOf(book);
     if (!id) return alert("Kein Datensatz-ID gefunden.");
+    // Validierung: IMG und Kauflink müssen vorhanden sein
+    if (!book?.cover_available) {
+    return alert("Kein Cover vorhanden. Bitte zuerst ein Cover hochladen.");
+  }
+    if (!getKauflink(book)) {
+    return alert("Kein Kauflink vorhanden. Bitte zuerst einen Kauflink eintragen.");
+  }
     const now = new Date().toISOString();
     setFeatureBusy(type);
     setUpdatingOn(id, true);
