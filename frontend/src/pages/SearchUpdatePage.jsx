@@ -735,31 +735,13 @@ async function saveSubGenre(b, abbr) {
                   <button disabled={isBusy || featureBusy !== null} onClick={() => handleHighlight(b, "finished")} className={`su-action su-action--highlight-finished ${highlighted[id] === "finished" || b?.home_featured_slot === "finished" ? "is-highlighted" : ""}`} title={hfTooltip} type="button">HF</button>
                   <button disabled={isBusy || featureBusy !== null} onClick={() => handleHighlight(b, "received")} className={`su-action su-action--highlight-received ${highlighted[id] === "received" || b?.home_featured_slot === "received" ? "is-highlighted" : ""}`} title={hrTooltip} type="button">HR</button>
 
-                  <div className={`su-cell su-kauflink ${getKauflink(b) ? "has-link" : "missing-link"}`} title={getKauflink(b) || "Kauflink hinzufügen"}>
-  <span className="su-text">
-    <InlineEditable
-      value={getKauflink(b)}
-      disabled={isBusy}
-      onSave={async (val) => {
-        const id = idOf(b);
-        if (!id) return;
-        setUpdatingOn(id, true);
-        try {
-          const trimmed = val?.trim() || null;
-          const now = new Date().toISOString();
-          patchRow(id, { purchase_url: trimmed, updated_at: now, last_action_at: now });
-          await updateBook(id, {
-            purchase_url: trimmed,
-            purchase_source: trimmed ? "manual" : null,
-          });
-        } catch (e) {
-          alert(e?.message || "Kauflink-Update fehlgeschlagen");
-        } finally {
-          setUpdatingOn(id, false);
-        }
-      }}
-    />
-  </span>
+                 <div
+  className={`su-cell su-kauflink ${getKauflink(b) ? "has-link" : "missing-link"}`}
+  title={getKauflink(b) ? getKauflink(b) : "Kein Kauflink"}
+  onClick={() => navigate(`/admin/books/${idOf(b)}/kauflink`)}
+  style={{ cursor: "pointer" }}
+>
+  {getKauflink(b) ? "K" : "—"}
 </div>
 
                   <CoverImageButton
