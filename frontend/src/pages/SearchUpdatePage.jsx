@@ -366,7 +366,7 @@ export default function SearchUpdatePage() {
         method: "PATCH",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title_display: b?.title_display, author_id: getAuthorId(b), genre_abbr: abbr, sub_genre_abbr: null }),
+        body: JSON.stringify({ title_display: b?.title_display, author_id: getAuthorId(b), genre_abbr: abbr }),
       });
       setRefreshTick((n) => n + 1);
     } catch (e) {
