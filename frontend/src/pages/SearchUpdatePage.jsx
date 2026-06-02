@@ -525,10 +525,12 @@ async function saveSubGenre(b, abbr) {
         .su-action:disabled { cursor: wait; opacity: 0.45; }
         .su-empty, .su-alert { border-bottom: 4px solid #666; padding: 24px; font-size: 26px; font-weight: 800; color: #666; }
         .su-alert--error { color: #8b1111; background: #fff3f3; }
-        .su-pager { display: grid; grid-template-columns: 1fr auto 1fr; align-items: stretch; border: 4px solid #666; border-top: 0; min-height: 58px; background: #f1f1f1; }
-        .su-pager button { border: 0; border-right: 4px solid #666; border-radius: 0; background: transparent; color: #111; cursor: pointer; font-size: 20px; font-weight: 850; }
+        .su-pager { display: grid; grid-template-columns: auto 1fr auto 1fr auto; align-items: stretch; border: 4px solid #666; border-top: 0; min-height: 58px; background: #f1f1f1; }
+        .su-pager button { border: 0; border-right: 4px solid #666; border-radius: 0; background: transparent; color: #111; cursor: pointer; font-size: 20px; font-weight: 850; padding: 0 16px; }
         .su-pager button:last-child { border-right: 0; border-left: 4px solid #666; }
         .su-pager button:disabled { color: #aaa; cursor: default; }
+        .su-pager button.su-pager-first { font-size: 15px; font-weight: 700; }
+        .su-pager button.su-pager-last { font-size: 15px; font-weight: 700; }
         .su-pager-info { display: flex; align-items: center; justify-content: center; padding: 0 24px; font-size: 18px; font-weight: 800; color: #444; }
         .su-editor { margin-top: 28px; border: 4px solid #666; padding: 18px; background: #fff; }
         .su-history-head { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 14px; }
@@ -764,9 +766,11 @@ async function saveSubGenre(b, abbr) {
       </div>
 
       <div className="su-pager">
+        <button className="su-pager-first" onClick={() => canPrev && setQuery({ page: 1 })} disabled={!canPrev} type="button">|← Erste</button>
         <button onClick={() => canPrev && setQuery({ page: q.page - 1 })} disabled={!canPrev} type="button">← Zurück</button>
         <div className="su-pager-info">Seite <strong>&nbsp;{q.page}&nbsp;</strong> / <strong>&nbsp;{totalPages}</strong></div>
         <button onClick={() => canNext && setQuery({ page: q.page + 1 })} disabled={!canNext} type="button">Weiter →</button>
+        <button className="su-pager-last" onClick={() => canNext && setQuery({ page: totalPages })} disabled={!canNext} type="button">Letzte →|</button>
       </div>
 
       {barcodeHistory ? (
