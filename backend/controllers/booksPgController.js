@@ -350,7 +350,6 @@ sub: row.subgenre_abbr ?? row.sub_genre ?? null,
       homeFeaturedSlot: row.home_featured_slot ?? null,
 
       purchase_url: row.purchase_url ?? null,
-      kauflink: row.kauflink ?? null,
       isbn13: row.isbn13 ?? null,
       isbn10: row.isbn10 ?? null,
       title_en: row.title_en ?? null,
