@@ -304,7 +304,9 @@ export default function BookFormDesktop({
     const authorDisplay = String(v.name_display || "").trim();
     const publisherDisplay = String(v.publisher_name_display || "").trim();
 
-    if (!isbn && pages == null && !title && !authorLast && !authorDisplay && !publisherDisplay) {
+    const otherFieldsFilled = !!(isbn || title || authorLast || authorDisplay || publisherDisplay);
+
+    if (pages == null || otherFieldsFilled) {
       setExistingMatches([]);
       setExistingMatch(null);
       return;
@@ -314,14 +316,7 @@ export default function BookFormDesktop({
     const t = setTimeout(async () => {
       try {
         const r = await findDraft(
-          {
-            isbn,
-            pages,
-            title_display: title,
-            author_lastname: authorLast,
-            name_display: authorDisplay,
-            publisher_name_display: publisherDisplay,
-          },
+          { pages },
           { signal: ctrl.signal }
         );
         const items = Array.isArray(r?.items) ? r.items : [];
@@ -893,6 +888,11 @@ if (pages == null || pages <= 0) {
 .bfd-btn-update {
   background: #dff3df;
 }
+
+.bfd-btn-clear {
+  background: #fdecea;
+  border-color: rgba(180,0,0,0.4);
+}
 `}</style>
       {!isEdit && existingMatches.length ? (
         <div className="bfd-msg bfd-existing">
@@ -901,6 +901,18 @@ if (pages == null || pages <= 0) {
           </div>
 
           <div className="bfd-existing-actions">
+            <button
+              type="button"
+              className="bfd-btn bfd-btn-clear"
+              disabled={busy}
+              onClick={() => {
+                setV({ ...emptyForm });
+                setExistingMatch(null);
+                setExistingMatches([]);
+              }}
+            >
+              ✕ Leeren
+            </button>
             {existingMatches.map((m) => (
               <button
                 key={m.id}
@@ -1066,6 +1078,20 @@ if (pages == null || pages <= 0) {
       <div className="bfd-row">
         <button className="bfd-btn bfd-btn-primary" disabled={busy} type="submit">
           {busy ? "…" : existingMatch?.id ? "Ausgewähltes Buch registrieren" : submitLabel}
+        </button>
+
+        <button
+          type="button"
+          className="bfd-btn bfd-btn-clear"
+          disabled={busy}
+          onClick={() => {
+            setV({ ...emptyForm });
+            setExistingMatch(null);
+            setExistingMatches([]);
+            setMsg("");
+          }}
+        >
+          ✕ Leeren
         </button>
 
         {onCancel ? (
