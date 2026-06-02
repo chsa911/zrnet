@@ -433,7 +433,7 @@ try {
               a.last_name AS author_last_name,
               a.name_display AS author_name_display,
               
-            NULL::text AS ,
+              NULL::text AS barcode,
               a.author_nationality,
               a.place_of_birth,
               a.male_female,
