@@ -354,8 +354,8 @@ try {
             )`);
           }
           if (code != null) {
-            params.push(code);
-            matches.push(`b.pages = $${params.length}`);
+            params.push(code - 5, code + 5);
+            matches.push(`b.pages BETWEEN $${params.length - 1} AND $${params.length}`);
           }
 
           for (const value of [titleDisplay, subtitleDisplay, titleKeyword]) {

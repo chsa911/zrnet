@@ -982,6 +982,15 @@ if (pages == null || pages <= 0) {
 
   <div className="bfd-row bfd-tight-row">
     <input {...fieldProps("isbn10", "ISBN-10", { className: "bfd-input bfd-input-wide" })} />
+    <button
+      type="button"
+      className="bfd-btn bfd-btn-lookup"
+      disabled={isbnBusy}
+      onClick={doIsbnLookup}
+      title="ISBN lookup"
+    >
+      {isbnBusy ? "…" : "🔍"}
+    </button>
   </div>
 
   <div className="bfd-row bfd-tight-row">
