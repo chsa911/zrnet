@@ -835,11 +835,24 @@ export default function BookFormStagingPwa({
           </label>
           <label style={{ display: "grid", gap: 6, flex: 1 }}>
             <span>ISBN-10</span>
-            <input
-              className="zr-input"
-              value={v.isbn10}
-              onChange={(e) => setField("isbn10", e.target.value)}
-            />
+            <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
+              <input
+                className="zr-input"
+                style={{ flex: 1, minWidth: 0 }}
+                value={v.isbn10}
+                onChange={(e) => setField("isbn10", e.target.value)}
+              />
+              <button
+                type="button"
+                className="zr-btn2 zr-btn2--ghost"
+                disabled={isbnBusy}
+                onClick={doIsbnLookup}
+                style={{ padding: "0 8px", fontSize: 16, lineHeight: 1, flexShrink: 0 }}
+                title="ISBN lookup"
+              >
+                {isbnBusy ? "…" : "🔍"}
+              </button>
+            </div>
           </label>
         </div>
 
