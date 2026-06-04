@@ -971,7 +971,7 @@ if (pages == null || pages <= 0) {
             <div style={{ marginTop: 14 }}>
               <img
                 key={hoveredMatchId || existingMatch.id}
-                src={`/uploads/covers/${hoveredMatchId || existingMatch.id}.jpg`}
+                src={`/uploads/covers/normalized/${hoveredMatchId || existingMatch.id}.jpg`}
                 alt="Cover"
                 style={{
                   display: "block",
