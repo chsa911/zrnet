@@ -219,6 +219,7 @@ export default function BookFormDesktop({
   const [extras, setExtras] = useState({});
   const [existingMatches, setExistingMatches] = useState([]);
   const [existingMatch, setExistingMatch] = useState(null);
+  const [hoveredMatchId, setHoveredMatchId] = useState(null);
 
   const knownKeys = useMemo(() => new Set(Object.keys(emptyForm).map(norm)), []);
   const excludeKey = (excludeUnknownKeys || []).map(String).join("\u0000");
@@ -227,6 +228,7 @@ export default function BookFormDesktop({
     setV(initial);
     setExistingMatches([]);
     setExistingMatch(null);
+    setHoveredMatchId(null);
     if (!showUnknownFields) return setExtras({});
 
     const b = initialBook || {};
@@ -900,7 +902,10 @@ if (pages == null || pages <= 0) {
             Treffer gefunden — bitte das richtige Buch wählen:
           </div>
 
-          <div className="bfd-existing-actions">
+          <div
+            className="bfd-existing-actions"
+            onMouseLeave={() => setHoveredMatchId(null)}
+          >
             <button
               type="button"
               className="bfd-btn bfd-btn-clear"
@@ -919,6 +924,7 @@ if (pages == null || pages <= 0) {
                 type="button"
                 className={`bfd-btn ${existingMatch?.id === m.id ? "bfd-btn-update" : "bfd-btn-muted"}`}
                 disabled={busy}
+                onMouseEnter={() => setHoveredMatchId(m.id)}
                 onClick={() => {
                   setExistingMatch(m);
 
@@ -960,6 +966,24 @@ if (pages == null || pages <= 0) {
               </button>
             ))}
           </div>
+
+          {(hoveredMatchId || existingMatch?.id) ? (
+            <div style={{ marginTop: 14 }}>
+              <img
+                key={hoveredMatchId || existingMatch.id}
+                src={`/uploads/covers/${hoveredMatchId || existingMatch.id}.jpg`}
+                alt="Cover"
+                style={{
+                  display: "block",
+                  maxHeight: 320,
+                  maxWidth: "100%",
+                  objectFit: "contain",
+                  border: "3px solid rgba(0,0,0,.35)",
+                }}
+                onError={(e) => { e.target.style.display = "none"; }}
+              />
+            </div>
+          ) : null}
         </div>
       ) : null}
 

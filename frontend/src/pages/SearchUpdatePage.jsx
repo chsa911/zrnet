@@ -146,11 +146,70 @@ function InlineSelect({ value, options, disabled, onSave }) {
   );
 }
 
+// ── Cover preview modal ────────────────────────────────────────────────────
+function CoverPreviewModal({ bookId, url, onReplace, onClose }) {
+  useEffect(() => {
+    const onKey = (e) => { if (e.key === "Escape") onClose(); };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
+
+  return (
+    <div
+      onClick={onClose}
+      style={{
+        position: "fixed", inset: 0, zIndex: 9999,
+        background: "rgba(0,0,0,0.72)",
+        display: "flex", alignItems: "center", justifyContent: "center",
+      }}
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        style={{
+          background: "#fff", border: "4px solid #111",
+          display: "flex", flexDirection: "column", alignItems: "center",
+          gap: 0, maxWidth: "90vw", maxHeight: "90vh",
+        }}
+      >
+        <img
+          src={url}
+          alt={`Cover for book ${bookId}`}
+          style={{ display: "block", maxWidth: "80vw", maxHeight: "70vh", objectFit: "contain" }}
+          onError={(e) => { e.target.style.display = "none"; }}
+        />
+        <div style={{ display: "flex", width: "100%", borderTop: "4px solid #111" }}>
+          <button
+            type="button"
+            onClick={onReplace}
+            style={{
+              flex: 1, border: 0, borderRight: "4px solid #111", background: "#fff",
+              color: "#111", fontWeight: 900, fontSize: 15, padding: "12px 0", cursor: "pointer",
+            }}
+          >
+            Replace
+          </button>
+          <button
+            type="button"
+            onClick={onClose}
+            style={{
+              flex: 1, border: 0, background: "#111",
+              color: "#fff", fontWeight: 900, fontSize: 15, padding: "12px 0", cursor: "pointer",
+            }}
+          >
+            Close
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── Cover upload button ────────────────────────────────────────────────────
 function CoverImageButton({ book, bookId, isBusy, onUploaded }) {
   const inputRef = useRef(null);
+  const [previewOpen, setPreviewOpen] = useState(false);
   const hasCover = !!book?.cover_available;
-  const url = book?.cover_url || `/uploads/covers/${bookId}.jpg`;
+  const url = (book?.cover_url || `/uploads/covers/${bookId}.jpg`) + (book?.cover_url ? "" : `?t=${Date.now()}`);
 
   async function handleFile(file) {
     if (!file || !bookId) return;
@@ -167,16 +226,21 @@ function CoverImageButton({ book, bookId, isBusy, onUploaded }) {
 
   return (
     <>
+      {previewOpen && (
+        <CoverPreviewModal
+          bookId={bookId}
+          url={url}
+          onReplace={() => { setPreviewOpen(false); inputRef.current?.click(); }}
+          onClose={() => setPreviewOpen(false)}
+        />
+      )}
       <button
         type="button"
         disabled={isBusy}
         className={`su-action su-action--cover ${hasCover ? "is-active" : ""}`}
-        title={hasCover ? `Cover exists for book_id ${bookId}. Click to replace.` : `Upload cover for book_id ${bookId}`}
+        title={hasCover ? `Cover exists for book_id ${bookId}. Click to view/replace.` : `Upload cover for book_id ${bookId}`}
         onClick={() => {
-          if (hasCover) {
-            const replace = window.confirm(`A cover already exists for book_id ${bookId}. Replace it?`);
-            if (!replace) { window.open(url, "_blank", "noopener,noreferrer"); return; }
-          }
+          if (hasCover) { setPreviewOpen(true); return; }
           inputRef.current?.click();
         }}
       >
