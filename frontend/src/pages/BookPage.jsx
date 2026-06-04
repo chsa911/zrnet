@@ -3,6 +3,7 @@ import { Link, useParams, useSearchParams } from "react-router-dom";
 import { useI18n } from "../context/I18nContext";
 import { getPublicBook } from "../api/books";
 import { createPublicBookComment, listPublicBookComments } from "../api/comments";
+import { coverUrl } from "../utils/covers";
 import "./BookPage.css";
 
 function isAbortError(e) {
@@ -48,9 +49,8 @@ export default function BookPage() {
 
   const coverSrc = useMemo(() => {
     if (coverFromQS) return coverFromQS;
-    if (!safeId) return "";
-    return `/uploads/covers/${encodeURIComponent(safeId)}.jpg`;
-  }, [coverFromQS, safeId]);
+    return coverUrl(book) || (safeId ? `/uploads/covers/normalized/${encodeURIComponent(safeId)}.jpg` : "");
+  }, [coverFromQS, book, safeId]);
 
   useEffect(() => {
     const ac = new AbortController();

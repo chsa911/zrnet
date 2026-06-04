@@ -357,7 +357,7 @@ export default function AuthorPage() {
           raw?.title ||
           raw?.BTitle ||
           "—",
-        cover: raw?.cover || (id ? `/uploads/covers/${id}.jpg` : null),
+        cover: raw?.cover_url || raw?.cover_home || raw?.cover || (id ? `/uploads/covers/normalized/${id}.jpg` : null),
         purchaseUrl: raw?.purchaseUrl || raw?.purchase_url || "",
         readingStatus,
         st,

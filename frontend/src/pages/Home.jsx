@@ -4,7 +4,7 @@ import { useI18n } from "../context/I18nContext";
 import { apiUrl } from "../api/apiRoot";
 import "./home_minimal.css";
 import HomeLiveBlock from "../components/HomeLiveBlock";
-import { coverUrl } from "../utils/covers";
+import { coverHomeUrl } from "../utils/covers";
 
 function toIntOrNull(v) {
   if (v === null || v === undefined) return null;
@@ -151,7 +151,7 @@ export default function Home() {
   const received = hl?.received || {};
 
 const pickCover = useMemo(
-  () => (x) => x?.cover_home || x?.cover_full || x?.cover || coverUrl(x) || HIGHLIGHT_FALLBACK,
+  () => (x) => coverHomeUrl(x) || HIGHLIGHT_FALLBACK,
   []
 );
   const buildLink = (x) => {

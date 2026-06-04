@@ -447,6 +447,10 @@ try {
             LEFT JOIN public.authors a ON a.id = b.author_id
             LEFT JOIN public.publishers p ON p.id = b.publisher_id
           WHERE b.reading_status = 'in_stock'
+            AND NOT EXISTS (
+              SELECT 1 FROM public.barcode_assignments ba
+              WHERE ba.book_id = b.id AND ba.freed_at IS NULL
+            )
             AND (${matches.join(" OR ")})
             ORDER BY b.registered_at DESC NULLS LAST, b.added_at DESC NULLS LAST
             LIMIT 20
@@ -457,7 +461,7 @@ try {
             ...row,
             width_cm: row.width != null ? row.width / 10 : null,
             height_cm: row.height != null ? row.height / 10 : null,
-            coverUrl: `/uploads/covers/${row.id}.jpg`,
+            coverUrl: `/uploads/covers/normalized/${row.id}.jpg`,
           }));
           return res.json({ items });
         } catch (e) {

@@ -156,6 +156,161 @@ const emptyForm = {
   comment: "",
 };
 
+async function getImageFingerprint(id, primarySrc) {
+  const urls = [
+    primarySrc,
+    `/uploads/covers/normalized/${id}.jpg`,
+    `/uploads/covers/${id}.jpg`,
+  ].filter(Boolean).filter((v, i, a) => a.indexOf(v) === i);
+
+  for (const src of urls) {
+    const result = await new Promise((resolve) => {
+      const img = new Image();
+      img.crossOrigin = "anonymous";
+      img.onload = () => {
+        try {
+          const SIZE = 16;
+          const canvas = document.createElement("canvas");
+          canvas.width = SIZE; canvas.height = SIZE;
+          const ctx = canvas.getContext("2d");
+          ctx.drawImage(img, 0, 0, SIZE, SIZE);
+          resolve(ctx.getImageData(0, 0, SIZE, SIZE).data);
+        } catch { resolve(null); }
+      };
+      img.onerror = () => resolve(null);
+      img.src = src;
+    });
+    if (result) return result;
+  }
+  return null;
+}
+
+function pixelSimilarity(a, b) {
+  if (!a || !b || a.length !== b.length) return 0;
+  let diff = 0;
+  for (let i = 0; i < a.length; i += 4) {
+    diff += Math.abs(a[i] - b[i]) + Math.abs(a[i+1] - b[i+1]) + Math.abs(a[i+2] - b[i+2]);
+  }
+  const maxDiff = (a.length / 4) * 3 * 255;
+  return 1 - diff / maxDiff;
+}
+
+function useIdenticalCovers(matches) {
+  const [identicalPairs, setIdenticalPairs] = useState(new Set());
+
+  useEffect(() => {
+    if (matches.length < 2) { setIdenticalPairs(new Set()); return; }
+    let cancelled = false;
+
+    (async () => {
+      const fingerprints = await Promise.all(
+        matches.map((m) => getImageFingerprint(m.id, m.coverUrl))
+      );
+      if (cancelled) return;
+
+      const identical = new Set();
+      for (let i = 0; i < matches.length; i++) {
+        for (let j = i + 1; j < matches.length; j++) {
+          if (pixelSimilarity(fingerprints[i], fingerprints[j]) > 0.95) {
+            identical.add(matches[i].id);
+            identical.add(matches[j].id);
+          }
+        }
+      }
+      setIdenticalPairs(identical);
+    })();
+
+    return () => { cancelled = true; };
+  }, [matches.map((m) => m.id).join(",")]);
+
+  return identicalPairs;
+}
+
+function relativeTime(dateRaw) {
+  if (!dateRaw) return null;
+  const diffMs = Date.now() - new Date(dateRaw).getTime();
+  if (isNaN(diffMs)) return null;
+  const days = Math.floor(diffMs / 86400000);
+  if (days === 0) return "heute";
+  if (days === 1) return "gestern";
+  if (days < 7) return `vor ${days} T.`;
+  if (days < 30) return `vor ${Math.floor(days / 7)} Wo.`;
+  if (days < 365) return `vor ${Math.floor(days / 30)} Mon.`;
+  return `vor ${Math.floor(days / 365)} J.`;
+}
+
+function MatchCoverThumb({ id, src: srcProp }) {
+  // Try normalized/ first (staging PWA uploads), fall back to root (manually synced)
+  const [src, setSrc] = useState(srcProp || `/uploads/covers/normalized/${id}.jpg`);
+  const [failed, setFailed] = useState(false);
+
+  function handleError() {
+    const fallback = `/uploads/covers/${id}.jpg`;
+    if (src !== fallback) {
+      setSrc(fallback);
+    } else {
+      setFailed(true);
+    }
+  }
+
+  if (failed) return (
+    <div style={{ height: 80, background: "#e0e0e0", display: "flex", alignItems: "center", justifyContent: "center" }}>
+      <span style={{ fontSize: 11, color: "#aaa", fontWeight: 700 }}>kein Cover</span>
+    </div>
+  );
+  return (
+    <img
+      src={src}
+      alt=""
+      style={{ display: "block", width: "100%", height: 120, objectFit: "cover" }}
+      onError={handleError}
+    />
+  );
+}
+
+function CoverPreview({ id, src: srcProp }) {
+  const [state, setState] = useState("loading"); // "loading" | "ok" | "missing"
+  const src = srcProp || `/uploads/covers/normalized/${id}.jpg`;
+
+  useEffect(() => {
+    setState("loading");
+    const img = new Image();
+    img.onload = () => setState("ok");
+    img.onerror = () => setState("missing");
+    img.src = src;
+  }, [src]);
+
+  return (
+    <div style={{
+      marginTop: 14,
+      minHeight: 80,
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+      border: "3px solid rgba(0,0,0,.35)",
+      background: "#f5f5f5",
+    }}>
+      {state === "ok" && (
+        <img
+          src={src}
+          alt="Cover"
+          style={{ display: "block", maxHeight: 320, maxWidth: "100%", objectFit: "contain" }}
+        />
+      )}
+      {state === "missing" && (
+        <span style={{ fontSize: 18, fontWeight: 700, color: "#aaa", padding: "12px 20px" }}>
+          kein Cover
+        </span>
+      )}
+      {state === "loading" && (
+        <span style={{ fontSize: 18, fontWeight: 700, color: "#aaa", padding: "12px 20px" }}>
+          …
+        </span>
+      )}
+    </div>
+  );
+}
+
 export default function BookFormDesktop({
   mode = "create",
   bookId,
@@ -171,6 +326,7 @@ export default function BookFormDesktop({
 }) {
   const isEdit = mode === "edit";
   const msgRef = useRef(null);
+  const matchJustSelectedRef = useRef(false);
 
   const initial = useMemo(() => {
     const b = initialBook || {};
@@ -219,7 +375,8 @@ export default function BookFormDesktop({
   const [extras, setExtras] = useState({});
   const [existingMatches, setExistingMatches] = useState([]);
   const [existingMatch, setExistingMatch] = useState(null);
-  const [hoveredMatchId, setHoveredMatchId] = useState(null);
+  const [hoveredMatch, setHoveredMatch] = useState(null);
+  const identicalCovers = useIdenticalCovers(existingMatches);
 
   const knownKeys = useMemo(() => new Set(Object.keys(emptyForm).map(norm)), []);
   const excludeKey = (excludeUnknownKeys || []).map(String).join("\u0000");
@@ -228,7 +385,7 @@ export default function BookFormDesktop({
     setV(initial);
     setExistingMatches([]);
     setExistingMatch(null);
-    setHoveredMatchId(null);
+    setHoveredMatch(null);
     if (!showUnknownFields) return setExtras({});
 
     const b = initialBook || {};
@@ -309,10 +466,17 @@ export default function BookFormDesktop({
     const otherFieldsFilled = !!(isbn || title || authorLast || authorDisplay || publisherDisplay);
 
     if (pages == null || otherFieldsFilled) {
+      // If a match was just clicked, the fields were filled programmatically —
+      // don't clear the selection. Only clear on manual user edits.
+      if (matchJustSelectedRef.current) {
+        matchJustSelectedRef.current = false;
+        return;
+      }
       setExistingMatches([]);
       setExistingMatch(null);
       return;
     }
+    matchJustSelectedRef.current = false;
 
     const ctrl = new AbortController();
     const t = setTimeout(async () => {
@@ -611,6 +775,11 @@ if (pages == null || pages <= 0) {
     e.preventDefault();
     setMsg("");
 
+    if (!isEdit && existingMatches.length > 0 && !existingMatch) {
+      setMsg("Bitte erst ein vorhandenes Buch auswählen — oder die Liste mit ✕ leeren, um ein neues Buch anzulegen.");
+      return;
+    }
+
     let payload;
     try {
       payload = buildPayload();
@@ -904,7 +1073,7 @@ if (pages == null || pages <= 0) {
 
           <div
             className="bfd-existing-actions"
-            onMouseLeave={() => setHoveredMatchId(null)}
+            onMouseLeave={() => setHoveredMatch(null)}
           >
             <button
               type="button"
@@ -918,72 +1087,94 @@ if (pages == null || pages <= 0) {
             >
               ✕ Leeren
             </button>
-            {existingMatches.map((m) => (
-              <button
-                key={m.id}
-                type="button"
-                className={`bfd-btn ${existingMatch?.id === m.id ? "bfd-btn-update" : "bfd-btn-muted"}`}
-                disabled={busy}
-                onMouseEnter={() => setHoveredMatchId(m.id)}
-                onClick={() => {
-                  setExistingMatch(m);
+            {(() => {
+              // Flag probable duplicates: same title, timestamps ≥1 day apart
+              const titleNorm = (s) => String(s || "").trim().toLowerCase();
+              const groups = {};
+              existingMatches.forEach((m) => {
+                const key = titleNorm(m.title_display || m.main_title_display);
+                if (key) (groups[key] = groups[key] || []).push(m);
+              });
+              const probableDuplicateIds = new Set();
+              Object.values(groups).forEach((grp) => {
+                if (grp.length < 2) return;
+                const times = grp.map((m) => new Date(m.added_at || m.registered_at || 0).getTime());
+                const span = Math.max(...times) - Math.min(...times);
+                if (span >= 86400000) grp.forEach((m) => probableDuplicateIds.add(m.id));
+              });
 
-                  setV((prev) => ({
-                    ...prev,
-                    pages: toStr(m.pages ?? prev.pages),
-                    isbn13: toStr(m.isbn13 ?? prev.isbn13),
-                    isbn10: toStr(m.isbn10 ?? prev.isbn10),
-                    title_display: toStr(
-                      m.title_display ??
-                      m.main_title_display ??
-                      prev.title_display
-                    ),
-                    subtitle_display: toStr(m.subtitle_display ?? prev.subtitle_display),
-                    author_id: toStr(m.author_id ?? prev.author_id),
-                    authors_number: toStr(m.authors_number ?? prev.authors_number),
-                    name_display: toStr(
-                      m.name_display ??
-                      m.author_name_display ??
-                      m.author_display ??
-                      prev.name_display
-                    ),
-                    author_lastname: toStr(m.author_lastname ?? prev.author_lastname),
-                    author_firstname: toStr(m.author_firstname ?? prev.author_firstname),
-                    publisher_id: toStr(m.publisher_id ?? prev.publisher_id),
-                    publisher_name_display: toStr(
-                      m.publisher_name_display ??
-                      m.publisher_name ??
-                      prev.publisher_name_display
-                    ),
-                  }));
-                }}
-              >
-                {(m.title_display || m.main_title_display || "ohne Titel")}
-                {m.author_display || m.author_name_display ? ` · ${m.author_display || m.author_name_display}` : ""}
-                {m.pages ? ` · ${m.pages} S.` : ""}
-                {displayIsbnForBook(m) ? ` · ISBN ${displayIsbnForBook(m)}` : ""}
-                {m.reading_status ? ` · ${m.reading_status}` : ""}
-              </button>
-            ))}
+              return existingMatches.map((m) => {
+              const dateRaw = m.added_at || m.registered_at;
+              const dateLabel = dateRaw
+                ? new Date(dateRaw).toLocaleDateString("de-DE", { day: "2-digit", month: "2-digit", year: "numeric" })
+                : null;
+              const rel = relativeTime(dateRaw);
+              const isSelected = existingMatch?.id === m.id;
+              const isDuplicate = identicalCovers.has(m.id) || probableDuplicateIds.has(m.id);
+              const isDuplicateCover = identicalCovers.has(m.id);
+              return (
+                <button
+                  key={m.id}
+                  type="button"
+                  className={`bfd-btn ${isSelected ? "bfd-btn-update" : "bfd-btn-muted"}`}
+                  disabled={busy}
+                  style={{ display: "flex", flexDirection: "column", alignItems: "stretch", padding: 0, overflow: "hidden", minWidth: 140 }}
+                  onClick={() => {
+                    matchJustSelectedRef.current = true;
+                    setExistingMatch(m);
+                    setV((prev) => ({
+                      ...prev,
+                      pages: toStr(m.pages ?? prev.pages),
+                      isbn13: toStr(m.isbn13 ?? prev.isbn13),
+                      isbn10: toStr(m.isbn10 ?? prev.isbn10),
+                      title_display: toStr(m.title_display ?? m.main_title_display ?? prev.title_display),
+                      subtitle_display: toStr(m.subtitle_display ?? prev.subtitle_display),
+                      author_id: toStr(m.author_id ?? prev.author_id),
+                      authors_number: toStr(m.authors_number ?? prev.authors_number),
+                      name_display: toStr(m.name_display ?? m.author_name_display ?? m.author_display ?? prev.name_display),
+                      author_lastname: toStr(m.author_lastname ?? prev.author_lastname),
+                      author_firstname: toStr(m.author_firstname ?? prev.author_firstname),
+                      publisher_id: toStr(m.publisher_id ?? prev.publisher_id),
+                      publisher_name_display: toStr(m.publisher_name_display ?? m.publisher_name ?? prev.publisher_name_display),
+                    }));
+                  }}
+                >
+                  <MatchCoverThumb src={m.coverUrl} id={m.id} />
+                  <div style={{ padding: "8px 10px", textAlign: "left" }}>
+                    <div style={{ fontSize: 13, fontWeight: 900, lineHeight: 1.2 }}>
+                      {m.title_display || m.main_title_display || "ohne Titel"}
+                    </div>
+                    {(m.author_display || m.author_name_display) && (
+                      <div style={{ fontSize: 12, fontWeight: 700, color: "#555", marginTop: 2 }}>
+                        {m.author_display || m.author_name_display}
+                      </div>
+                    )}
+                    {m.pages && (
+                      <div style={{ fontSize: 12, fontWeight: 700, color: "#777", marginTop: 2 }}>
+                        {m.pages} S.{displayIsbnForBook(m) ? ` · ISBN ${displayIsbnForBook(m)}` : ""}
+                      </div>
+                    )}
+                    {dateLabel && (
+                      <div style={{ fontSize: 11, fontWeight: 800, color: isSelected ? "#2e7d32" : "#999", marginTop: 4 }}>
+                        {dateLabel}{rel ? ` · ${rel}` : ""}
+                      </div>
+                    )}
+                    {isDuplicateCover && (
+                      <div style={{ fontSize: 11, fontWeight: 900, color: "#b00", marginTop: 3 }}>
+                        ⚠ identisches Cover = Duplikat
+                      </div>
+                    )}
+                    {!isDuplicateCover && isDuplicate && (
+                      <div style={{ fontSize: 11, fontWeight: 900, color: "#b00", marginTop: 3 }}>
+                        ⚠ mögl. Duplikat
+                      </div>
+                    )}
+                  </div>
+                </button>
+              );
+            });
+            })()}
           </div>
-
-          {(hoveredMatchId || existingMatch?.id) ? (
-            <div style={{ marginTop: 14 }}>
-              <img
-                key={hoveredMatchId || existingMatch.id}
-                src={`/uploads/covers/normalized/${hoveredMatchId || existingMatch.id}.jpg`}
-                alt="Cover"
-                style={{
-                  display: "block",
-                  maxHeight: 320,
-                  maxWidth: "100%",
-                  objectFit: "contain",
-                  border: "3px solid rgba(0,0,0,.35)",
-                }}
-                onError={(e) => { e.target.style.display = "none"; }}
-              />
-            </div>
-          ) : null}
         </div>
       ) : null}
 

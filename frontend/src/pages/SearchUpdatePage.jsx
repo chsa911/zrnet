@@ -209,7 +209,7 @@ function CoverImageButton({ book, bookId, isBusy, onUploaded }) {
   const inputRef = useRef(null);
   const [previewOpen, setPreviewOpen] = useState(false);
   const hasCover = !!book?.cover_available;
-  const url = (book?.cover_url || `/uploads/covers/${bookId}.jpg`) + (book?.cover_url ? "" : `?t=${Date.now()}`);
+  const url = book?.cover_url || `/uploads/covers/normalized/${bookId}.jpg`;
 
   async function handleFile(file) {
     if (!file || !bookId) return;
@@ -818,7 +818,7 @@ export default function SearchUpdatePage() {
                     isBusy={isBusy}
                     onUploaded={() => {
                       const now = new Date().toISOString();
-                      patchRow(id, { cover_available: true, cover_url: `/uploads/covers/${id}.jpg?t=${Date.now()}`, updated_at: now, last_action_at: now });
+                      patchRow(id, { cover_available: true, cover_url: `/uploads/covers/normalized/${id}.jpg?t=${Date.now()}`, cover_home: `/uploads/covers/normalized/${id}-home.jpg?t=${Date.now()}`, updated_at: now, last_action_at: now });
                       setQuery({ page: 1, sortBy: "last_action_at", order: "desc" });
                       setRefreshTick((n) => n + 1);
                     }}

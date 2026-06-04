@@ -176,7 +176,7 @@ export default function App() {
         {/* admin */}
         <Route path="admin/abbreviations" element={<AdminOnly><AbbreviationsAdminPage /></AdminOnly>} />
         <Route path="admin" element={<AdminPage />} />
-        <Route path="admin/register" element={<AdminOnly><RegisterPage /></AdminOnly>} />
+        <Route path="admin/register" element={<AdminOnly><RegisterPage createReadingStatus="in_progress" /></AdminOnly>} />
         <Route path="admin/authors" element={<AdminOnly><AdminAuthorsOverviewPage /></AdminOnly>} />
         <Route path="admin/search-update" element={<AdminOnly><SearchUpdatePage /></AdminOnly>} />
         <Route path="admin/sync-issues" element={<AdminOnly><SyncIssuePage /></AdminOnly>} />

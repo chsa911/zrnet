@@ -124,42 +124,43 @@ app.post("/api/books/:bookId/cover", coverUpload.single("cover"), async (req, re
     const originalExt =
       path.extname(req.file.originalname || "").toLowerCase() || ".jpg";
 
-    const rawPath = path.join(COVERS_RAW_DIR, `${bookId}${originalExt}`);
+    const rawPath        = path.join(COVERS_RAW_DIR,        `${bookId}${originalExt}`);
     const normalizedPath = path.join(COVERS_NORMALIZED_DIR, `${bookId}.jpg`);
+    const homePath       = path.join(COVERS_NORMALIZED_DIR, `${bookId}-home.jpg`);
 
     const replaced = fs.existsSync(normalizedPath);
 
     await fs.promises.writeFile(rawPath, req.file.buffer);
 
+    // Full version: 800×1200, white background, high quality
     await sharp(req.file.buffer)
       .rotate()
-      .resize(800, 1200, {
-        fit: "contain",
-        background: { r: 255, g: 255, b: 255 },
-      })
-      .jpeg({
-        quality: 90,
-        progressive: true,
-      })
+      .resize(800, 1200, { fit: "contain", background: { r: 255, g: 255, b: 255 } })
+      .jpeg({ quality: 90, progressive: true })
       .toFile(normalizedPath);
-const pool = req.app.get("pgPool");
 
-if (pool) {
-  await pool.query(
-    `
-    UPDATE public.books
-    SET updated_at = NOW()
-    WHERE id = $1
-    `,
-    [bookId]
-  );
-}
+    // Home version: 400×600, same aspect ratio, smaller file
+    await sharp(req.file.buffer)
+      .rotate()
+      .resize(400, 600, { fit: "contain", background: { r: 255, g: 255, b: 255 } })
+      .jpeg({ quality: 80, progressive: true })
+      .toFile(homePath);
+
+    const pool = req.app.get("pgPool");
+    if (pool) {
+      await pool.query(
+        `UPDATE public.books SET updated_at = NOW() WHERE id = $1`,
+        [bookId]
+      );
+    }
+
     res.json({
       ok: true,
       replaced,
       book_id: bookId,
-      raw: `/assets/covers/raw/${bookId}${originalExt}`,
-      normalized: `/uploads/covers/${bookId}.jpg`,
+      raw:        `/uploads/covers/raw/${bookId}${originalExt}`,
+      normalized: `/uploads/covers/normalized/${bookId}.jpg`,
+      home:       `/uploads/covers/normalized/${bookId}-home.jpg`,
     });
   } catch (err) {
     console.error("POST /api/books/:bookId/cover error", err);
@@ -179,7 +180,7 @@ app.get("/api/public/home-highlights", async (req, res) => {
         b.id::text AS id,
         a.name_display AS author_name_display,
         COALESCE(NULLIF(b.title_display, ''), NULLIF(b.title_keyword, '')) AS title_display,
-        ('/uploads/covers/normalized/' || b.id::text || '.jpg') AS cover_home,
+        ('/uploads/covers/normalized/' || b.id::text || '-home.jpg') AS cover_home,
         ('/uploads/covers/normalized/' || b.id::text || '.jpg') AS cover_full,
         ('/uploads/covers/normalized/' || b.id::text || '.jpg') AS cover,
         b.purchase_url AS buy

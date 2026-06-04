@@ -6,8 +6,8 @@ import {
   removeReceivedCandidate,
 } from "../api/books";
 import { coverUrl } from "../utils/covers";
-function coverFor(id) {
-  return id ? `/uploads/covers/${encodeURIComponent(id)}.jpg` : "";
+function coverFor(book) {
+  return coverUrl(book) || (book?.id ? `/uploads/covers/normalized/${encodeURIComponent(book.id)}.jpg` : "");
 }
 
 export default function HighlightReceivedPage() {
@@ -95,7 +95,7 @@ export default function HighlightReceivedPage() {
               }}
             >
               <img
-                src={coverFor(id)}
+                src={coverFor(book)}
                 alt=""
                 style={{
                   width: 90,

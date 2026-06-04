@@ -25,24 +25,43 @@ const UPLOAD_ROOT =
 
 const COVERS_DIR = path.join(UPLOAD_ROOT, "covers");
 const COVERS_NORMALIZED_DIR = path.join(COVERS_DIR, "normalized");
+const UUID_COVER_RE = /^([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\.jpg$/i;
+
 function buildCoverMap() {
+  // Returns Map<bookId, { full, home }> with correct serving URLs.
+  // Priority: normalized/ (new system) > root/ (old system)
   const map = new Map();
 
   try {
+    // Old-format root covers: covers/{id}.jpg → served at /uploads/covers/{id}.jpg
     if (fs.existsSync(COVERS_DIR)) {
       for (const file of fs.readdirSync(COVERS_DIR)) {
-        if (!/\.(jpg|jpeg|png|webp)$/i.test(file)) continue;
-
-        const bookId = file.replace(/\.(jpg|jpeg|png|webp)$/i, "");
-        map.set(bookId, `/uploads/covers/normalized/${file}`);
+        const m = file.match(UUID_COVER_RE);
+        if (!m) continue; // skip -home.jpg, -timestamp.jpg, etc.
+        const id = m[1];
+        const homeFile = `${id}-home.jpg`;
+        map.set(id, {
+          full: `/uploads/covers/${file}`,
+          home: fs.existsSync(path.join(COVERS_DIR, homeFile))
+            ? `/uploads/covers/${homeFile}`
+            : null,
+        });
       }
     }
+
+    // New-format normalized covers: covers/normalized/{id}.jpg — takes priority
     if (fs.existsSync(COVERS_NORMALIZED_DIR)) {
       for (const file of fs.readdirSync(COVERS_NORMALIZED_DIR)) {
-        if (!/\.(jpg|jpeg|png|webp)$/i.test(file)) continue;
-
-        const bookId = file.replace(/\.(jpg|jpeg|png|webp)$/i, "");
-        map.set(bookId, `/uploads/covers/normalized/${file}`);
+        const m = file.match(UUID_COVER_RE);
+        if (!m) continue; // skip -home.jpg files
+        const id = m[1];
+        const homeFile = `${id}-home.jpg`;
+        map.set(id, {
+          full: `/uploads/covers/normalized/${file}`,
+          home: fs.existsSync(path.join(COVERS_NORMALIZED_DIR, homeFile))
+            ? `/uploads/covers/normalized/${homeFile}`
+            : null,
+        });
       }
     }
   } catch (err) {
@@ -1156,12 +1175,13 @@ ${AUTHOR_RESOLVE_SELECT_SQL},
 
 const items = listRes.rows.map((row) => {
   const book = rowToApi(row);
-  const coverUrl = coverMap.get(String(book.id));
+  const cover = coverMap.get(String(book.id));
 
   return {
     ...book,
-    cover_available: !!coverUrl,
-    cover_url: coverUrl || null,
+    cover_available: !!cover,
+    cover_url:  cover?.full  || null,
+    cover_home: cover?.home  || cover?.full || null,
   };
 });
     const pages = Math.max(1, Math.ceil(total / limit) || 1);
@@ -1212,13 +1232,14 @@ LEFT JOIN public.sub_genres sg ON sg.id = b.sub_genre_id
       const row = rows[0];
       const book = rowToApi(row);
 const coverMap = buildCoverMap();
-const coverUrl = coverMap.get(String(book.id));
+const cover = coverMap.get(String(book.id));
 
 return res.json({
   ...row,
   ...book,
-  cover_available: !!coverUrl,
-  cover_url: coverUrl || null,
+  cover_available: !!cover,
+  cover_url:  cover?.full  || null,
+  cover_home: cover?.home  || cover?.full || null,
 });
     } catch (err) {
       console.error("getBook error", err);
@@ -1480,7 +1501,11 @@ return res.json({
     const wMm = cmToMm(widthCm);
     const hMm = cmToMm(heightCm);
 
-    const status = assignBarcodeNow ? "in_progress" : "in_stock";
+    const VALID_STATUSES = ["in_stock", "in_progress", "finished", "abandoned", "wishlist"];
+    const requestedStatus = normalizeStr(body.reading_status);
+    const status = (requestedStatus && VALID_STATUSES.includes(requestedStatus))
+      ? requestedStatus
+      : (assignBarcodeNow ? "in_progress" : "in_stock");
     const nowIso = new Date().toISOString();
     const statusTs = status === "finished" || status === "abandoned" ? nowIso : null;
 

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { useI18n } from "../context/I18nContext";
 import { apiUrl } from "../api/apiRoot";
+import { coverHomeUrl } from "../utils/covers";
 
 function toIntOrNull(v) {
   if (v === null || v === undefined) return null;
@@ -131,7 +132,7 @@ export default function HomeLiveBlock() {
   const received = hl?.received || {};
 
   const pickCover = useMemo(
-    () => (x) => x?.cover_home || x?.cover_full || x?.cover || HIGHLIGHT_FALLBACK,
+    () => (x) => coverHomeUrl(x) || HIGHLIGHT_FALLBACK,
     []
   );
 
