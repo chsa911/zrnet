@@ -15,7 +15,7 @@ if (!fs.existsSync(DIR)) {
   process.exit(1);
 }
 
-const files = fs.readdirSync(DIR).filter(f => /^[^-]+\.jpg$/.test(f));
+const files = fs.readdirSync(DIR).filter(f => f.endsWith(".jpg") && !f.endsWith("-home.jpg"));
 console.log(`Found ${files.length} full-size covers to process`);
 
 let created = 0, skipped = 0, errors = 0;
