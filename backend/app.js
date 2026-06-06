@@ -169,6 +169,17 @@ app.post("/api/books/:bookId/cover", coverUpload.single("cover"), async (req, re
 });
 
 /* ---------- public endpoints (must be after CORS) ---------- */
+// Resolve the actual URL for a cover by checking the filesystem,
+// matching the same priority as buildCoverMap() in booksPgController.
+function resolveCoverUrl(id) {
+  if (!id) return "";
+  const normFile = path.join(COVERS_NORMALIZED_DIR, `${id}.jpg`);
+  if (fs.existsSync(normFile)) return `/uploads/covers/normalized/${id}.jpg`;
+  const rootFile = path.join(COVERS_DIR, `${id}.jpg`);
+  if (fs.existsSync(rootFile)) return `/uploads/covers/${id}.jpg`;
+  return "";
+}
+
 app.get("/api/public/home-highlights", async (req, res) => {
   try {
     const pool = req.app.get("pgPool");
@@ -180,9 +191,6 @@ app.get("/api/public/home-highlights", async (req, res) => {
         b.id::text AS id,
         a.name_display AS author_name_display,
         COALESCE(NULLIF(b.title_display, ''), NULLIF(b.title_keyword, '')) AS title_display,
-        ('/uploads/covers/normalized/' || b.id::text || '.jpg') AS cover_home,
-        ('/uploads/covers/normalized/' || b.id::text || '.jpg') AS cover_full,
-        ('/uploads/covers/normalized/' || b.id::text || '.jpg') AS cover,
         b.purchase_url AS buy
       FROM public.books b
       LEFT JOIN public.authors a ON a.id = b.author_id
@@ -206,13 +214,14 @@ app.get("/api/public/home-highlights", async (req, res) => {
     };
 
     for (const r of rows) {
+      const coverUrl = resolveCoverUrl(r.id);
       const mapped = {
         id: r.id,
         authorNameDisplay: r.author_name_display || null,
         titleDisplay: r.title_display || null,
-        cover_home: r.cover_home,
-        cover_full: r.cover_full,
-        cover: r.cover,
+        cover_home: coverUrl,
+        cover_full: coverUrl,
+        cover: coverUrl,
         buy: r.buy,
       };
       if (r.slot === "finished") out.finished = mapped;
