@@ -4,6 +4,7 @@
 const express = require("express");
 const router = express.Router();
 const crypto = require("crypto");
+const { resolveCoverUrl } = require("../utils/covers");
 
 function getPool(req) {
   const pool = req.app.get("pgPool");
@@ -940,10 +941,11 @@ router.get("/:id", async (req, res) => {
     const finalVendor = manualUrl
       ? normStr(r.purchase_source) || "manual"
       : bestVendor;
+    const coverUrl = resolveCoverUrl(r.id);
     return res.json({
       id: r.id,
-cover_url: `/uploads/covers/normalized/${r.id}.jpg`,
-cover: `/uploads/covers/normalized/${r.id}.jpg`,
+      cover_url: coverUrl,
+      cover: coverUrl,
 
       authorId: r.author_id || null,
 

@@ -8,6 +8,8 @@ const cookieParser = require("cookie-parser");
 const multer = require("multer");
 const sharp = require("sharp");
 
+const { resolveCoverUrl } = require("./utils/covers");
+
 const app = express();
 
 // Helpful when running behind Cloudflare / reverse proxies
@@ -169,17 +171,6 @@ app.post("/api/books/:bookId/cover", coverUpload.single("cover"), async (req, re
 });
 
 /* ---------- public endpoints (must be after CORS) ---------- */
-// Resolve the actual URL for a cover by checking the filesystem,
-// matching the same priority as buildCoverMap() in booksPgController.
-function resolveCoverUrl(id) {
-  if (!id) return "";
-  const normFile = path.join(COVERS_NORMALIZED_DIR, `${id}.jpg`);
-  if (fs.existsSync(normFile)) return `/uploads/covers/normalized/${id}.jpg`;
-  const rootFile = path.join(COVERS_DIR, `${id}.jpg`);
-  if (fs.existsSync(rootFile)) return `/uploads/covers/${id}.jpg`;
-  return "";
-}
-
 app.get("/api/public/home-highlights", async (req, res) => {
   try {
     const pool = req.app.get("pgPool");
