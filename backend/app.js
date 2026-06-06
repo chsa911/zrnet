@@ -180,7 +180,7 @@ app.get("/api/public/home-highlights", async (req, res) => {
         b.id::text AS id,
         a.name_display AS author_name_display,
         COALESCE(NULLIF(b.title_display, ''), NULLIF(b.title_keyword, '')) AS title_display,
-        ('/uploads/covers/normalized/' || b.id::text || '-home.jpg') AS cover_home,
+        ('/uploads/covers/normalized/' || b.id::text || '.jpg') AS cover_home,
         ('/uploads/covers/normalized/' || b.id::text || '.jpg') AS cover_full,
         ('/uploads/covers/normalized/' || b.id::text || '.jpg') AS cover,
         b.purchase_url AS buy
