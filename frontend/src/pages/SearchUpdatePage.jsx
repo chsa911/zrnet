@@ -7,7 +7,7 @@ import {
   uploadBookCover,
 } from "../api/books";
 import BookForm from "../components/BookFormSwitcher";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { coverUrl } from "../utils/covers";
 
 const API_ROOT = import.meta.env.VITE_API_ROOT || "";
@@ -254,12 +254,23 @@ function CoverImageButton({ book, bookId, isBusy, onUploaded }) {
 // ── Main ───────────────────────────────────────────────────────────────────
 export default function SearchUpdatePage() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
 
-  const [q, setQ] = useState({
-    q: "", page: 1, limit: 20, sortBy: "last_action_at", order: "desc", status: "",
+  const [q, setQ] = useState(() => {
+    const pagesParam = searchParams.get("pages");
+    const qParam = searchParams.get("q") || "";
+    const pages = pagesParam ? Number(pagesParam) : undefined;
+    return {
+      q: qParam, page: 1, limit: 20, sortBy: "last_action_at", order: "desc", status: "",
+      ...(pages ? { pages } : {}),
+    };
   });
 
-  const [searchText, setSearchText] = useState("");
+  const [searchText, setSearchText] = useState(() => {
+    const pagesParam = searchParams.get("pages");
+    const qParam = searchParams.get("q") || "";
+    return pagesParam ? String(pagesParam) : qParam;
+  });
   const [items, setItems] = useState([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(false);

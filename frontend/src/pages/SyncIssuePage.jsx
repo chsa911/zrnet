@@ -1,6 +1,14 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
+import { Link } from "react-router-dom";
 import { listNeedsReview, resolveMobileIssue } from "../api/mobileSync";
 import "./AuthorsIndexPage.css";
+
+// Extract alphabetic prefix from a barcode, e.g. "db413" → "db"
+function barcodePrefix(code) {
+  if (!code || code === "(kein Barcode)") return null;
+  const m = String(code).match(/^([a-zA-Z]+)/);
+  return m ? m[1].toLowerCase() : null;
+}
 
 function fmtTs(ts) {
   if (!ts) return "—";
@@ -221,6 +229,24 @@ export default function SyncIssuePage() {
 <div>
                         <strong>Updated:</strong>{" "}
                         {fmtTs(receipt?.reading_status_updated_at || receipt?.readingStatusUpdatedAt)}
+                      </div>
+                      <div style={{ marginTop: "0.75rem", display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
+                        {incomingPages != null && (
+                          <Link
+                            to={`/admin/search-update?pages=${incomingPages}`}
+                            style={{ fontWeight: 700, textDecoration: "underline" }}
+                          >
+                            🔍 Alle Bücher mit {incomingPages} Seiten
+                          </Link>
+                        )}
+                        {barcodePrefix(barcode) && (
+                          <Link
+                            to={`/admin/search-update?q=${barcodePrefix(barcode)}`}
+                            style={{ fontWeight: 700, textDecoration: "underline" }}
+                          >
+                            🔍 Alle Bücher mit Barcode-Präfix „{barcodePrefix(barcode)}"
+                          </Link>
+                        )}
                       </div>
                       <pre>{JSON.stringify(getIssueDetails(it), null, 2)}</pre>
                     </div>
