@@ -455,17 +455,14 @@ export default function BookFormDesktop({
       return;
     }
 
-    const isbnN = normalizeIsbnInputs(v.isbn13, v.isbn10);
-    const isbn = isbnN.isbn13 || isbnN.isbn10 || isbnN.raw || "";
     const pages = parseIntOrNull(v.pages);
-    const title = String(v.title_display || "").trim();
-    const authorLast = String(v.author_lastname || "").trim();
-    const authorDisplay = String(v.name_display || "").trim();
-    const publisherDisplay = String(v.publisher_name_display || "").trim();
 
-    const otherFieldsFilled = !!(isbn || title || authorLast || authorDisplay || publisherDisplay);
-
-    if (pages == null || otherFieldsFilled) {
+    // Search/selection are keyed on `pages` only. Filling in title/ISBN/author/
+    // publisher must NOT clear an already-found draft match — that's the natural
+    // next step after entering the page count, and clearing here caused the
+    // match to "flash and disappear" before the user could pick it, leading the
+    // form to fall through and create a duplicate book record.
+    if (pages == null) {
       // If a match was just clicked, the fields were filled programmatically —
       // don't clear the selection. Only clear on manual user edits.
       if (matchJustSelectedRef.current) {

@@ -2419,9 +2419,26 @@ if ((patch.sub_genre_abbr ?? patch.subgenre_abbr) !== undefined) {
       if (patch.reading_status !== undefined) {
         const nextStatus = mapReadingStatus(patch.reading_status);
         if (nextStatus) {
+          const changed = String(cur.reading_status || "") !== String(nextStatus || "");
+
+          // A book that is in_progress is holding an open barcode. The barcode
+          // may only be released by finishing/abandoning the book — there is no
+          // "back to stock" path for in_progress books anymore. Reject any other
+          // transition here with a clean error before it reaches the DB guard
+          // trigger (trg_prevent_in_progress_status_change), which would
+          // otherwise surface as a raw Postgres exception.
+          if (
+            changed &&
+            cur.reading_status === "in_progress" &&
+            nextStatus !== "finished" &&
+            nextStatus !== "abandoned"
+          ) {
+            await client.query("ROLLBACK");
+            return res.status(409).json({ error: "in_progress_requires_finish_or_abandon" });
+          }
+
           updates.reading_status = nextStatus;
           if (cols.has("reading_status_updated_at")) {
-            const changed = String(cur.reading_status || "") !== String(nextStatus || "");
             if (changed && (nextStatus === "finished" || nextStatus === "abandoned")) {
               updates.reading_status_updated_at = new Date().toISOString();
             } else if (changed && nextStatus !== "finished" && nextStatus !== "abandoned") {
@@ -2477,8 +2494,7 @@ if ((patch.sub_genre_abbr ?? patch.subgenre_abbr) !== undefined) {
 
       if (
         cur.reading_status === "in_progress" &&
-        updates.reading_status &&
-        updates.reading_status !== "in_progress"
+        (updates.reading_status === "finished" || updates.reading_status === "abandoned")
       ) {
         await client.query(
           `
@@ -2548,7 +2564,7 @@ if ((patch.sub_genre_abbr ?? patch.subgenre_abbr) !== undefined) {
       await client.query("BEGIN");
 
       const exists = await client.query(
-        `SELECT id FROM public.books WHERE id = $1::uuid FOR UPDATE`,
+        `SELECT id, reading_status FROM public.books WHERE id = $1::uuid FOR UPDATE`,
         [id]
       );
 
@@ -2557,15 +2573,15 @@ if ((patch.sub_genre_abbr ?? patch.subgenre_abbr) !== undefined) {
         return res.status(404).json({ error: "not_found" });
       }
 
-      await client.query(
-        `
-        UPDATE public.barcode_assignments
-        SET freed_at = now()
-        WHERE book_id = $1::uuid
-          AND freed_at IS NULL
-        `,
-        [id]
-      );
+      // Admin-area rule (app-level only — DBeaver/direct SQL stays the
+      // deliberate escape hatch for cleaning up test entries): a book may
+      // only be permanently deleted through the admin UI/API while it's
+      // still a wishlist entry — i.e. before it's ever been on hand
+      // (in_stock/in_progress) or finished/abandoned.
+      if (exists.rows[0].reading_status !== "wishlist") {
+        await client.query("ROLLBACK");
+        return res.status(409).json({ error: "delete_requires_wishlist_status" });
+      }
 
       await client.query(`DELETE FROM public.book_barcodes WHERE book_id = $1::uuid`, [id]);
       await client.query(`DELETE FROM public.books WHERE id = $1::uuid`, [id]);

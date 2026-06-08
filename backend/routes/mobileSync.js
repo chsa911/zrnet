@@ -10,6 +10,12 @@
     return pool;
   }
 
+  // Mobile clients may only ever push these reading-status values.
+  // A phone scan can plausibly mean "I started/finished/abandoned this book" —
+  // it can never legitimately mean "this book is back in stock" or "on my wishlist".
+  // Anything outside this set must be routed to needs_review, never written to books.
+  const MOBILE_ALLOWED_STATUSES = ["in_progress", "finished", "abandoned"];
+
   function normStatus(s) {
     if (!s) return null;
     const x = String(s).trim().toLowerCase();
@@ -321,14 +327,42 @@
   async function updateBookFromMobile(client, bookId, parsed) {
     const { pages, readingStatus, rsUpdatedAt, topBook, topBookSetAt } = parsed;
 
-    await client.query(
+    // Guard against out-of-order / stale syncs overwriting a newer status:
+    // only let the incoming reading_status win if (a) it's one of the statuses a
+    // phone is allowed to report, AND (b) its timestamp is strictly newer than
+    // what's already stored (or nothing is stored yet). Otherwise keep the
+    // existing reading_status/reading_status_updated_at untouched — this is what
+    // previously let a queued/old "in_stock" or "wishlist" change flip a freshly
+    // registered book back to in_stock (and, via the close-barcode trigger, free
+    // its barcode) purely because it arrived later in wall-clock time.
+    const r = await client.query(
       `
       UPDATE public.books
       SET
         pages = COALESCE($2::int4, pages),
 
-        reading_status = COALESCE($3::text, reading_status),
-        reading_status_updated_at = COALESCE($4::timestamptz, reading_status_updated_at),
+        reading_status = CASE
+            WHEN $3::text IS NOT NULL
+             AND $3::text = ANY($7::text[])
+             AND (
+               reading_status_updated_at IS NULL
+               OR $4::timestamptz IS NULL
+               OR $4::timestamptz > reading_status_updated_at
+             )
+            THEN $3::text
+            ELSE reading_status
+          END,
+        reading_status_updated_at = CASE
+            WHEN $3::text IS NOT NULL
+             AND $3::text = ANY($7::text[])
+             AND (
+               reading_status_updated_at IS NULL
+               OR $4::timestamptz IS NULL
+               OR $4::timestamptz > reading_status_updated_at
+             )
+            THEN COALESCE($4::timestamptz, reading_status_updated_at)
+            ELSE reading_status_updated_at
+          END,
 
         top_book = COALESCE($5::boolean, top_book),
         topbook_set_at =
@@ -342,9 +376,21 @@
             ELSE topbook_set_at
           END
       WHERE id = $1::uuid
+      RETURNING reading_status, reading_status_updated_at
       `,
-      [bookId, pages, readingStatus, rsUpdatedAt, topBook, topBookSetAt]
+      [bookId, pages, readingStatus, rsUpdatedAt, topBook, topBookSetAt, MOBILE_ALLOWED_STATUSES]
     );
+
+    const row = r.rows[0] || null;
+    const statusApplied =
+      !!row &&
+      readingStatus != null &&
+      String(row.reading_status) === String(readingStatus) &&
+      row.reading_status_updated_at &&
+      rsUpdatedAt &&
+      new Date(row.reading_status_updated_at).getTime() === new Date(rsUpdatedAt).getTime();
+
+    return { statusApplied, current: row };
   }
 
   /**
@@ -404,6 +450,28 @@
           continue;
         }
 
+        // A phone can plausibly report "I'm reading / finished / abandoned this
+        // book" — it can never legitimately report "this book is back in stock"
+        // or "on my wishlist". Reject anything else up front instead of writing
+        // it to public.books, where it would (via the close-barcode trigger)
+        // also rip the open barcode assignment off a book that's still in hand.
+        if (!MOBILE_ALLOWED_STATUSES.includes(readingStatus)) {
+          await writeIssueAndReceipt(
+            client,
+            c,
+            { clientChangeId, barcode, pages, readingStatus, rsUpdatedAt, topBook, topBookSetAt, note },
+            "unsupported_reading_status",
+            { reading_status: readingStatus, allowed: MOBILE_ALLOWED_STATUSES },
+            null
+          );
+          await inboxSetStatus(client, clientChangeId, {
+            status: "needs_review",
+            errorCode: "unsupported_reading_status",
+          });
+          applied.push(clientChangeId);
+          continue;
+        }
+
         // Idempotency
         if (await syncInboxStatusFromReceipt(client, clientChangeId)) {
           applied.push(clientChangeId);
@@ -438,12 +506,20 @@
 
         if (dup.rowCount === 1) {
           const bookId = dup.rows[0].book_id;
-          await updateBookFromMobile(client, bookId, parsed);
+          const { statusApplied } = await updateBookFromMobile(client, bookId, parsed);
           await writeAppliedReceipt(client, c, parsed, bookId);
-          await inboxSetStatus(client, clientChangeId, {
-            status: "applied",
-            bookId,
-          });
+          if (statusApplied) {
+            await inboxSetStatus(client, clientChangeId, { status: "applied", bookId });
+          } else {
+            // Payload was well-formed and the barcode resolved fine, but the
+            // status it carried was older than what's already on the book —
+            // flag for a human instead of pretending it took effect.
+            await inboxSetStatus(client, clientChangeId, {
+              status: "needs_review",
+              errorCode: "stale_reading_status",
+              bookId,
+            });
+          }
           applied.push(clientChangeId);
           continue;
         }
@@ -610,12 +686,19 @@
         }
 
         // 5) Apply update immediately
-        await updateBookFromMobile(client, chosenBookId, parsed);
+        const { statusApplied } = await updateBookFromMobile(client, chosenBookId, parsed);
         await writeAppliedReceipt(client, c, parsed, chosenBookId);
-        await inboxSetStatus(client, clientChangeId, {
-          status: "applied",
-          bookId: chosenBookId,
-        });
+        if (statusApplied) {
+          await inboxSetStatus(client, clientChangeId, { status: "applied", bookId: chosenBookId });
+        } else {
+          // Same as the duplicate-resolution path above: don't claim "applied"
+          // for a status change that the ordering guard silently dropped.
+          await inboxSetStatus(client, clientChangeId, {
+            status: "needs_review",
+            errorCode: "stale_reading_status",
+            bookId: chosenBookId,
+          });
+        }
 
         applied.push(clientChangeId);
       }
