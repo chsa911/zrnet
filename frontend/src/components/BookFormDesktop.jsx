@@ -772,11 +772,6 @@ if (pages == null || pages <= 0) {
     e.preventDefault();
     setMsg("");
 
-    if (!isEdit && existingMatches.length > 0 && !existingMatch) {
-      setMsg("Bitte erst ein vorhandenes Buch auswählen — oder die Liste mit ✕ leeren, um ein neues Buch anzulegen.");
-      return;
-    }
-
     let payload;
     try {
       payload = buildPayload();
@@ -1083,6 +1078,17 @@ if (pages == null || pages <= 0) {
               }}
             >
               ✕ Leeren
+            </button>
+            <button
+              type="button"
+              className="bfd-btn bfd-btn-muted"
+              disabled={busy}
+              onClick={() => {
+                setExistingMatch(null);
+                setExistingMatches([]);
+              }}
+            >
+              ➕ Neues Buch anlegen
             </button>
             {(() => {
               // Flag probable duplicates: same title, timestamps ≥1 day apart
