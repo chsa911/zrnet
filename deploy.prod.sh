@@ -8,8 +8,8 @@ SNAP="/srv/zrnet-backups/covers-$(date +%Y%m%d-%H%M%S).tar.gz"
 mkdir -p /srv/zrnet-backups
 tar -czf "$SNAP" -C /srv/zrnet/uploads covers 2>/dev/null && echo "Cover snapshot: $SNAP" || echo "Cover snapshot skipped (no covers yet)"
 
-# Keep only the last 14 snapshots
-ls -t /srv/zrnet-backups/covers-*.tar.gz 2>/dev/null | tail -n +15 | xargs rm -f || true
+# Keep only the last 2 snapshots
+ls -t /srv/zrnet-backups/covers-*.tar.gz 2>/dev/null | tail -n +3 | xargs rm -f || true
 
 git fetch origin
 git reset --hard origin/master
