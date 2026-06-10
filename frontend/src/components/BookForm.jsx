@@ -854,6 +854,7 @@ export default function BookForm({
         step: "create",
         cover: coverFile || null,
         coverName: coverFile?.name || "cover.jpg",
+        coverExpected: !!coverFile,
       });
       refreshPending();
     }
@@ -883,6 +884,7 @@ export default function BookForm({
             savedId,
             cover: coverFile,
             coverName: coverFile?.name || "cover.jpg",
+            coverExpected: true,
           });
         } else {
           await deleteUploadJob(jobId);

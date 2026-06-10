@@ -425,6 +425,7 @@ async function legacyUploader(job) {
 async function processCreateOrFinalizeJob(job) {
   const flow = safeStr(job?.flow || "create") || "create";
   const hasCover = !!job?.cover;
+  const coverExpected = !!job?.coverExpected;
   const step = safeStr(job?.step || "create") || "create";
 
   let bookId = job?.savedId || job?.draftId || null;
@@ -439,7 +440,13 @@ async function processCreateOrFinalizeJob(job) {
     }
   }
 
-  if (!hasCover) return true;
+  if (!hasCover) {
+    // Cover was expected (user selected a photo) but the File was lost from IndexedDB —
+    // most likely iOS killed the app between enqueue and processing.
+    // Throw so the job stays in "error" state and the user can retry.
+    if (coverExpected) throw new Error("cover_file_lost");
+    return true;
+  }
   await uploadCoverStep(job, bookId);
   return true;
 }

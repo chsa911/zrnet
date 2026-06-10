@@ -13,6 +13,7 @@
       const { registerBook, registerExistingBook } = require("../controllers/booksPgController");
 
       const upload = multer({ storage: multer.memoryStorage() });
+      const sharp = require("sharp");
 
       function cmToMm(v) {
         const n = Number(String(v).replace(",", "."));
@@ -254,16 +255,36 @@ COUNT(b.id) FILTER (WHERE b.top_book = true)::int AS top_books
         try {
           const uploadRoot =
             process.env.UPLOAD_ROOT || path.resolve(__dirname, "../../uploads");
-          const dir = path.join(uploadRoot, "covers");
-          await fs.mkdir(dir, { recursive: true });
+          const coversDir    = path.join(uploadRoot, "covers");
+          const normalizedDir = path.join(uploadRoot, "covers", "normalized");
+          const rawDir       = path.join(uploadRoot, "covers", "raw");
+          await fs.mkdir(normalizedDir, { recursive: true });
+          await fs.mkdir(rawDir,        { recursive: true });
 
-        const main = path.join(dir, `${id}.jpg`);
-const raw = path.join(dir, `${id}-raw.jpg`);
+          const originalExt = path.extname(req.file.originalname || "").toLowerCase() || ".jpg";
+          const rawPath        = path.join(rawDir,        `${id}${originalExt}`);
+          const normalizedPath = path.join(normalizedDir, `${id}.jpg`);
+          const homePath       = path.join(normalizedDir, `${id}-home.jpg`);
+          // Keep legacy root file for backward-compatibility
+          const legacyPath     = path.join(coversDir,    `${id}.jpg`);
 
-await Promise.all([
-  fs.writeFile(main, req.file.buffer),
-  fs.writeFile(raw, req.file.buffer),
-]);
+          await fs.writeFile(rawPath, req.file.buffer);
+
+          await sharp(req.file.buffer)
+            .rotate()
+            .resize(800, 1200, { fit: "contain", background: { r: 255, g: 255, b: 255 } })
+            .jpeg({ quality: 90, progressive: true })
+            .toFile(normalizedPath);
+
+          await sharp(req.file.buffer)
+            .rotate()
+            .resize(400, 600, { fit: "contain", background: { r: 255, g: 255, b: 255 } })
+            .jpeg({ quality: 80, progressive: true })
+            .toFile(homePath);
+
+          // Write legacy root file so old code still works
+          await fs.writeFile(legacyPath, req.file.buffer);
+
           // Mark cover presence on the book row (and verify the book exists)
           const upd = await pool.query(
             `
@@ -281,12 +302,9 @@ await Promise.all([
           );
 
           if (!upd.rowCount) {
-            try {
-  await fs.unlink(main);
-} catch {}
-try {
-  await fs.unlink(raw);
-} catch {}
+            for (const f of [rawPath, normalizedPath, homePath, legacyPath]) {
+              try { await fs.unlink(f); } catch {}
+            }
             return res.status(404).json({ error: "book_not_found_for_cover", id });
           }
 
@@ -294,7 +312,9 @@ try {
             ok: true,
             id,
             bytes: req.file.buffer.length,
-            cover: `/uploads/covers/${id}.jpg`,
+            cover:      `/uploads/covers/${id}.jpg`,
+            normalized: `/uploads/covers/normalized/${id}.jpg`,
+            home:       `/uploads/covers/normalized/${id}-home.jpg`,
             coverUploadedAt: upd.rows?.[0]?.coveruploadedat || null,
           });
         } catch (e) {
