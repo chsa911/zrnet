@@ -1058,15 +1058,12 @@ if (pages == null || pages <= 0) {
 }
 `}</style>
       {!isEdit && existingMatches.length ? (
-        <div className="bfd-msg bfd-existing">
+        <div className="bfd-msg bfd-existing" onMouseLeave={() => setHoveredMatch(null)}>
           <div className="bfd-existing-text">
             Treffer gefunden — bitte das richtige Buch wählen:
           </div>
 
-          <div
-            className="bfd-existing-actions"
-            onMouseLeave={() => setHoveredMatch(null)}
-          >
+          <div className="bfd-existing-actions">
             <button
               type="button"
               className="bfd-btn bfd-btn-clear"
@@ -1122,6 +1119,8 @@ if (pages == null || pages <= 0) {
                   className={`bfd-btn ${isSelected ? "bfd-btn-update" : "bfd-btn-muted"}`}
                   disabled={busy}
                   style={{ display: "flex", flexDirection: "column", alignItems: "stretch", padding: 0, overflow: "hidden", minWidth: 140 }}
+                  onMouseEnter={() => setHoveredMatch(m)}
+                  onFocus={() => setHoveredMatch(m)}
                   onClick={() => {
                     matchJustSelectedRef.current = true;
                     setExistingMatch(m);
@@ -1178,6 +1177,10 @@ if (pages == null || pages <= 0) {
             });
             })()}
           </div>
+
+          {hoveredMatch ? (
+            <CoverPreview id={hoveredMatch.id} src={hoveredMatch.coverUrl} />
+          ) : null}
         </div>
       ) : null}
 
