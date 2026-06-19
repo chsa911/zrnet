@@ -880,6 +880,16 @@ const prefixes = [primaryPrefix, backupPrefix];
           AND ba.freed_at IS NULL
           AND b.reading_status = 'in_progress'
       )
+      -- hard rule: a barcode may only be suggested again once it has NO
+      -- remaining links at all in book_barcodes (covers legacy/duplicate
+      -- assignments that never went through barcode_assignments, e.g.
+      -- leftovers from the Mongo->Postgres migration). As long as ANY
+      -- book still points at this code, it stays excluded.
+      AND NOT EXISTS (
+        SELECT 1
+        FROM public.book_barcodes bb2
+        WHERE lower(bb2.barcode) = lower(bi.barcode)
+      )
     ORDER BY
       array_position($1::text[], lower(regexp_replace(bi.barcode, '[0-9]+$', ''))),
       bi.rank_in_inventory ASC,
@@ -926,16 +936,18 @@ const prefixes = [primaryPrefix, backupPrefix];
       }
     }
 
-    // hard rule: barcode may not be used by any OTHER in_progress book
+    // hard rule: barcode may not be used by any OTHER book at all.
+    // Checked against book_barcodes (the actual current-link table),
+    // not just barcode_assignments+in_progress, so stale/duplicate links
+    // (e.g. from the Mongo->Postgres migration) block re-assignment too.
+    // Only once ALL such links are freed (their book_barcodes row deleted)
+    // does the barcode become assignable again.
     const activeUse = await pool.query(
       `
-      SELECT ba.book_id::text AS book_id
-      FROM public.barcode_assignments ba
-      JOIN public.books b ON b.id = ba.book_id
-      WHERE lower(ba.barcode) = lower($1)
-        AND ba.freed_at IS NULL
-        AND b.reading_status = 'in_progress'
-        AND ba.book_id <> $2::uuid
+      SELECT bb.book_id::text AS book_id
+      FROM public.book_barcodes bb
+      WHERE lower(bb.barcode) = lower($1)
+        AND bb.book_id <> $2::uuid
       LIMIT 1
       `,
       [barcode, bookId]
@@ -2523,11 +2535,14 @@ if ((patch.sub_genre_abbr ?? patch.subgenre_abbr) !== undefined) {
               AND ba.book_id = $1::uuid
               AND ba.freed_at IS NOT NULL
           )
+            -- Authoritative check: only flip back to AVAILABLE once this
+            -- barcode has zero remaining links in book_barcodes (covers
+            -- legacy/duplicate links that have no matching open row in
+            -- barcode_assignments and would otherwise be missed).
             AND NOT EXISTS (
               SELECT 1
-              FROM public.barcode_assignments ba2
-              WHERE lower(ba2.barcode) = lower(bi.barcode)
-                AND ba2.freed_at IS NULL
+              FROM public.book_barcodes bb2
+              WHERE lower(bb2.barcode) = lower(bi.barcode)
             )
           `,
           [id]

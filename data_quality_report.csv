@@ -1,0 +1,83 @@
+id,first_name,last_name,name_display,expected_display,namenszusatz,name_particle,category
+698dbc5a-f189-4145-92b3-28760adae450,Lorenzo,Medici,Lorenzo de Medici,Lorenzo Medici,de,,namenszusatz_ok_case_diff
+2768ec44-2b1f-4508-80ce-b7cc46e4106f,Melissa De La,Cruz,Melissa De la Cruz,Melissa De La Cruz,,,particle_embedded_in_name_field
+fe80439d-66e9-4de2-8d4f-b01f5e1d9041,Philippe Pozzo Die,Borgo,Philippe Pozzo die Borgo,Philippe Pozzo Die Borgo,,,particle_embedded_in_name_field
+cf27d6d2-31ab-4bbf-a5ef-10d5292ac720,Nelson,Demille,Nelson DeMille,Nelson Demille,,,other
+9537150b-0d3f-4f2d-b71f-7e44db5a9da7,Don,Delillo,Don DeLillo,Don Delillo,,,other
+dc84f9da-640e-4a61-b36d-cfd1a6caaddd,Constanze,Elsner,Constanze,Constanze Elsner,,,other
+e9328ed7-7e32-4b13-a16d-ad0521a8ec39,Pierre La,Mure,Pierre la Mure,Pierre La Mure,,,particle_embedded_in_name_field
+c7b2c63d-953b-4887-91a1-525f2176d77c,Annette,Droste-Huelshoff,von Droste-Huelshoff,Annette Droste-Huelshoff,von,,namenszusatz_drops_firstname
+da9f70c8-85bf-45fe-9522-8068966df9cb,Andrea-Uve Di,Fabriciaco,Andrea-Uve di Fabriciaco,Andrea-Uve Di Fabriciaco,,,particle_embedded_in_name_field
+e20e7923-0f01-4c58-83a1-a57c18024a14,Joseph,Eichendorff,von Eichendorff,Joseph Eichendorff,von,,namenszusatz_drops_firstname
+67812888-f441-497c-80a9-bd19f8f8a4bc,Alexander Von,Schönburg,Alexander von Schönburg,Alexander Von Schönburg,,,particle_embedded_in_name_field
+eaf8ac72-99ee-4101-bbc3-80045085ace6,Mitch,Alborch,Mitch Albom,Mitch Alborch,,,other
+e6de00b4-8519-4b80-bc55-d752fa962c7a,David,Guterson,Guterson,David Guterson,,,other
+8d30afb0-20cd-4b2d-a484-6134c86e9ffd,Gabriella Baumann- Von,Arx,Gabriella Baumann- von Arx,Gabriella Baumann- Von Arx,,,particle_embedded_in_name_field
+0a45b347-fd12-46de-881b-6692145ec4bb,Arturo,Perez-Reverte,Perez-Reverte,Arturo Perez-Reverte,,,other
+ad3818db-89c9-41f5-9309-bf2f919836d7,Funny Van,Money,Funny van Money,Funny Van Money,,,particle_embedded_in_name_field
+244186f9-2cde-4fa0-b7ea-4a0352e95551,International Group Of,Controlling,International Group of Controlling,International Group Of Controlling,,,other
+e3497546-adee-4750-8163-d49580c52305,Josef Schmitz Van,Vorst,Josef Schmitz van Vorst,Josef Schmitz Van Vorst,,,particle_embedded_in_name_field
+1f1433bc-dd29-4d87-aaa8-57a0b5cd196f,Toshikazu,川口俊和,Toshikazu Kawaguchi,Toshikazu 川口俊和,,,other
+b6c979c9-ef78-43cd-b0da-d1e3edb7341a,Hoimar,Ditfurth,Hoimar von Ditfurth,Hoimar Ditfurth,von,,namenszusatz_ok_case_diff
+05e318de-b2e5-4395-a9a7-9aaabd2d7f87,Cornelia Von Schelling; Ann-Christine,Cornelia Von Schelling; Ann-Christine Woehrl,Cornelia Von Schelling; Ann-Christine Woehrl,Cornelia Von Schelling; Ann-Christine Cornelia Von Schelling; Ann-Christine Woehrl,,,other
+3fd8dedd-32a4-4aef-a45f-d53d71946281,Beo,Unbekannt,Unbekannt,Beo Unbekannt,,,other
+78c707a2-c712-4a3d-8839-a27bb048a2c5,Helmut,Müller,Helmut M. Müller,Helmut Müller,,,other
+469097fa-d57f-4956-9138-86516b2cb6c2,Lonely,Planet,Simon Richmond,Lonely Planet,,,other
+0692974d-9300-4074-bf47-ab30803cec10,Geza,Cziffra,von Cziffra,Geza Cziffra,von,,namenszusatz_drops_firstname
+ce5f6b7b-dc2c-4d5b-8b2b-4a8ea56fa025,Kurt De,Swaaf,Kurt de Swaaf,Kurt De Swaaf,,,particle_embedded_in_name_field
+f82af5bc-429f-43ca-9124-91a98e87afe0,Thassilo Von,Scheffer,Thassilo von Scheffer,Thassilo Von Scheffer,,,particle_embedded_in_name_field
+b32ec316-1774-4614-a399-bf24c0b5edc7,Ildefonso Falcones De,Sierra,Ildefonso Falcones de Sierra,Ildefonso Falcones De Sierra,,,particle_embedded_in_name_field
+d02ca51c-33ab-49c6-9710-12d6dc464b43,Marie,Ebner Eschenbach,von Ebner Eschenbach,Marie Ebner Eschenbach,von,,namenszusatz_drops_firstname
+6a4525c4-64ed-4373-b5cf-9712d331fb5c,Luci,Yamamoto,Isabel Albiston,Luci Yamamoto,,,other
+ecf51fd8-b46d-432e-9e29-0ef665b24eb9,Joe,Joe Miller,Joe Miller,Joe Joe Miller,,,other
+b4963ca4-6c7d-4ee4-8d9e-cd1b8fa4aba7,Wolfgang,Wolfgang Kemmer,Wolfgang Kemmer,Wolfgang Wolfgang Kemmer,,,other
+7c41429a-dd59-4b91-aa7c-4a2f6a08a07c,David Macneil,Doren,David MacNeil Doren,David Macneil Doren,,,other
+71e6815f-6679-4465-9057-d3514ef6cc12,Magnus,Macfarlane-Barrow,Magnus MacFarlane-Barrow,Magnus Macfarlane-Barrow,,,other
+8f98b8ef-f1ab-4c45-9201-73dc2aa877b5,Raǧāʾ ʿabdallāh Aṣ-,Ṣāniʿ,Raǧāʾ ʿAbdallāh aṣ- Ṣāniʿ,Raǧāʾ ʿabdallāh Aṣ- Ṣāniʿ,,,other
+ac3372dd-2e55-4630-bad6-d65e638d6141,Dr. Med Bob,Flaws,Dr. med Bob Flaws,Dr. Med Bob Flaws,,,other
+e5b48c0b-1ebd-4f77-a60e-b62c6235779e,Ildikó Von,Kürthy,Ildiko von Kürthy,Ildikó Von Kürthy,,,particle_embedded_in_name_field
+3cb8a3f3-e83c-4c40-a3eb-419b16d04a04,Edith,Pargeter,Ellis Peters,Edith Pargeter,,,other
+5c73a861-3047-423e-ac1c-895566b49140,Joseph,Eichendorff,von Eichendorff,Joseph Eichendorff,von,,namenszusatz_drops_firstname
+50975c11-537f-417d-a3a9-5e9dabe4d497,Antje,Schaeffer-KüHnemann,Antje Schaeffer-Kühnemann,Antje Schaeffer-KüHnemann,,,other
+9499c8ec-62b6-4f34-9df8-d29c8785a52d,Margriet De,Moor,Margriet de Moor,Margriet De Moor,,,particle_embedded_in_name_field
+c01641cf-1c9b-4a87-a135-204af9d24127,Heinz,Sielmann,Sielmann,Heinz Sielmann,,,other
+6d8f51f7-3e15-45d0-a902-61912cbfa083,Evan,Green,Green,Evan Green,,,other
+0a0310d6-7774-4d83-83ab-fccd845d702b,Gabriele,Beyerlein,Gabriele Beyerlein.,Gabriele Beyerlein,,,other
+6c287b62-9d43-4af6-9fb7-732cfdb29533,Nils,Minkmar,Minkmar,Nils Minkmar,,,other
+d84a285c-1ea3-4dac-a0d0-bce391b8a6b1,Leopold,Sacher-Masoch,Leopold von Sacher-Masoch,Leopold Sacher-Masoch,von,,namenszusatz_ok_case_diff
+db91bd1b-4061-41cb-86cd-ee2273f1816a,Stefan,König,Johann König,Stefan König,,,other
+bb126a22-24ca-48ef-8e94-c8b312b1ea2c,Institut Européen D'Archéologie Sous-Marine,(Paris),Institut Européen d'Archéologie Sous-Marine (Paris),Institut Européen D'Archéologie Sous-Marine (Paris),,,other
+13d3764e-366c-41e5-84b5-8053ec1c1b7d,Hugo,Hofmannsthal,Hugo von Hofmannsthal,Hugo Hofmannsthal,,,other
+0ae60260-3fb0-4a19-ac1c-6e45b74a4ad7,Will,Berthold,Willi Berthold,Will Berthold,,,other
+b61062fe-0914-47cb-8b40-3ab8810c8e31,Maya,Anouk,Maya Angelou,Maya Anouk,,,other
+07442786-ea07-48ec-9610-0bc6e30539fd,Erich,Daeniken,von Daeniken,Erich Daeniken,von,,namenszusatz_drops_firstname
+18bc351f-1e8d-4de3-a8e1-7a474552ca7d,Eckart,Hirschhausen,von Hirschhausen,Eckart Hirschhausen,von,,namenszusatz_drops_firstname
+8514e3bd-108c-4906-8a16-01f054e06bd9,Felix,Cube,von Cube,Felix Cube,von,,namenszusatz_drops_firstname
+0b3f9426-a2c3-42b1-9c41-868789155c15,Isolde / Ludwig,Steiner,Dr. Isolde Steiner / Prof. Ludwig Steiner,Isolde / Ludwig Steiner,,,other
+c352c3a6-3e29-4921-9b70-3f300229bfcd,Molly,Mcadams,Molly McAdams,Molly Mcadams,,,other
+cd0b6c66-ad5c-48c1-beab-b127a6b9264c,Freida,Mcfadden,Freida McFadden,Freida Mcfadden,,,other
+2d7d5629-4983-4f47-99f0-8c8d714b7e8d,Thomas,Heim,Dr. med. Thomas Heim,Thomas Heim,,,other
+9f2f3f7e-c1c9-47f2-b937-b176c53d7e19,Betty,Mahmoody,Mahtob Mahmoody,Betty Mahmoody,,,other
+9952e98c-8edc-4b82-b0a3-e82cec4e3c75,Diana Beate,Hellmann,Diana Beate,Diana Beate Hellmann,,,other
+e4184bcb-9ebb-4d99-8e48-4e268e56d4c9,Betty,Mahmoody,Mahtob Mahmoody,Betty Mahmoody,,,other
+27d2fd98-7c7e-40be-893d-718edf1b2097,Ric Von,Weizsaecker,Helmut R. Schulze,Ric Von Weizsaecker,,,particle_embedded_in_name_field
+7b634765-c2d2-4203-80f8-91509daa3615,Janwillem Van De,Wetering,Janwillem Van de Wetering,Janwillem Van De Wetering,,,particle_embedded_in_name_field
+705b9aac-633e-47e1-87fd-3c0e05843967,Elliott,Erwitt,Elliot Erwitt,Elliott Erwitt,,,other
+2dda9871-db9b-4b6d-b808-ab8d168f0003,Mazo De La,Roche,Mazo de la Roche,Mazo De La Roche,,,particle_embedded_in_name_field
+abaadad9-2d47-4b61-bebb-19c34a2c2470,Simon,Beck,Simon Beckett,Simon Beck,,,other
+155dfc38-db05-4fe3-a8d9-927dfa89a68d,Heinrich,Kleist,von Kleist,Heinrich Kleist,von,,namenszusatz_drops_firstname
+0d70ae0a-c700-4522-973a-a37da1efb9f1,Volker / Michael,Klüpfel & Kobr,Volker Klüpfel / Michael Kobr,Volker / Michael Klüpfel & Kobr,,,other
+3c691e56-7950-4e8d-8ef5-23fe554c4054,Friedrich,Albert,Friedrich A. von Hayek,Friedrich Albert,,,other
+23bdbdac-d1c2-4ed3-a3aa-6f280d0e7447,Isabel,Allemann,Isabel Allende,Isabel Allemann,,,other
+df1d36e9-422b-4cb7-9b63-e43d93ab0c3d,Ildikó,Kuerthy,von Kuerthy,Ildikó Kuerthy,von,,namenszusatz_drops_firstname
+289e3197-1e9b-4f1d-84b4-649f4f7dccad,Robert T.,Kyosaki,Robert T. Kiyosaki,Robert T. Kyosaki,,,other
+ee62ff2c-be08-4109-8c54-8236c59856a2,Dr. Med. Klaus,Grygat,Dr. med. Klaus Grygat,Dr. Med. Klaus Grygat,,,other
+4065ef8a-16a8-4a00-9fac-22237506c95e,Jane Van Lawick,Goodall,Jane van Lawick Goodall,Jane Van Lawick Goodall,,,other
+adca7668-3f2a-4c2d-9de9-e5aa09ac63be,Eric,Lustbader,Eric van Lustbader,Eric Lustbader,van,,namenszusatz_ok_case_diff
+c47eb02b-5245-4d0e-876f-a5c2a2e93589,Evelyn B.,Mccune,Evelyn B. McCune,Evelyn B. Mccune,,,other
+082bf81c-d2e3-4571-9358-2c686f5eaa40,Carolyn,Mccarthy,Carolyn McCarthy,Carolyn Mccarthy,,,other
+fef825a2-caff-4303-b8b9-81e7d2fa8284,Alister,Mcgrath,Alister McGrath,Alister Mcgrath,,,other
+86f6039c-51a9-46ae-9bb1-733019767ac3,Robert,Ranke-Graves,Robert von Ranke-Graves,Robert Ranke-Graves,von,,namenszusatz_ok_case_diff
+fc986ae4-0063-42fe-a832-ad934277203b,Fritz-Dietlof,Schulenburg,von der Schulenburg,Fritz-Dietlof Schulenburg,,von der,other
+29f2c76b-8bbd-4982-ab08-9627154db3e6,Alois Th,Sonnleitner,A. Th. Sonnleitner,Alois Th Sonnleitner,,,other
+26328df7-a0b7-46ee-90ef-a9dbf8e56d41,Jan,Zanger,Jan de Zanger,Jan Zanger,de,,namenszusatz_ok_case_diff
