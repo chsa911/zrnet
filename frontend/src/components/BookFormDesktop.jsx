@@ -5,6 +5,7 @@ import {
   findDraft,
   lookupIsbn,
   registerBook,
+  recordBarcodeConflict,
   registerExistingBook,
   updateBook,
 } from "../api/books";
@@ -45,6 +46,57 @@ function parseIntOrNull(s) {
   if (!t) return null;
   const n = Number.parseInt(t, 10);
   return Number.isFinite(n) ? n : null;
+}
+
+// Known backend error codes for book save failures, mapped to friendly
+// German messages. The server may already send a `message` (see
+// sendKnownPgError / internal_error responses in booksPgController.js) -
+// that always wins. This map is the fallback for codes that come back as a
+// bare `{ error: "<code>" }` with no message, plus a generic fallback for
+// anything unrecognized so the user is never shown a raw error code.
+const BOOK_SAVE_ERROR_MESSAGES = {
+  missing_required_fields:
+    "Bitte Pflichtfelder ausfüllen (Titel, Autor, Verlag, Seiten).",
+  width_and_height_required:
+    "Breite und Höhe sind erforderlich, um einen Barcode zuzuweisen.",
+  no_series_for_size: "Für diese Maße wurde keine passende Serie gefunden.",
+  no_barcodes_available: "Kein freier Barcode für diese Serie verfügbar.",
+  barcode_not_found: "Barcode wurde nicht gefunden.",
+  barcode_not_available: "Barcode ist nicht verfügbar.",
+  barcode_already_assigned: "Barcode ist bereits einem anderen Buch zugewiesen.",
+  barcode_already_assigned_to_other_book:
+    "Barcode ist bereits einem anderen Buch zugewiesen.",
+  barcode_wrong_position: "Barcode passt nicht zur erwarteten Position.",
+  barcode_wrong_prefix: "Barcode passt nicht zur erwarteten Serie.",
+  barcode_has_unresolved_conflict:
+    "Dieser Barcode hat eine ungelöste Konflikt-Markierung (auf einem anderen Buch beobachtet). Bitte zuerst klären oder einen anderen Barcode wählen.",
+  duplicate_value: "Dieser Eintrag existiert bereits (Duplikat).",
+  invalid_reference:
+    "Ein verknüpfter Datensatz (z. B. Autor, Verlag oder Genre) wurde nicht gefunden.",
+  missing_required_field: "Ein Pflichtfeld fehlt.",
+  invalid_value: "Eine Eingabe ist ungültig.",
+  invalid_input_format: "Ein Feld hat ein ungültiges Format.",
+  internal_error: "Speichern ist fehlgeschlagen (Serverfehler). Bitte erneut versuchen.",
+};
+
+// Turns a thrown error from the books API into a friendly German message.
+// `err.message` is what api/books.js throws - it's already the backend's
+// `message` field when present, otherwise the bare `error` code or HTTP text.
+function friendlySaveErrorMessage(err) {
+  if (!err) return "Fehler beim Speichern.";
+
+  if (err instanceof TypeError || /failed to fetch|networkerror/i.test(String(err?.message))) {
+    return "Server nicht erreichbar. Bitte Internetverbindung prüfen und erneut versuchen.";
+  }
+
+  const raw = String(err?.message || "").trim();
+  if (!raw) return "Fehler beim Speichern.";
+
+  // If the backend already sent a human-readable message (contains spaces /
+  // umlauts), trust it as-is.
+  if (/[ äöüß]/i.test(raw)) return raw;
+
+  return BOOK_SAVE_ERROR_MESSAGES[raw] || `Fehler beim Speichern (${raw}).`;
 }
 
 function parseFloatOrNull(s) {
@@ -368,6 +420,19 @@ export default function BookFormDesktop({
   const [busy, setBusy] = useState(false);
   const [isbnBusy, setIsbnBusy] = useState(false);
   const [msg, setMsg] = useState("");
+  const [msgType, setMsgType] = useState("info"); // "success" | "error" | "info"
+
+  // "Found a barcode already used by another book" — logs a conflict
+  // observation after save, completely separate from the normal barcode
+  // assignment above. Never sent as payload.barcode, never touches
+  // book_barcodes/barcode_assignments.
+  const [conflictBarcode, setConflictBarcode] = useState("");
+  const [conflictNote, setConflictNote] = useState("");
+
+  function showMsg(text, type = "info") {
+    setMsg(text);
+    setMsgType(type);
+  }
   const [ac, setAc] = useState({ field: "", items: [] });
   const [barcodePreview, setBarcodePreview] = useState(null);
   const [barcodePreviewErr, setBarcodePreviewErr] = useState("");
@@ -624,11 +689,11 @@ export default function BookFormDesktop({
   async function doIsbnLookup() {
     const n = normalizeIsbnInputs(v.isbn13, v.isbn10);
     const isbn = n.isbn13 || n.isbn10 || "";
-    if (!isbn) return setMsg("ISBN fehlt.");
-    if (!n.lookupOk) return setMsg("ISBN sieht ungültig aus. Lookup übersprungen.");
+    if (!isbn) return showMsg("ISBN fehlt.", "error");
+    if (!n.lookupOk) return showMsg("ISBN sieht ungültig aus. Lookup übersprungen.", "error");
 
     setIsbnBusy(true);
-    setMsg("");
+    showMsg("", "info");
     try {
       const r = await lookupIsbn(isbn);
       const s = r?.suggested || r || {};
@@ -655,9 +720,9 @@ export default function BookFormDesktop({
         publisher_id: prev.publisher_id || s.publisher_id || "",
         publisher_name_display: prev.publisher_name_display || s.publisher_name_display || "",
       }));
-      setMsg("ISBN gefunden ✔");
+      showMsg("ISBN gefunden ✔", "success");
     } catch (e) {
-      setMsg(e?.message || "ISBN Lookup fehlgeschlagen");
+      showMsg(e?.message || "ISBN Lookup fehlgeschlagen", "error");
     } finally {
       setIsbnBusy(false);
     }
@@ -770,18 +835,18 @@ if (pages == null || pages <= 0) {
 
   async function onSubmit(e) {
     e.preventDefault();
-    setMsg("");
+    showMsg("", "info");
 
     let payload;
     try {
       payload = buildPayload();
     } catch (err) {
-      setMsg(err?.message || "Ungültige Eingabe");
+      showMsg(err?.message || "Ungültige Eingabe", "error");
       return;
     }
 
     if (isEdit && Object.keys(payload).length === 0) {
-      setMsg("Keine Änderungen.");
+      showMsg("Keine Änderungen.", "info");
       return;
     }
 
@@ -796,14 +861,36 @@ if (pages == null || pages <= 0) {
         saved = await registerBook(payload);
       }
       onSuccess?.({ payload, saved });
-      setMsg(payload.draft_id ? "Vorhandenes Buch aktualisiert ✔" : isEdit ? "Gespeichert." : "Gespeichert ✔");
+
+      let successMsg = payload.draft_id ? "Vorhandenes Buch aktualisiert ✔" : isEdit ? "Gespeichert." : "Gespeichert ✔";
+
+      const foundBarcode = String(conflictBarcode || "").trim();
+      if (!isEdit && foundBarcode) {
+        const newId = saved?.id || saved?._id;
+        try {
+          await recordBarcodeConflict(newId, {
+            barcode: foundBarcode,
+            note: String(conflictNote || "").trim() || undefined,
+          });
+          successMsg += ` · Barcode-Fund "${foundBarcode}" vermerkt (ungelöst).`;
+        } catch (conflictErr) {
+          // Book itself is already saved successfully -- don't lose that.
+          // Just surface that the conflict note failed separately.
+          successMsg += ` · ⚠ Barcode-Fund "${foundBarcode}" konnte NICHT vermerkt werden: ${conflictErr?.message || conflictErr}`;
+        }
+      }
+
+      showMsg(successMsg, "success");
       if (!isEdit) {
         setV({ ...emptyForm });
         setExistingMatches([]);
         setExistingMatch(null);
+        setConflictBarcode("");
+        setConflictNote("");
       }
     } catch (err) {
-      setMsg(err?.message || "Fehler beim Speichern");
+      console.error("Buch konnte nicht gespeichert werden", err);
+      showMsg(friendlySaveErrorMessage(err), "error");
     } finally {
       setBusy(false);
     }
@@ -991,6 +1078,26 @@ if (pages == null || pages <= 0) {
   font-weight: 900;
   padding: 12px 14px;
   min-height: 78px;
+  border-radius: 8px;
+  border: 3px solid transparent;
+}
+
+.bfd-msg--error {
+  color: #b00020;
+  background: rgba(200, 0, 0, 0.06);
+  border-color: rgba(200, 0, 0, 0.35);
+}
+
+.bfd-msg--success {
+  color: #1b6e2c;
+  background: rgba(0, 140, 60, 0.06);
+  border-color: rgba(0, 140, 60, 0.3);
+}
+
+.bfd-msg--info {
+  color: inherit;
+  background: rgba(0, 0, 0, 0.02);
+  border-color: rgba(0, 0, 0, 0.12);
 }
 
 .bfd-ac-wrap {
@@ -1184,7 +1291,15 @@ if (pages == null || pages <= 0) {
         </div>
       ) : null}
 
-      {msg ? <div ref={msgRef} className="bfd-msg">{msg}</div> : null}
+      {msg ? (
+        <div
+          ref={msgRef}
+          role={msgType === "error" ? "alert" : "status"}
+          className={`bfd-msg bfd-msg--${msgType}`}
+        >
+          {msg}
+        </div>
+      ) : null}
 
     <div className="bfd-top-frame">
   <div className="bfd-row">
@@ -1308,6 +1423,31 @@ if (pages == null || pages <= 0) {
         </div>
       </div>
 
+      {!isEdit ? (
+        <div className="bfd-row" style={{ flexDirection: "column", gap: 6, border: "2px dashed #d08a00", padding: 10, marginBottom: 12 }}>
+          <strong style={{ fontSize: 16 }}>Barcode-Fund (bereits vergeben / Konflikt)</strong>
+          <span style={{ fontSize: 13, color: "#666" }}>
+            Nur ausfüllen, wenn auf dem physischen Buch ein Barcode klebt, der laut System schon einem
+            anderen Buch zugeordnet ist. Wird als ungelöster Konflikt vermerkt — verändert die normale
+            Barcode-Zuweisung oben NICHT.
+          </span>
+          <input
+            className="bfd-input"
+            placeholder="Gefundener Barcode, z. B. dik030"
+            value={conflictBarcode}
+            disabled={busy}
+            onChange={(e) => setConflictBarcode(e.target.value)}
+          />
+          <input
+            className="bfd-input"
+            placeholder="Notiz (optional)"
+            value={conflictNote}
+            disabled={busy}
+            onChange={(e) => setConflictNote(e.target.value)}
+          />
+        </div>
+      ) : null}
+
       <div className="bfd-row">
         <button className="bfd-btn bfd-btn-primary" disabled={busy} type="submit">
           {busy ? "…" : existingMatch?.id ? "Ausgewähltes Buch registrieren" : submitLabel}
@@ -1321,7 +1461,7 @@ if (pages == null || pages <= 0) {
             setV({ ...emptyForm });
             setExistingMatch(null);
             setExistingMatches([]);
-            setMsg("");
+            showMsg("", "info");
           }}
         >
           ✕ Leeren

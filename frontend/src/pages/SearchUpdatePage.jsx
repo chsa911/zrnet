@@ -520,7 +520,11 @@ export default function SearchUpdatePage() {
       const res = await fetch(`/api/books/barcodes/${encodeURIComponent(barcode)}/history`);
       if (!res.ok) throw new Error("Barcode-History konnte nicht geladen werden");
       const data = await res.json();
-      setBarcodeHistory({ barcode, items: data?.items || data || [] });
+      setBarcodeHistory({
+        barcode,
+        items: data?.items || data || [],
+        conflicts: data?.conflicts || [],
+      });
     } catch (e) {
       alert(e?.message || "Barcode-History fehlgeschlagen");
     }
@@ -569,6 +573,9 @@ export default function SearchUpdatePage() {
         .su-cell--filters { grid-column: 4 / 19; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; background: #e9e9e9; padding: 12px; }
         .su-search-input { width: 100%; border: 0; outline: 0; background: transparent; color: #111; font: inherit; line-height: 1; padding: 0; }
         .su-search-input::placeholder { color: #9a9a9a; opacity: 1; }
+        .su-history-trigger { flex: 0 0 auto; margin-left: 10px; border: 3px solid #666; background: #fff; color: #111; font-size: 13px; font-weight: 850; padding: 8px 10px; cursor: pointer; white-space: nowrap; }
+        .su-history-trigger:hover { background: #fff2a8; }
+        .su-history-trigger:disabled { color: #aaa; cursor: default; opacity: 0.6; }
         .su-filter { height: 38px; border: 3px solid #666; border-radius: 0; background: #fff; color: #333; font-size: 15px; font-weight: 700; padding: 0 8px; max-width: 150px; }
         .su-text { display: flex; flex-direction: column; gap: 6px; min-width: 0; width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
         .su-inline-edit { all: unset; cursor: pointer; width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -614,6 +621,7 @@ export default function SearchUpdatePage() {
         .su-history-title { margin: 0; font-size: 24px; font-weight: 850; }
         .su-history-close { border: 3px solid #666; background: #fff; color: #111; font-size: 16px; font-weight: 850; padding: 8px 12px; cursor: pointer; }
         .su-history-row { border-top: 3px solid #666; padding: 10px 0; font-size: 18px; font-weight: 750; }
+        .su-history-row--warning { background: #fff3e0; color: #8b4d00; font-size: 15px; font-weight: 700; padding: 10px; border: 2px solid #f0a000; border-top: 2px solid #f0a000; }
         .su-author-link { color: inherit; text-decoration: none; min-width: 0; width: 100%; display: flex; overflow: hidden; }
         .su-author-link:hover { text-decoration: underline; }
         .su-history-sub { display: block; margin-top: 4px; color: #777; font-size: 13px; font-weight: 700; }
@@ -646,6 +654,15 @@ export default function SearchUpdatePage() {
         <form className="su-search-row" onSubmit={(e) => { e.preventDefault(); setQ((prev) => ({ ...prev, ...searchPatch(searchText) })); }}>
           <div className="su-cell su-cell--search">
             <input className="su-search-input" placeholder="Search" value={searchText} onChange={(e) => setSearchText(e.target.value)} aria-label="Search books" />
+            <button
+              type="button"
+              className="su-history-trigger"
+              title="Zeigt den vollständigen Barcode-Verlauf für den eingegebenen Code – unabhängig davon, ob er aktuell einem Buch zugeordnet ist."
+              disabled={!searchText.trim()}
+              onClick={() => openBarcodeHistory(searchText.trim())}
+            >
+              Barcode-Verlauf
+            </button>
           </div>
           <div className="su-cell su-cell--filters">
             <select className="su-filter" value={q.sortBy} onChange={(e) => setQuery({ sortBy: e.target.value, page: 1 })} aria-label="Sortieren">
@@ -857,19 +874,48 @@ export default function SearchUpdatePage() {
             <button type="button" className="su-history-close" onClick={() => setBarcodeHistory(null)}>Schließen</button>
           </div>
           {barcodeHistory.items.length ? (
-            barcodeHistory.items.map((h, i) => (
-              <div className="su-history-row" key={h.id || h.book_id || i}>
-                {h.title_display || h.title_keyword || h.book_title || h.book_id || "—"}
-                <span className="su-history-sub">
-                  {h.reading_status ? `${h.reading_status} · ` : ""}
-                  {h.assigned_at ? "assigned " : ""}{h.assigned_at ? fmtDate(h.assigned_at) : null}
-                  {h.freed_at ? " · freed " : ""}{h.freed_at ? fmtDate(h.freed_at) : null}
-                </span>
-              </div>
-            ))
+            <>
+              {barcodeHistory.items.some(
+                (h) => h.is_open && h.book_id && h.current_link_book_id && h.book_id !== h.current_link_book_id
+              ) ? (
+                <div className="su-history-row su-history-row--warning">
+                  ⚠ Dieser Barcode ist laut Verlauf offen einem Buch zugeordnet, aber der aktuelle Link
+                  zeigt auf ein anderes Buch ({barcodeHistory.items[0]?.current_link_title || barcodeHistory.items[0]?.current_link_book_id || "—"},
+                  {" "}{barcodeHistory.items[0]?.current_link_pages ?? "—"} Seiten). Vermutlich wurde die Zuordnung beim Neu-Registrieren nicht aktualisiert.
+                </div>
+              ) : null}
+              {barcodeHistory.items.map((h, i) => {
+                const isCurrentLink = !!h.book_id && h.book_id === h.current_link_book_id;
+                return (
+                  <div className="su-history-row" key={h.id || h.book_id || i}>
+                    {h.title_display || h.title_keyword || h.book_title || h.book_id || "— kein Buchdatensatz —"}
+                    {isCurrentLink ? <strong> (aktuell verlinkt)</strong> : null}
+                    <span className="su-history-sub">
+                      Seiten: {h.pages ?? "—"}
+                      {h.reading_status ? ` · ${h.reading_status}` : ""}
+                      {h.assigned_at ? " · assigned " : ""}{h.assigned_at ? fmtDate(h.assigned_at) : null}
+                      {h.freed_at ? " · freed " : ""}{h.freed_at ? fmtDate(h.freed_at) : (h.is_open ? " · offen" : "")}
+                    </span>
+                  </div>
+                );
+              })}
+            </>
           ) : (
             <div className="su-history-row">Keine History gefunden.</div>
           )}
+          {barcodeHistory.conflicts && barcodeHistory.conflicts.length > 0 ? (
+            <>
+              {barcodeHistory.conflicts.map((c) => (
+                <div className="su-history-row su-history-row--warning" key={c.id}>
+                  ⚠ Auch beobachtet auf: {c.title_display || c.book_id}
+                  {c.pages != null ? ` (${c.pages} Seiten)` : ""}
+                  {" · "}{fmtDate(c.observed_at)}
+                  {c.resolved ? " · gelöst" : " · ungelöst"}
+                  {c.note ? <span className="su-history-sub">{c.note}</span> : null}
+                </div>
+              ))}
+            </>
+          ) : null}
         </div>
       ) : null}
 

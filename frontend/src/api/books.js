@@ -88,6 +88,16 @@ export async function registerBook(payload, { signal } = {}) {
   return http(`/books`, { method: "POST", json: payload, signal });
 }
 
+export async function recordBarcodeConflict(bookId, { barcode, note } = {}, { signal } = {}) {
+  if (!bookId) throw new Error("Missing book id");
+  if (!barcode) throw new Error("Missing barcode");
+  return http(`/books/${encodeURIComponent(bookId)}/barcode-conflict`, {
+    method: "POST",
+    json: { barcode, note },
+    signal,
+  });
+}
+
 export async function registerExistingBook(id, payload, { signal } = {}) {
   if (!id) throw new Error("Missing book id");
   return http(`/admin/books/${encodeURIComponent(id)}/register`, {

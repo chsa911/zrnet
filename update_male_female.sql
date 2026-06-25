@@ -662,7 +662,7 @@ FROM (VALUES
   ('a5057025-90e1-4056-9cb8-bf7716712495'::uuid, 'male'),
   ('8eed4741-2cb5-4692-8be6-f54112f5f1c3'::uuid, 'male'),
   ('54f2da78-1f2f-4743-89c3-066e40397f0c'::uuid, 'male'),
-  ('1dc83bc6-1a04-4336-9d1e-3774cf944915'::uuid, 'male'),
+    ('1dc83bc6-1a04-4336-9d1e-3774cf944915'::uuid, 'male'),
   ('6bc21077-550b-4d7d-af20-5faa75ca8ff7'::uuid, 'female'),
   ('503abf2a-a1a1-49af-974f-49dd1b4731c5'::uuid, 'male'),
   ('bfaa1ea0-7fdc-46e4-9227-3620af8546bc'::uuid, 'male'),

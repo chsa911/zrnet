@@ -327,6 +327,19 @@
   async function updateBookFromMobile(client, bookId, parsed) {
     const { pages, readingStatus, rsUpdatedAt, topBook, topBookSetAt } = parsed;
 
+    // Capture the status before this update so we can tell, below, whether
+    // this call is the one actually transitioning in_progress -> finished/
+    // abandoned. Don't rely solely on a DB trigger to free the barcode on
+    // that transition (see comment near MOBILE_ALLOWED_STATUSES) — that
+    // trigger may never have actually been applied, and a phone is the one
+    // client that can legitimately finish/abandon a book outside the normal
+    // edit form, so this path needs its own explicit cleanup too.
+    const prevRes = await client.query(
+      `SELECT reading_status FROM public.books WHERE id = $1::uuid FOR UPDATE`,
+      [bookId]
+    );
+    const prevStatus = prevRes.rows[0]?.reading_status ?? null;
+
     // Guard against out-of-order / stale syncs overwriting a newer status:
     // only let the incoming reading_status win if (a) it's one of the statuses a
     // phone is allowed to report, AND (b) its timestamp is strictly newer than
@@ -389,6 +402,55 @@
       row.reading_status_updated_at &&
       rsUpdatedAt &&
       new Date(row.reading_status_updated_at).getTime() === new Date(rsUpdatedAt).getTime();
+
+    // Explicit barcode release on the in_progress -> finished/abandoned
+    // transition, mirroring the cleanup in booksPgController.js's updateBook
+    // (set freed_at on the open ledger row, drop the live link, flip
+    // inventory back to AVAILABLE only if no other in_progress book still
+    // holds it). Only fires once, on the actual transition.
+    if (
+      statusApplied &&
+      prevStatus === "in_progress" &&
+      (row.reading_status === "finished" || row.reading_status === "abandoned")
+    ) {
+      await client.query(
+        `
+        WITH freed AS (
+          UPDATE public.barcode_assignments
+          SET freed_at = now()
+          WHERE book_id = $1::uuid
+            AND freed_at IS NULL
+          RETURNING barcode
+        )
+        DELETE FROM public.book_barcodes
+        WHERE book_id = $1::uuid
+        `,
+        [bookId]
+      );
+
+      await client.query(
+        `
+        UPDATE public.barcode_inventory bi
+        SET status = 'AVAILABLE',
+            updated_at = now()
+        WHERE EXISTS (
+          SELECT 1
+          FROM public.barcode_assignments ba
+          WHERE lower(ba.barcode) = lower(bi.barcode)
+            AND ba.book_id = $1::uuid
+            AND ba.freed_at IS NOT NULL
+        )
+          AND NOT EXISTS (
+            SELECT 1
+            FROM public.book_barcodes bb2
+            JOIN public.books b2 ON b2.id = bb2.book_id
+            WHERE lower(bb2.barcode) = lower(bi.barcode)
+              AND b2.reading_status = 'in_progress'
+          )
+        `,
+        [bookId]
+      );
+    }
 
     return { statusApplied, current: row };
   }

@@ -481,6 +481,8 @@ action_country: row.action_country ?? null,
     const code = String(err?.code || "");
     const msg = String(err?.message || "");
     const detail = String(err?.detail || "");
+    const constraint = String(err?.constraint || "");
+    const column = String(err?.column || "");
 
     if (code === "23505" && /near_duplicate_book_blocked/i.test(msg)) {
       return res.status(409).json({
@@ -488,6 +490,62 @@ action_country: row.action_country ?? null,
         message:
           "Ein sehr ähnlicher Bucheintrag wurde gerade eben bereits angelegt. Bitte den vorhandenen Eintrag weiterverwenden.",
         existing_book_id: parseExistingBookIdFromPgDetail(detail),
+        detail: detail || null,
+      });
+    }
+
+    // Generic unique-constraint violation (duplicate value on some column).
+    if (code === "23505") {
+      return res.status(409).json({
+        error: "duplicate_value",
+        message: constraint
+          ? `Dieser Wert ist bereits vergeben (Regel: ${constraint}).`
+          : "Dieser Eintrag existiert bereits (Duplikat).",
+        constraint: constraint || null,
+        detail: detail || null,
+      });
+    }
+
+    // Foreign key violation - e.g. author_id/publisher_id/genre_id/sub_genre_id
+    // points at a row that doesn't exist.
+    if (code === "23503") {
+      return res.status(400).json({
+        error: "invalid_reference",
+        message:
+          "Ein verknüpfter Datensatz (z. B. Autor, Verlag oder Genre) wurde nicht gefunden.",
+        constraint: constraint || null,
+        detail: detail || null,
+      });
+    }
+
+    // NOT NULL violation - a required DB column was left empty.
+    if (code === "23502") {
+      return res.status(400).json({
+        error: "missing_required_field",
+        message: column
+          ? `Pflichtfeld fehlt: ${column}.`
+          : "Ein Pflichtfeld fehlt.",
+        column: column || null,
+      });
+    }
+
+    // CHECK constraint violation - e.g. width/height < 1, invalid format,
+    // invalid reading_status, invalid language code, etc.
+    if (code === "23514") {
+      return res.status(400).json({
+        error: "invalid_value",
+        message: constraint
+          ? `Eingabe verletzt eine Datenregel (${constraint}).`
+          : "Eine Eingabe ist ungültig.",
+        constraint: constraint || null,
+      });
+    }
+
+    // Malformed input value (e.g. invalid UUID or number for a typed column).
+    if (code === "22P02") {
+      return res.status(400).json({
+        error: "invalid_input_format",
+        message: "Ein Feld hat ein ungültiges Format (z. B. ID oder Zahl).",
         detail: detail || null,
       });
     }
@@ -880,15 +938,29 @@ const prefixes = [primaryPrefix, backupPrefix];
           AND ba.freed_at IS NULL
           AND b.reading_status = 'in_progress'
       )
-      -- hard rule: a barcode may only be suggested again once it has NO
-      -- remaining links at all in book_barcodes (covers legacy/duplicate
-      -- assignments that never went through barcode_assignments, e.g.
-      -- leftovers from the Mongo->Postgres migration). As long as ANY
-      -- book still points at this code, it stays excluded.
+      -- hard rule: only a book with reading_status = 'in_progress' may
+      -- hold a barcode (business rule). So a barcode is only blocked if
+      -- it's linked (via book_barcodes, the actual current-link table,
+      -- not the possibly-desynced barcode_assignments ledger) to a book
+      -- that is still in_progress. Stale links to finished/abandoned/
+      -- wishlist books (leftover rows that were never cleaned up, e.g.
+      -- from the Mongo->Postgres migration) must NOT block re-suggestion.
       AND NOT EXISTS (
         SELECT 1
         FROM public.book_barcodes bb2
+        JOIN public.books b2 ON b2.id = bb2.book_id
         WHERE lower(bb2.barcode) = lower(bi.barcode)
+          AND b2.reading_status = 'in_progress'
+      )
+      -- never hand out a barcode that an admin has flagged as "also seen
+      -- on another book, unresolved" (barcode_conflict_observations) --
+      -- that would turn a two-book dispute into a three-book one before
+      -- anyone got a chance to sort it out.
+      AND NOT EXISTS (
+        SELECT 1
+        FROM public.barcode_conflict_observations co
+        WHERE lower(co.barcode) = lower(bi.barcode)
+          AND co.resolved = false
       )
     ORDER BY
       array_position($1::text[], lower(regexp_replace(bi.barcode, '[0-9]+$', ''))),
@@ -936,18 +1008,19 @@ const prefixes = [primaryPrefix, backupPrefix];
       }
     }
 
-    // hard rule: barcode may not be used by any OTHER book at all.
-    // Checked against book_barcodes (the actual current-link table),
-    // not just barcode_assignments+in_progress, so stale/duplicate links
-    // (e.g. from the Mongo->Postgres migration) block re-assignment too.
-    // Only once ALL such links are freed (their book_barcodes row deleted)
-    // does the barcode become assignable again.
+    // hard rule: a barcode may not be used by any OTHER book that is
+    // currently reading_status = 'in_progress'. Only an in_progress book
+    // may hold a barcode; finished/abandoned/wishlist links are stale
+    // leftovers (legacy data, tolerated but must not block re-assignment
+    // going forward) and must NOT block re-assignment.
     const activeUse = await pool.query(
       `
       SELECT bb.book_id::text AS book_id
       FROM public.book_barcodes bb
+      JOIN public.books b ON b.id = bb.book_id
       WHERE lower(bb.barcode) = lower($1)
         AND bb.book_id <> $2::uuid
+        AND b.reading_status = 'in_progress'
       LIMIT 1
       `,
       [barcode, bookId]
@@ -955,6 +1028,24 @@ const prefixes = [primaryPrefix, backupPrefix];
 
     if (activeUse.rowCount) {
       throw new Error("barcode_already_assigned_to_other_book");
+    }
+
+    // Same rule as pickBestBarcode's suggestion query, enforced again here
+    // so a manually-typed barcode (not just an auto-suggested one) can't
+    // slip past it: refuse to commit a barcode that has an unresolved
+    // conflict observation against it.
+    const conflict = await pool.query(
+      `
+      SELECT 1
+      FROM public.barcode_conflict_observations
+      WHERE lower(barcode) = lower($1)
+        AND resolved = false
+      LIMIT 1
+      `,
+      [barcode]
+    );
+    if (conflict.rowCount) {
+      throw new Error("barcode_has_unresolved_conflict");
     }
 
     await pool.query(
@@ -970,7 +1061,16 @@ const prefixes = [primaryPrefix, backupPrefix];
 
     await pool.query(`DELETE FROM public.book_barcodes WHERE book_id = $1::uuid`, [bookId]);
 
-    await pool.query(
+    // book_barcodes.barcode is UNIQUE, so if a previous (now-freed) book still
+    // holds a stale row for this exact barcode, the INSERT below would hit
+    // ON CONFLICT DO NOTHING and silently fail to link the NEW book — leaving
+    // it with no visible barcode anywhere search/list it by, while the old
+    // book keeps showing up under this barcode with its own (wrong) data.
+    // Clear any stale row for this barcode value first, regardless of which
+    // book currently holds it.
+    await pool.query(`DELETE FROM public.book_barcodes WHERE lower(barcode) = lower($1)`, [barcode]);
+
+    const linkRes = await pool.query(
       `
       INSERT INTO public.book_barcodes (book_id, barcode)
       VALUES ($1::uuid, $2)
@@ -978,6 +1078,15 @@ const prefixes = [primaryPrefix, backupPrefix];
       `,
       [bookId, barcode]
     );
+
+    // ON CONFLICT DO NOTHING does not raise an error — if the row didn't
+    // actually get inserted (rowCount 0), the save would otherwise commit
+    // "successfully" with the book registered but no visible barcode link,
+    // and nothing would ever tell the user. Fail loudly instead so this
+    // surfaces as a real, displayed error.
+    if (linkRes.rowCount !== 1) {
+      throw new Error("book_barcode_link_failed");
+    }
 
     await pool.query(
       `
@@ -1457,6 +1566,59 @@ return res.json({
       return res.status(500).json({ error: "internal_error" });
     }
   }
+  /* ------------------------- save-attempt audit log ------------------------- */
+  // Logged via `pool` (its own committed statement), OUTSIDE the books/barcode
+  // transaction below. If that transaction later rolls back (book never gets
+  // created), this row survives and records what was typed in and when —
+  // previously a failed save left zero trace anywhere in the DB. Both
+  // helpers are no-ops (just console.error, never throw) if the
+  // book_save_attempts table doesn't exist yet, so they can't break a save.
+  async function logSaveAttempt(pool, data) {
+    try {
+      const r = await pool.query(
+        `
+        INSERT INTO public.book_save_attempts
+          (title_display, author_input, pages, requested_barcode, width_cm, height_cm, request_id, book_id)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+        RETURNING id
+        `,
+        [
+          data.titleDisplay ?? null,
+          data.authorInput ?? null,
+          data.pages ?? null,
+          data.requestedBarcode ?? null,
+          data.widthCm ?? null,
+          data.heightCm ?? null,
+          data.requestId ?? null,
+          data.bookId ?? null,
+        ]
+      );
+      return r.rows[0]?.id ?? null;
+    } catch (e) {
+      console.error("logSaveAttempt failed (non-fatal)", e.message || e);
+      return null;
+    }
+  }
+
+  async function resolveSaveAttempt(pool, attemptId, { status, bookId, errorMessage } = {}) {
+    if (!attemptId) return;
+    try {
+      await pool.query(
+        `
+        UPDATE public.book_save_attempts
+        SET status = $2,
+            book_id = COALESCE($3, book_id),
+            error_message = $4,
+            resolved_at = now()
+        WHERE id = $1
+        `,
+        [attemptId, status ?? "failed", bookId ?? null, errorMessage ?? null]
+      );
+    } catch (e) {
+      console.error("resolveSaveAttempt failed (non-fatal)", e.message || e);
+    }
+  }
+
   /* --------------------------------- create --------------------------------- */
 
   async function registerBook(req, res) {
@@ -1501,6 +1663,27 @@ return res.json({
       if (!Number.isFinite(widthCm) || !Number.isFinite(heightCm) || widthCm <= 0 || heightCm <= 0) {
         return res.status(400).json({ error: "width_and_height_required" });
       }
+
+      const titleOk = !!normalizeStr(body.title_display);
+      const authorOk = !!(
+        normalizeUuid(body.author_id) ||
+        normalizeStr(body.author_lastname) ||
+        normalizeStr(body.name_display ?? body.author_name_display)
+      );
+      const publisherOk = !!(
+        normalizeUuid(body.publisher_id) ||
+        normalizeStr(body.publisher_name_display) ||
+        normalizeStr(body.publisher_abbr)
+      );
+      const pagesVal = normalizeInt(body.pages);
+      const missingFields = [];
+      if (!titleOk) missingFields.push("title");
+      if (!authorOk) missingFields.push("author");
+      if (!publisherOk) missingFields.push("publisher");
+      if (!Number.isFinite(pagesVal) || pagesVal <= 0) missingFields.push("pages");
+      if (missingFields.length) {
+        return res.status(400).json({ error: "missing_required_fields", fields: missingFields });
+      }
     }
 
     const rule = assignBarcodeNow ? await resolveRuleAndPos(pool, widthCm, heightCm) : null;
@@ -1520,6 +1703,16 @@ return res.json({
       : (assignBarcodeNow ? "in_progress" : "in_stock");
     const nowIso = new Date().toISOString();
     const statusTs = status === "finished" || status === "abandoned" ? nowIso : null;
+
+    const attemptId = await logSaveAttempt(pool, {
+      titleDisplay: normalizeStr(body.title_display),
+      authorInput: normalizeStr(body.name_display ?? body.author_name_display ?? body.author_lastname),
+      pages: normalizeInt(body.pages),
+      requestedBarcode,
+      widthCm,
+      heightCm,
+      requestId,
+    });
 
     try {
       const cols = await getColumns(pool, "books");
@@ -1643,6 +1836,7 @@ sub_genre_id: normalizeInt(body.sub_genre_id),
 
         if (!assignBarcodeNow) {
           await client.query("COMMIT");
+          await resolveSaveAttempt(pool, attemptId, { status: "success", bookId });
           const full = await fetchBookWithBarcode(pool, bookId);
           return res.status(201).json(rowToApi(full));
         }
@@ -1651,6 +1845,10 @@ sub_genre_id: normalizeInt(body.sub_genre_id),
         if (!barcode) barcode = await pickBestBarcode(client, rule);
         if (!barcode) {
           await client.query("ROLLBACK");
+          await resolveSaveAttempt(pool, attemptId, {
+            status: "failed",
+            errorMessage: "no_barcodes_available",
+          });
           return res.status(409).json({ error: "no_barcodes_available" });
         }
 
@@ -1664,6 +1862,7 @@ sub_genre_id: normalizeInt(body.sub_genre_id),
         });
 
         await client.query("COMMIT");
+        await resolveSaveAttempt(pool, attemptId, { status: "success", bookId });
 
         const full = await fetchBookWithBarcode(pool, bookId);
         return res.status(201).json(rowToApi(full));
@@ -1676,10 +1875,27 @@ sub_genre_id: normalizeInt(body.sub_genre_id),
         client.release();
       }
     } catch (err) {
+      await resolveSaveAttempt(pool, attemptId, {
+        status: "failed",
+        errorMessage: String(err?.message || err),
+      });
+
       const knownPg = sendKnownPgError(res, err);
       if (knownPg) return knownPg;
 
       const msg = String(err?.message || err);
+      if (msg === "book_barcode_link_failed") {
+        return res.status(409).json({
+          error: "book_barcode_link_failed",
+          message: "Fehler beim Speichern: Barcode konnte nicht verknüpft werden (vermutlich noch einem anderen Buch zugeordnet). Bitte erneut versuchen oder einen anderen Barcode wählen.",
+        });
+      }
+      if (msg === "barcode_has_unresolved_conflict") {
+        return res.status(409).json({
+          error: "barcode_has_unresolved_conflict",
+          message: "Fehler beim Speichern: Dieser Barcode hat eine ungelöste Konflikt-Markierung (wurde auf einem anderen Buch beobachtet). Bitte zuerst klären oder einen anderen Barcode wählen.",
+        });
+      }
       const map = {
         barcode_not_found: [404, "barcode_not_found"],
         barcode_not_available: [409, "barcode_not_available"],
@@ -1687,6 +1903,7 @@ sub_genre_id: normalizeInt(body.sub_genre_id),
         barcode_already_assigned_to_other_book: [409, "barcode_already_assigned_to_other_book"],
         barcode_wrong_position: [400, "barcode_wrong_position"],
         barcode_wrong_prefix: [400, "barcode_wrong_prefix"],
+        barcode_has_unresolved_conflict: [409, "barcode_has_unresolved_conflict"],
       };
       if (map[msg]) {
         const [statusCode, code] = map[msg];
@@ -1694,7 +1911,10 @@ sub_genre_id: normalizeInt(body.sub_genre_id),
       }
 
       console.error("registerBook error", err);
-      return res.status(500).json({ error: "internal_error" });
+      return res.status(500).json({
+        error: "internal_error",
+        message: "Speichern ist fehlgeschlagen (Serverfehler). Bitte erneut versuchen.",
+      });
     }
   }
   async function saveExistingBookWithoutBarcode(req, res, idOverride) {
@@ -1917,7 +2137,10 @@ if (body.sub_genre_id !== undefined && cols.has("sub_genre_id")) {
       if (knownPg) return knownPg;
 
       console.error("saveExistingBookWithoutBarcode error", err);
-      return res.status(500).json({ error: "internal_error" });
+      return res.status(500).json({
+        error: "internal_error",
+        message: "Speichern ist fehlgeschlagen (Serverfehler). Bitte erneut versuchen.",
+      });
     } finally {
       client.release();
     }
@@ -1964,13 +2187,23 @@ if (body.sub_genre_id !== undefined && cols.has("sub_genre_id")) {
         )
       : null;
 
+    const attemptId = await logSaveAttempt(pool, {
+      titleDisplay: normalizeStr(body.title_display),
+      authorInput: normalizeStr(body.name_display ?? body.author_name_display ?? body.author_lastname),
+      pages: normalizeInt(body.pages),
+      requestedBarcode,
+      widthCm,
+      heightCm,
+      bookId: id,
+    });
+
     const client = await pool.connect();
     try {
       await client.query("BEGIN");
 
       const curRes = await client.query(
         `
-        SELECT id, registered_at, reading_status, author_id, publisher_id
+        SELECT id, registered_at, reading_status, author_id, publisher_id, title_display, pages
         FROM public.books
         WHERE id = $1::uuid
         FOR UPDATE
@@ -2109,6 +2342,26 @@ if (
         updates.height = Number.isFinite(h) ? cmToMm(h) : null;
       }
 
+      {
+        const effectiveTitle = updates.title_display !== undefined ? updates.title_display : curRes.rows[0].title_display;
+        const effectivePages = updates.pages !== undefined ? updates.pages : curRes.rows[0].pages;
+        const finalAuthorId = updates.author_id !== undefined ? updates.author_id : effectiveAuthorId;
+        const finalPublisherId = updates.publisher_id !== undefined ? updates.publisher_id : effectivePublisherId;
+        const missingFields = [];
+        if (!normalizeStr(effectiveTitle)) missingFields.push("title");
+        if (!finalAuthorId) missingFields.push("author");
+        if (!finalPublisherId) missingFields.push("publisher");
+        if (!Number.isFinite(effectivePages) || effectivePages <= 0) missingFields.push("pages");
+        if (missingFields.length) {
+          await client.query("ROLLBACK");
+          await resolveSaveAttempt(pool, attemptId, {
+            status: "failed",
+            errorMessage: "missing_required_fields:" + missingFields.join(","),
+          });
+          return res.status(400).json({ error: "missing_required_fields", fields: missingFields });
+        }
+      }
+
       if (body.top_book !== undefined) {
         const nextTop = normalizeBool(body.top_book);
         if (nextTop !== null && nextTop !== undefined) {
@@ -2144,6 +2397,10 @@ if (
       if (!barcode) barcode = await pickBestBarcode(client, rule);
       if (!barcode) {
         await client.query("ROLLBACK");
+        await resolveSaveAttempt(pool, attemptId, {
+          status: "failed",
+          errorMessage: "no_barcodes_available",
+        });
         return res.status(409).json({ error: "no_barcodes_available" });
       }
 
@@ -2157,6 +2414,7 @@ if (
       });
 
       await client.query("COMMIT");
+      await resolveSaveAttempt(pool, attemptId, { status: "success", bookId: id });
       const full = await fetchBookWithBarcode(pool, id);
       return res.json(rowToApi(full));
     } catch (err) {
@@ -2164,10 +2422,27 @@ if (
         await client.query("ROLLBACK");
       } catch {}
 
+      await resolveSaveAttempt(pool, attemptId, {
+        status: "failed",
+        errorMessage: String(err?.message || err),
+      });
+
       const knownPg = sendKnownPgError(res, err);
       if (knownPg) return knownPg;
 
       const msg = String(err?.message || err);
+      if (msg === "book_barcode_link_failed") {
+        return res.status(409).json({
+          error: "book_barcode_link_failed",
+          message: "Fehler beim Speichern: Barcode konnte nicht verknüpft werden (vermutlich noch einem anderen Buch zugeordnet). Bitte erneut versuchen oder einen anderen Barcode wählen.",
+        });
+      }
+      if (msg === "barcode_has_unresolved_conflict") {
+        return res.status(409).json({
+          error: "barcode_has_unresolved_conflict",
+          message: "Fehler beim Speichern: Dieser Barcode hat eine ungelöste Konflikt-Markierung (wurde auf einem anderen Buch beobachtet). Bitte zuerst klären oder einen anderen Barcode wählen.",
+        });
+      }
       const map = {
         barcode_not_found: [404, "barcode_not_found"],
         barcode_not_available: [409, "barcode_not_available"],
@@ -2175,6 +2450,7 @@ if (
         barcode_already_assigned_to_other_book: [409, "barcode_already_assigned_to_other_book"],
         barcode_wrong_position: [400, "barcode_wrong_position"],
         barcode_wrong_prefix: [400, "barcode_wrong_prefix"],
+        barcode_has_unresolved_conflict: [409, "barcode_has_unresolved_conflict"],
       };
       if (map[msg]) {
         const [statusCode, code] = map[msg];
@@ -2182,7 +2458,10 @@ if (
       }
 
       console.error("registerExistingBook error", err);
-      return res.status(500).json({ error: "internal_error" });
+      return res.status(500).json({
+        error: "internal_error",
+        message: "Speichern ist fehlgeschlagen (Serverfehler). Bitte erneut versuchen.",
+      });
     } finally {
       client.release();
     }
@@ -2204,7 +2483,8 @@ if (
 
       const curRes = await client.query(
         `
-        SELECT reading_status, reading_status_updated_at, top_book, author_id, publisher_id
+        SELECT reading_status, reading_status_updated_at, top_book, author_id, publisher_id,
+               title_display, pages, width, height
         FROM public.books
         WHERE id=$1::uuid
         FOR UPDATE
@@ -2410,11 +2690,25 @@ if ((patch.sub_genre_abbr ?? patch.subgenre_abbr) !== undefined) {
 
       if (patch.width_cm !== undefined) {
         const w = toNum(patch.width_cm);
-        updates.width = Number.isFinite(w) ? cmToMm(w) : null;
+        const nextWidth = Number.isFinite(w) ? cmToMm(w) : null;
+        // Once a real width has been recorded, it must never be cleared back
+        // to NULL again — even after a barcode is later freed (finished /
+        // abandoned). Clearing was the root cause of books ending up
+        // "finished" with no width/height and no barcode trail at all.
+        if (nextWidth === null && cur.width != null) {
+          await client.query("ROLLBACK");
+          return res.status(409).json({ error: "width_cannot_be_cleared" });
+        }
+        updates.width = nextWidth;
       }
       if (patch.height_cm !== undefined) {
         const h = toNum(patch.height_cm);
-        updates.height = Number.isFinite(h) ? cmToMm(h) : null;
+        const nextHeight = Number.isFinite(h) ? cmToMm(h) : null;
+        if (nextHeight === null && cur.height != null) {
+          await client.query("ROLLBACK");
+          return res.status(409).json({ error: "height_cannot_be_cleared" });
+        }
+        updates.height = nextHeight;
       }
 
       if (patch.top_book !== undefined) {
@@ -2456,6 +2750,36 @@ if ((patch.sub_genre_abbr ?? patch.subgenre_abbr) !== undefined) {
             } else if (changed && nextStatus !== "finished" && nextStatus !== "abandoned") {
               updates.reading_status_updated_at = null;
             }
+          }
+        }
+      }
+
+      // Books that are (or are about to become) anything other than
+      // "wishlist" must carry full bibliographic data. This catches both
+      // (a) moving a bare wishlist row into in_stock/in_progress/etc. without
+      // filling these in, and (b) clearing them out afterwards via a plain
+      // PATCH while the book is already past wishlist.
+      {
+        const effectiveStatus = updates.reading_status !== undefined ? updates.reading_status : cur.reading_status;
+        if (effectiveStatus && effectiveStatus !== "wishlist") {
+          const effectiveTitle = updates.title_display !== undefined ? updates.title_display : cur.title_display;
+          const effectivePages = updates.pages !== undefined ? updates.pages : cur.pages;
+          const effectiveWidth = updates.width !== undefined ? updates.width : cur.width;
+          const effectiveHeight = updates.height !== undefined ? updates.height : cur.height;
+          const effectiveAuthorId = updates.author_id !== undefined ? updates.author_id : cur.author_id;
+          const effectivePublisherId = updates.publisher_id !== undefined ? updates.publisher_id : cur.publisher_id;
+
+          const missingFields = [];
+          if (!normalizeStr(effectiveTitle)) missingFields.push("title");
+          if (!effectiveAuthorId) missingFields.push("author");
+          if (!effectivePublisherId) missingFields.push("publisher");
+          if (!Number.isFinite(effectivePages) || effectivePages <= 0) missingFields.push("pages");
+          if (!Number.isFinite(effectiveWidth) || effectiveWidth <= 0) missingFields.push("width");
+          if (!Number.isFinite(effectiveHeight) || effectiveHeight <= 0) missingFields.push("height");
+
+          if (missingFields.length) {
+            await client.query("ROLLBACK");
+            return res.status(400).json({ error: "missing_required_fields", fields: missingFields });
           }
         }
       }
@@ -2536,13 +2860,16 @@ if ((patch.sub_genre_abbr ?? patch.subgenre_abbr) !== undefined) {
               AND ba.freed_at IS NOT NULL
           )
             -- Authoritative check: only flip back to AVAILABLE once this
-            -- barcode has zero remaining links in book_barcodes (covers
-            -- legacy/duplicate links that have no matching open row in
-            -- barcode_assignments and would otherwise be missed).
+            -- barcode has zero remaining links to a book that is still
+            -- reading_status = 'in_progress' (the only status allowed to
+            -- hold a barcode). Stale finished/abandoned/wishlist links
+            -- (legacy data) must NOT block it from becoming available.
             AND NOT EXISTS (
               SELECT 1
               FROM public.book_barcodes bb2
+              JOIN public.books b2 ON b2.id = bb2.book_id
               WHERE lower(bb2.barcode) = lower(bi.barcode)
+                AND b2.reading_status = 'in_progress'
             )
           `,
           [id]
@@ -2562,7 +2889,10 @@ if ((patch.sub_genre_abbr ?? patch.subgenre_abbr) !== undefined) {
       if (knownPg) return knownPg;
 
       console.error("updateBook error", err);
-      return res.status(500).json({ error: "internal_error" });
+      return res.status(500).json({
+        error: "internal_error",
+        message: "Speichern ist fehlgeschlagen (Serverfehler). Bitte erneut versuchen.",
+      });
     } finally {
       client.release();
     }
@@ -2631,6 +2961,7 @@ async function getBarcodeHistory(req, res) {
         ba.book_id::text AS book_id,
         ba.assigned_at,
         ba.freed_at,
+        (ba.freed_at IS NULL) AS is_open,
 
         b.title_display,
         b.title_keyword,
@@ -2640,13 +2971,25 @@ async function getBarcodeHistory(req, res) {
 
         a.name_display AS author_name_display,
         a.last_name AS author_lastname,
-        a.abbr AS author_abbr
+        a.abbr AS author_abbr,
+
+        -- whoever book_barcodes currently says holds this physical barcode
+        -- right now (same value on every row; lets the UI flag a ledger
+        -- entry whose book_id no longer matches the live link, i.e. a
+        -- desynced/"lost" registration).
+        cur.book_id::text AS current_link_book_id,
+        curb.pages AS current_link_pages,
+        curb.title_display AS current_link_title
 
       FROM public.barcode_assignments ba
       LEFT JOIN public.books b
         ON b.id = ba.book_id
       LEFT JOIN public.authors a
         ON a.id = b.author_id
+      LEFT JOIN public.book_barcodes cur
+        ON lower(cur.barcode) = lower(ba.barcode)
+      LEFT JOIN public.books curb
+        ON curb.id = cur.book_id
 
       WHERE lower(ba.barcode) = lower($1)
 
@@ -2657,15 +3000,124 @@ async function getBarcodeHistory(req, res) {
       [barcode]
     );
 
+    const { rows: conflicts } = await pool.query(
+      `
+      SELECT
+        co.id::text AS id,
+        co.book_id::text AS book_id,
+        co.barcode,
+        co.observed_at,
+        co.note,
+        co.resolved,
+        co.resolved_at,
+        co.resolution_note,
+        b.title_display,
+        b.pages
+      FROM public.barcode_conflict_observations co
+      LEFT JOIN public.books b ON b.id = co.book_id
+      WHERE lower(co.barcode) = lower($1)
+      ORDER BY co.observed_at DESC
+      `,
+      [barcode]
+    );
+
     return res.json({
       barcode,
+      current_link_book_id: rows[0]?.current_link_book_id ?? null,
       items: rows,
+      conflicts,
     });
   } catch (err) {
     console.error("getBarcodeHistory error", err);
     return res.status(500).json({ error: "internal_error" });
   }
 }
+// Admin escape hatch: record that a barcode was physically observed on an
+// existing book even though it's already (or possibly) claimed elsewhere.
+// Does NOT touch book_barcodes/barcode_assignments -- it's a flagged note,
+// not a real link, so it can never create the duplicate-owner desync those
+// tables are protected against. See sql/20260625_barcode_conflict_observations.sql.
+async function recordBarcodeConflict(req, res) {
+  try {
+    const pool = getPool(req);
+    const bookId = String(req.params.bookId || "").trim();
+    const barcode = String(req.body?.barcode || "").trim();
+    const note = req.body?.note ? String(req.body.note).trim() : null;
+
+    if (!UUID_RE.test(bookId)) {
+      return res.status(400).json({ error: "invalid_book_id" });
+    }
+    if (!barcode) {
+      return res.status(400).json({ error: "missing_barcode" });
+    }
+
+    const bookRes = await pool.query(
+      `SELECT id, title_display FROM public.books WHERE id = $1::uuid`,
+      [bookId]
+    );
+    if (bookRes.rowCount === 0) {
+      return res.status(404).json({ error: "book_not_found" });
+    }
+
+    // Informational only -- who currently, legitimately holds this barcode.
+    const currentRes = await pool.query(
+      `SELECT book_id::text AS book_id, b.title_display
+       FROM public.book_barcodes bb
+       LEFT JOIN public.books b ON b.id = bb.book_id
+       WHERE lower(bb.barcode) = lower($1)`,
+      [barcode]
+    );
+
+    const { rows } = await pool.query(
+      `INSERT INTO public.barcode_conflict_observations (book_id, barcode, note)
+       VALUES ($1::uuid, $2, $3)
+       RETURNING id, book_id::text AS book_id, barcode, observed_at, note, resolved`,
+      [bookId, barcode, note]
+    );
+
+    return res.status(201).json({
+      observation: rows[0],
+      current_holder: currentRes.rows[0] || null,
+    });
+  } catch (err) {
+    console.error("recordBarcodeConflict error", err);
+    return res.status(500).json({ error: "internal_error" });
+  }
+}
+
+// Mark a previously recorded conflict as resolved (e.g. once you've sorted
+// out by hand which book really owns the barcode).
+async function resolveBarcodeConflict(req, res) {
+  try {
+    const pool = getPool(req);
+    const id = String(req.params.id || "").trim();
+    const resolutionNote = req.body?.resolution_note
+      ? String(req.body.resolution_note).trim()
+      : null;
+
+    if (!UUID_RE.test(id)) {
+      return res.status(400).json({ error: "invalid_id" });
+    }
+
+    const { rows } = await pool.query(
+      `UPDATE public.barcode_conflict_observations
+       SET resolved = true, resolved_at = now(), resolution_note = $2
+       WHERE id = $1::uuid
+       RETURNING id, book_id::text AS book_id, barcode, observed_at, resolved, resolved_at, resolution_note`,
+      [id, resolutionNote]
+    );
+
+    if (rows.length === 0) {
+      return res.status(404).json({ error: "observation_not_found" });
+    }
+
+    return res.json({ observation: rows[0] });
+  } catch (err) {
+    console.error("resolveBarcodeConflict error", err);
+    return res.status(500).json({ error: "internal_error" });
+  }
+}
+
 async function setHighlight(req, res) {
   const pool = getPool(req);
 
@@ -2729,6 +3181,8 @@ async function setHighlight(req, res) {
     registerExistingBook,
     updateBook,
     dropBook,
-    getBarcodeHistory, 
-    setHighlight,   
+    getBarcodeHistory,
+    setHighlight,
+    recordBarcodeConflict,
+    resolveBarcodeConflict,
   };
