@@ -33,6 +33,7 @@ import { API_BASE } from "./api/config";
 import HighlightReceivedPage from "./pages/HighlightReceivedPage";
 import KauflinkUpdatePage from "./pages/KauflinkUpdatePage";
 import SubGenrePage from "./pages/SubGenrePage";
+import CoachingPage from "./pages/CoachingPage";
 const ENV_BASE = (import.meta?.env?.VITE_API_BASE_URL || import.meta?.env?.VITE_API_BASE || "").trim();
 const BASE = String(ENV_BASE || API_BASE || "/api").replace(/\/$/, "");
 
@@ -132,6 +133,7 @@ export default function App() {
         <Route path="bookthemes.html" element={<Navigate to="/bookthemes" replace />} />
 
         <Route path="beta-test" element={<BetaTestPage />} />
+        <Route path="coaching" element={<CoachingPage />} />
 
         {/* analytics */}
         <Route path="analytics/*" element={<AnalyticsPage />} />

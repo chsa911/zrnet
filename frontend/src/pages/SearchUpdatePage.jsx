@@ -371,6 +371,15 @@ export default function SearchUpdatePage() {
     if (debounceRef.current) clearTimeout(debounceRef.current);
     debounceRef.current = setTimeout(() => {
       setQ((prev) => ({ ...prev, ...searchPatch(searchText) }));
+      // Default behavior: whatever was typed, also look up its full
+      // barcode history automatically -- no separate click needed. If the
+      // search box is empty, hide whatever history panel was showing.
+      const trimmed = searchText.trim();
+      if (trimmed) {
+        openBarcodeHistory(trimmed);
+      } else {
+        setBarcodeHistory(null);
+      }
     }, 250);
     return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
   }, [searchText]);
@@ -515,7 +524,7 @@ export default function SearchUpdatePage() {
   }
 
   async function openBarcodeHistory(barcode) {
-    if (!barcode || barcode === "—") return;
+    if (!barcode || barcode === "—") { setBarcodeHistory(null); return; }
     try {
       const res = await fetch(`/api/books/barcodes/${encodeURIComponent(barcode)}/history`);
       if (!res.ok) throw new Error("Barcode-History konnte nicht geladen werden");
@@ -526,7 +535,12 @@ export default function SearchUpdatePage() {
         conflicts: data?.conflicts || [],
       });
     } catch (e) {
-      alert(e?.message || "Barcode-History fehlgeschlagen");
+      // This now also runs automatically on every search keystroke (debounced),
+      // so a blocking alert() would be disruptive. Fail quietly and just hide
+      // the panel; the manual "Barcode-Verlauf" button / row click still work
+      // the same way on the next successful lookup.
+      console.error("Barcode-History fehlgeschlagen", e);
+      setBarcodeHistory(null);
     }
   }
 

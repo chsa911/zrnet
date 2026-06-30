@@ -1,0 +1,198 @@
+.coaching-page {
+  padding: 24px 16px 72px;
+}
+
+.coaching-shell {
+  max-width: 1120px;
+  margin: 0 auto;
+  display: grid;
+  gap: 28px;
+}
+
+.coaching-hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1.18fr) minmax(260px, 0.82fr);
+  gap: 24px;
+  align-items: start;
+}
+
+.coaching-badge,
+.coaching-panel__eyebrow,
+.coaching-featureTag,
+.coaching-hero__asideLabel {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  padding: 6px 10px;
+  font-size: 12px;
+  font-weight: 900;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.coaching-badge,
+.coaching-panel__eyebrow,
+.coaching-featureTag {
+  background: rgba(0, 194, 122, 0.12);
+  color: #06603d;
+  border: 1px solid rgba(0, 194, 122, 0.18);
+}
+
+.coaching-hero__copy {
+  display: grid;
+  gap: 12px;
+}
+
+.coaching-hero h1 {
+  margin: 0;
+  font-size: clamp(36px, 4.8vw, 62px);
+  font-weight: 950;
+  line-height: 1.02;
+  letter-spacing: -0.04em;
+  color: #111111;
+}
+
+.coaching-lede {
+  margin: 0;
+  max-width: 72ch;
+  font-size: 18px;
+  line-height: 1.72;
+  color: rgba(0, 0, 0, 0.72);
+}
+
+.coaching-actions,
+.coaching-cta__actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.coaching-hero__aside,
+.coaching-panel,
+.coaching-cta {
+  border: 1px solid rgba(17, 17, 17, 0.08);
+  border-radius: 22px;
+  background: #ffffff;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.05);
+}
+
+.coaching-hero__aside,
+.coaching-panel,
+.coaching-cta {
+  padding: 20px;
+}
+
+.coaching-hero__aside {
+  display: grid;
+  gap: 10px;
+}
+
+.coaching-hero__asideLabel {
+  width: max-content;
+  background: rgba(0, 0, 0, 0.04);
+  color: rgba(0, 0, 0, 0.62);
+  border: 1px solid rgba(0, 0, 0, 0.07);
+}
+
+.coaching-hero__aside p,
+.coaching-panel p,
+.coaching-cta p {
+  margin: 0;
+  line-height: 1.75;
+  color: rgba(0, 0, 0, 0.82);
+}
+
+.coaching-grid {
+  display: grid;
+  gap: 16px;
+}
+
+.coaching-grid--two {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.coaching-grid--three {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.coaching-section {
+  display: grid;
+  gap: 16px;
+}
+
+.coaching-section__head {
+  display: grid;
+  gap: 10px;
+}
+
+.coaching-section__head h2,
+.coaching-panel h2,
+.coaching-cta h2,
+.coaching-panel h3 {
+  margin: 0;
+  font-size: 22px;
+  font-weight: 950;
+  letter-spacing: -0.02em;
+  color: #111111;
+}
+
+.coaching-panel--feature {
+  display: grid;
+  gap: 10px;
+}
+
+.coaching-bullets {
+  margin-top: 0;
+}
+
+.coaching-cta {
+  display: grid;
+  grid-template-columns: minmax(0, 1.1fr) minmax(250px, 0.9fr);
+  gap: 18px;
+  align-items: center;
+}
+
+.coaching-cta__copy {
+  display: grid;
+  gap: 10px;
+}
+
+.coaching-cta__actions {
+  justify-content: flex-start;
+  align-items: flex-start;
+}
+
+.coaching-cta__mail {
+  width: 100%;
+  padding: 14px 16px;
+  border-radius: 16px;
+  border: 1px solid rgba(17, 17, 17, 0.08);
+  background: #f7f7f7;
+  font-weight: 700;
+  color: #111111;
+}
+
+@media (max-width: 920px) {
+  .coaching-hero,
+  .coaching-grid--two,
+  .coaching-grid--three,
+  .coaching-cta {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 640px) {
+  .coaching-page {
+    padding: 20px 12px 56px;
+  }
+
+  .coaching-hero h1 {
+    font-size: clamp(32px, 11vw, 44px);
+  }
+
+  .coaching-hero__aside,
+  .coaching-panel,
+  .coaching-cta {
+    padding: 18px;
+  }
+}
