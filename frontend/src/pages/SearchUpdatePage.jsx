@@ -489,6 +489,12 @@ export default function SearchUpdatePage() {
   async function setStatus(b, nextStatus) {
     const id = idOf(b);
     if (!id) return alert("Kein Datensatz-ID gefunden.");
+    if (nextStatus === "finished" || nextStatus === "abandoned") {
+      const label = nextStatus === "finished" ? "finished" : "abandoned";
+      const title = b?.title_display || "dieses Buch";
+      const confirmed = window.confirm(`Wollen Sie "${title}" wirklich auf "${label}" setzen?`);
+      if (!confirmed) return;
+    }
     const oldStatus = b?.reading_status ?? null;
     const oldStatusUpdatedAt = b?.reading_status_updated_at ?? null;
     setUpdatingOn(id, true);
