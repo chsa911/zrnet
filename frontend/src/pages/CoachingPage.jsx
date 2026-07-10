@@ -111,7 +111,7 @@ export default function CoachingPage() {
           </div>
 
           <div className="coaching-cta__actions">
-            <div className="coaching-cta__mail">christian@pagesinline.com</div>
+            <div className="coaching-cta__mail">Christopher@pagesinline.com</div>
             <a className="zr-btn2 zr-btn2--primary" href={mailHref}>
               {t("coaching.mail_label")}
             </a>
