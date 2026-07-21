@@ -2759,9 +2759,17 @@ if ((patch.sub_genre_abbr ?? patch.subgenre_abbr) !== undefined) {
       // (a) moving a bare wishlist row into in_stock/in_progress/etc. without
       // filling these in, and (b) clearing them out afterwards via a plain
       // PATCH while the book is already past wishlist.
+      // "finished" and "abandoned" are exempt: these are terminal states set
+      // on existing entries and should not be blocked by missing bibliographic
+      // data (e.g. width/height never having been recorded).
       {
         const effectiveStatus = updates.reading_status !== undefined ? updates.reading_status : cur.reading_status;
-        if (effectiveStatus && effectiveStatus !== "wishlist") {
+        if (
+          effectiveStatus &&
+          effectiveStatus !== "wishlist" &&
+          effectiveStatus !== "finished" &&
+          effectiveStatus !== "abandoned"
+        ) {
           const effectiveTitle = updates.title_display !== undefined ? updates.title_display : cur.title_display;
           const effectivePages = updates.pages !== undefined ? updates.pages : cur.pages;
           const effectiveWidth = updates.width !== undefined ? updates.width : cur.width;
