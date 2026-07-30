@@ -1191,6 +1191,18 @@ title_keyword: "b.title_keyword",
             FROM public.barcode_assignments ba_hist
             WHERE ba_hist.book_id = b.id
               AND ba_hist.barcode ILIKE ${p}
+          ) OR
+          -- A barcode that was physically also spotted on this book (an
+          -- unresolved conflict note) should still surface it in search,
+          -- even though it isn't the "official" owner in book_barcodes.
+          -- Otherwise the book someone is holding in their hands is
+          -- invisible until the conflict gets resolved by hand.
+          EXISTS (
+            SELECT 1
+            FROM public.barcode_conflict_observations co
+            WHERE co.book_id = b.id
+              AND co.resolved = false
+              AND co.barcode ILIKE ${p}
           )
         )`
       );
@@ -2497,6 +2509,12 @@ if (
       }
       const cur = curRes.rows[0];
 
+      const barcodeRes = await client.query(
+        `SELECT 1 FROM public.book_barcodes WHERE book_id = $1::uuid LIMIT 1`,
+        [id]
+      );
+      const hasBarcode = barcodeRes.rowCount > 0;
+
       const updates = {};
       if (patch.genre_id !== undefined && cols.has("genre_id")) {
   updates.genre_id = normalizeInt(patch.genre_id);
@@ -2762,13 +2780,18 @@ if ((patch.sub_genre_abbr ?? patch.subgenre_abbr) !== undefined) {
       // "finished" and "abandoned" are exempt: these are terminal states set
       // on existing entries and should not be blocked by missing bibliographic
       // data (e.g. width/height never having been recorded).
+      // Books with no barcode assigned yet are also exempt: width/height are
+      // only meaningful once a barcode (and its label size) is picked, so a
+      // barcode-less book shouldn't be blocked from simple edits (e.g. fixing
+      // the page count) just because those fields were never captured.
       {
         const effectiveStatus = updates.reading_status !== undefined ? updates.reading_status : cur.reading_status;
         if (
           effectiveStatus &&
           effectiveStatus !== "wishlist" &&
           effectiveStatus !== "finished" &&
-          effectiveStatus !== "abandoned"
+          effectiveStatus !== "abandoned" &&
+          hasBarcode
         ) {
           const effectiveTitle = updates.title_display !== undefined ? updates.title_display : cur.title_display;
           const effectivePages = updates.pages !== undefined ? updates.pages : cur.pages;

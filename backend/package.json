@@ -12,6 +12,7 @@
     "cleanup:bmarkf": "node scripts/cleanupBMarks.js",
     "report:missing": "node scripts/reportMissingBMarks.js",
     "normalize:bmarkf": "node scripts/normalizeBMarkf.js",
+    "check:barcodes": "node scripts/checkBarcodeAvailability.js",
     "lint": "eslint .",
     "cleanup:test:dry": "node ./scripts/cleanupTestData.js",
     "cleanup:test:run": "DRY_RUN=false node ./scripts/cleanupTestData.js"
