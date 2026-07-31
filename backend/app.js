@@ -9,6 +9,7 @@ const multer = require("multer");
 const sharp = require("sharp");
 
 const { resolveCoverUrl } = require("./utils/covers");
+const { adminAuthRequired } = require("./middleware/adminAuth");
 
 const app = express();
 
@@ -91,6 +92,25 @@ function makeCorsOptions() {
 const corsOptions = makeCorsOptions();
 app.use(cors(corsOptions));
 app.options("*", cors(corsOptions));
+
+/**
+ * Site-wide lock: every /api/* route now requires the same admin_auth
+ * cookie as the admin area, so the whole site is treated like the admin
+ * area used to be. Exceptions:
+ *  - /api/admin/*  -> that router manages its own public login/logout
+ *    endpoints and applies adminAuthRequired to everything else itself.
+ *  - /health, /api/health -> unauthenticated health checks for docker/monitoring.
+ * Non-API paths (the SPA shell, JS/CSS bundles) are intentionally left
+ * alone here — they're already blocked at the edge (reverse proxy basic
+ * auth), and the React app needs to load before it can even show the
+ * admin login form.
+ */
+app.use((req, res, next) => {
+  if (req.path.startsWith("/api/admin")) return next();
+  if (req.path === "/health" || req.path === "/api/health") return next();
+  if (!req.path.startsWith("/api/")) return next();
+  return adminAuthRequired(req, res, next);
+});
 
 /* ---------- cover upload ---------- */
 /**
