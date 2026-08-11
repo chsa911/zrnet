@@ -474,37 +474,18 @@ COUNT(b.id) FILTER (WHERE b.top_book = true)::int AS top_books
             -- A book can never be both reading_status='in_stock' and hold an
             -- open barcode itself (enforced by
             -- trg_prevent_open_assignment_unless_in_progress), so the check
-            -- above never actually excludes anything on its own. What DOES
-            -- happen in practice: an old draft row (this one -- in_stock,
-            -- has the cover photo, never finalized) and a separate, later
-            -- book row for the SAME physical book that WAS fully finished
-            -- at the desk (in_progress/finished/abandoned, has the real
-            -- barcode) both exist side by side, because the "reuse this
-            -- draft" step got skipped when the second one was registered.
-            -- Without this check, this stale in_stock row's cover keeps
-            -- resurfacing here forever as a "match" for future books with a
-            -- similar page count, even though this exact book has already
-            -- been fully registered under its other row. Exclude it once a
-            -- barcoded sibling is found by ISBN, or by title (+ author when
-            -- known).
-            AND NOT EXISTS (
-              SELECT 1
-              FROM public.books dup
-              JOIN public.book_barcodes bc ON bc.book_id = dup.id
-              WHERE dup.id <> b.id
-                AND (
-                  (
-                    NULLIF(regexp_replace(upper(coalesce(b.isbn13, '')), '[^0-9X]', '', 'g'), '') IS NOT NULL
-                    AND regexp_replace(upper(coalesce(dup.isbn13, '')), '[^0-9X]', '', 'g')
-                      = regexp_replace(upper(coalesce(b.isbn13, '')), '[^0-9X]', '', 'g')
-                  )
-                  OR (
-                    trim(coalesce(b.title_display, '')) <> ''
-                    AND lower(trim(dup.title_display)) = lower(trim(b.title_display))
-                    AND (b.author_id IS NULL OR dup.author_id = b.author_id)
-                  )
-                )
-            )
+            -- above never actually excludes anything on its own.
+            --
+            -- NOTE: this used to also exclude an in_stock draft once a
+            -- "barcoded sibling" existed with the same ISBN/title, to stop
+            -- stale already-handled drafts from resurfacing. That silently
+            -- hid genuine matches too (e.g. registering a second physical
+            -- copy of a book you already own one finished copy of), so a
+            -- correct in_stock/pages match went missing from this list with
+            -- no way to tell why. Per decision: this list must always show
+            -- every in_stock book within the pages window, without
+            -- exception -- any deduping/resurfacing decision belongs to the
+            -- human reviewing the results, not a silent filter here.
             AND (${matches.join(" OR ")})
             ORDER BY b.registered_at DESC NULLS LAST, b.added_at DESC NULLS LAST
             LIMIT 20

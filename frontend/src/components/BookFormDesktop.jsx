@@ -543,8 +543,15 @@ export default function BookFormDesktop({
     const ctrl = new AbortController();
     const t = setTimeout(async () => {
       try {
+        // Send ISBN alongside pages (when present) so an exact ISBN match
+        // can surface a draft even if its stored page count is off by more
+        // than the ±5 tolerance the backend applies to pages-only matches
+        // (e.g. a typo/misread during the quick photo-upload step). The
+        // backend OR's these together, so this only ever widens the match —
+        // it never narrows or removes a match that pages-only would have
+        // found, so it can't reintroduce the "flash and disappear" issue.
         const r = await findDraft(
-          { pages },
+          { pages, isbn13: v.isbn13, isbn10: v.isbn10 },
           { signal: ctrl.signal }
         );
         const items = Array.isArray(r?.items) ? r.items : [];
