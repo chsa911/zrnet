@@ -576,7 +576,7 @@ export default function SearchUpdatePage() {
         .su-grid { width: 100%; border: 4px solid #666; border-bottom: 0; border-radius: 0; overflow: hidden; background: #fff; }
         .su-search-row, .su-book-row, .su-header-row {
           display: grid;
-          grid-template-columns: 105px 100px minmax(220px, 1fr) 64px 96px 40px 40px 40px 40px 40px 40px 40px 40px 40px 40px 40px 40px 40px 34px;
+          grid-template-columns: 130px 100px minmax(220px, 1fr) 80px 58px 40px 40px 40px 40px 40px 40px 40px 40px 40px 40px 40px 40px 34px;
           align-items: stretch; width: 100%; min-width: 0;
         }
         .su-search-row { min-height: 86px; background: #f1f1f1; border-bottom: 4px solid #666; }
@@ -602,14 +602,17 @@ export default function SearchUpdatePage() {
         .su-inline-edit:hover { background: #fff2a8; }
         .su-inline-input { width: 100%; min-width: 0; border: 3px solid #111; background: #fff; color: #111; font: inherit; font-weight: inherit; letter-spacing: inherit; padding: 4px 6px; box-sizing: border-box; }
         .su-sub { display: block; font-size: 13px; font-weight: 700; color: #777; line-height: 1; letter-spacing: 0; }
-        .su-code { color: #111; font-size: clamp(19px, 1.8vw, 34px); font-weight: 850; letter-spacing: -0.04em; }
+        .su-cell.su-code, .su-cell.su-pages { overflow: visible; }
+        .su-code { color: #111; font-size: clamp(12px, 1.5vw, 30px); font-weight: 850; letter-spacing: -0.03em; }
+        .su-code .su-text { overflow: visible; text-overflow: clip; white-space: normal; word-break: break-word; line-height: 1.15; }
         .su-code--clickable { cursor: pointer; }
         .su-code--clickable:hover { background: #111; color: #fff; }
         .su-code--clickable:hover .su-sub { color: #fff; }
         .su-author { color: #333; font-size: clamp(18px, 1.7vw, 30px); font-weight: 850; letter-spacing: -0.04em; }
         .su-title { color: #333; font-size: clamp(18px, 1.9vw, 34px); font-weight: 750; letter-spacing: -0.035em; }
-        .su-pages { justify-content: flex-end; color: #555; font-size: clamp(18px, 1.7vw, 30px); font-weight: 750; letter-spacing: -0.035em; }
-        .su-year { justify-content: flex-end; color: #555; font-size: clamp(18px, 1.7vw, 30px); font-weight: 750; letter-spacing: -0.035em; }
+        .su-pages { justify-content: flex-end; color: #555; font-size: clamp(12px, 1.4vw, 26px); font-weight: 750; letter-spacing: -0.03em; }
+        .su-pages .su-text { overflow: visible; text-overflow: clip; white-space: nowrap; }
+        .su-year { justify-content: flex-end; color: #555; font-size: clamp(11px, 1.2vw, 22px); font-weight: 750; letter-spacing: -0.03em; }
         .su-year .su-inline-edit { overflow: visible; text-overflow: unset; white-space: nowrap; }
         .su-genre, .su-subgenre { justify-content: center; text-align: center; color: #333; font-size: clamp(17px, 1.5vw, 28px); font-weight: 850; letter-spacing: -0.035em; padding: 0 8px; }
         .su-genre .su-inline-edit, .su-subgenre .su-inline-edit { text-align: center; }
@@ -650,7 +653,7 @@ export default function SearchUpdatePage() {
         .su-kauflink.missing-link { background: rgba(255, 140, 0, 0.08); }
         .su-kauflink .su-text { width: 100%; display: block; }
         @media (max-width: 1180px) {
-          .su-search-row, .su-book-row, .su-header-row { grid-template-columns: 100px 100px minmax(0, 1fr) 70px 96px 64px 40px 40px 40px 40px 40px 40px 34px; }
+          .su-search-row, .su-book-row, .su-header-row { grid-template-columns: 115px 100px minmax(0, 1fr) 80px 58px 64px 40px 40px 40px 40px 40px 40px 34px; }
           .su-action { width: 40px; min-width: 40px; font-size: 22px; }
           .su-action--edit { width: 34px; min-width: 34px; font-size: 16px; }
         }
@@ -764,7 +767,7 @@ export default function SearchUpdatePage() {
 
                   <div className="su-cell su-author" title={b?.name_display ?? b?.author_name_display ?? b?.author_name ?? getAuthor(b)}>
                     {getAuthorId(b) ? (
-                      <Link to={`/admin/authors/${getAuthorId(b)}?bookId=${idOf(b)}`} onClick={(e) => e.stopPropagation()} className="su-author-link" title="Edit author">
+                      <Link to={`/admin/authors/${getAuthorId(b)}?bookId=${idOf(b)}`} onClick={(e) => e.stopPropagation()} className="su-author-link" title={b?.name_display ?? b?.author_name_display ?? b?.author_name ?? getAuthor(b)}>
                         <span className="su-text">{getAuthor(b)}</span>
                       </Link>
                     ) : (
