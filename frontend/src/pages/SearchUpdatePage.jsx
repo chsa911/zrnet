@@ -617,6 +617,20 @@ export default function SearchUpdatePage() {
         .su-genre, .su-subgenre { justify-content: center; text-align: center; color: #333; font-size: clamp(17px, 1.5vw, 28px); font-weight: 850; letter-spacing: -0.035em; padding: 0 8px; }
         .su-genre .su-inline-edit, .su-subgenre .su-inline-edit { text-align: center; }
         .su-genre select, .su-subgenre select { font-size: 13px; font-weight: 700; width: 100%; }
+        .su-cell.su-genre, .su-cell.su-subgenre { position: relative; overflow: visible; }
+        .su-genre .su-inline-input, .su-subgenre .su-inline-input {
+          position: absolute;
+          top: 50%;
+          left: 0;
+          transform: translateY(-50%);
+          width: max-content;
+          min-width: 160px;
+          max-width: 280px;
+          text-align: left;
+          font-size: 16px;
+          z-index: 30;
+          box-shadow: 0 6px 16px rgba(0, 0, 0, 0.3);
+        }
         .su-action { width: 44px; min-width: 44px; height: 100%; border: 0; border-right: 4px solid #666; border-radius: 0; background: #fff; color: #111; cursor: pointer; font-size: 24px; font-weight: 900; line-height: 1; display: flex; align-items: center; justify-content: center; }
         .su-action:last-child { border-right: 0; }
         .su-action:hover { background: #eee; }
