@@ -94,21 +94,36 @@ app.use(cors(corsOptions));
 app.options("*", cors(corsOptions));
 
 /**
- * Site-wide lock: every /api/* route now requires the same admin_auth
- * cookie as the admin area, so the whole site is treated like the admin
- * area used to be. Exceptions:
- *  - /api/admin/*  -> that router manages its own public login/logout
+ * Admin lock: the site is public again except the admin area.
+ * Require the admin_auth cookie only for management/write API routes:
+ *  - /api/admin/*    -> that router manages its own public login/logout
  *    endpoints and applies adminAuthRequired to everything else itself.
- *  - /health, /api/health -> unauthenticated health checks for docker/monitoring.
- * Non-API paths (the SPA shell, JS/CSS bundles) are intentionally left
- * alone here — they're already blocked at the edge (reverse proxy basic
- * auth), and the React app needs to load before it can even show the
- * admin login form.
+ *  - /api/books, /api/bmarks, /api/enrich, /api/barcodes, /api/mobile,
+ *    /api/mobile-sync -> used only by admin forms/dashboards
+ *    (BookForm, BooksTable, BarcodeDashboardPage, SyncIssuePage, ...),
+ *    never by the public site.
+ * Everything else is public, including:
+ *  - /health, /api/health -> unauthenticated health checks.
+ *  - /api/public/*, /api/themes -> read-only endpoints used by the
+ *    public site (books/authors/newsletter/sub-genres/themes pages).
+ *  - non-API paths (the SPA shell, JS/CSS bundles, static assets).
  */
+const ADMIN_ONLY_API_PREFIXES = [
+  "/api/admin",
+  "/api/books",
+  "/api/bmarks",
+  "/api/enrich",
+  "/api/barcodes",
+  "/api/mobile-sync",
+  "/api/mobile",
+];
+
 app.use((req, res, next) => {
-  if (req.path.startsWith("/api/admin")) return next();
-  if (req.path === "/health" || req.path === "/api/health") return next();
-  if (!req.path.startsWith("/api/")) return next();
+  const isAdminOnly = ADMIN_ONLY_API_PREFIXES.some(
+    (prefix) => req.path === prefix || req.path.startsWith(prefix + "/")
+  );
+  if (!isAdminOnly) return next();
+  if (req.path.startsWith("/api/admin")) return next(); // admin router self-manages auth
   return adminAuthRequired(req, res, next);
 });
 

@@ -1,13 +1,6 @@
 pagesinline.com, www.pagesinline.com {
-	# Password-protect the ENTIRE site (same gate as the admin area's
-	# password, just applied at the reverse proxy in front of everything:
-	# HTML, JS/CSS assets, images, and the /api and /uploads proxy paths).
-	#
-	# Username: admin
-	# Password: 12345678  (bcrypt hash below — never store the plaintext here)
-	basic_auth {
-		admin $2b$10$EfEEwG0AyxWozLvcqFCQL.2qvN57VbXcbhto0vMIfUEtD1VT5SRTG
-	}
-
+	# Site is public again. The admin area is gated by the backend's
+	# admin_auth cookie (see backend/app.js and /api/admin login), not
+	# by an edge-wide basic auth anymore.
 	reverse_proxy web:80
 }
