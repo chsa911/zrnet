@@ -105,8 +105,8 @@ export default function TopBar() {
   return (
     <header className="zr-topbar">
       <div className="zr-topbar__inner">
-        <Link to="/" className="zr-brand" aria-label="PagesInLine Home">
-          PagesInLine
+        <Link to="/" className="zr-brand" aria-label="Christophers Pages Home">
+          Christophers Pages
         </Link>
 
         <nav className="zr-nav" aria-label="Main navigation">
@@ -124,7 +124,7 @@ export default function TopBar() {
           </Link>
           <a
             className="zr-nav__link"
-            href="mailto:christopher@pagesinline.com?subject=PagesInLine%20Kontakt"
+            href="mailto:christopher@christopherspages.com?subject=Christophers%20Pages%20Kontakt"
           >
             {t("nav_contact")}
           </a>

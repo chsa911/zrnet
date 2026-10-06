@@ -59,6 +59,25 @@ export default function Home() {
     [t]
   );
 
+  // Story + 3-R sections stay hidden until their texts are filled in the i18n files
+  // (home_story_p2 / home_3r_1_title … home_3r_3_text), so no placeholders go live.
+  const storyParagraphs = useMemo(
+    () => [t("home_story_p1"), t("home_story_p2"), t("home_story_p3")].filter(Boolean),
+    [t]
+  );
+  const showStory = Boolean(t("home_story_p2"));
+
+  const threeR = useMemo(
+    () =>
+      [1, 2, 3].map((n) => ({
+        no: `R${n}`,
+        title: t(`home_3r_${n}_title`),
+        text: t(`home_3r_${n}_text`),
+      })),
+    [t]
+  );
+  const showThreeR = threeR.every((r) => r.title && r.text);
+
   const proofStats = useMemo(
     () => [
       {
@@ -178,7 +197,19 @@ const pickCover = useMemo(
           </div>
 
           <div className="pil-actions">
-            <Link className="zr-btn2 zr-btn2--primary" to="/beta-test#beta-signup">
+            <Link className="zr-btn2 zr-btn2--primary" to="/titles">
+              {t("home_cta_favorites")}
+            </Link>
+            {showThreeR ? (
+              <a className="zr-btn2 zr-btn2--ghost" href="#technik">
+                {t("home_cta_technique")}
+              </a>
+            ) : (
+              <Link className="zr-btn2 zr-btn2--ghost" to="/info/so-funktionierts">
+                {t("home_cta_technique")}
+              </Link>
+            )}
+            <Link className="zr-btn2 zr-btn2--ghost" to="/beta-test#beta-signup">
               {t("home_secondary_cta")}
             </Link>
           </div>
@@ -212,6 +243,45 @@ const pickCover = useMemo(
         </div>
       </section>
 
+      {showStory ? (
+        <section className="zr-section" id="geschichte">
+          <div className="pil-sectionHead">
+            <div className="pil-eyebrow pil-eyebrow--muted">{t("home_story_eyebrow")}</div>
+            <h2>{t("home_story_title")}</h2>
+          </div>
+          <div className="pil-heroText">
+            {storyParagraphs.map((text, index) => (
+              <p key={`${index}-${text}`}>{text}</p>
+            ))}
+          </div>
+        </section>
+      ) : null}
+
+      {showThreeR ? (
+        <section className="zr-section" id="technik">
+          <div className="pil-sectionHead">
+            <div className="pil-eyebrow pil-eyebrow--muted">{t("home_3r_eyebrow")}</div>
+            <h2>{t("home_3r_title")}</h2>
+            <p className="pil-lede">{t("home_3r_lede")}</p>
+          </div>
+          <div className="pil-grid pil-grid--three">
+            {threeR.map((r) => (
+              <article key={r.no} className="pil-card pil-card--step">
+                <span className="pil-stepNo">{r.no}</span>
+                <h3>{r.title}</h3>
+                <p>{r.text}</p>
+              </article>
+            ))}
+          </div>
+          <div className="pil-actions">
+            <Link className="zr-btn2 zr-btn2--primary" to="/coaching">
+              {t("home_3r_cta")}
+            </Link>
+            <span>{t("home_3r_cta_note")}</span>
+          </div>
+        </section>
+      ) : null}
+
       <section className="zr-section pil-highlights">
         <div className="pil-sectionHead pil-sectionHead--split">
   <div className="pil-eyebrow pil-eyebrow--muted">
@@ -221,6 +291,10 @@ const pickCover = useMemo(
   <Link className="pil-historyLink" to="/titles">
     Highlight History
   </Link>
+</div>
+
+<div className="pil-proofStrip__head">
+  <h2>{t("home_highlight_heading")}</h2>
 </div>
 
 <div className="zr-splitHighlight">
@@ -239,6 +313,37 @@ const pickCover = useMemo(
     bgImage={pickCover(received)}
   />
 </div>
+      </section>
+
+      <section className="zr-section" id="sammlung">
+        <div className="pil-visionBox">
+          <div className="pil-eyebrow pil-eyebrow--muted">{t("home_collection_eyebrow")}</div>
+          <h2>{t("home_collection_title")}</h2>
+          <p>{t("home_collection_text")}</p>
+          <div className="pil-actions">
+            <Link className="zr-btn2 zr-btn2--primary" to="/collection">
+              {t("home_collection_cta")}
+            </Link>
+          </div>
+        </div>
+      </section>
+
+      <section className="zr-section" id="kontakt">
+        <div className="pil-sectionHead">
+          <h2>{t("home_contact_title")}</h2>
+          <p className="pil-lede">{t("home_contact_text")}</p>
+        </div>
+        <div className="pil-actions">
+          <a className="zr-btn2 zr-btn2--primary" href="mailto:christopher@christopherspages.com">
+            {t("home_contact_cta")}
+          </a>
+          <a className="zr-btn2 zr-btn2--ghost" href="https://www.youtube.com/@pagesinline" target="_blank" rel="noreferrer">
+            YouTube
+          </a>
+          <a className="zr-btn2 zr-btn2--ghost" href="https://www.tiktok.com/@pagesinline" target="_blank" rel="noreferrer">
+            TikTok
+          </a>
+        </div>
       </section>
     </>
   );

@@ -1,0 +1,3221 @@
+  const fs = require("fs");
+  const path = require("path");
+  // Add this near your other variable definitions
+  // backend/controllers/booksPgController.js
+  // Postgres implementation for /api/books endpoints.
+function toNum(v) {
+  const n = Number(String(v || "").replace(",", "."));
+  return Number.isFinite(n) ? n : null;
+}
+
+function cmToMm(v) {
+  const n = Number(String(v || "").replace(",", "."));
+  return Number.isFinite(n) ? Math.round(n * 10) : null;
+}
+function getPool(req) {
+    const pool = req.app.get("pgPool");
+    if (!pool) throw new Error("pgPool missing on app");
+    return pool;
+  }
+
+  const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const UPLOAD_ROOT =
+  process.env.UPLOAD_ROOT ||
+  path.resolve(__dirname, "../../uploads");
+
+const COVERS_DIR = path.join(UPLOAD_ROOT, "covers");
+const COVERS_NORMALIZED_DIR = path.join(COVERS_DIR, "normalized");
+const UUID_COVER_RE = /^([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\.jpg$/i;
+
+function buildCoverMap() {
+  // Returns Map<bookId, { full, home }> with correct serving URLs.
+  // Priority: normalized/ (new system) > root/ (old system)
+  const map = new Map();
+
+  try {
+    // Old-format root covers: covers/{id}.jpg → served at /uploads/covers/{id}.jpg
+    if (fs.existsSync(COVERS_DIR)) {
+      for (const file of fs.readdirSync(COVERS_DIR)) {
+        const m = file.match(UUID_COVER_RE);
+        if (!m) continue; // skip -home.jpg, -timestamp.jpg, etc.
+        const id = m[1];
+        const homeFile = `${id}-home.jpg`;
+        map.set(id, {
+          full: `/uploads/covers/${file}`,
+          home: fs.existsSync(path.join(COVERS_DIR, homeFile))
+            ? `/uploads/covers/${homeFile}`
+            : null,
+        });
+      }
+    }
+
+    // New-format normalized covers: covers/normalized/{id}.jpg — takes priority
+    if (fs.existsSync(COVERS_NORMALIZED_DIR)) {
+      for (const file of fs.readdirSync(COVERS_NORMALIZED_DIR)) {
+        const m = file.match(UUID_COVER_RE);
+        if (!m) continue; // skip -home.jpg files
+        const id = m[1];
+        const homeFile = `${id}-home.jpg`;
+        map.set(id, {
+          full: `/uploads/covers/normalized/${file}`,
+          home: fs.existsSync(path.join(COVERS_NORMALIZED_DIR, homeFile))
+            ? `/uploads/covers/normalized/${homeFile}`
+            : null,
+        });
+      }
+    }
+  } catch (err) {
+    console.error("buildCoverMap failed", err);
+  }
+
+  return map;
+} 
+function makeTitleKeyword(title) {
+  const value = String(title || "").trim();
+
+  if (!value) return null;
+
+  return value
+    .toLowerCase()
+    .replace(/^(der|die|das|ein|eine|the|a|an)\s+/i, "")
+    .split(/\s+/)[0]
+    ?.replace(/[^\p{L}\p{N}]+/gu, "") || null;
+}
+  function normalizeInt(v) {
+    if (v === undefined || v === null || v === "") return null;
+    const n = Number(v);
+    if (!Number.isFinite(n)) return null;
+    return Math.trunc(n);
+  }
+  function normalizeStr(v) {
+  if (v === undefined || v === null) return null;
+  const s = String(v).trim();
+  return s === "" ? null : s;
+}
+function clampInt(v, fallback, min, max) {
+  const n = Number(v);
+  if (!Number.isFinite(n)) return fallback;
+  return Math.max(min, Math.min(max, Math.trunc(n)));
+}
+  function normalizeBool(v) {
+    if (v === true || v === false) return v;
+    if (v === "true") return true;
+    if (v === "false") return false;
+    return null;
+  }
+
+  function hasOwn(obj, key) {
+    return Object.prototype.hasOwnProperty.call(obj || {}, key);
+  }
+
+  function normalizeHomeFeaturedSlot(v) {
+    const s = normalizeStr(v);
+    if (!s) return null;
+    const x = s.toLowerCase();
+    if (x === "finished" || x === "received") return x;
+    if (x === "none" || x === "null" || x === "off" || x === "false") return null;
+    return null;
+  }
+
+  async function setHomeFeaturedSlotTx(db, bookId, slot) {
+    const normalized = normalizeHomeFeaturedSlot(slot);
+
+    if (!normalized) {
+      await db.query(
+        `
+        UPDATE public.highlights
+        SET presented_till = now()
+        WHERE book_id = $1::uuid
+          AND presented_as IN ('finished', 'received')
+          AND presented_till IS NULL
+        `,
+        [bookId]
+      );
+
+      await db.query(
+        `
+        UPDATE public.books
+        SET home_featured_slot = NULL
+        WHERE id = $1::uuid
+        `,
+        [bookId]
+      );
+
+      return;
+    }
+
+    await db.query(
+      `
+      UPDATE public.highlights
+      SET presented_till = now()
+      WHERE presented_till IS NULL
+        AND presented_as = $1
+        AND book_id <> $2::uuid
+      `,
+      [normalized, bookId]
+    );
+
+    await db.query(
+      `
+      UPDATE public.highlights
+      SET presented_till = now()
+      WHERE presented_till IS NULL
+        AND book_id = $1::uuid
+        AND presented_as IN ('finished', 'received')
+        AND presented_as <> $2
+      `,
+      [bookId, normalized]
+    );
+
+    await db.query(
+      `
+      UPDATE public.books
+      SET home_featured_slot = NULL
+      WHERE home_featured_slot = $1
+        AND id <> $2::uuid
+      `,
+      [normalized, bookId]
+    );
+
+    await db.query(
+      `
+      UPDATE public.books
+      SET home_featured_slot = $1
+      WHERE id = $2::uuid
+      `,
+      [normalized, bookId]
+    );
+
+    const active = await db.query(
+      `
+      SELECT 1
+      FROM public.highlights
+      WHERE book_id = $1::uuid
+        AND presented_as = $2
+        AND presented_till IS NULL
+      LIMIT 1
+      `,
+      [bookId, normalized]
+    );
+
+    if (!active.rowCount) {
+      await db.query(
+        `
+        INSERT INTO public.highlights (
+          book_id,
+          presented_as,
+          source,
+          presented_at,
+          presented_till,
+          created_at
+        )
+        VALUES (
+          $1::uuid,
+          $2,
+          'manual',
+          now(),
+          NULL,
+          now()
+        )
+        `,
+        [bookId, normalized]
+      );
+    }
+  }
+
+  // ISBN: allow user input like "978-3-..." but store canonical digits/X only.
+  // This prevents DB constraint failures (e.g. CHECK isbn13 ~ '^[0-9]{13}$').
+  function stripIsbnLike(raw) {
+    return String(raw || "")
+      .trim()
+      .toUpperCase()
+      .replace(/[^0-9X]/g, "");
+  }
+
+  function normalizeIsbnForDb(isbn13In, isbn10In, rawIn) {
+    const a = stripIsbnLike(isbn13In);
+    const b = stripIsbnLike(isbn10In);
+    const raw = stripIsbnLike(rawIn) || a || b || null;
+
+    let isbn13 = null;
+    let isbn10 = null;
+
+    if (a.length === 13 && /^[0-9]{13}$/.test(a)) isbn13 = a;
+    if (b.length === 10 && /^[0-9]{9}[0-9X]$/.test(b)) isbn10 = b;
+
+    // User may paste ISBN-10 into the ISBN-13 field (or vice versa).
+    if (!isbn10 && a.length === 10 && /^[0-9]{9}[0-9X]$/.test(a)) isbn10 = a;
+    if (!isbn13 && b.length === 13 && /^[0-9]{13}$/.test(b)) isbn13 = b;
+
+    const isbn13_raw = raw && !isbn13 && !isbn10 ? raw : null;
+    return { isbn13, isbn10, isbn13_raw };
+  }
+
+  function computeAuthorDisplay(first, last) {
+    const f = normalizeStr(first);
+    const l = normalizeStr(last);
+    if (f && l) return `${f} ${l}`;
+    return l || f || null;
+  }
+
+  // Build a human-ish title string from up to 3 keyword+position pairs.
+  function computeFullTitle({ kw, pos, kw1, pos1, kw2, pos2 }) {
+    const parts = [];
+    const push = (word, p, fallbackP) => {
+      const w = normalizeStr(word);
+      if (!w) return;
+      const n = normalizeInt(p);
+      parts.push({ p: Number.isFinite(n) ? n : fallbackP, w });
+    };
+    push(kw, pos, 1);
+    push(kw1, pos1, 2);
+    push(kw2, pos2, 3);
+    parts.sort((a, b) => a.p - b.p);
+    const title = parts.map((x) => x.w).join(" ").trim();
+    return title || null;
+  }
+
+  function mapReadingStatus(v) {
+    const s = normalizeStr(v);
+    if (!s) return null;
+    const x = s.toLowerCase();
+    if (x === "open" || x === "inprogress" || x === "in-progress") return "in_progress";
+    if (x === "in_progress" || x === "finished" || x === "abandoned") return x;
+    return s;
+  }
+
+  function rowToApi(row) {
+    
+    if (!row) return null;
+
+    const widthCm = row.width != null ? row.width / 10 : null;
+    const heightCm = row.height != null ? row.height / 10 : null;
+
+    const authorFirst = row.author_first_name ?? null;
+    const authorLast = row.author_last_name ?? null;
+    const authorNameDisplay =
+      normalizeStr(row.author_name_display) || computeAuthorDisplay(authorFirst, authorLast);
+
+    const publisherName = normalizeStr(row.publisher_name) || null;
+    const publisherNameDisplay = normalizeStr(row.publisher_name_display) || publisherName || null;
+    const publisherAbbr = normalizeStr(row.publisher_abbr) || null;
+
+    return {
+      id: row.id,
+      _id: row.id,
+cover_available: false,
+cover_url: null,
+      barcode: row.barcode ?? null,
+
+      author_id: row.author_id ?? null,
+      author_lastname: authorLast,
+      author_firstname: authorFirst,
+      name_display: authorNameDisplay || null,
+      author_name_display: authorNameDisplay || null,
+   
+      author_nationality: row.author_nationality ?? null,
+      place_of_birth: row.place_of_birth ?? null,
+      male_female: row.male_female ?? null,
+      published_titles: row.published_titles ?? null,
+      number_of_millionsellers: row.number_of_millionsellers ?? null,
+genre_id: row.genre_id ?? null,
+sub_genre_id: row.sub_genre_id ?? null,
+
+genre_name: row.genre_name ?? null,
+subgenre_name: row.subgenre_name ?? null,
+
+genre_abbr: row.genre_abbr ?? row.genre ?? null,
+subgenre_abbr: row.subgenre_abbr ?? row.sub_genre ?? null,
+sub_genre_abbr: row.subgenre_abbr ?? row.sub_genre ?? null,
+
+genre: row.genre_abbr ?? row.genre ?? null,
+sub: row.subgenre_abbr ?? row.sub_genre ?? null,
+      publisher_id: row.publisher_id ?? null,
+      publisher_name: publisherName,
+      publisher_name_display: publisherNameDisplay,
+      publisher_abbr: publisherAbbr,
+
+      title_display: row.title_display ?? null,
+      subtitle_display: row.subtitle_display ?? null,
+      title_keyword: row.title_keyword ?? null,
+      title_keyword_position: row.title_keyword_position ?? null,
+      title_keyword2: row.title_keyword2 ?? null,
+      title_keyword2_position: row.title_keyword2_position ?? null,
+      title_keyword3: row.title_keyword3 ?? null,
+      title_keyword3_position: row.title_keyword3_position ?? null,
+
+      pages: row.pages ?? null,
+      year_first_published: row.year_first_published ?? null,
+      first_publish_year: row.year_first_published ?? null,
+      width_cm: widthCm,
+      height_cm: heightCm,
+
+      top_book: !!row.top_book,
+      top_book_set_at: row.top_book_set_at ?? null,
+      reading_status: row.reading_status ?? null,
+      reading_status_updated_at: row.reading_status_updated_at ?? null,
+      registered_at: row.registered_at ?? null,
+      added_at: row.added_at ?? null,
+      updated_at: row.updated_at ?? null,
+      last_action_at:
+        row.last_action_at ??
+        row.updated_at ??
+        row.reading_status_updated_at ??
+        row.registered_at ??
+        row.added_at ??
+        null,
+
+      home_featured_slot: row.home_featured_slot ?? null,
+      homeFeaturedSlot: row.home_featured_slot ?? null,
+
+      purchase_url: row.purchase_url ?? null,
+      isbn13: row.isbn13 ?? null,
+      isbn10: row.isbn10 ?? null,
+      title_en: row.title_en ?? null,
+      original_language: row.original_language ?? null,
+     comment: row.comment ?? null,
+action_time_period_display: row.action_time_period_display ?? null,
+action_continent: row.action_continent ?? null,
+action_country: row.action_country ?? null,
+    };
+  }
+
+  const AUTHOR_SORT_EXPR = `COALESCE(
+    NULLIF(a.name_display, ''),
+    NULLIF(concat_ws(' ', a.first_name, a.last_name), '')
+  )`;
+
+  const PUBLISHER_SORT_EXPR = `COALESCE(
+    NULLIF(p.name_display, ''),
+    NULLIF(p.name, '')
+  )`;
+
+  const AUTHOR_RESOLVE_JOIN_SQL = `
+    LEFT JOIN public.authors a ON a.id = b.author_id
+  `;
+
+  const PUBLISHER_RESOLVE_JOIN_SQL = `
+    LEFT JOIN public.publishers p ON p.id = b.publisher_id
+  `;
+
+  const AUTHOR_RESOLVE_SELECT_SQL = `
+    a.id::text AS author_id,
+    a.name_display AS author_name_display,
+    a.first_name AS author_first_name,
+    a.last_name AS author_last_name,
+    a.abbr AS author_abbr,
+    a.author_nationality AS author_nationality,
+    a.place_of_birth AS place_of_birth,
+    a.male_female AS male_female,
+    a.published_titles AS published_titles,
+    a.number_of_millionsellers AS number_of_millionsellers
+  `;
+
+  const PUBLISHER_RESOLVE_SELECT_SQL = `
+    p.id::text AS publisher_id,
+    p.name AS publisher_name,
+    p.name_display AS publisher_name_display,
+    p.abbr AS publisher_abbr
+  `;
+
+  /* ------------------------- schema introspection cache ---------------------- */
+
+  const _columnsCache = new Map(); // key: tableName => { ts, cols:Set<string> }
+
+  async function getColumns(pool, tableName) {
+    const key = String(tableName);
+    const now = Date.now();
+    const cached = _columnsCache.get(key);
+    if (cached && now - cached.ts < 5 * 60 * 1000) return cached.cols;
+
+    const { rows } = await pool.query(
+      `
+      SELECT column_name
+      FROM information_schema.columns
+      WHERE table_schema = 'public' AND table_name = $1
+      `,
+      [key]
+    );
+
+    const cols = new Set(rows.map((r) => r.column_name));
+    _columnsCache.set(key, { ts: now, cols });
+    return cols;
+  }
+
+  function pickKnownColumns(colsSet, obj) {
+    const out = {};
+    for (const [k, v] of Object.entries(obj)) {
+      if (v === undefined) continue;
+      if (colsSet.has(k)) out[k] = v;
+    }
+    return out;
+  }
+
+  /* ------------------------- author / publisher helpers ---------------------- */
+
+  function normalizeKey(v) {
+    const s = normalizeStr(v);
+    if (!s) return null;
+    return s.toLowerCase().replace(/\s+/g, " ").trim();
+  }
+
+  function splitNameDisplay(display) {
+    const d = normalizeStr(display);
+    if (!d) return { first: null, last: null };
+    const parts = d.split(/\s+/).filter(Boolean);
+    if (parts.length < 2) return { first: null, last: parts[0] || null };
+    return { first: parts.slice(0, -1).join(" "), last: parts[parts.length - 1] };
+  }
+
+  function normalizeUuid(v) {
+    const s = String(v || "").trim();
+    return UUID_RE.test(s) ? s : null;
+  }
+
+  function parseExistingBookIdFromPgDetail(detail) {
+    const m = /existing_id=([0-9a-f-]{36})/i.exec(String(detail || ""));
+    return m?.[1] || null;
+  }
+
+  function sendKnownPgError(res, err) {
+    const code = String(err?.code || "");
+    const msg = String(err?.message || "");
+    const detail = String(err?.detail || "");
+    const constraint = String(err?.constraint || "");
+    const column = String(err?.column || "");
+
+    if (code === "23505" && /near_duplicate_book_blocked/i.test(msg)) {
+      return res.status(409).json({
+        error: "near_duplicate_book_blocked",
+        message:
+          "Ein sehr ähnlicher Bucheintrag wurde gerade eben bereits angelegt. Bitte den vorhandenen Eintrag weiterverwenden.",
+        existing_book_id: parseExistingBookIdFromPgDetail(detail),
+        detail: detail || null,
+      });
+    }
+
+    // Generic unique-constraint violation (duplicate value on some column).
+    if (code === "23505") {
+      return res.status(409).json({
+        error: "duplicate_value",
+        message: constraint
+          ? `Dieser Wert ist bereits vergeben (Regel: ${constraint}).`
+          : "Dieser Eintrag existiert bereits (Duplikat).",
+        constraint: constraint || null,
+        detail: detail || null,
+      });
+    }
+
+    // Foreign key violation - e.g. author_id/publisher_id/genre_id/sub_genre_id
+    // points at a row that doesn't exist.
+    if (code === "23503") {
+      return res.status(400).json({
+        error: "invalid_reference",
+        message:
+          "Ein verknüpfter Datensatz (z. B. Autor, Verlag oder Genre) wurde nicht gefunden.",
+        constraint: constraint || null,
+        detail: detail || null,
+      });
+    }
+
+    // NOT NULL violation - a required DB column was left empty.
+    if (code === "23502") {
+      return res.status(400).json({
+        error: "missing_required_field",
+        message: column
+          ? `Pflichtfeld fehlt: ${column}.`
+          : "Ein Pflichtfeld fehlt.",
+        column: column || null,
+      });
+    }
+
+    // CHECK constraint violation - e.g. width/height < 1, invalid format,
+    // invalid reading_status, invalid language code, etc.
+    if (code === "23514") {
+      return res.status(400).json({
+        error: "invalid_value",
+        message: constraint
+          ? `Eingabe verletzt eine Datenregel (${constraint}).`
+          : "Eine Eingabe ist ungültig.",
+        constraint: constraint || null,
+      });
+    }
+
+    // Malformed input value (e.g. invalid UUID or number for a typed column).
+    if (code === "22P02") {
+      return res.status(400).json({
+        error: "invalid_input_format",
+        message: "Ein Feld hat ein ungültiges Format (z. B. ID oder Zahl).",
+        detail: detail || null,
+      });
+    }
+
+    return null;
+  }
+
+  async function upsertAuthor(
+    db,
+    {
+      authorId,
+      key,
+      firstName,
+      lastName,
+      nameDisplay,
+      abbreviation,
+      publishedTitles,
+      numberOfMillionSellers,
+      maleFemale,
+      authorNationality,
+      placeOfBirth,
+    }
+  ) {
+    const authorUuid = normalizeUuid(authorId);
+    const disp = normalizeStr(nameDisplay);
+    const first = normalizeStr(firstName);
+    const last = normalizeStr(lastName);
+    const guessed = splitNameDisplay(disp);
+
+    const effFirst = first ?? guessed.first;
+    const effLast = last ?? guessed.last;
+    const effDisplay = disp || computeAuthorDisplay(effFirst, effLast);
+    const effAbbr = normalizeStr(abbreviation);
+
+    const effPublished = normalizeInt(publishedTitles);
+    const effMillions = normalizeInt(numberOfMillionSellers);
+    const effMaleFemale = normalizeStr(maleFemale);
+    const effNationality = normalizeStr(authorNationality);
+    const effPlaceOfBirth = normalizeStr(placeOfBirth);
+   const k = normalizeKey(key || effDisplay || effLast);
+    if (!authorUuid && !k) return null;
+
+    const baseCols = `id, name, name_display, first_name, last_name,
+                      published_titles, number_of_millionsellers, male_female, author_nationality, place_of_birth`;
+
+    const mergeAuthor = async (row) => {
+      if (!row?.id) return null;
+      const { rows } = await db.query(
+        `
+        UPDATE public.authors
+        SET
+          name_display = COALESCE($2, name_display),
+          first_name = COALESCE($3, first_name),
+          last_name = COALESCE($4, last_name),
+          published_titles = COALESCE($5, published_titles),
+number_of_millionsellers = COALESCE($6, number_of_millionsellers),
+male_female = COALESCE($7, male_female),
+author_nationality = COALESCE($8, author_nationality),
+place_of_birth = COALESCE($9, place_of_birth)
+        WHERE id = $1::uuid
+        RETURNING ${baseCols}
+        `,
+        [
+  row.id,
+  effDisplay,
+  effFirst,
+  effLast,
+  effPublished,
+  effMillions,
+  effMaleFemale,
+  effNationality,
+  effPlaceOfBirth,
+]
+      );
+      return rows[0] || null;
+    };
+
+    const fetchById = async (id) => {
+      const { rows } = await db.query(
+        `SELECT ${baseCols} FROM public.authors WHERE id = $1::uuid LIMIT 1`,
+        [id]
+      );
+      return rows[0] || null;
+    };
+
+    if (authorUuid) {
+      const row = await fetchById(authorUuid);
+      if (row) return mergeAuthor(row);
+    }
+
+    
+    if (effDisplay || (effFirst && effLast) || k) {
+      const byName = await db.query(
+        `
+        SELECT ${baseCols}
+        FROM public.authors
+        WHERE ($1::text IS NOT NULL AND lower(name_display) = lower($1))
+          OR ($2::text IS NOT NULL AND $3::text IS NOT NULL AND lower(first_name) = lower($2) AND lower(last_name) = lower($3))
+          OR ($4::text IS NOT NULL AND lower(name) = lower($4))
+        ORDER BY
+          CASE
+            WHEN $1::text IS NOT NULL AND lower(name_display) = lower($1) THEN 1
+            WHEN $2::text IS NOT NULL AND $3::text IS NOT NULL AND lower(first_name) = lower($2) AND lower(last_name) = lower($3) THEN 2
+            WHEN $4::text IS NOT NULL AND lower(name) = lower($4) THEN 3
+            ELSE 99
+          END,
+          name_display NULLS LAST,
+          id
+        LIMIT 1
+        `,
+        [effDisplay, effFirst, effLast, k]
+      );
+      if (byName.rows[0]) return mergeAuthor(byName.rows[0]);
+    }
+
+       // CORRECTED CODE:
+    if (effLast) {
+      const uniqueLast = await db.query(
+        `
+        SELECT ${baseCols}
+        FROM public.authors
+        WHERE lower(last_name) = lower($1)
+          -- ENFORCE STRICT MATCHING:
+          -- Only match if first_name matches (if provided) OR abbr matches (if provided)
+          AND (
+            ($2::text IS NOT NULL AND lower(first_name) = lower($2)) 
+            OR 
+            ($3::text IS NOT NULL AND lower(abbr) = lower($3))
+          )
+        ORDER BY name_display NULLS LAST, id
+        LIMIT 2
+        `,
+        [effLast, effFirst, effAbbr] // Pass effFirst and effAbbr here
+      );
+      
+      if (uniqueLast.rows.length === 1) return mergeAuthor(uniqueLast.rows[0]);
+    }
+
+    if (!k) return null;
+
+    try {
+      const { rows } = await db.query(
+        `
+        INSERT INTO public.authors (
+          name, name_display, first_name, last_name,
+          published_titles, number_of_millionsellers,
+          male_female, author_nationality, place_of_birth
+        )
+        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
+        ON CONFLICT (name) DO UPDATE SET
+          name_display = COALESCE(EXCLUDED.name_display, public.authors.name_display),
+          first_name   = COALESCE(EXCLUDED.first_name, public.authors.first_name),
+          last_name    = COALESCE(EXCLUDED.last_name, public.authors.last_name),
+          published_titles = COALESCE(EXCLUDED.published_titles, public.authors.published_titles),
+          number_of_millionsellers = COALESCE(EXCLUDED.number_of_millionsellers, public.authors.number_of_millionsellers),
+          male_female = COALESCE(EXCLUDED.male_female, public.authors.male_female),
+          author_nationality = COALESCE(EXCLUDED.author_nationality, public.authors.author_nationality),
+          place_of_birth = COALESCE(EXCLUDED.place_of_birth, public.authors.place_of_birth)
+        RETURNING ${baseCols}
+        `,
+        [
+          k,
+          effDisplay,
+          effFirst,
+          effLast,
+          effPublished,
+          effMillions,
+          effMaleFemale,
+          effNationality,
+          effPlaceOfBirth,
+        ]
+      );
+      return rows[0] || null;
+    } catch (err) {
+      if (String(err?.code) !== "23505") throw err;
+
+     
+      const byName = await db.query(
+        `SELECT ${baseCols} FROM public.authors WHERE lower(name) = lower($1) LIMIT 1`,
+        [k]
+      );
+      if (byName.rows[0]) return mergeAuthor(byName.rows[0]);
+
+      throw err;
+    }
+  }
+
+  function normalizePublisherAbbr(v) {
+    const s = normalizeStr(v);
+    return s ? s.replace(/\s+/g, " ").trim() : null;
+  }
+
+  async function upsertPublisher(db, { publisherId, key, nameDisplay, abbr }) {
+    const publisherUuid = normalizeUuid(publisherId);
+const rawDisp = normalizeStr(nameDisplay);
+const explicitAbbr = normalizePublisherAbbr(abbr);
+
+const displayLooksLikeAbbr =
+  rawDisp && /^[A-Za-z0-9]{1,10}\.$/.test(rawDisp);
+
+const disp = displayLooksLikeAbbr && !explicitAbbr ? null : rawDisp;
+const ab = explicitAbbr || (displayLooksLikeAbbr ? normalizePublisherAbbr(rawDisp) : null);
+
+const k = normalizeKey(key || disp || ab);
+
+    if (!publisherUuid && !k) return null;
+
+    const baseCols = `id, name, name_display, abbr`;
+
+    const mergePublisher = async (row) => {
+      if (!row?.id) return null;
+      const { rows } = await db.query(
+        `
+        UPDATE public.publishers
+        SET
+          name_display = COALESCE($2, name_display),
+          abbr = COALESCE(abbr, $3)
+        WHERE id = $1::uuid
+        RETURNING ${baseCols}
+        `,
+        [row.id, disp, ab]
+      );
+      return rows[0] || null;
+    };
+
+    if (publisherUuid) {
+      const byId = await db.query(
+        `SELECT ${baseCols} FROM public.publishers WHERE id = $1::uuid LIMIT 1`,
+        [publisherUuid]
+      );
+      if (byId.rows[0]) return mergePublisher(byId.rows[0]);
+    }
+
+    if (ab) {
+      const byAbbr = await db.query(
+        `
+        SELECT ${baseCols}
+        FROM public.publishers
+        WHERE lower(abbr) = lower($1)
+          OR regexp_replace(lower(abbr), '[^a-z0-9]+', '', 'g') = regexp_replace(lower($1), '[^a-z0-9]+', '', 'g')
+        LIMIT 1
+        `,
+        [ab]
+      );
+      if (byAbbr.rows[0]) return mergePublisher(byAbbr.rows[0]);
+
+      const byAlias = await db.query(
+        `
+        SELECT p.${baseCols}
+        FROM public.publisher_aliases pa
+        JOIN public.publishers p ON lower(p.name_display) = lower(pa.full_name)
+        WHERE pa.abbr_norm = regexp_replace(lower($1), '[^a-z0-9]+', '', 'g')
+        LIMIT 1
+        `,
+        [ab]
+      );
+      if (byAlias.rows[0]) return mergePublisher(byAlias.rows[0]);
+    }
+
+    if (disp || k) {
+      const byName = await db.query(
+        `
+        SELECT ${baseCols}
+        FROM public.publishers
+        WHERE ($1::text IS NOT NULL AND lower(name_display) = lower($1))
+          OR ($2::text IS NOT NULL AND lower(name) = lower($2))
+        ORDER BY
+          CASE
+            WHEN $1::text IS NOT NULL AND lower(name_display) = lower($1) THEN 1
+            WHEN $2::text IS NOT NULL AND lower(name) = lower($2) THEN 2
+            ELSE 99
+          END,
+          name_display NULLS LAST,
+          name
+        LIMIT 1
+        `,
+        [disp, k]
+      );
+      if (byName.rows[0]) return mergePublisher(byName.rows[0]);
+    }
+
+    if (!k) return null;
+
+    const { rows } = await db.query(
+      `
+      INSERT INTO public.publishers (name, name_display, abbr)
+      VALUES ($1, $2, $3)
+      ON CONFLICT (name) DO UPDATE SET
+        name_display = COALESCE(EXCLUDED.name_display, public.publishers.name_display),
+        abbr = COALESCE(public.publishers.abbr, EXCLUDED.abbr)
+      RETURNING ${baseCols}
+      `,
+      [k, disp, ab]
+    );
+
+    return rows[0] || null;
+  }
+  /* ------------------------- barcode / size helpers -------------------------- */
+
+  /**
+   * Resolve size_rule + position (d/l/o) from width/height.
+   * Mirrors backend/routes/api/barcodes/previewBarcode.js.
+   */
+  async function resolveRuleAndPos(pool, widthCm, heightCm) {
+    const wMm = cmToMm(widthCm);
+    const hMm = cmToMm(heightCm);
+    if (!Number.isFinite(wMm) || !Number.isFinite(hMm) || wMm <= 0 || hMm <= 0) return null;
+
+    const { rows } = await pool.query(
+      `
+      SELECT id, name, min_height, eq_heights
+      FROM public.size_rules
+      WHERE $1 >= min_width
+        AND ($1 <= max_width OR max_width IS NULL)
+      ORDER BY min_width DESC
+      LIMIT 1
+      `,
+      [wMm]
+    );
+
+    const r = rows[0];
+    if (!r) return null;
+
+    const eq =
+      Array.isArray(r.eq_heights) && r.eq_heights.length
+        ? r.eq_heights.map((x) => Number(x))
+        : [205, 210, 215];
+
+    let pos = "o";
+    if (eq.includes(hMm)) pos = "l";
+    else if (hMm <= Number(r.min_height)) pos = "d";
+    else pos = "o";
+
+    return {
+      sizeRuleId: r.id,
+      color: String(r.name || "").trim().toLowerCase(),
+      pos,
+    };
+  }
+
+  function posToBand(pos) {
+    if (pos === "l") return "special";
+    if (pos === "d") return "low";
+    return "high";
+  }
+
+  function posToPrefixLead(pos) {
+    const p = String(pos || "").toLowerCase();
+    if (p === "d") return "d";
+    if (p === "l") return "l";
+    if (p === "r") return "r";
+    return "o";
+  }
+
+  function expectedPrefixFromRule(rule) {
+    if (!rule?.color || !rule?.pos) return null;
+    return `${posToPrefixLead(rule.pos)}${String(rule.color).trim().toLowerCase()}`;
+  }
+  /**
+   * Pick the best AVAILABLE barcode for the exact rule:
+   * - exact size rule
+   * - exact band
+   * - exact prefix
+   * - lowest rank_in_inventory
+   */
+  async function pickBestBarcode(pool, rule) {
+  const rulePos = String(rule?.pos || "").trim().toLowerCase();
+
+const primaryPrefix = expectedPrefixFromRule(rule);
+const backupPrefix =
+  rulePos === "d"
+    ? expectedPrefixFromRule({ ...rule, pos: "r" })
+    : null;
+const prefixes = [primaryPrefix, backupPrefix];
+  const cleanPrefixes = prefixes.filter(Boolean).map((x) => x.toLowerCase());
+  if (!cleanPrefixes.length) return null;
+
+  const r = await pool.query(
+    `
+    SELECT bi.barcode
+    FROM public.barcode_inventory bi
+    WHERE bi.status = 'AVAILABLE'
+      AND bi.rank_in_inventory IS NOT NULL
+      AND lower(regexp_replace(bi.barcode, '[0-9]+$', '')) = ANY($1::text[])
+      AND NOT EXISTS (
+        SELECT 1
+        FROM public.barcode_assignments ba
+        JOIN public.books b ON b.id = ba.book_id
+        WHERE lower(ba.barcode) = lower(bi.barcode)
+          AND ba.freed_at IS NULL
+          AND b.reading_status = 'in_progress'
+      )
+      -- hard rule: only a book with reading_status = 'in_progress' may
+      -- hold a barcode (business rule). So a barcode is only blocked if
+      -- it's linked (via book_barcodes, the actual current-link table,
+      -- not the possibly-desynced barcode_assignments ledger) to a book
+      -- that is still in_progress. Stale links to finished/abandoned/
+      -- wishlist books (leftover rows that were never cleaned up, e.g.
+      -- from the Mongo->Postgres migration) must NOT block re-suggestion.
+      AND NOT EXISTS (
+        SELECT 1
+        FROM public.book_barcodes bb2
+        JOIN public.books b2 ON b2.id = bb2.book_id
+        WHERE lower(bb2.barcode) = lower(bi.barcode)
+          AND b2.reading_status = 'in_progress'
+      )
+      -- never hand out a barcode that an admin has flagged as "also seen
+      -- on another book, unresolved" (barcode_conflict_observations) --
+      -- that would turn a two-book dispute into a three-book one before
+      -- anyone got a chance to sort it out.
+      AND NOT EXISTS (
+        SELECT 1
+        FROM public.barcode_conflict_observations co
+        WHERE lower(co.barcode) = lower(bi.barcode)
+          AND co.resolved = false
+      )
+    ORDER BY
+      array_position($1::text[], lower(regexp_replace(bi.barcode, '[0-9]+$', ''))),
+      bi.rank_in_inventory ASC,
+      lower(bi.barcode) ASC
+    LIMIT 1
+    `,
+    [cleanPrefixes]
+  );
+
+  return r.rows[0]?.barcode ?? null;
+}
+  async function assignBarcodeTx(
+    pool,
+    { bookId, barcode, expectedSizeRuleId, expectedPos, expectedPrefix, assignedAt }
+  ) {
+    const inv = await pool.query(
+      `
+      SELECT
+        barcode,
+        status,
+        size_rule_id,
+        sizegroup,
+        band,
+        lower(regexp_replace(barcode, '[0-9]+$', '')) AS prefix
+      FROM public.barcode_inventory
+      WHERE lower(barcode) = lower($1)
+      FOR UPDATE
+      `,
+      [barcode]
+    );
+
+    const row = inv.rows[0];
+    if (!row) throw new Error("barcode_not_found");
+
+    if (expectedPos && row.band) {
+  const expectedBand = posToBand(String(expectedPos).toLowerCase());
+  if (String(row.band || "").toLowerCase() !== expectedBand) {
+    throw new Error("barcode_wrong_position");
+  }
+}
+    if (expectedPrefix) {
+      if (String(row.prefix || "").toLowerCase() !== String(expectedPrefix).toLowerCase()) {
+        throw new Error("barcode_wrong_prefix");
+      }
+    }
+
+    // hard rule: a barcode may not be used by any OTHER book that is
+    // currently reading_status = 'in_progress'. Only an in_progress book
+    // may hold a barcode; finished/abandoned/wishlist links are stale
+    // leftovers (legacy data, tolerated but must not block re-assignment
+    // going forward) and must NOT block re-assignment.
+    const activeUse = await pool.query(
+      `
+      SELECT bb.book_id::text AS book_id
+      FROM public.book_barcodes bb
+      JOIN public.books b ON b.id = bb.book_id
+      WHERE lower(bb.barcode) = lower($1)
+        AND bb.book_id <> $2::uuid
+        AND b.reading_status = 'in_progress'
+      LIMIT 1
+      `,
+      [barcode, bookId]
+    );
+
+    if (activeUse.rowCount) {
+      throw new Error("barcode_already_assigned_to_other_book");
+    }
+
+    // Same rule as pickBestBarcode's suggestion query, enforced again here
+    // so a manually-typed barcode (not just an auto-suggested one) can't
+    // slip past it: refuse to commit a barcode that has an unresolved
+    // conflict observation against it.
+    const conflict = await pool.query(
+      `
+      SELECT 1
+      FROM public.barcode_conflict_observations
+      WHERE lower(barcode) = lower($1)
+        AND resolved = false
+      LIMIT 1
+      `,
+      [barcode]
+    );
+    if (conflict.rowCount) {
+      throw new Error("barcode_has_unresolved_conflict");
+    }
+
+    await pool.query(
+      `
+      UPDATE public.barcode_inventory
+      SET status = 'ASSIGNED',
+          updated_at = now(),
+          size_rule_id = COALESCE(size_rule_id, $2)
+      WHERE lower(barcode) = lower($1)
+      `,
+      [barcode, expectedSizeRuleId || null]
+    );
+
+    await pool.query(`DELETE FROM public.book_barcodes WHERE book_id = $1::uuid`, [bookId]);
+
+    // book_barcodes.barcode is UNIQUE, so if a previous (now-freed) book still
+    // holds a stale row for this exact barcode, the INSERT below would hit
+    // ON CONFLICT DO NOTHING and silently fail to link the NEW book — leaving
+    // it with no visible barcode anywhere search/list it by, while the old
+    // book keeps showing up under this barcode with its own (wrong) data.
+    // Clear any stale row for this barcode value first, regardless of which
+    // book currently holds it.
+    await pool.query(`DELETE FROM public.book_barcodes WHERE lower(barcode) = lower($1)`, [barcode]);
+
+    const linkRes = await pool.query(
+      `
+      INSERT INTO public.book_barcodes (book_id, barcode)
+      VALUES ($1::uuid, $2)
+      ON CONFLICT DO NOTHING
+      `,
+      [bookId, barcode]
+    );
+
+    // ON CONFLICT DO NOTHING does not raise an error — if the row didn't
+    // actually get inserted (rowCount 0), the save would otherwise commit
+    // "successfully" with the book registered but no visible barcode link,
+    // and nothing would ever tell the user. Fail loudly instead so this
+    // surfaces as a real, displayed error.
+    if (linkRes.rowCount !== 1) {
+      throw new Error("book_barcode_link_failed");
+    }
+
+    await pool.query(
+      `
+      INSERT INTO public.barcode_assignments (barcode, book_id, assigned_at, freed_at)
+      VALUES ($1, $2::uuid, $3, NULL)
+      `,
+      [barcode, bookId, assignedAt || new Date().toISOString()]
+    );
+  }
+
+  async function fetchBookWithBarcode(pool, bookId) {
+    const { rows } = await pool.query(
+      `
+      SELECT
+        b.*, 
+        bb.barcode,
+        g.abbr AS genre_abbr,
+sg.abbr AS subgenre_abbr,
+g.genre_display AS genre_name,
+sg.name AS subgenre_name,
+${AUTHOR_RESOLVE_SELECT_SQL},
+        ${PUBLISHER_RESOLVE_SELECT_SQL}
+      FROM public.books b
+      ${AUTHOR_RESOLVE_JOIN_SQL}
+      ${PUBLISHER_RESOLVE_JOIN_SQL}
+      LEFT JOIN public.genres g ON g.id = b.genre_id
+LEFT JOIN public.sub_genres sg ON sg.id = b.sub_genre_id
+      LEFT JOIN LATERAL (
+        SELECT barcode FROM public.book_barcodes bb WHERE bb.book_id = b.id LIMIT 1
+      ) bb ON true
+      WHERE b.id = $1
+      `,
+      [bookId]
+    );
+    return rows[0] || null;
+  }
+
+  /* --------------------------------- list ----------------------------------- */
+
+  function mapSort(sortByRaw) {
+    const sortBy = String(sortByRaw || "").trim();
+    const map = {
+      registered_at: "b.registered_at",
+      author_name_display: AUTHOR_SORT_EXPR,
+      publisher_name_display: PUBLISHER_SORT_EXPR,
+      genre_abbr: "g.abbr",
+subgenre_abbr: "sg.abbr",
+title_keyword: "b.title_keyword",
+      reading_status_updated_at: "COALESCE(b.reading_status_updated_at, b.registered_at)",
+      last_action_at: `GREATEST(
+        COALESCE(b.updated_at, '-infinity'::timestamptz),
+        COALESCE(b.reading_status_updated_at, '-infinity'::timestamptz),
+        COALESCE(b.registered_at, '-infinity'::timestamptz),
+        COALESCE(b.added_at, '-infinity'::timestamptz)
+      )`,
+      updated_at: "b.updated_at",
+      added_at: "b.added_at",
+      pages: "b.pages",
+    };
+    return map[sortBy] || map.last_action_at;
+  }
+
+  async function listBooks(req, res) {
+  try {
+    const pool = getPool(req);
+
+    const page = clampInt(req.query.page, 1, 1, 500000);
+    const limit = clampInt(req.query.limit, 50, 1, 500);
+    const offset = (page - 1) * limit;
+
+    const order =
+      String(req.query.order || req.query.sortDir || "desc").toLowerCase() === "asc"
+        ? "ASC"
+        : "DESC";
+
+    const sortCol = mapSort(req.query.sortBy || req.query.sort);
+
+    const where = [];
+    const params = [];
+
+    const q = normalizeStr(req.query.q);
+    if (q) {
+      params.push(`%${q}%`);
+      const p = `$${params.length}`;
+
+      where.push(
+        `(
+          b.title_display ILIKE ${p} OR
+          ${AUTHOR_SORT_EXPR} ILIKE ${p} OR
+          ${PUBLISHER_SORT_EXPR} ILIKE ${p} OR
+          p.abbr ILIKE ${p} OR
+          g.abbr ILIKE ${p} OR
+          sg.abbr ILIKE ${p} OR
+          b.title_keyword ILIKE ${p} OR
+          b.title_keyword2 ILIKE ${p} OR
+          b.title_keyword3 ILIKE ${p} OR
+          b.isbn10 ILIKE ${p} OR
+          b.isbn13 ILIKE ${p} OR
+          bb.barcode ILIKE ${p} OR
+          EXISTS (
+            SELECT 1
+            FROM public.barcode_assignments ba_hist
+            WHERE ba_hist.book_id = b.id
+              AND ba_hist.barcode ILIKE ${p}
+          ) OR
+          -- A barcode that was physically also spotted on this book (an
+          -- unresolved conflict note) should still surface it in search,
+          -- even though it isn't the "official" owner in book_barcodes.
+          -- Otherwise the book someone is holding in their hands is
+          -- invisible until the conflict gets resolved by hand.
+          EXISTS (
+            SELECT 1
+            FROM public.barcode_conflict_observations co
+            WHERE co.book_id = b.id
+              AND co.resolved = false
+              AND co.barcode ILIKE ${p}
+          )
+        )`
+      );
+    }
+
+    const authorId = normalizeUuid(req.query.author_id ?? req.query.authorId);
+    if (authorId) {
+      params.push(authorId);
+      where.push(`b.author_id = $${params.length}::uuid`);
+    }
+
+    const pagesEq = normalizeInt(req.query.pages ?? req.query.BSeiten);
+    if (pagesEq !== null) {
+      params.push(pagesEq);
+      where.push(`b.pages = $${params.length}`);
+    }
+
+    const statusRaw = normalizeStr(req.query.status || req.query.reading_status);
+    if (statusRaw) {
+      const parts = String(statusRaw)
+        .split(",")
+        .map((s) => mapReadingStatus(String(s || "").trim()))
+        .filter(Boolean);
+
+      const uniq = Array.from(new Set(parts));
+
+      if (uniq.length === 1) {
+        params.push(uniq[0]);
+        where.push(`b.reading_status = $${params.length}`);
+      } else if (uniq.length > 1) {
+        params.push(uniq);
+        where.push(`b.reading_status = ANY($${params.length}::text[])`);
+      }
+    }
+
+    const topOnly = normalizeBool(req.query.topOnly ?? req.query.top);
+    if (topOnly === true) {
+      where.push(`b.top_book = true`);
+    }
+
+    const since = normalizeStr(req.query.since);
+    if (since) {
+      params.push(since);
+      where.push(`b.registered_at >= $${params.length}::date`);
+    }
+
+    const theme = normalizeStr(req.query.theme);
+    if (theme) {
+      params.push(String(theme).toLowerCase().trim());
+      const p = `$${params.length}`;
+      where.push(
+        `regexp_split_to_array(lower(coalesce(b.themes,'')), '\\s*,\\s*') @> ARRAY[${p}]`
+      );
+    }
+
+    const whereSql = where.length ? `WHERE ${where.join(" AND ")}` : "";
+
+    const fromJoinSql = `
+      FROM public.books b
+      ${AUTHOR_RESOLVE_JOIN_SQL}
+      ${PUBLISHER_RESOLVE_JOIN_SQL}
+      LEFT JOIN public.genres g ON g.id = b.genre_id
+      LEFT JOIN public.sub_genres sg ON sg.id = b.sub_genre_id
+      LEFT JOIN LATERAL (
+        SELECT barcode
+        FROM public.book_barcodes bb
+        WHERE bb.book_id = b.id
+        LIMIT 1
+      ) bb ON true
+    `;
+
+    const countRes = await pool.query(
+      `
+      SELECT count(*)::int AS total
+      ${fromJoinSql}
+      ${whereSql}
+      `,
+      params
+    );
+
+    const total = countRes.rows[0]?.total ?? 0;
+
+    const listRes = await pool.query(
+      `
+      SELECT
+        b.*,
+        bb.barcode,
+       g.abbr AS genre_abbr,
+sg.abbr AS subgenre_abbr,
+g.genre_display AS genre_name,
+sg.name AS subgenre_name,
+${AUTHOR_RESOLVE_SELECT_SQL},
+        ${PUBLISHER_RESOLVE_SELECT_SQL}
+      ${fromJoinSql}
+      ${whereSql}
+      ORDER BY ${sortCol} ${order} NULLS LAST
+      LIMIT $${params.length + 1} OFFSET $${params.length + 2}
+      `,
+      [...params, limit, offset]
+    );
+
+    const coverMap = buildCoverMap();
+
+const items = listRes.rows.map((row) => {
+  const book = rowToApi(row);
+  const cover = coverMap.get(String(book.id));
+
+  return {
+    ...book,
+    cover_available: !!cover,
+    cover_url:  cover?.full  || null,
+    cover_home: cover?.home  || cover?.full || null,
+  };
+});
+    const pages = Math.max(1, Math.ceil(total / limit) || 1);
+
+    return res.json({ items, data: items, total, page, limit, pages });
+  } catch (err) {
+    console.error("listBooks error", err);
+    return res.status(500).json({ error: "internal_error" });
+  }
+}
+  /* ------------------------------ read one ---------------------------------- */
+
+  // Return a full book record (all columns) plus UI-friendly alias fields.
+  // Used by the edit form to prefill every field.
+  async function getBook(req, res) {
+    try {
+      const pool = getPool(req);
+      const id = String(req.params.id || "").trim();
+      if (!UUID_RE.test(id)) return res.status(400).json({ error: "bad_id" });
+
+      const { rows } = await pool.query(
+        `
+        SELECT
+          b.*,
+          g.abbr AS genre_abbr,
+sg.abbr AS subgenre_abbr,
+g.genre_display AS genre_name,
+sg.name AS subgenre_name,
+bb.barcode,
+          ${AUTHOR_RESOLVE_SELECT_SQL},
+          ${PUBLISHER_RESOLVE_SELECT_SQL}
+        FROM public.books b
+        ${AUTHOR_RESOLVE_JOIN_SQL}
+        ${PUBLISHER_RESOLVE_JOIN_SQL}
+        LEFT JOIN public.genres g ON g.id = b.genre_id
+LEFT JOIN public.sub_genres sg ON sg.id = b.sub_genre_id
+        LEFT JOIN LATERAL (
+          SELECT barcode FROM public.book_barcodes bb WHERE bb.book_id = b.id LIMIT 1
+        ) bb ON true
+        WHERE b.id = $1::uuid
+        LIMIT 1
+        `,
+        [id]
+      );
+
+      if (!rows.length) return res.status(404).json({ error: "not_found" });
+
+      const row = rows[0];
+      const book = rowToApi(row);
+const coverMap = buildCoverMap();
+const cover = coverMap.get(String(book.id));
+
+return res.json({
+  ...row,
+  ...book,
+  cover_available: !!cover,
+  cover_url:  cover?.full  || null,
+  cover_home: cover?.home  || cover?.full || null,
+});
+    } catch (err) {
+      console.error("getBook error", err);
+      return res.status(500).json({ error: "internal_error" });
+    }
+  }
+
+  /* ------------------------------ autocomplete -------------------------------- */
+  async function autocomplete(req, res) {
+    try {
+      const pool = getPool(req);
+
+      const field = String(req.query.field || "").trim();
+      const q = String(req.query.q || "").trim();
+      if (!field || q.length < 1) return res.json([]);
+
+      const max = clampInt(req.query.limit, 50, 1, 200);
+      const like = `${q}%`;
+      const contains = `%${q}%`;
+
+      const columns = await getColumns(pool, "books");
+
+    
+      if (field === "author_lastname" || field === "name_display") {
+        const { rows } = await pool.query(
+          `
+          WITH input AS (
+            SELECT regexp_replace(lower($2::text), '[^a-z0-9]+', '', 'g') AS q_norm
+          ),
+          exact_abbr AS (
+            SELECT
+              a.id::text AS id,
+              a.first_name,
+              a.last_name,
+              a.name_display,
+              a.abbr,
+              a.abbr AS author_abbr,
+              a.author_nationality,
+              a.place_of_birth,
+              a.male_female,
+              a.published_titles,
+              a.number_of_millionsellers
+            FROM public.authors a, input i
+            WHERE i.q_norm <> ''
+              AND regexp_replace(lower(coalesce(a.abbr, '')), '[^a-z0-9]+', '', 'g') = i.q_norm
+            ORDER BY a.name_display NULLS LAST, a.id
+            LIMIT $3
+          ),
+          fallback AS (
+            SELECT
+              a.id::text AS id,
+              a.first_name,
+              a.last_name,
+              a.name_display,
+              a.abbr,
+              a.abbr AS author_abbr,
+              a.author_nationality,
+              a.place_of_birth,
+              a.male_female,
+              a.published_titles,
+              a.number_of_millionsellers
+            FROM public.authors a, input i
+            WHERE NOT EXISTS (SELECT 1 FROM exact_abbr)
+              AND (
+                (i.q_norm <> '' AND regexp_replace(lower(coalesce(a.abbr, '')), '[^a-z0-9]+', '', 'g') LIKE i.q_norm || '%')
+                OR a.last_name ILIKE $1
+                OR a.name_display ILIKE $1
+                OR concat_ws(' ', a.first_name, a.last_name) ILIKE $1
+              )
+            ORDER BY
+              CASE
+                WHEN i.q_norm <> ''
+                  AND regexp_replace(lower(coalesce(a.abbr, '')), '[^a-z0-9]+', '', 'g') LIKE i.q_norm || '%' THEN 1
+                WHEN lower(a.last_name) = lower($2) THEN 2
+                WHEN lower(a.name_display) = lower($2) THEN 3
+                ELSE 99
+              END,
+              a.name_display NULLS LAST,
+              a.last_name NULLS LAST,
+              a.first_name NULLS LAST,
+              a.id
+            LIMIT $3
+          )
+          SELECT * FROM exact_abbr
+          UNION ALL
+          SELECT * FROM fallback
+          `,
+          [like, q, max]
+        );
+        return res.json(rows);
+      }
+  if (field === "publisher_abbr") {
+    const { rows } = await pool.query(
+      `
+      SELECT
+        p.id::text AS id,
+        p.name,
+        p.name_display,
+        a.abbr_raw AS abbr,
+        a.abbr_raw AS publisher_abbr
+      FROM public.publisher_aliases a
+      JOIN public.publishers p
+        ON p.name_display = a.full_name
+      WHERE a.type = 'publisher'
+        AND a.abbr_norm LIKE regexp_replace(lower($1::text), '[^a-z0-9]+', '', 'g') || '%'
+      ORDER BY
+        (a.abbr_norm = regexp_replace(lower($1::text), '[^a-z0-9]+', '', 'g')) DESC,
+        length(a.abbr_norm),
+        p.name_display NULLS LAST
+      LIMIT $2
+      `,
+      [q, max]
+    );
+    return res.json(rows);
+  }
+      if (field === "publisher_name_display") {
+        const { rows } = await pool.query(
+          `
+          SELECT
+            p.id::text AS id,
+            p.name,
+            p.name_display,
+            p.abbr
+          FROM public.publishers p
+          WHERE p.name_display ILIKE $1
+            OR p.name ILIKE $1
+            OR p.abbr ILIKE $1
+          ORDER BY
+            CASE
+              WHEN lower(p.name_display) = lower($2) THEN 1
+              WHEN lower(p.name) = lower($2) THEN 2
+              WHEN lower(p.abbr) = lower($2) THEN 3
+              ELSE 99
+            END,
+            p.name_display NULLS LAST,
+            p.name,
+            p.id
+          LIMIT $3
+          `,
+          [contains, q, max]
+        );
+        return res.json(rows);
+      }
+
+      if (field === "title_display") {
+        const { rows } = await pool.query(
+          `
+          SELECT
+            b.id::text AS id,
+            b.title_display,
+            b.subtitle_display,
+            b.pages,
+            b.author_id::text AS author_id,
+            a.name_display AS author_name_display,
+            a.first_name AS author_first_name,
+            a.last_name AS author_last_name,
+            a.abbr AS author_abbr
+          FROM public.books b
+          LEFT JOIN public.authors a ON a.id = b.author_id
+          WHERE b.title_display ILIKE $1
+          ORDER BY
+            CASE
+              WHEN lower(b.title_display) = lower($2) THEN 1
+              WHEN lower(b.title_display) LIKE lower($2) || '%' THEN 2
+              ELSE 99
+            END,
+            b.title_display NULLS LAST,
+            b.id
+          LIMIT $3
+          `,
+          [contains, q, max]
+        );
+        return res.json(rows);
+      }
+
+      if (field === "title_keyword") {
+        const selects = [];
+        if (columns.has("title_keyword")) selects.push("SELECT title_keyword AS v FROM public.books");
+        if (columns.has("title_keyword2")) selects.push("SELECT title_keyword2 AS v FROM public.books");
+        if (columns.has("title_keyword3")) selects.push("SELECT title_keyword3 AS v FROM public.books");
+        if (!selects.length) return res.json([]);
+
+        const { rows } = await pool.query(
+          `
+          WITH vals AS (
+            ${selects.join(" UNION ALL ")}
+          )
+          SELECT DISTINCT v
+          FROM vals
+          WHERE v ILIKE $1 AND v IS NOT NULL
+          ORDER BY v
+          LIMIT $2
+          `,
+          [like, max]
+        );
+
+        return res.json(rows.map((r) => r.v).filter(Boolean));
+      }
+
+      return res.json([]);
+    } catch (err) {
+      console.error("autocomplete error", err);
+      return res.status(500).json({ error: "internal_error" });
+    }
+  }
+  /* ------------------------- save-attempt audit log ------------------------- */
+  // Logged via `pool` (its own committed statement), OUTSIDE the books/barcode
+  // transaction below. If that transaction later rolls back (book never gets
+  // created), this row survives and records what was typed in and when —
+  // previously a failed save left zero trace anywhere in the DB. Both
+  // helpers are no-ops (just console.error, never throw) if the
+  // book_save_attempts table doesn't exist yet, so they can't break a save.
+  async function logSaveAttempt(pool, data) {
+    try {
+      const r = await pool.query(
+        `
+        INSERT INTO public.book_save_attempts
+          (title_display, author_input, pages, requested_barcode, width_cm, height_cm, request_id, book_id)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+        RETURNING id
+        `,
+        [
+          data.titleDisplay ?? null,
+          data.authorInput ?? null,
+          data.pages ?? null,
+          data.requestedBarcode ?? null,
+          data.widthCm ?? null,
+          data.heightCm ?? null,
+          data.requestId ?? null,
+          data.bookId ?? null,
+        ]
+      );
+      return r.rows[0]?.id ?? null;
+    } catch (e) {
+      console.error("logSaveAttempt failed (non-fatal)", e.message || e);
+      return null;
+    }
+  }
+
+  async function resolveSaveAttempt(pool, attemptId, { status, bookId, errorMessage } = {}) {
+    if (!attemptId) return;
+    try {
+      await pool.query(
+        `
+        UPDATE public.book_save_attempts
+        SET status = $2,
+            book_id = COALESCE($3, book_id),
+            error_message = $4,
+            resolved_at = now()
+        WHERE id = $1
+        `,
+        [attemptId, status ?? "failed", bookId ?? null, errorMessage ?? null]
+      );
+    } catch (e) {
+      console.error("resolveSaveAttempt failed (non-fatal)", e.message || e);
+    }
+  }
+
+  /* --------------------------------- create --------------------------------- */
+
+  async function registerBook(req, res) {
+    const body = req.body || {};
+
+    const explicitExistingId = normalizeUuid(
+      body.existing_book_id ?? body.existingBookId ?? body.draft_id ?? body.draftId
+    );
+    if (explicitExistingId) {
+      req.params = { ...(req.params || {}), id: explicitExistingId };
+      return registerExistingBook(req, res);
+    }
+
+    const assignBarcodeFlag = body.assign_barcode ?? body.assignBarcode;
+    const assignBarcodeNow = !(
+      assignBarcodeFlag === false ||
+      assignBarcodeFlag === "false" ||
+      assignBarcodeFlag === 0 ||
+      assignBarcodeFlag === "0"
+    );
+
+    const forceNewEntry =
+      body.force_new_entry === true ||
+      body.force_new_entry === "true" ||
+      body.forceNewEntry === true ||
+      body.forceNewEntry === "true";
+
+    const requestedBarcode = normalizeStr(body.barcode);
+    const widthCm = toNum(body.width_cm);
+    const heightCm = toNum(body.height_cm);
+
+    const pool = getPool(req);
+
+    const isbnInfo = normalizeIsbnForDb(
+      body.isbn13,
+      body.isbn10,
+      body.isbn13_raw ?? body.isbn13Raw ?? body.isbn_raw ?? body.isbn
+    );
+
+    
+    if (assignBarcodeNow) {
+      if (!Number.isFinite(widthCm) || !Number.isFinite(heightCm) || widthCm <= 0 || heightCm <= 0) {
+        return res.status(400).json({ error: "width_and_height_required" });
+      }
+
+      const titleOk = !!normalizeStr(body.title_display);
+      const authorOk = !!(
+        normalizeUuid(body.author_id) ||
+        normalizeStr(body.author_lastname) ||
+        normalizeStr(body.name_display ?? body.author_name_display)
+      );
+      const publisherOk = !!(
+        normalizeUuid(body.publisher_id) ||
+        normalizeStr(body.publisher_name_display) ||
+        normalizeStr(body.publisher_abbr)
+      );
+      const pagesVal = normalizeInt(body.pages);
+      const missingFields = [];
+      if (!titleOk) missingFields.push("title");
+      if (!authorOk) missingFields.push("author");
+      if (!publisherOk) missingFields.push("publisher");
+      if (!Number.isFinite(pagesVal) || pagesVal <= 0) missingFields.push("pages");
+      if (missingFields.length) {
+        return res.status(400).json({ error: "missing_required_fields", fields: missingFields });
+      }
+    }
+
+    const rule = assignBarcodeNow ? await resolveRuleAndPos(pool, widthCm, heightCm) : null;
+    if (assignBarcodeNow && !rule) {
+      return res.status(422).json({ error: "no_series_for_size" });
+    }
+
+    const requestId = normalizeStr(body.requestId ?? body.request_id);
+
+    const wMm = cmToMm(widthCm);
+    const hMm = cmToMm(heightCm);
+
+    const VALID_STATUSES = ["in_stock", "in_progress", "finished", "abandoned", "wishlist"];
+    const requestedStatus = normalizeStr(body.reading_status);
+    const status = (requestedStatus && VALID_STATUSES.includes(requestedStatus))
+      ? requestedStatus
+      : (assignBarcodeNow ? "in_progress" : "in_stock");
+    const nowIso = new Date().toISOString();
+    const statusTs = status === "finished" || status === "abandoned" ? nowIso : null;
+
+    const attemptId = await logSaveAttempt(pool, {
+      titleDisplay: normalizeStr(body.title_display),
+      authorInput: normalizeStr(body.name_display ?? body.author_name_display ?? body.author_lastname),
+      pages: normalizeInt(body.pages),
+      requestedBarcode,
+      widthCm,
+      heightCm,
+      requestId,
+    });
+
+    try {
+      const cols = await getColumns(pool, "books");
+
+      if (requestId && cols.has("request_id")) {
+        const exists = await pool.query(`SELECT id FROM public.books WHERE request_id = $1 LIMIT 1`, [requestId]);
+        const existingId = exists.rows[0]?.id;
+        if (existingId) {
+          const existing = await fetchBookWithBarcode(pool, existingId);
+          return res.status(200).json(rowToApi(existing));
+        }
+      }
+
+      const client = await pool.connect();
+      try {
+        await client.query("BEGIN");
+
+        const authorIdRaw = normalizeUuid(body.author_id);
+        const authorLastRaw = normalizeStr(body.author_lastname);
+        const authorFirstRaw = normalizeStr(body.author_firstname);
+        const authorDispRaw = normalizeStr(body.name_display ?? body.author_name_display);
+        const authorAbbrRaw = normalizeStr(body.author_abbr);
+        const authorPublishedTitlesRaw = normalizeInt(body.published_titles);
+        const authorMillionsRaw = normalizeInt(body.number_of_millionsellers);
+        const authorNationalityRaw = normalizeStr(body.author_nationality);
+        const authorPlaceOfBirthRaw = normalizeStr(body.place_of_birth);
+        const authorMaleFemaleRaw = normalizeStr(body.male_female);
+
+        const publisherIdRaw = normalizeUuid(body.publisher_id);
+        const publisherDispRaw = normalizeStr(body.publisher_name_display);
+        const publisherAbbrRaw = normalizePublisherAbbr(body.publisher_abbr);
+        const publisherKeyRaw = normalizeKey(publisherDispRaw || publisherAbbrRaw);
+
+        const authorRow = await upsertAuthor(client, {
+          authorId: authorIdRaw,
+          key: authorDispRaw || authorLastRaw,
+          firstName: authorFirstRaw,
+          lastName: authorLastRaw,
+          nameDisplay: authorDispRaw,
+          abbreviation: authorAbbrRaw,
+          publishedTitles: authorPublishedTitlesRaw,
+          numberOfMillionSellers: authorMillionsRaw,
+          maleFemale: authorMaleFemaleRaw,
+          authorNationality: authorNationalityRaw,
+          placeOfBirth: authorPlaceOfBirthRaw,
+        });
+
+        const publisherRow = await upsertPublisher(client, {
+          publisherId: publisherIdRaw,
+          key: publisherKeyRaw,
+          nameDisplay: publisherDispRaw,
+          abbr: publisherAbbrRaw,
+        });
+
+        const topBook = normalizeBool(body.top_book) ?? false;
+        const homeFeaturedSlot = normalizeHomeFeaturedSlot(body.home_featured_slot ?? body.homeFeaturedSlot);
+
+        const bookInsert = {
+          author_id: authorRow?.id ?? null,
+          publisher_id: publisherRow?.id ?? null,
+          genre_id: normalizeInt(body.genre_id),
+sub_genre_id: normalizeInt(body.sub_genre_id),   
+          title_keyword:
+  normalizeStr(body.title_keyword) ||
+  makeTitleKeyword(body.title_display),
+          title_keyword_position: normalizeInt(body.title_keyword_position),
+          title_keyword2: normalizeStr(body.title_keyword2),
+          title_keyword2_position: normalizeInt(body.title_keyword2_position),
+          title_keyword3: normalizeStr(body.title_keyword3),
+          title_keyword3_position: normalizeInt(body.title_keyword3_position),
+
+          pages: normalizeInt(body.pages),
+          year_first_published: normalizeInt(body.year_first_published ?? body.first_publish_year),
+          width: Number.isFinite(wMm) ? wMm : null,
+          height: Number.isFinite(hMm) ? hMm : null,
+
+          top_book: topBook,
+          top_book_set_at: topBook ? nowIso : null,
+
+          reading_status: status,
+          reading_status_updated_at: statusTs,
+          registered_at: assignBarcodeNow ? nowIso : null,
+
+          home_featured_slot: undefined,
+
+          title_display: normalizeStr(body.title_display),
+          subtitle_display: normalizeStr(body.subtitle_display),
+          title_en: normalizeStr(body.title_en),
+          isbn13: isbnInfo.isbn13,
+          isbn10: isbnInfo.isbn10,
+          isbn13_raw: isbnInfo.isbn13_raw,
+          purchase_url: normalizeStr(body.purchase_url),
+          comment: normalizeStr(body.comment),
+          original_language: normalizeStr(body.original_language),
+          // language of the physical copy; new books (e.g. phone upload) default to German
+          language: (normalizeStr(body.language) || "de").toLowerCase(),
+          request_id: requestId,
+        };
+
+        const insertObj = pickKnownColumns(cols, bookInsert);
+        const insertKeys = Object.keys(insertObj);
+
+        let insertedRow;
+        if (!insertKeys.length) {
+          const r = await client.query(`INSERT INTO public.books DEFAULT VALUES RETURNING *`);
+          insertedRow = r.rows[0];
+        } else {
+          const vals = insertKeys.map((k) => insertObj[k]);
+          const placeholders = insertKeys.map((_, i) => `$${i + 1}`);
+          const r = await client.query(
+            `INSERT INTO public.books (${insertKeys.join(",")}) VALUES (${placeholders.join(",")}) RETURNING *`,
+            vals
+          );
+          insertedRow = r.rows[0];
+        }
+
+        const bookId = insertedRow?.id;
+        if (!bookId) throw new Error("book_insert_failed");
+
+        if (bookId && cols.has("home_featured_slot") && homeFeaturedSlot) {
+          await setHomeFeaturedSlotTx(client, bookId, homeFeaturedSlot);
+        }
+
+        if (!assignBarcodeNow) {
+          await client.query("COMMIT");
+          await resolveSaveAttempt(pool, attemptId, { status: "success", bookId });
+          const full = await fetchBookWithBarcode(pool, bookId);
+          return res.status(201).json(rowToApi(full));
+        }
+
+        let barcode = requestedBarcode;
+        if (!barcode) barcode = await pickBestBarcode(client, rule);
+        if (!barcode) {
+          await client.query("ROLLBACK");
+          await resolveSaveAttempt(pool, attemptId, {
+            status: "failed",
+            errorMessage: "no_barcodes_available",
+          });
+          return res.status(409).json({ error: "no_barcodes_available" });
+        }
+
+        await assignBarcodeTx(client, {
+          bookId,
+          barcode,
+          expectedSizeRuleId: rule ? rule.sizeRuleId : null,
+          expectedPos: rule ? rule.pos : null,
+          expectedPrefix: null,
+          assignedAt: nowIso,
+        });
+
+        await client.query("COMMIT");
+        await resolveSaveAttempt(pool, attemptId, { status: "success", bookId });
+
+        const full = await fetchBookWithBarcode(pool, bookId);
+        return res.status(201).json(rowToApi(full));
+      } catch (err) {
+        try {
+          await client.query("ROLLBACK");
+        } catch {}
+        throw err;
+      } finally {
+        client.release();
+      }
+    } catch (err) {
+      await resolveSaveAttempt(pool, attemptId, {
+        status: "failed",
+        errorMessage: String(err?.message || err),
+      });
+
+      const knownPg = sendKnownPgError(res, err);
+      if (knownPg) return knownPg;
+
+      const msg = String(err?.message || err);
+      if (msg === "book_barcode_link_failed") {
+        return res.status(409).json({
+          error: "book_barcode_link_failed",
+          message: "Fehler beim Speichern: Barcode konnte nicht verknüpft werden (vermutlich noch einem anderen Buch zugeordnet). Bitte erneut versuchen oder einen anderen Barcode wählen.",
+        });
+      }
+      if (msg === "barcode_has_unresolved_conflict") {
+        return res.status(409).json({
+          error: "barcode_has_unresolved_conflict",
+          message: "Fehler beim Speichern: Dieser Barcode hat eine ungelöste Konflikt-Markierung (wurde auf einem anderen Buch beobachtet). Bitte zuerst klären oder einen anderen Barcode wählen.",
+        });
+      }
+      const map = {
+        barcode_not_found: [404, "barcode_not_found"],
+        barcode_not_available: [409, "barcode_not_available"],
+        barcode_already_assigned: [409, "barcode_already_assigned"],
+        barcode_already_assigned_to_other_book: [409, "barcode_already_assigned_to_other_book"],
+        barcode_wrong_position: [400, "barcode_wrong_position"],
+        barcode_wrong_prefix: [400, "barcode_wrong_prefix"],
+        barcode_has_unresolved_conflict: [409, "barcode_has_unresolved_conflict"],
+      };
+      if (map[msg]) {
+        const [statusCode, code] = map[msg];
+        return res.status(statusCode).json({ error: code });
+      }
+
+      console.error("registerBook error", err);
+      return res.status(500).json({
+        error: "internal_error",
+        message: "Speichern ist fehlgeschlagen (Serverfehler). Bitte erneut versuchen.",
+      });
+    }
+  }
+  async function saveExistingBookWithoutBarcode(req, res, idOverride) {
+    const pool = getPool(req);
+    const id = String(idOverride || req.params?.id || "").trim();
+    if (!UUID_RE.test(id)) return res.status(400).json({ error: "invalid_id" });
+
+    const body = req.body || {};
+    const cols = await getColumns(pool, "books");
+
+    const isbnProvided =
+      body.isbn13 !== undefined ||
+      body.isbn10 !== undefined ||
+      body.isbn13_raw !== undefined ||
+      body.isbn13Raw !== undefined ||
+      body.isbn_raw !== undefined ||
+      body.isbn !== undefined;
+
+    const isbnInfo = isbnProvided
+      ? normalizeIsbnForDb(
+          body.isbn13,
+          body.isbn10,
+          body.isbn13_raw ?? body.isbn13Raw ?? body.isbn_raw ?? body.isbn
+        )
+      : null;
+
+    const client = await pool.connect();
+    try {
+      await client.query("BEGIN");
+
+      const curRes = await client.query(
+        `
+        SELECT reading_status, reading_status_updated_at, top_book, author_id, publisher_id, registered_at
+        FROM public.books
+        WHERE id=$1::uuid
+        FOR UPDATE
+        `,
+        [id]
+      );
+      if (!curRes.rowCount) {
+        await client.query("ROLLBACK");
+        return res.status(404).json({ error: "not_found" });
+      }
+      const cur = curRes.rows[0];
+
+      const updates = {
+        reading_status: "in_stock",
+        reading_status_updated_at: null,
+        registered_at: null,
+      };
+if (body.genre_id !== undefined && cols.has("genre_id")) {
+  updates.genre_id = normalizeInt(body.genre_id);
+}
+
+if (body.sub_genre_id !== undefined && cols.has("sub_genre_id")) {
+  updates.sub_genre_id = normalizeInt(body.sub_genre_id);
+}
+      const authorIdRaw = normalizeUuid(body.author_id);
+      const effectiveAuthorId = authorIdRaw || cur.author_id || null;
+      const authorLastRaw = normalizeStr(body.author_lastname);
+      const authorFirstRaw = normalizeStr(body.author_firstname);
+      const authorDispRaw = normalizeStr(body.name_display ?? body.author_name_display);
+      const authorAbbrRaw = normalizeStr(body.author_abbr);
+      const authorPublishedTitlesRaw = normalizeInt(body.published_titles);
+      const authorMillionsRaw = normalizeInt(body.number_of_millionsellers);
+      const authorNationalityRaw = normalizeStr(body.author_nationality);
+      const authorPlaceOfBirthRaw = normalizeStr(body.place_of_birth);
+      const authorMaleFemaleRaw = normalizeStr(body.male_female);
+
+      if (
+        body.author_id !== undefined ||
+        body.author_lastname !== undefined ||
+        body.author_firstname !== undefined ||
+        body.name_display !== undefined ||
+        body.author_name_display !== undefined ||
+        body.author_abbr !== undefined ||
+        body.published_titles !== undefined ||
+        body.number_of_millionsellers !== undefined ||
+        body.author_nationality !== undefined ||
+        body.place_of_birth !== undefined ||
+        body.male_female !== undefined
+      ) {
+        const authorRow = await upsertAuthor(client, {
+          authorId: effectiveAuthorId,
+          key: authorDispRaw || authorLastRaw,
+          firstName: authorFirstRaw,
+          lastName: authorLastRaw,
+          nameDisplay: authorDispRaw,
+          abbreviation: authorAbbrRaw,
+          publishedTitles: authorPublishedTitlesRaw,
+          numberOfMillionSellers: authorMillionsRaw,
+          maleFemale: authorMaleFemaleRaw,
+          authorNationality: authorNationalityRaw,
+          placeOfBirth: authorPlaceOfBirthRaw,
+        });
+        if (cols.has("author_id")) updates.author_id = authorRow?.id ?? effectiveAuthorId ?? null;
+      }
+
+      const publisherIdRaw = normalizeUuid(body.publisher_id);
+      const effectivePublisherId = publisherIdRaw || cur.publisher_id || null;
+      const publisherDispRaw = normalizeStr(body.publisher_name_display);
+      const publisherAbbrRaw = normalizePublisherAbbr(body.publisher_abbr);
+      const publisherKeyRaw = normalizeKey(publisherDispRaw || publisherAbbrRaw);
+
+      if (
+        body.publisher_id !== undefined ||
+        body.publisher_name_display !== undefined ||
+        body.publisher_abbr !== undefined
+      ) {
+        const publisherRow = await upsertPublisher(client, {
+          publisherId: effectivePublisherId,
+          key: publisherKeyRaw,
+          nameDisplay: publisherDispRaw,
+          abbr: publisherAbbrRaw,
+        });
+        if (cols.has("publisher_id")) updates.publisher_id = publisherRow?.id ?? effectivePublisherId ?? null;
+      }
+
+      if (body.title_display !== undefined && cols.has("title_display")) {
+        updates.title_display = normalizeStr(body.title_display);
+      }
+      if (body.subtitle_display !== undefined && cols.has("subtitle_display")) {
+        updates.subtitle_display = normalizeStr(body.subtitle_display);
+      }
+      if (body.title_en !== undefined && cols.has("title_en")) {
+        updates.title_en = normalizeStr(body.title_en);
+      }
+      if (body.purchase_url !== undefined && cols.has("purchase_url")) {
+        updates.purchase_url = normalizeStr(body.purchase_url);
+      }
+      if (body.original_language !== undefined && cols.has("original_language")) {
+        updates.original_language = normalizeStr(body.original_language);
+      }
+      if (isbnInfo && cols.has("isbn13")) updates.isbn13 = isbnInfo.isbn13;
+      if (isbnInfo && cols.has("isbn10")) updates.isbn10 = isbnInfo.isbn10;
+      if (isbnInfo && cols.has("isbn13_raw")) updates.isbn13_raw = isbnInfo.isbn13_raw;
+      if (body.comment !== undefined && cols.has("comment")) {
+        updates.comment = normalizeStr(body.comment);
+      }
+      if (body.kauflink !== undefined && cols.has("kauflink")) {
+  updates.kauflink = normalizeStr(body.kauflink);
+}
+  if (body.title_keyword !== undefined) {
+  updates.title_keyword =
+    normalizeStr(body.title_keyword) ||
+    makeTitleKeyword(body.title_display);
+} else if (body.title_display !== undefined) {
+  updates.title_keyword = makeTitleKeyword(body.title_display);
+}
+      if (body.title_keyword_position !== undefined) {
+        updates.title_keyword_position = normalizeInt(body.title_keyword_position);
+      }
+      if (body.title_keyword2 !== undefined) updates.title_keyword2 = normalizeStr(body.title_keyword2);
+      if (body.title_keyword2_position !== undefined) {
+        updates.title_keyword2_position = normalizeInt(body.title_keyword2_position);
+      }
+      if (body.title_keyword3 !== undefined) updates.title_keyword3 = normalizeStr(body.title_keyword3);
+      if (body.title_keyword3_position !== undefined) {
+        updates.title_keyword3_position = normalizeInt(body.title_keyword3_position);
+      }
+
+      if (body.pages !== undefined) updates.pages = normalizeInt(body.pages);
+      if ((body.year_first_published ?? body.first_publish_year) !== undefined) {
+        updates.year_first_published = normalizeInt(body.year_first_published ?? body.first_publish_year);
+      }
+
+      if (body.width_cm !== undefined) {
+        const w = toNum(body.width_cm);
+        updates.width = Number.isFinite(w) ? cmToMm(w) : null;
+      }
+      if (body.height_cm !== undefined) {
+        const h = toNum(body.height_cm);
+        updates.height = Number.isFinite(h) ? cmToMm(h) : null;
+      }
+
+      if (body.top_book !== undefined) {
+        const nextTop = normalizeBool(body.top_book);
+        if (nextTop !== null && nextTop !== undefined) {
+          updates.top_book = nextTop;
+          if (cols.has("top_book_set_at")) {
+            updates.top_book_set_at = nextTop ? new Date().toISOString() : null;
+          }
+        }
+      }
+
+      const hasHomeFeaturedSlot =
+        hasOwn(body, "home_featured_slot") || hasOwn(body, "homeFeaturedSlot");
+      const nextHomeFeaturedSlot = hasHomeFeaturedSlot
+        ? normalizeHomeFeaturedSlot(body.home_featured_slot ?? body.homeFeaturedSlot)
+        : undefined;
+
+      if (cols.has("updated_at")) {
+        updates.updated_at = new Date().toISOString();
+      }
+
+      const setObj = pickKnownColumns(cols, updates);
+      const keys = Object.keys(setObj).filter((k) => setObj[k] !== undefined);
+      if (keys.length) {
+        const values = keys.map((k) => setObj[k]);
+        const sets = keys.map((k, i) => `${k} = $${i + 1}`);
+        await client.query(
+          `UPDATE public.books SET ${sets.join(", ")} WHERE id = $${keys.length + 1}::uuid`,
+          [...values, id]
+        );
+      }
+
+      if (hasHomeFeaturedSlot && cols.has("home_featured_slot")) {
+        await setHomeFeaturedSlotTx(client, id, nextHomeFeaturedSlot);
+      }
+
+      await client.query("COMMIT");
+      const full = await fetchBookWithBarcode(pool, id);
+      return res.status(200).json(rowToApi(full));
+    } catch (err) {
+      try {
+        await client.query("ROLLBACK");
+      } catch {}
+
+      const knownPg = sendKnownPgError(res, err);
+      if (knownPg) return knownPg;
+
+      console.error("saveExistingBookWithoutBarcode error", err);
+      return res.status(500).json({
+        error: "internal_error",
+        message: "Speichern ist fehlgeschlagen (Serverfehler). Bitte erneut versuchen.",
+      });
+    } finally {
+      client.release();
+    }
+  }
+
+  /* ---------------------------- register existing ---------------------------- */
+
+  // Finalize an existing draft: assign/pick a barcode and persist metadata.
+  // Admin route: POST /api/admin/books/:id/register
+  async function registerExistingBook(req, res) {
+    const pool = getPool(req);
+    const id = String(req.params.id || "").trim();
+    if (!UUID_RE.test(id)) return res.status(400).json({ error: "invalid_id" });
+
+    const body = req.body || {};
+
+    const requestedBarcode = normalizeStr(body.barcode);
+    const widthCm = toNum(body.width_cm);
+    const heightCm = toNum(body.height_cm);
+
+    if (!Number.isFinite(widthCm) || !Number.isFinite(heightCm) || widthCm <= 0 || heightCm <= 0) {
+      return res.status(400).json({ error: "width_and_height_required" });
+    }
+
+    const rule = await resolveRuleAndPos(pool, widthCm, heightCm);
+    if (!rule) return res.status(422).json({ error: "no_series_for_size" });
+
+    const nowIso = new Date().toISOString();
+    const cols = await getColumns(pool, "books");
+
+    const isbnProvided =
+      body.isbn13 !== undefined ||
+      body.isbn10 !== undefined ||
+      body.isbn13_raw !== undefined ||
+      body.isbn13Raw !== undefined ||
+      body.isbn_raw !== undefined ||
+      body.isbn !== undefined;
+
+    const isbnInfo = isbnProvided
+      ? normalizeIsbnForDb(
+          body.isbn13,
+          body.isbn10,
+          body.isbn13_raw ?? body.isbn13Raw ?? body.isbn_raw ?? body.isbn
+        )
+      : null;
+
+    const attemptId = await logSaveAttempt(pool, {
+      titleDisplay: normalizeStr(body.title_display),
+      authorInput: normalizeStr(body.name_display ?? body.author_name_display ?? body.author_lastname),
+      pages: normalizeInt(body.pages),
+      requestedBarcode,
+      widthCm,
+      heightCm,
+      bookId: id,
+    });
+
+    const client = await pool.connect();
+    try {
+      await client.query("BEGIN");
+
+      const curRes = await client.query(
+        `
+        SELECT id, registered_at, reading_status, author_id, publisher_id, title_display, pages
+        FROM public.books
+        WHERE id = $1::uuid
+        FOR UPDATE
+        `,
+        [id]
+      );
+      if (!curRes.rowCount) {
+        await client.query("ROLLBACK");
+        return res.status(404).json({ error: "not_found" });
+      }
+
+      
+      const authorIdRaw = normalizeUuid(body.author_id);
+      const effectiveAuthorId = authorIdRaw || curRes.rows[0]?.author_id || null;
+      const authorLastRaw = normalizeStr(body.author_lastname);
+      const authorFirstRaw = normalizeStr(body.author_firstname);
+      const authorDispRaw = normalizeStr(body.name_display ?? body.author_name_display);
+      const authorAbbrRaw = normalizeStr(body.author_abbr);
+      const authorPublishedTitlesRaw = normalizeInt(body.published_titles);
+      const authorMillionsRaw = normalizeInt(body.number_of_millionsellers);
+      const authorNationalityRaw = normalizeStr(body.author_nationality);
+      const authorPlaceOfBirthRaw = normalizeStr(body.place_of_birth);
+      const authorMaleFemaleRaw = normalizeStr(body.male_female);
+
+      const publisherIdRaw = normalizeUuid(body.publisher_id);
+      const effectivePublisherId = publisherIdRaw || curRes.rows[0]?.publisher_id || null;
+      const publisherDispRaw = normalizeStr(body.publisher_name_display);
+      const publisherAbbrRaw = normalizePublisherAbbr(body.publisher_abbr);
+      const publisherKeyRaw = normalizeKey(publisherDispRaw || publisherAbbrRaw);
+const updates = {
+  reading_status: "in_progress",
+  registered_at: nowIso,
+  reading_status_updated_at: null,
+};
+
+if (body.genre_id !== undefined && cols.has("genre_id")) {
+  updates.genre_id = normalizeInt(body.genre_id);
+}
+
+if (body.sub_genre_id !== undefined && cols.has("sub_genre_id")) {
+  updates.sub_genre_id = normalizeInt(body.sub_genre_id);
+}
+
+if (
+  authorIdRaw ||
+  authorLastRaw ||
+  authorFirstRaw ||
+  authorDispRaw ||
+  authorAbbrRaw ||
+  authorPublishedTitlesRaw !== null ||
+  authorMillionsRaw !== null ||
+  authorNationalityRaw ||
+  authorPlaceOfBirthRaw ||
+  authorMaleFemaleRaw
+) {
+  const authorRow = await upsertAuthor(client, {
+    authorId: effectiveAuthorId,
+    key: authorDispRaw || authorLastRaw,
+    firstName: authorFirstRaw,
+    lastName: authorLastRaw,
+    nameDisplay: authorDispRaw,
+    abbreviation: authorAbbrRaw,
+    publishedTitles: authorPublishedTitlesRaw,
+    numberOfMillionSellers: authorMillionsRaw,
+    maleFemale: authorMaleFemaleRaw,
+    authorNationality: authorNationalityRaw,
+    placeOfBirth: authorPlaceOfBirthRaw,
+  });
+
+  if (cols.has("author_id")) {
+    updates.author_id = authorRow?.id ?? effectiveAuthorId ?? null;
+  }
+}
+      if (publisherIdRaw || publisherDispRaw || publisherAbbrRaw) {
+        const publisherRow = await upsertPublisher(client, {
+          publisherId: effectivePublisherId,
+          key: publisherKeyRaw,
+          nameDisplay: publisherDispRaw,
+          abbr: publisherAbbrRaw,
+        });
+        if (cols.has("publisher_id")) updates.publisher_id = publisherRow?.id ?? effectivePublisherId ?? null;
+      }
+
+      if (body.title_display !== undefined && cols.has("title_display")) {
+        updates.title_display = normalizeStr(body.title_display);
+      }
+      if (body.subtitle_display !== undefined && cols.has("subtitle_display")) {
+        updates.subtitle_display = normalizeStr(body.subtitle_display);
+      }
+      if (body.title_en !== undefined && cols.has("title_en")) {
+        updates.title_en = normalizeStr(body.title_en);
+      }
+      if (body.purchase_url !== undefined && cols.has("purchase_url")) {
+        updates.purchase_url = normalizeStr(body.purchase_url);
+      }
+      if (body.original_language !== undefined && cols.has("original_language")) {
+        updates.original_language = normalizeStr(body.original_language);
+      }
+      if (isbnInfo && cols.has("isbn13")) updates.isbn13 = isbnInfo.isbn13;
+      if (isbnInfo && cols.has("isbn10")) updates.isbn10 = isbnInfo.isbn10;
+      if (isbnInfo && cols.has("isbn13_raw")) updates.isbn13_raw = isbnInfo.isbn13_raw;
+      if (body.comment !== undefined && cols.has("comment")) {
+        updates.comment = normalizeStr(body.comment);
+      }
+
+     if (body.title_keyword !== undefined) {
+  updates.title_keyword =
+    normalizeStr(body.title_keyword) ||
+    makeTitleKeyword(body.title_display);
+} else if (body.title_display !== undefined) {
+  updates.title_keyword = makeTitleKeyword(body.title_display);
+}
+      if (body.title_keyword_position !== undefined) {
+        updates.title_keyword_position = normalizeInt(body.title_keyword_position);
+      }
+      if (body.title_keyword2 !== undefined) updates.title_keyword2 = normalizeStr(body.title_keyword2);
+      if (body.title_keyword2_position !== undefined) {
+        updates.title_keyword2_position = normalizeInt(body.title_keyword2_position);
+      }
+      if (body.title_keyword3 !== undefined) updates.title_keyword3 = normalizeStr(body.title_keyword3);
+      if (body.title_keyword3_position !== undefined) {
+        updates.title_keyword3_position = normalizeInt(body.title_keyword3_position);
+      }
+
+      if (body.pages !== undefined) updates.pages = normalizeInt(body.pages);
+      if ((body.year_first_published ?? body.first_publish_year) !== undefined) {
+        updates.year_first_published = normalizeInt(body.year_first_published ?? body.first_publish_year);
+      }
+
+      if (body.width_cm !== undefined) {
+        const w = toNum(body.width_cm);
+        updates.width = Number.isFinite(w) ? cmToMm(w) : null;
+      }
+      if (body.height_cm !== undefined) {
+        const h = toNum(body.height_cm);
+        updates.height = Number.isFinite(h) ? cmToMm(h) : null;
+      }
+
+      {
+        const effectiveTitle = updates.title_display !== undefined ? updates.title_display : curRes.rows[0].title_display;
+        const effectivePages = updates.pages !== undefined ? updates.pages : curRes.rows[0].pages;
+        const finalAuthorId = updates.author_id !== undefined ? updates.author_id : effectiveAuthorId;
+        const finalPublisherId = updates.publisher_id !== undefined ? updates.publisher_id : effectivePublisherId;
+        const missingFields = [];
+        if (!normalizeStr(effectiveTitle)) missingFields.push("title");
+        if (!finalAuthorId) missingFields.push("author");
+        if (!finalPublisherId) missingFields.push("publisher");
+        if (!Number.isFinite(effectivePages) || effectivePages <= 0) missingFields.push("pages");
+        if (missingFields.length) {
+          await client.query("ROLLBACK");
+          await resolveSaveAttempt(pool, attemptId, {
+            status: "failed",
+            errorMessage: "missing_required_fields:" + missingFields.join(","),
+          });
+          return res.status(400).json({ error: "missing_required_fields", fields: missingFields });
+        }
+      }
+
+      if (body.top_book !== undefined) {
+        const nextTop = normalizeBool(body.top_book);
+        if (nextTop !== null && nextTop !== undefined) {
+          updates.top_book = nextTop;
+          if (cols.has("top_book_set_at")) {
+            updates.top_book_set_at = nextTop ? nowIso : null;
+          }
+        }
+      }
+
+      const hasHomeFeaturedSlot =
+        hasOwn(body, "home_featured_slot") || hasOwn(body, "homeFeaturedSlot");
+      const nextHomeFeaturedSlot = hasHomeFeaturedSlot
+        ? normalizeHomeFeaturedSlot(body.home_featured_slot ?? body.homeFeaturedSlot)
+        : undefined;
+
+      const setObj = pickKnownColumns(cols, updates);
+      const keys = Object.keys(setObj).filter((k) => setObj[k] !== undefined);
+      if (keys.length) {
+        const values = keys.map((k) => setObj[k]);
+        const sets = keys.map((k, i) => `${k} = $${i + 1}`);
+        await client.query(
+          `UPDATE public.books SET ${sets.join(", ")} WHERE id = $${keys.length + 1}::uuid`,
+          [...values, id]
+        );
+      }
+
+      if (hasHomeFeaturedSlot && cols.has("home_featured_slot")) {
+        await setHomeFeaturedSlotTx(client, id, nextHomeFeaturedSlot);
+      }
+
+      let barcode = requestedBarcode;
+      if (!barcode) barcode = await pickBestBarcode(client, rule);
+      if (!barcode) {
+        await client.query("ROLLBACK");
+        await resolveSaveAttempt(pool, attemptId, {
+          status: "failed",
+          errorMessage: "no_barcodes_available",
+        });
+        return res.status(409).json({ error: "no_barcodes_available" });
+      }
+
+      await assignBarcodeTx(client, {
+        bookId: id,
+        barcode,
+        expectedSizeRuleId: rule ? rule.sizeRuleId : null,
+        expectedPos: rule ? rule.pos : null,
+        expectedPrefix: null,
+        assignedAt: nowIso,
+      });
+
+      await client.query("COMMIT");
+      await resolveSaveAttempt(pool, attemptId, { status: "success", bookId: id });
+      const full = await fetchBookWithBarcode(pool, id);
+      return res.json(rowToApi(full));
+    } catch (err) {
+      try {
+        await client.query("ROLLBACK");
+      } catch {}
+
+      await resolveSaveAttempt(pool, attemptId, {
+        status: "failed",
+        errorMessage: String(err?.message || err),
+      });
+
+      const knownPg = sendKnownPgError(res, err);
+      if (knownPg) return knownPg;
+
+      const msg = String(err?.message || err);
+      if (msg === "book_barcode_link_failed") {
+        return res.status(409).json({
+          error: "book_barcode_link_failed",
+          message: "Fehler beim Speichern: Barcode konnte nicht verknüpft werden (vermutlich noch einem anderen Buch zugeordnet). Bitte erneut versuchen oder einen anderen Barcode wählen.",
+        });
+      }
+      if (msg === "barcode_has_unresolved_conflict") {
+        return res.status(409).json({
+          error: "barcode_has_unresolved_conflict",
+          message: "Fehler beim Speichern: Dieser Barcode hat eine ungelöste Konflikt-Markierung (wurde auf einem anderen Buch beobachtet). Bitte zuerst klären oder einen anderen Barcode wählen.",
+        });
+      }
+      const map = {
+        barcode_not_found: [404, "barcode_not_found"],
+        barcode_not_available: [409, "barcode_not_available"],
+        barcode_already_assigned: [409, "barcode_already_assigned"],
+        barcode_already_assigned_to_other_book: [409, "barcode_already_assigned_to_other_book"],
+        barcode_wrong_position: [400, "barcode_wrong_position"],
+        barcode_wrong_prefix: [400, "barcode_wrong_prefix"],
+        barcode_has_unresolved_conflict: [409, "barcode_has_unresolved_conflict"],
+      };
+      if (map[msg]) {
+        const [statusCode, code] = map[msg];
+        return res.status(statusCode).json({ error: code });
+      }
+
+      console.error("registerExistingBook error", err);
+      return res.status(500).json({
+        error: "internal_error",
+        message: "Speichern ist fehlgeschlagen (Serverfehler). Bitte erneut versuchen.",
+      });
+    } finally {
+      client.release();
+    }
+  }
+
+  /* --------------------------------- update --------------------------------- */
+
+  async function updateBook(req, res) {
+    const pool = getPool(req);
+    const id = String(req.params.id || "").trim();
+    if (!UUID_RE.test(id)) return res.status(400).json({ error: "invalid_id" });
+
+    const patch = req.body || {};
+    const cols = await getColumns(pool, "books");
+
+    const client = await pool.connect();
+    try {
+      await client.query("BEGIN");
+
+      const curRes = await client.query(
+        `
+        SELECT reading_status, reading_status_updated_at, top_book, author_id, publisher_id,
+               title_display, pages, width, height
+        FROM public.books
+        WHERE id=$1::uuid
+        FOR UPDATE
+        `,
+        [id]
+      );
+      if (!curRes.rowCount) {
+        await client.query("ROLLBACK");
+        return res.status(404).json({ error: "not_found" });
+      }
+      const cur = curRes.rows[0];
+
+      const barcodeRes = await client.query(
+        `SELECT 1 FROM public.book_barcodes WHERE book_id = $1::uuid LIMIT 1`,
+        [id]
+      );
+      const hasBarcode = barcodeRes.rowCount > 0;
+
+      const updates = {};
+      if (patch.genre_id !== undefined && cols.has("genre_id")) {
+  updates.genre_id = normalizeInt(patch.genre_id);
+}
+
+if (patch.sub_genre_id !== undefined && cols.has("sub_genre_id")) {
+  updates.sub_genre_id = normalizeInt(patch.sub_genre_id);
+}
+if (patch.genre_abbr !== undefined) {
+  const genreAbbr = normalizeStr(patch.genre_abbr);
+
+  if (!genreAbbr) {
+    updates.genre_id = null;
+    updates.sub_genre_id = null;
+  } else {
+    const genreRes = await client.query(
+      `
+      SELECT id
+      FROM public.genres
+      WHERE lower(abbr) = lower($1)
+      LIMIT 1
+      `,
+      [genreAbbr]
+    );
+
+    if (!genreRes.rowCount) {
+      await client.query("ROLLBACK");
+      return res.status(400).json({ error: "unknown_genre_abbr" });
+    }
+
+    updates.genre_id = genreRes.rows[0].id;
+  }
+}
+
+if ((patch.sub_genre_abbr ?? patch.subgenre_abbr) !== undefined) {
+  const subAbbr = normalizeStr(patch.sub_genre_abbr ?? patch.subgenre_abbr);
+  if (!subAbbr) {
+    updates.sub_genre_id = null;
+  } else {
+    const subRes = await client.query(
+      `
+      SELECT sg.id, sg.genre_id
+      FROM public.sub_genres sg
+      WHERE lower(sg.abbr) = lower($1)
+        AND (
+          $2::bigint IS NULL
+          OR sg.genre_id = $2::bigint
+        )
+      LIMIT 1
+      `,
+      [subAbbr, updates.genre_id ?? null]
+    );
+
+    if (!subRes.rowCount) {
+      await client.query("ROLLBACK");
+      return res.status(400).json({ error: "unknown_subgenre_abbr" });
+    }
+
+    updates.sub_genre_id = subRes.rows[0].id;
+
+    if (updates.genre_id === undefined) {
+      updates.genre_id = subRes.rows[0].genre_id;
+    }
+  }
+}
+      const isbnProvided =
+        patch.isbn13 !== undefined ||
+        patch.isbn10 !== undefined ||
+        patch.isbn13_raw !== undefined ||
+        patch.isbn13Raw !== undefined ||
+        patch.isbn_raw !== undefined ||
+        patch.isbn !== undefined;
+
+      const isbnInfo = isbnProvided
+        ? normalizeIsbnForDb(
+            patch.isbn13,
+            patch.isbn10,
+            patch.isbn13_raw ?? patch.isbn13Raw ?? patch.isbn_raw ?? patch.isbn
+          )
+        : null;
+
+      const authorIdRaw = normalizeUuid(patch.author_id);
+      const effectiveAuthorId = authorIdRaw || cur.author_id || null;
+      const authorLastRaw = normalizeStr(patch.author_lastname);
+      const authorFirstRaw = normalizeStr(patch.author_firstname);
+      const authorDispRaw = normalizeStr(patch.name_display ?? patch.author_name_display);
+      const authorAbbrRaw = normalizeStr(patch.author_abbr);
+      const authorPublishedTitlesRaw = normalizeInt(patch.published_titles);
+      const authorMillionsRaw = normalizeInt(patch.number_of_millionsellers);
+      const authorNationalityRaw = normalizeStr(patch.author_nationality);
+      const authorPlaceOfBirthRaw = normalizeStr(patch.place_of_birth);
+      const authorMaleFemaleRaw = normalizeStr(patch.male_female);
+
+      if (
+        patch.author_id !== undefined ||
+        patch.author_lastname !== undefined ||
+        patch.author_firstname !== undefined ||
+        patch.name_display !== undefined ||
+        patch.author_name_display !== undefined ||
+        patch.author_abbr !== undefined ||
+        patch.published_titles !== undefined ||
+        patch.number_of_millionsellers !== undefined ||
+        patch.author_nationality !== undefined ||
+        patch.place_of_birth !== undefined ||
+        patch.male_female !== undefined
+      ) {
+        const authorRow = await upsertAuthor(client, {
+          authorId: effectiveAuthorId,
+          key: authorDispRaw || authorLastRaw,
+          firstName: authorFirstRaw,
+          lastName: authorLastRaw,
+          nameDisplay: authorDispRaw,
+          abbreviation: authorAbbrRaw,
+          publishedTitles: authorPublishedTitlesRaw,
+          numberOfMillionSellers: authorMillionsRaw,
+          maleFemale: authorMaleFemaleRaw,
+          authorNationality: authorNationalityRaw,
+          placeOfBirth: authorPlaceOfBirthRaw,
+        });
+        if (cols.has("author_id")) updates.author_id = authorRow?.id ?? effectiveAuthorId ?? null;
+      }
+
+      const publisherIdRaw = normalizeUuid(patch.publisher_id);
+      const effectivePublisherId = publisherIdRaw || cur.publisher_id || null;
+      const publisherDispRaw = normalizeStr(patch.publisher_name_display);
+      const publisherAbbrRaw = normalizePublisherAbbr(patch.publisher_abbr);
+      const publisherKeyRaw = normalizeKey(publisherDispRaw || publisherAbbrRaw);
+
+      if (
+        patch.publisher_id !== undefined ||
+        patch.publisher_name_display !== undefined ||
+        patch.publisher_abbr !== undefined
+      ) {
+        const publisherRow = await upsertPublisher(client, {
+          publisherId: effectivePublisherId,
+          key: publisherKeyRaw,
+          nameDisplay: publisherDispRaw,
+          abbr: publisherAbbrRaw,
+        });
+        if (cols.has("publisher_id")) updates.publisher_id = publisherRow?.id ?? effectivePublisherId ?? null;
+      }
+
+      if (patch.title_display !== undefined && cols.has("title_display")) {
+        updates.title_display = normalizeStr(patch.title_display);
+      }
+      if (patch.subtitle_display !== undefined && cols.has("subtitle_display")) {
+        updates.subtitle_display = normalizeStr(patch.subtitle_display);
+      }
+      if (patch.title_en !== undefined && cols.has("title_en")) {
+        updates.title_en = normalizeStr(patch.title_en);
+      }
+      if (patch.purchase_url !== undefined && cols.has("purchase_url")) {
+        updates.purchase_url = normalizeStr(patch.purchase_url);
+      }
+      if (patch.kauflink !== undefined && cols.has("kauflink")) {
+  updates.kauflink = normalizeStr(patch.kauflink);
+}
+      if (patch.original_language !== undefined && cols.has("original_language")) {
+        updates.original_language = normalizeStr(patch.original_language);
+      }
+      if (isbnInfo && cols.has("isbn13")) updates.isbn13 = isbnInfo.isbn13;
+      if (isbnInfo && cols.has("isbn10")) updates.isbn10 = isbnInfo.isbn10;
+      if (isbnInfo && cols.has("isbn13_raw")) updates.isbn13_raw = isbnInfo.isbn13_raw;
+      if (patch.comment !== undefined && cols.has("comment")) {
+        updates.comment = normalizeStr(patch.comment);
+      }
+
+     if (patch.title_keyword !== undefined) {
+  updates.title_keyword =
+    normalizeStr(patch.title_keyword) ||
+    makeTitleKeyword(patch.title_display);
+} else if (patch.title_display !== undefined) {
+  updates.title_keyword = makeTitleKeyword(patch.title_display);
+}
+      if (patch.title_keyword_position !== undefined) {
+        updates.title_keyword_position = normalizeInt(patch.title_keyword_position);
+      }
+      if (patch.title_keyword2 !== undefined) updates.title_keyword2 = normalizeStr(patch.title_keyword2);
+      if (patch.title_keyword2_position !== undefined) {
+        updates.title_keyword2_position = normalizeInt(patch.title_keyword2_position);
+      }
+      if (patch.title_keyword3 !== undefined) updates.title_keyword3 = normalizeStr(patch.title_keyword3);
+      if (patch.title_keyword3_position !== undefined) {
+        updates.title_keyword3_position = normalizeInt(patch.title_keyword3_position);
+      }
+
+      if (patch.pages !== undefined) updates.pages = normalizeInt(patch.pages);
+      if ((patch.year_first_published ?? patch.first_publish_year) !== undefined) {
+        updates.year_first_published = normalizeInt(patch.year_first_published ?? patch.first_publish_year);
+      }
+
+      if (patch.width_cm !== undefined) {
+        const w = toNum(patch.width_cm);
+        const nextWidth = Number.isFinite(w) ? cmToMm(w) : null;
+        // Once a real width has been recorded, it must never be cleared back
+        // to NULL again — even after a barcode is later freed (finished /
+        // abandoned). Clearing was the root cause of books ending up
+        // "finished" with no width/height and no barcode trail at all.
+        if (nextWidth === null && cur.width != null) {
+          await client.query("ROLLBACK");
+          return res.status(409).json({ error: "width_cannot_be_cleared" });
+        }
+        updates.width = nextWidth;
+      }
+      if (patch.height_cm !== undefined) {
+        const h = toNum(patch.height_cm);
+        const nextHeight = Number.isFinite(h) ? cmToMm(h) : null;
+        if (nextHeight === null && cur.height != null) {
+          await client.query("ROLLBACK");
+          return res.status(409).json({ error: "height_cannot_be_cleared" });
+        }
+        updates.height = nextHeight;
+      }
+
+      if (patch.top_book !== undefined) {
+        const nextTop = normalizeBool(patch.top_book);
+        if (nextTop !== null && nextTop !== undefined) {
+          updates.top_book = nextTop;
+          if (cols.has("top_book_set_at")) {
+            if (nextTop && !cur.top_book) updates.top_book_set_at = new Date().toISOString();
+            if (!nextTop) updates.top_book_set_at = null;
+          }
+        }
+      }
+
+      if (patch.reading_status !== undefined) {
+        const nextStatus = mapReadingStatus(patch.reading_status);
+        if (nextStatus) {
+          const changed = String(cur.reading_status || "") !== String(nextStatus || "");
+
+          // A book that is in_progress is holding an open barcode. The barcode
+          // may only be released by finishing/abandoning the book — there is no
+          // "back to stock" path for in_progress books anymore. Reject any other
+          // transition here with a clean error before it reaches the DB guard
+          // trigger (trg_prevent_in_progress_status_change), which would
+          // otherwise surface as a raw Postgres exception.
+          if (
+            changed &&
+            cur.reading_status === "in_progress" &&
+            nextStatus !== "finished" &&
+            nextStatus !== "abandoned"
+          ) {
+            await client.query("ROLLBACK");
+            return res.status(409).json({ error: "in_progress_requires_finish_or_abandon" });
+          }
+
+          updates.reading_status = nextStatus;
+          if (cols.has("reading_status_updated_at")) {
+            if (changed && (nextStatus === "finished" || nextStatus === "abandoned")) {
+              updates.reading_status_updated_at = new Date().toISOString();
+            } else if (changed && nextStatus !== "finished" && nextStatus !== "abandoned") {
+              updates.reading_status_updated_at = null;
+            }
+          }
+        }
+      }
+
+      // Books that are (or are about to become) anything other than
+      // "wishlist" must carry full bibliographic data. This catches both
+      // (a) moving a bare wishlist row into in_stock/in_progress/etc. without
+      // filling these in, and (b) clearing them out afterwards via a plain
+      // PATCH while the book is already past wishlist.
+      // "finished" and "abandoned" are exempt: these are terminal states set
+      // on existing entries and should not be blocked by missing bibliographic
+      // data (e.g. width/height never having been recorded).
+      // Books with no barcode assigned yet are also exempt: width/height are
+      // only meaningful once a barcode (and its label size) is picked, so a
+      // barcode-less book shouldn't be blocked from simple edits (e.g. fixing
+      // the page count) just because those fields were never captured.
+      {
+        const effectiveStatus = updates.reading_status !== undefined ? updates.reading_status : cur.reading_status;
+        if (
+          effectiveStatus &&
+          effectiveStatus !== "wishlist" &&
+          effectiveStatus !== "finished" &&
+          effectiveStatus !== "abandoned" &&
+          hasBarcode
+        ) {
+          const effectiveTitle = updates.title_display !== undefined ? updates.title_display : cur.title_display;
+          const effectivePages = updates.pages !== undefined ? updates.pages : cur.pages;
+          const effectiveWidth = updates.width !== undefined ? updates.width : cur.width;
+          const effectiveHeight = updates.height !== undefined ? updates.height : cur.height;
+          const effectiveAuthorId = updates.author_id !== undefined ? updates.author_id : cur.author_id;
+          const effectivePublisherId = updates.publisher_id !== undefined ? updates.publisher_id : cur.publisher_id;
+
+          const missingFields = [];
+          if (!normalizeStr(effectiveTitle)) missingFields.push("title");
+          if (!effectiveAuthorId) missingFields.push("author");
+          if (!effectivePublisherId) missingFields.push("publisher");
+          if (!Number.isFinite(effectivePages) || effectivePages <= 0) missingFields.push("pages");
+          if (!Number.isFinite(effectiveWidth) || effectiveWidth <= 0) missingFields.push("width");
+          if (!Number.isFinite(effectiveHeight) || effectiveHeight <= 0) missingFields.push("height");
+
+          if (missingFields.length) {
+            await client.query("ROLLBACK");
+            return res.status(400).json({ error: "missing_required_fields", fields: missingFields });
+          }
+        }
+      }
+
+      const hasHomeFeaturedSlot =
+        hasOwn(patch, "home_featured_slot") || hasOwn(patch, "homeFeaturedSlot");
+      const nextHomeFeaturedSlot = hasHomeFeaturedSlot
+        ? normalizeHomeFeaturedSlot(patch.home_featured_slot ?? patch.homeFeaturedSlot)
+        : undefined;
+
+      const nonUpdatedAtKeys = Object.keys(updates).filter(
+        (k) =>
+          updates[k] !== undefined &&
+          ![
+            "reading_status",
+            "reading_status_updated_at",
+            "registered_at",
+            "added_at",
+            "updated_at",
+            "top_book_set_at",
+          ].includes(k)
+      );
+
+      if (cols.has("updated_at") && (nonUpdatedAtKeys.length > 0 || hasHomeFeaturedSlot)) {
+        updates.updated_at = new Date().toISOString();
+      }
+
+      const setObj = pickKnownColumns(cols, updates);
+      const keys = Object.keys(setObj).filter((k) => setObj[k] !== undefined);
+      if (!keys.length && !hasHomeFeaturedSlot) {
+        await client.query("ROLLBACK");
+        return res.status(400).json({ error: "no_fields" });
+      }
+
+      if (keys.length) {
+        const values = keys.map((k) => setObj[k]);
+        const sets = keys.map((k, i) => `${k} = $${i + 1}`);
+
+        await client.query(
+          `UPDATE public.books SET ${sets.join(", ")} WHERE id = $${keys.length + 1}::uuid`,
+          [...values, id]
+        );
+      }
+
+      if (hasHomeFeaturedSlot && cols.has("home_featured_slot")) {
+        await setHomeFeaturedSlotTx(client, id, nextHomeFeaturedSlot);
+      }
+
+      if (
+        cur.reading_status === "in_progress" &&
+        (updates.reading_status === "finished" || updates.reading_status === "abandoned")
+      ) {
+        await client.query(
+          `
+          WITH freed AS (
+            UPDATE public.barcode_assignments
+            SET freed_at = now()
+            WHERE book_id = $1::uuid
+              AND freed_at IS NULL
+            RETURNING barcode
+          )
+          DELETE FROM public.book_barcodes
+          WHERE book_id = $1::uuid
+          `,
+          [id]
+        );
+
+        await client.query(
+          `
+          UPDATE public.barcode_inventory bi
+          SET status = 'AVAILABLE',
+              updated_at = now()
+          WHERE EXISTS (
+            SELECT 1
+            FROM public.barcode_assignments ba
+            WHERE lower(ba.barcode) = lower(bi.barcode)
+              AND ba.book_id = $1::uuid
+              AND ba.freed_at IS NOT NULL
+          )
+            -- Authoritative check: only flip back to AVAILABLE once this
+            -- barcode has zero remaining links to a book that is still
+            -- reading_status = 'in_progress' (the only status allowed to
+            -- hold a barcode). Stale finished/abandoned/wishlist links
+            -- (legacy data) must NOT block it from becoming available.
+            AND NOT EXISTS (
+              SELECT 1
+              FROM public.book_barcodes bb2
+              JOIN public.books b2 ON b2.id = bb2.book_id
+              WHERE lower(bb2.barcode) = lower(bi.barcode)
+                AND b2.reading_status = 'in_progress'
+            )
+          `,
+          [id]
+        );
+      }
+
+      await client.query("COMMIT");
+
+      const full = await fetchBookWithBarcode(pool, id);
+      return res.json(rowToApi(full));
+    } catch (err) {
+      try {
+        await client.query("ROLLBACK");
+      } catch {}
+
+      const knownPg = sendKnownPgError(res, err);
+      if (knownPg) return knownPg;
+
+      console.error("updateBook error", err);
+      return res.status(500).json({
+        error: "internal_error",
+        message: "Speichern ist fehlgeschlagen (Serverfehler). Bitte erneut versuchen.",
+      });
+    } finally {
+      client.release();
+    }
+  }
+  /* --------------------------------- drop --------------------------------- */
+
+    async function dropBook(req, res) {
+    const pool = getPool(req);
+    const id = String(req.params.id || "").trim();
+    if (!UUID_RE.test(id)) return res.status(400).json({ error: "invalid_id" });
+
+    const client = await pool.connect();
+    try {
+      await client.query("BEGIN");
+
+      const exists = await client.query(
+        `SELECT id, reading_status FROM public.books WHERE id = $1::uuid FOR UPDATE`,
+        [id]
+      );
+
+      if (!exists.rowCount) {
+        await client.query("ROLLBACK");
+        return res.status(404).json({ error: "not_found" });
+      }
+
+      // Admin-area rule (app-level only — DBeaver/direct SQL stays the
+      // deliberate escape hatch for cleaning up test entries): a book may
+      // only be permanently deleted through the admin UI/API while it's
+      // still a wishlist entry — i.e. before it's ever been on hand
+      // (in_stock/in_progress) or finished/abandoned.
+      if (exists.rows[0].reading_status !== "wishlist") {
+        await client.query("ROLLBACK");
+        return res.status(409).json({ error: "delete_requires_wishlist_status" });
+      }
+
+      await client.query(`DELETE FROM public.book_barcodes WHERE book_id = $1::uuid`, [id]);
+      await client.query(`DELETE FROM public.books WHERE id = $1::uuid`, [id]);
+
+      await client.query("COMMIT");
+      return res.status(204).send();
+    } catch (e) {
+      try {
+        await client.query("ROLLBACK");
+      } catch {}
+
+      console.error("dropBook error", e);
+      return res.status(500).json({ error: "delete_failed", detail: String(e?.message || e) });
+    } finally {
+      client.release();
+    }
+  }
+
+async function getBarcodeHistory(req, res) {
+  try {
+    const pool = getPool(req);
+    const barcode = String(req.params.barcode || "").trim();
+
+    if (!barcode) {
+      return res.status(400).json({ error: "missing_barcode" });
+    }
+
+    const { rows } = await pool.query(
+      `
+      SELECT
+        ba.barcode,
+        ba.book_id::text AS book_id,
+        ba.assigned_at,
+        ba.freed_at,
+        (ba.freed_at IS NULL) AS is_open,
+
+        b.title_display,
+        b.title_keyword,
+        b.pages,
+        b.reading_status,
+        b.reading_status_updated_at,
+
+        a.name_display AS author_name_display,
+        a.last_name AS author_lastname,
+        a.abbr AS author_abbr,
+
+        -- whoever book_barcodes currently says holds this physical barcode
+        -- right now (same value on every row; lets the UI flag a ledger
+        -- entry whose book_id no longer matches the live link, i.e. a
+        -- desynced/"lost" registration).
+        cur.book_id::text AS current_link_book_id,
+        curb.pages AS current_link_pages,
+        curb.title_display AS current_link_title
+
+      FROM public.barcode_assignments ba
+      LEFT JOIN public.books b
+        ON b.id = ba.book_id
+      LEFT JOIN public.authors a
+        ON a.id = b.author_id
+      LEFT JOIN public.book_barcodes cur
+        ON lower(cur.barcode) = lower(ba.barcode)
+      LEFT JOIN public.books curb
+        ON curb.id = cur.book_id
+
+      WHERE lower(ba.barcode) = lower($1)
+
+      ORDER BY
+        ba.assigned_at DESC NULLS LAST,
+        ba.freed_at DESC NULLS LAST
+      `,
+      [barcode]
+    );
+
+    const { rows: conflicts } = await pool.query(
+      `
+      SELECT
+        co.id::text AS id,
+        co.book_id::text AS book_id,
+        co.barcode,
+        co.observed_at,
+        co.note,
+        co.resolved,
+        co.resolved_at,
+        co.resolution_note,
+        b.title_display,
+        b.pages
+      FROM public.barcode_conflict_observations co
+      LEFT JOIN public.books b ON b.id = co.book_id
+      WHERE lower(co.barcode) = lower($1)
+      ORDER BY co.observed_at DESC
+      `,
+      [barcode]
+    );
+
+    return res.json({
+      barcode,
+      current_link_book_id: rows[0]?.current_link_book_id ?? null,
+      items: rows,
+      conflicts,
+    });
+  } catch (err) {
+    console.error("getBarcodeHistory error", err);
+    return res.status(500).json({ error: "internal_error" });
+  }
+}
+// Admin escape hatch: record that a barcode was physically observed on an
+// existing book even though it's already (or possibly) claimed elsewhere.
+// Does NOT touch book_barcodes/barcode_assignments -- it's a flagged note,
+// not a real link, so it can never create the duplicate-owner desync those
+// tables are protected against. See sql/20260625_barcode_conflict_observations.sql.
+async function recordBarcodeConflict(req, res) {
+  try {
+    const pool = getPool(req);
+    const bookId = String(req.params.bookId || "").trim();
+    const barcode = String(req.body?.barcode || "").trim();
+    const note = req.body?.note ? String(req.body.note).trim() : null;
+
+    if (!UUID_RE.test(bookId)) {
+      return res.status(400).json({ error: "invalid_book_id" });
+    }
+    if (!barcode) {
+      return res.status(400).json({ error: "missing_barcode" });
+    }
+
+    const bookRes = await pool.query(
+      `SELECT id, title_display FROM public.books WHERE id = $1::uuid`,
+      [bookId]
+    );
+    if (bookRes.rowCount === 0) {
+      return res.status(404).json({ error: "book_not_found" });
+    }
+
+    // Informational only -- who currently, legitimately holds this barcode.
+    const currentRes = await pool.query(
+      `SELECT book_id::text AS book_id, b.title_display
+       FROM public.book_barcodes bb
+       LEFT JOIN public.books b ON b.id = bb.book_id
+       WHERE lower(bb.barcode) = lower($1)`,
+      [barcode]
+    );
+
+    const { rows } = await pool.query(
+      `INSERT INTO public.barcode_conflict_observations (book_id, barcode, note)
+       VALUES ($1::uuid, $2, $3)
+       RETURNING id, book_id::text AS book_id, barcode, observed_at, note, resolved`,
+      [bookId, barcode, note]
+    );
+
+    return res.status(201).json({
+      observation: rows[0],
+      current_holder: currentRes.rows[0] || null,
+    });
+  } catch (err) {
+    console.error("recordBarcodeConflict error", err);
+    return res.status(500).json({ error: "internal_error" });
+  }
+}
+
+// Mark a previously recorded conflict as resolved (e.g. once you've sorted
+// out by hand which book really owns the barcode).
+async function resolveBarcodeConflict(req, res) {
+  try {
+    const pool = getPool(req);
+    const id = String(req.params.id || "").trim();
+    const resolutionNote = req.body?.resolution_note
+      ? String(req.body.resolution_note).trim()
+      : null;
+
+    if (!UUID_RE.test(id)) {
+      return res.status(400).json({ error: "invalid_id" });
+    }
+
+    const { rows } = await pool.query(
+      `UPDATE public.barcode_conflict_observations
+       SET resolved = true, resolved_at = now(), resolution_note = $2
+       WHERE id = $1::uuid
+       RETURNING id, book_id::text AS book_id, barcode, observed_at, resolved, resolved_at, resolution_note`,
+      [id, resolutionNote]
+    );
+
+    if (rows.length === 0) {
+      return res.status(404).json({ error: "observation_not_found" });
+    }
+
+    return res.json({ observation: rows[0] });
+  } catch (err) {
+    console.error("resolveBarcodeConflict error", err);
+    return res.status(500).json({ error: "internal_error" });
+  }
+}
+
+async function setHighlight(req, res) {
+  const pool = getPool(req);
+
+  const { book_id, presented_as } = req.body;
+
+  if (!book_id) {
+    return res.status(400).json({
+      error: "book_id required",
+    });
+  }
+
+  if (!["finished", "received"].includes(presented_as)) {
+    return res.status(400).json({
+      error: "invalid presented_as",
+    });
+  }
+
+  const client = await pool.connect();
+
+  try {
+    await client.query("BEGIN");
+
+    await setHomeFeaturedSlotTx(
+      client,
+      book_id,
+      presented_as
+    );
+
+    await client.query(
+      `
+      UPDATE public.books
+      SET updated_at = now()
+      WHERE id = $1::uuid
+      `,
+      [book_id]
+    );
+
+    await client.query("COMMIT");
+
+    const full = await fetchBookWithBarcode(pool, book_id);
+
+    return res.json(rowToApi(full));
+  } catch (err) {
+    await client.query("ROLLBACK");
+
+    console.error("setHighlight error", err);
+
+    return res.status(500).json({
+      error: "Could not set highlight",
+    });
+  } finally {
+    client.release();
+  }
+}
+
+  module.exports = {
+    listBooks,
+    getBook,
+    autocomplete,
+    registerBook,
+    registerExistingBook,
+    updateBook,
+    dropBook,
+    getBarcodeHistory,
+    setHighlight,
+    recordBarcodeConflict,
+    resolveBarcodeConflict,
+  };

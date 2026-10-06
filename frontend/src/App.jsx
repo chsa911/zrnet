@@ -2,6 +2,9 @@ import React, { useEffect, useState } from "react";
 import { Routes, Route, Navigate, useLocation } from "react-router-dom";
 import Layout from "./components/Layout";
 import Home from "./pages/Home";
+import ComingSoonPage from "./pages/ComingSoonPage";
+import CollectionPage from "./pages/CollectionPage";
+import { findComingSoon } from "./utils/comingSoon";
 import AnalyticsPage from "./pages/AnalyticsPage";
 import LegacyHtmlPage from "./pages/LegacyHtmlPage";
 import InfoPage from "./pages/InfoPage";
@@ -81,13 +84,13 @@ function AdminOnly({ children }) {
   return <RequireAdmin>{children}</RequireAdmin>;
 }
 
+// Unknown path: show "coming soon" for pages listed in utils/comingSoon.js,
+// otherwise a friendly 404 in the site's design.
 function NotFound() {
-  return (
-    <div style={{ padding: 24, fontFamily: "Arial, sans-serif" }}>
-      <h2>404</h2>
-      <p>Page not found.</p>
-    </div>
-  );
+  const { pathname } = useLocation();
+  const soon = findComingSoon(pathname);
+  if (soon) return <ComingSoonPage eta={soon.eta} titleKey={soon.title || ""} />;
+  return <ComingSoonPage notFound />;
 }
 
 export default function App() {
@@ -126,6 +129,7 @@ export default function App() {
       <Route path="/" element={<Layout />}>
         <Route index element={<Home />} />
         <Route path="titles" element={<HomeTitlesPage />} />
+        <Route path="collection" element={<CollectionPage />} />
 
         {/* book themes */}
         <Route path="bookthemes" element={<BookThemesPage />} />

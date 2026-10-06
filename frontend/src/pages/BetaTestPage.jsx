@@ -111,7 +111,7 @@ export default function BetaTestPage() {
           </div>
 
           <div className="beta-cta__actions">
-            <div className="beta-cta__mail">Christopher@pagesinline.com</div>
+            <div className="beta-cta__mail">christopher@christopherspages.com</div>
             <a className="zr-btn2 zr-btn2--primary" href={mailHref}>
               {t("beta.mail_label")}
             </a>
