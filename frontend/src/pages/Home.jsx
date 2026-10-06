@@ -340,7 +340,7 @@ const pickCover = useMemo(
           <a className="zr-btn2 zr-btn2--ghost" href="https://www.youtube.com/@pagesinline" target="_blank" rel="noreferrer">
             YouTube
           </a>
-          <a className="zr-btn2 zr-btn2--ghost" href="https://www.tiktok.com/@pagesinline" target="_blank" rel="noreferrer">
+          <a className="zr-btn2 zr-btn2--ghost" href="https://www.tiktok.com/@christopherspages" target="_blank" rel="noreferrer">
             TikTok
           </a>
         </div>
