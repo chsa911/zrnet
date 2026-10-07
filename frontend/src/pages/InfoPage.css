@@ -345,3 +345,15 @@
     font-size: 17px;
   }
 }
+/* keep badges compact and cards top-aligned when card texts are short */
+.zr-info__panel,
+.zr-info__qaItem{
+  align-content: start;
+}
+.zr-info__panelEyebrow,
+.zr-infoBadge,
+.zr-infoHero__asideLabel{
+  justify-self: start;
+  width: max-content;
+  max-width: 100%;
+}
