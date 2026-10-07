@@ -635,9 +635,10 @@ export default function BookForm({
       });
 
       setMsg(
-        changed
+        (changed
           ? "ISBN gefunden ✔ (Felder wurden ergänzt)"
-          : "ISBN gefunden, aber es kamen nur wenige Metadaten zurück."
+          : "ISBN gefunden, aber es kamen nur wenige Metadaten zurück.") +
+          (Array.isArray(r?.warnings) && r.warnings.length ? `\n⚠ ${r.warnings.join("\n⚠ ")}` : "")
       );
     } catch (e) {
       setMsg(e?.message || "ISBN Lookup fehlgeschlagen");
@@ -840,10 +841,12 @@ export default function BookForm({
     if (!isEdit) payload.assign_barcode = false;
 
     let jobId = null;
+    let localBackupOk = false;
 
     if (!isEdit) {
       jobId = globalThis.crypto?.randomUUID?.() || `${Date.now()}-${Math.random()}`;
 
+      try {
       await upsertUploadJob({
         id: jobId,
         createdAt: Date.now(),
@@ -856,6 +859,11 @@ export default function BookForm({
         coverName: coverFile?.name || "cover.jpg",
         coverExpected: !!coverFile,
       });
+        localBackupOk = true;
+      } catch (err) {
+        console.error("[BookForm] local backup failed", err);
+        jobId = null;
+      }
       refreshPending();
     }
 
@@ -926,16 +934,18 @@ export default function BookForm({
     } catch (err) {
       setMsg(
         `${err?.message || "Fehler beim Speichern"}. ` +
-          (jobId
+          (localBackupOk
             ? "Sicherheitsnetz aktiv: Daten wurden lokal gespeichert und können später erneut hochgeladen werden."
-            : "")
+            : !isEdit
+              ? "⚠ ACHTUNG: Daten wurden NICHT gespeichert (auch nicht lokal). Bitte Formular offen lassen und erneut speichern."
+              : "")
       );
     } finally {
       setBusy(false);
       try {
         await processUploadQueue({ maxJobs: 10 });
-      } catch {
-        // ignore
+      } catch (e) {
+        console.error("[BookForm] upload queue processing failed", e);
       }
       refreshPending();
     }

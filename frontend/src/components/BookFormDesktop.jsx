@@ -727,7 +727,11 @@ export default function BookFormDesktop({
         publisher_id: prev.publisher_id || s.publisher_id || "",
         publisher_name_display: prev.publisher_name_display || s.publisher_name_display || "",
       }));
-      showMsg("ISBN gefunden ✔", "success");
+      if (Array.isArray(r?.warnings) && r.warnings.length) {
+        showMsg(`ISBN gefunden – bitte Daten prüfen:\n⚠ ${r.warnings.join("\n⚠ ")}`, "error");
+      } else {
+        showMsg("ISBN gefunden ✔", "success");
+      }
     } catch (e) {
       showMsg(e?.message || "ISBN Lookup fehlgeschlagen", "error");
     } finally {
@@ -1087,6 +1091,7 @@ if (pages == null || pages <= 0) {
   min-height: 78px;
   border-radius: 8px;
   border: 3px solid transparent;
+  white-space: pre-line;
 }
 
 .bfd-msg--error {
@@ -1258,7 +1263,7 @@ if (pages == null || pages <= 0) {
                   <MatchCoverThumb src={m.coverUrl} id={m.id} />
                   <div style={{ padding: "8px 10px", textAlign: "left" }}>
                     <div style={{ fontSize: 13, fontWeight: 900, lineHeight: 1.2 }}>
-                      {m.title_display || m.main_title_display || "ohne Titel"}
+                      {m.title_display || m.main_title_display || (m.title_keyword ? `Stichwort: ${m.title_keyword}` : "ohne Titel")}
                     </div>
                     {(m.author_display || m.author_name_display) && (
                       <div style={{ fontSize: 12, fontWeight: 700, color: "#555", marginTop: 2 }}>

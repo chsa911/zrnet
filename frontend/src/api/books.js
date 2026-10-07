@@ -160,7 +160,9 @@ export async function lookupIsbn(isbn, { signal } = {}) {
 
   try {
     return await http(`/enrich/lookup?${qs}`, { signal });
-  } catch {
+  } catch (e) {
+    if (e?.name === "AbortError") throw e;
+    console.error("[lookupIsbn] /enrich/lookup failed, retrying via /enrich/isbn", e);
     return http(`/enrich/isbn?${qs}`, { signal });
   }
 }

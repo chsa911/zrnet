@@ -39,17 +39,18 @@ export default function UploadQueueManager() {
   }
 
   useEffect(() => {
-    refresh().then(() => runOnce(2)).catch(() => {});
-    const onOnline = () => runOnce(3).catch(() => {});
+    const logErr = (e) => console.error("[UploadQueue] processing failed", e);
+    refresh().then(() => runOnce(2)).catch(logErr);
+    const onOnline = () => runOnce(3).catch(logErr);
     const onVis = () => {
-      if (document.visibilityState === "visible") runOnce(2).catch(() => {});
+      if (document.visibilityState === "visible") runOnce(2).catch(logErr);
     };
 
     window.addEventListener("online", onOnline);
     document.addEventListener("visibilitychange", onVis);
 
     // periodic nudge
-    const t = setInterval(() => runOnce(1).catch(() => {}), 30000);
+    const t = setInterval(() => runOnce(1).catch(logErr), 30000);
 
     return () => {
       clearInterval(t);

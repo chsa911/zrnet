@@ -493,7 +493,7 @@ export default function BookFormStagingPwa({
         author_lastname: prev.author_lastname || toStr(s.author_lastname || s.author_last_name),
       }));
 
-      setMsg("ISBN gefunden ✔ (Daten wurden ergänzt)");
+      setMsg("ISBN gefunden ✔ (Daten wurden ergänzt)" + (Array.isArray(r?.warnings) && r.warnings.length ? `\n⚠ ${r.warnings.join("\n⚠ ")}` : ""));
     } catch (e) {
       setMsg(e?.message || "ISBN Lookup fehlgeschlagen");
     } finally {

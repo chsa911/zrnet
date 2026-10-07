@@ -38,8 +38,9 @@ let startReleaseJob = null;
 try {
   // keep this optional; job might not exist or might still be Mongo-based
   ({ start: startReleaseJob } = require("./jobs/releaseMarks"));
-} catch {
-  /* ignore if missing */
+} catch (e) {
+  // only a missing file is OK; a broken job file must be visible
+  if (e?.code !== "MODULE_NOT_FOUND") console.error("[server] failed to load jobs/releaseMarks", e);
 }
 
 let server = null;

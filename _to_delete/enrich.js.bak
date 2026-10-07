@@ -99,7 +99,7 @@ async function metaFromDb(pool, { isbn13, isbn10 }) {
       a.first_name AS author_first_name,
       a.last_name AS author_last_name,
       a.name_display AS author_name_display,
-      a.abbr AS author_abbr,
+      a.abbreviation AS author_abbr
       a.author_nationality,
       a.place_of_birth,
       a.male_female,
@@ -154,13 +154,10 @@ async function fetchJson(url, ms = 3500) {
   const t = setTimeout(() => ac.abort(), ms);
   try {
     const r = await fetch(url, { signal: ac.signal });
-    if (!r.ok) throw new Error(`HTTP ${r.status} from ${new URL(url).host}`);
+    if (!r.ok) return null;
     return await r.json();
-  } catch (e) {
-    const host = (() => { try { return new URL(url).host; } catch { return url; } })();
-    const msg = e?.name === "AbortError" ? `Timeout (${ms} ms) bei ${host}` : (e?.message || String(e));
-    console.error("[enrich] external request failed:", msg);
-    throw new Error(msg);
+  } catch {
+    return null;
   } finally {
     clearTimeout(t);
   }
@@ -330,16 +327,9 @@ router.get("/search", async (req, res, next) => {
       return res.status(400).json({ error: "missing_query" });
     }
 
-    const warnings = [];
     const [googleHits, openHits] = await Promise.all([
-      searchGoogleByText({ q, title, author, publisher }).catch((e) => {
-        warnings.push(`Google Books nicht erreichbar: ${e.message}`);
-        return [];
-      }),
-      searchOpenLibraryByText({ q, title, author }).catch((e) => {
-        warnings.push(`OpenLibrary nicht erreichbar: ${e.message}`);
-        return [];
-      }),
+      searchGoogleByText({ q, title, author, publisher }).catch(() => []),
+      searchOpenLibraryByText({ q, title, author }).catch(() => []),
     ]);
 
     const hits = [...googleHits, ...openHits];
@@ -362,7 +352,6 @@ router.get("/search", async (req, res, next) => {
     res.json({
       suggested,
       hits: hits.slice(0, 5),
-      warnings,
     });
   } catch (e) {
     next(e);
@@ -379,26 +368,11 @@ router.get("/lookup", async (req, res, next) => {
 
     const pool = getPool(req);
 
-    const warnings = [];
     const [g, ol, purchase, meta] = await Promise.all([
-      fromGoogle(n).catch((e) => {
-        warnings.push(`Google Books nicht erreichbar: ${e.message}`);
-        return null;
-      }),
-      fromOpenLibrary(n).catch((e) => {
-        warnings.push(`OpenLibrary nicht erreichbar: ${e.message}`);
-        return null;
-      }),
-      buildPurchase(pool, n).catch((e) => {
-        console.error("[enrich] purchase links failed", e);
-        warnings.push(`Kauflinks konnten nicht erzeugt werden: ${e.message}`);
-        return { best: null, candidates: [] };
-      }),
-      metaFromDb(pool, n).catch((e) => {
-        console.error("[enrich] own DB lookup failed", e);
-        warnings.push(`Eigene Datenbank konnte nicht abgefragt werden (${e.message}) – Vorschläge nur aus externen Quellen.`);
-        return null;
-      }),
+      fromGoogle(n),
+      fromOpenLibrary(n),
+      buildPurchase(pool, n),
+      metaFromDb(pool, n).catch(() => null),
     ]);
 
     const title = pickFirst(meta?.title, g?.title, ol?.title);
@@ -443,7 +417,6 @@ router.get("/lookup", async (req, res, next) => {
       suggested,
       sources: { google: g, openlibrary: ol, db: meta },
       purchase,
-      warnings,
     });
   } catch (e) {
     next(e);

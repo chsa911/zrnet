@@ -88,8 +88,14 @@ function InlineEditable({ value, disabled, onSave }) {
   useEffect(() => { setDraft(value || ""); }, [value]);
 
   async function save() {
-    setEditing(false);
-    await onSave(draft);
+    if (String(draft ?? "") === String(value ?? "")) { setEditing(false); return; }
+    try {
+      await onSave(draft);
+      setEditing(false);
+    } catch {
+      // keep the input open with the typed value so nothing is lost;
+      // the error itself is shown by the caller
+    }
   }
 
   if (editing) {
@@ -135,7 +141,7 @@ function InlineSelect({ value, options, disabled, onSave }) {
       className="su-inline-input"
       value={value ?? ""}
       disabled={disabled}
-      onChange={(e) => { onSave(e.target.value); setEditing(false); }}
+      onChange={(e) => { Promise.resolve(onSave(e.target.value)).catch(() => {/* error already shown by caller */}); setEditing(false); }}
       onBlur={() => setEditing(false)}
     >
       <option value="">—</option>
@@ -405,30 +411,53 @@ export default function SearchUpdatePage() {
     return () => { cancelled = true; };
   }, [q.page, q.limit, q.sortBy, q.order, q.q, q.pages, q.status, refreshTick]);
 
-  async function saveActionField(b, field, value) {
-  const id = idOf(b);
-  if (!id) return;
-  setUpdatingOn(id, true);
-  try {
-    const now = new Date().toISOString();
-    setItems((prev) => prev.map((it) =>
-      it?.title_display === b?.title_display && getAuthorId(it) === getAuthorId(b)
-        ? { ...it, [field]: value, updated_at: now }
-        : it
-    ));
-    await fetch(`${API_ROOT}/api/admin/books/by-title/action`, {
+  // fetch wrapper for the bulk "by-title" endpoints: throws on HTTP errors
+  async function patchJsonOrThrow(url, body) {
+    const res = await fetch(url, {
       method: "PATCH",
       credentials: "include",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
+      body: JSON.stringify(body),
+    });
+    const text = await res.text().catch(() => "");
+    let json = null;
+    try { json = text ? JSON.parse(text) : null; } catch { json = null; }
+    if (!res.ok) {
+      throw new Error(json?.detail || json?.error || text || `HTTP ${res.status}`);
+    }
+    return json;
+  }
+
+  // Fields that belong to exactly one book are saved by book id.
+  const PER_BOOK_FIELDS = new Set(["title_keyword", "year_first_published"]);
+
+  async function saveActionField(b, field, value) {
+  const id = idOf(b);
+  if (!id) { alert("Kein Datensatz-ID gefunden."); throw new Error("no_id"); }
+  setUpdatingOn(id, true);
+  try {
+    const now = new Date().toISOString();
+    if (PER_BOOK_FIELDS.has(field)) {
+      await updateBook(id, { [field]: value });
+      patchRow(id, { [field]: value, updated_at: now });
+    } else {
+      // era / region / country are shared by all copies of the same title
+      if (!String(b?.title_display || "").trim()) {
+        throw new Error("Dieses Buch hat keinen Titel – bitte zuerst den Titel eintragen.");
+      }
+      const r = await patchJsonOrThrow(`${API_ROOT}/api/admin/books/by-title/action`, {
         title_display: b?.title_display,
         author_id: getAuthorId(b),
         [field]: value,
-      }),
-    });
+      });
+      if (!r?.updated) throw new Error("Es wurde kein Buch aktualisiert.");
+    }
     setRefreshTick((n) => n + 1);
   } catch (e) {
-    alert(e?.message || "Update fehlgeschlagen");
+    console.error(`[SearchUpdate] save ${field} failed`, e);
+    alert(`Nicht gespeichert (${field}): ${e?.message || "Update fehlgeschlagen"}`);
+    setRefreshTick((n) => n + 1); // reload real values from the server
+    throw e;
   } finally {
     setUpdatingOn(id, false);
   }
@@ -446,15 +475,18 @@ export default function SearchUpdatePage() {
           ? { ...it, genre_abbr: abbr, genre_id: genre?.id ?? null, subgenre_abbr: null, sub_genre_id: null, updated_at: now }
           : it
       ));
-      await fetch(`${API_ROOT}/api/admin/books/by-title/genre`, {
-        method: "PATCH",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title_display: b?.title_display, author_id: getAuthorId(b), genre_abbr: abbr }),
+      if (!String(b?.title_display || "").trim()) {
+        throw new Error("Dieses Buch hat keinen Titel – bitte zuerst den Titel eintragen.");
+      }
+      const r = await patchJsonOrThrow(`${API_ROOT}/api/admin/books/by-title/genre`, {
+        title_display: b?.title_display, author_id: getAuthorId(b), genre_abbr: abbr,
       });
+      if (!r?.updated) throw new Error("Es wurde kein Buch aktualisiert.");
       setRefreshTick((n) => n + 1);
     } catch (e) {
-      alert(e?.message || "Genre-Update fehlgeschlagen");
+      console.error("[SearchUpdate] Genre save failed", e);
+      setRefreshTick((n) => n + 1);
+      alert(`Nicht gespeichert: ${e?.message || "Genre-Update fehlgeschlagen"}`);
     } finally {
       setUpdatingOn(id, false);
     }
@@ -472,15 +504,18 @@ export default function SearchUpdatePage() {
           ? { ...it, subgenre_abbr: abbr, sub_genre_id: sg?.id ?? null, updated_at: now }
           : it
       ));
-      await fetch(`${API_ROOT}/api/admin/books/by-title/genre`, {
-        method: "PATCH",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title_display: b?.title_display, author_id: getAuthorId(b), sub_genre_abbr: abbr }),
+      if (!String(b?.title_display || "").trim()) {
+        throw new Error("Dieses Buch hat keinen Titel – bitte zuerst den Titel eintragen.");
+      }
+      const r = await patchJsonOrThrow(`${API_ROOT}/api/admin/books/by-title/genre`, {
+        title_display: b?.title_display, author_id: getAuthorId(b), sub_genre_abbr: abbr,
       });
+      if (!r?.updated) throw new Error("Es wurde kein Buch aktualisiert.");
       setRefreshTick((n) => n + 1);
     } catch (e) {
-      alert(e?.message || "Subgenre-Update fehlgeschlagen");
+      console.error("[SearchUpdate] Subgenre save failed", e);
+      setRefreshTick((n) => n + 1);
+      alert(`Nicht gespeichert: ${e?.message || "Subgenre-Update fehlgeschlagen"}`);
     } finally {
       setUpdatingOn(id, false);
     }

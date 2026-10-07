@@ -2227,7 +2227,36 @@ if (body.sub_genre_id !== undefined && cols.has("sub_genre_id")) {
         return res.status(404).json({ error: "not_found" });
       }
 
-      
+      // Same required fields as registerBook: a book may only get a barcode
+      // once it has title, author, publisher and pages (from the request or
+      // already stored on the draft).
+      {
+        const cur = curRes.rows[0] || {};
+        const titleOk = !!(normalizeStr(body.title_display) || normalizeStr(cur.title_display));
+        const authorOk = !!(
+          normalizeUuid(body.author_id) ||
+          cur.author_id ||
+          normalizeStr(body.author_lastname) ||
+          normalizeStr(body.name_display ?? body.author_name_display)
+        );
+        const publisherOk = !!(
+          normalizeUuid(body.publisher_id) ||
+          cur.publisher_id ||
+          normalizeStr(body.publisher_name_display) ||
+          normalizeStr(body.publisher_abbr)
+        );
+        const pagesVal = normalizeInt(body.pages) ?? normalizeInt(cur.pages);
+        const missingFields = [];
+        if (!titleOk) missingFields.push("title");
+        if (!authorOk) missingFields.push("author");
+        if (!publisherOk) missingFields.push("publisher");
+        if (!Number.isFinite(pagesVal) || pagesVal <= 0) missingFields.push("pages");
+        if (missingFields.length) {
+          await client.query("ROLLBACK");
+          return res.status(400).json({ error: "missing_required_fields", fields: missingFields });
+        }
+      }
+
       const authorIdRaw = normalizeUuid(body.author_id);
       const effectiveAuthorId = authorIdRaw || curRes.rows[0]?.author_id || null;
       const authorLastRaw = normalizeStr(body.author_lastname);

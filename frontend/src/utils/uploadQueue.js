@@ -57,25 +57,38 @@ function openDb() {
   });
 }
 
-async function withStore(mode, fn) {
+// strict=true: reject instead of pretending success when local storage
+// is unavailable or the write fails. Use it for writes that protect user data.
+async function withStore(mode, fn, { strict = false } = {}) {
   const db = await openDb();
-  if (!db) return fn(null);
+  if (!db) {
+    if (strict) throw new Error("Lokaler Speicher (IndexedDB) nicht verfügbar");
+    return fn(null);
+  }
 
-  return new Promise((resolve) => {
+  return new Promise((resolve, reject) => {
     const tx = db.transaction(STORE, mode);
     const store = tx.objectStore(STORE);
 
     let out;
     try {
       out = fn(store);
-    } catch {
-      resolve(null);
+    } catch (e) {
+      console.error("[uploadQueue] store operation failed", e);
+      if (strict) reject(e);
+      else resolve(null);
       return;
     }
 
+    const fail = (kind) => () => {
+      const err = tx.error || new Error(`IndexedDB transaction ${kind}`);
+      console.error(`[uploadQueue] transaction ${kind}`, err);
+      if (strict) reject(err);
+      else resolve(out);
+    };
     tx.oncomplete = () => resolve(out);
-    tx.onerror = () => resolve(out);
-    tx.onabort = () => resolve(out);
+    tx.onerror = fail("error");
+    tx.onabort = fail("abort");
   });
 }
 
@@ -192,8 +205,6 @@ export async function enqueueUploadJob(job) {
   };
 
   return withStore("readwrite", (store) => {
-    if (!store) return incoming.id;
-
     return new Promise((resolve) => {
       const req = store.getAll();
       req.onsuccess = () => {
@@ -224,7 +235,7 @@ export async function enqueueUploadJob(job) {
         resolve(incoming.id);
       };
     });
-  });
+  }, { strict: true });
 }
 
 export async function upsertUploadJob(job) {

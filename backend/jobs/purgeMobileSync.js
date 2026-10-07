@@ -17,8 +17,8 @@ async function purgeOnce(pool, retentionDays = DEFAULT_RETENTION_DAYS) {
       `DELETE FROM mobile_sync.receipts WHERE received_at < now() - ($1::text || ' days')::interval`,
       [String(days)]
     );
-  } catch {
-    /* ignore */
+  } catch (e) {
+    console.error("[purgeMobileSync] cleanup query failed", e?.message || e);
   }
 
   try {
@@ -26,8 +26,8 @@ async function purgeOnce(pool, retentionDays = DEFAULT_RETENTION_DAYS) {
       `DELETE FROM mobile_sync.issues WHERE created_at < now() - ($1::text || ' days')::interval`,
       [String(days)]
     );
-  } catch {
-    /* ignore */
+  } catch (e) {
+    console.error("[purgeMobileSync] cleanup query failed", e?.message || e);
   }
 }
 
