@@ -441,7 +441,27 @@ export default function BookFormDesktop({
   const [existingMatches, setExistingMatches] = useState([]);
   const [existingMatch, setExistingMatch] = useState(null);
   const [hoveredMatch, setHoveredMatch] = useState(null);
-  const identicalCovers = useIdenticalCovers(existingMatches);
+  // in_stock books with the same title AND author (independent of page count)
+  const [titleAuthorMatches, setTitleAuthorMatches] = useState([]);
+  const titleAuthorMatchesRef = useRef([]);
+  titleAuthorMatchesRef.current = titleAuthorMatches;
+  const allMatches = useMemo(() => {
+    const seen = new Set();
+    const out = [];
+    for (const m of titleAuthorMatches) {
+      if (!m?.id || seen.has(m.id)) continue;
+      seen.add(m.id);
+      out.push({ ...m, _matchReason: "title_author" });
+    }
+    for (const m of existingMatches) {
+      if (!m?.id) continue;
+      if (seen.has(m.id)) continue;
+      seen.add(m.id);
+      out.push({ ...m, _matchReason: "pages" });
+    }
+    return out;
+  }, [titleAuthorMatches, existingMatches]);
+  const identicalCovers = useIdenticalCovers(allMatches);
 
   const knownKeys = useMemo(() => new Set(Object.keys(emptyForm).map(norm)), []);
   const excludeKey = (excludeUnknownKeys || []).map(String).join("\u0000");
@@ -535,7 +555,9 @@ export default function BookFormDesktop({
         return;
       }
       setExistingMatches([]);
-      setExistingMatch(null);
+      setExistingMatch((prev) =>
+        prev?.id && titleAuthorMatchesRef.current.some((x) => x.id === prev.id) ? prev : null
+      );
       return;
     }
     matchJustSelectedRef.current = false;
@@ -557,7 +579,11 @@ export default function BookFormDesktop({
         const items = Array.isArray(r?.items) ? r.items : [];
         setExistingMatches(items);
         setExistingMatch((prev) =>
-          prev?.id && items.some((x) => x.id === prev.id) ? prev : null
+          prev?.id &&
+          (items.some((x) => x.id === prev.id) ||
+            titleAuthorMatchesRef.current.some((x) => x.id === prev.id))
+            ? prev
+            : null
         );
       } catch (e) {
         if (e?.name !== "AbortError") {
@@ -581,6 +607,40 @@ export default function BookFormDesktop({
     v.name_display,
     v.publisher_name_display,
   ]);
+
+  // Second search: every in_stock book with the same title AND author,
+  // whatever its page count, so an existing draft is always offered.
+  useEffect(() => {
+    if (isEdit) {
+      setTitleAuthorMatches([]);
+      return;
+    }
+    const title = String(v.title_display || "").trim();
+    const author = String(v.name_display || v.author_lastname || "").trim();
+    if (title.length < 2 || author.length < 2) {
+      setTitleAuthorMatches([]);
+      return;
+    }
+    const ctrl = new AbortController();
+    const t = setTimeout(async () => {
+      try {
+        const r = await findDraft(
+          { title_display: title, name_display: author, title_and_author: 1 },
+          { signal: ctrl.signal }
+        );
+        setTitleAuthorMatches(Array.isArray(r?.items) ? r.items : []);
+      } catch (e) {
+        if (e?.name !== "AbortError") {
+          console.error("[BookFormDesktop] title/author draft search failed", e);
+          showMsg(`Suche nach vorhandenen Exemplaren fehlgeschlagen: ${e?.message || e}`, "error");
+        }
+      }
+    }, 400);
+    return () => {
+      clearTimeout(t);
+      ctrl.abort();
+    };
+  }, [isEdit, v.title_display, v.name_display, v.author_lastname]);
 
   function setField(key, val) {
     setV((prev) => {
@@ -874,6 +934,10 @@ if (pages == null || pages <= 0) {
       onSuccess?.({ payload, saved });
 
       let successMsg = payload.draft_id ? "Vorhandenes Buch aktualisiert ✔" : isEdit ? "Gespeichert." : "Gespeichert ✔";
+      const assignedBarcode = String(saved?.barcode || "").trim();
+      if (!isEdit && assignedBarcode) {
+        successMsg += ` · Zugewiesener Barcode: ${assignedBarcode}`;
+      }
 
       const foundBarcode = String(conflictBarcode || "").trim();
       if (!isEdit && foundBarcode) {
@@ -883,7 +947,8 @@ if (pages == null || pages <= 0) {
             barcode: foundBarcode,
             note: String(conflictNote || "").trim() || undefined,
           });
-          successMsg += ` · Barcode-Fund "${foundBarcode}" vermerkt (ungelöst).`;
+          successMsg += ` · Barcode-Fund "${foundBarcode}" ist schon vergeben und wurde als Konflikt vermerkt (ungelöst)` +
+            (assignedBarcode ? ` – bitte ${assignedBarcode} ins Buch kleben.` : ".");
         } catch (conflictErr) {
           // Book itself is already saved successfully -- don't lose that.
           // Just surface that the conflict note failed separately.
@@ -1176,7 +1241,7 @@ if (pages == null || pages <= 0) {
   border-color: rgba(180,0,0,0.4);
 }
 `}</style>
-      {!isEdit && existingMatches.length ? (
+      {!isEdit && allMatches.length ? (
         <div className="bfd-msg bfd-existing" onMouseLeave={() => setHoveredMatch(null)}>
           <div className="bfd-existing-text">
             Treffer gefunden — bitte das richtige Buch wählen:
@@ -1191,6 +1256,7 @@ if (pages == null || pages <= 0) {
                 setV({ ...emptyForm });
                 setExistingMatch(null);
                 setExistingMatches([]);
+                setTitleAuthorMatches([]);
               }}
             >
               ✕ Leeren
@@ -1202,6 +1268,7 @@ if (pages == null || pages <= 0) {
               onClick={() => {
                 setExistingMatch(null);
                 setExistingMatches([]);
+                setTitleAuthorMatches([]);
               }}
             >
               ➕ Neues Buch anlegen
@@ -1210,7 +1277,7 @@ if (pages == null || pages <= 0) {
               // Flag probable duplicates: same title, timestamps ≥1 day apart
               const titleNorm = (s) => String(s || "").trim().toLowerCase();
               const groups = {};
-              existingMatches.forEach((m) => {
+              allMatches.forEach((m) => {
                 const key = titleNorm(m.title_display || m.main_title_display);
                 if (key) (groups[key] = groups[key] || []).push(m);
               });
@@ -1222,7 +1289,7 @@ if (pages == null || pages <= 0) {
                 if (span >= 86400000) grp.forEach((m) => probableDuplicateIds.add(m.id));
               });
 
-              return existingMatches.map((m) => {
+              return allMatches.map((m) => {
               const dateRaw = m.added_at || m.registered_at;
               const dateLabel = dateRaw
                 ? new Date(dateRaw).toLocaleDateString("de-DE", { day: "2-digit", month: "2-digit", year: "numeric" })
@@ -1262,6 +1329,9 @@ if (pages == null || pages <= 0) {
                 >
                   <MatchCoverThumb src={m.coverUrl} id={m.id} />
                   <div style={{ padding: "8px 10px", textAlign: "left" }}>
+                    <div style={{ fontSize: 10, fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.04em", color: m._matchReason === "title_author" ? "#1b5e20" : "#888", marginBottom: 2 }}>
+                      {m._matchReason === "title_author" ? "Gleicher Titel + Autor · auf Lager" : "Ähnliche Seitenzahl"}
+                    </div>
                     <div style={{ fontSize: 13, fontWeight: 900, lineHeight: 1.2 }}>
                       {m.title_display || m.main_title_display || (m.title_keyword ? `Stichwort: ${m.title_keyword}` : "ohne Titel")}
                     </div>

@@ -2070,9 +2070,10 @@ if (body.sub_genre_id !== undefined && cols.has("sub_genre_id")) {
   updates.kauflink = normalizeStr(body.kauflink);
 }
   if (body.title_keyword !== undefined) {
+  // empty keyword -> derive it from the new title, or from the title already stored
   updates.title_keyword =
     normalizeStr(body.title_keyword) ||
-    makeTitleKeyword(body.title_display);
+    makeTitleKeyword(body.title_display !== undefined ? body.title_display : cur?.title_display);
 } else if (body.title_display !== undefined) {
   updates.title_keyword = makeTitleKeyword(body.title_display);
 }
@@ -2351,9 +2352,10 @@ if (
       }
 
      if (body.title_keyword !== undefined) {
+  // empty keyword -> derive it from the new title, or from the title already stored
   updates.title_keyword =
     normalizeStr(body.title_keyword) ||
-    makeTitleKeyword(body.title_display);
+    makeTitleKeyword(body.title_display !== undefined ? body.title_display : curRes.rows[0]?.title_display);
 } else if (body.title_display !== undefined) {
   updates.title_keyword = makeTitleKeyword(body.title_display);
 }
@@ -2712,9 +2714,10 @@ if ((patch.sub_genre_abbr ?? patch.subgenre_abbr) !== undefined) {
       }
 
      if (patch.title_keyword !== undefined) {
+  // empty keyword -> derive it from the new title, or from the title already stored
   updates.title_keyword =
     normalizeStr(patch.title_keyword) ||
-    makeTitleKeyword(patch.title_display);
+    makeTitleKeyword(patch.title_display !== undefined ? patch.title_display : cur?.title_display);
 } else if (patch.title_display !== undefined) {
   updates.title_keyword = makeTitleKeyword(patch.title_display);
 }

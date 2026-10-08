@@ -378,7 +378,24 @@ COUNT(b.id) FILTER (WHERE b.top_book = true)::int AS top_books
             matches.push(`b.pages BETWEEN $${params.length - 1} AND $${params.length}`);
           }
 
-          for (const value of [titleDisplay, subtitleDisplay, titleKeyword]) {
+          // title_and_author=1: one combined condition (title AND author),
+          // instead of OR-ing them, so "same book" matches are precise.
+          const titleAndAuthor = ["1", "true"].includes(String(req.query.title_and_author || "").toLowerCase());
+          const authorAny = authorDisplay || authorLast;
+          if (titleAndAuthor && (titleDisplay || titleKeyword) && authorAny) {
+            params.push(`%${titleDisplay || titleKeyword}%`);
+            const pt = `$${params.length}`;
+            params.push(`%${authorAny}%`);
+            const pa = `$${params.length}`;
+            matches.push(`(
+              (b.title_display ILIKE ${pt} OR b.title_keyword ILIKE ${pt}
+               OR concat_ws(' ', b.title_display, b.subtitle_display) ILIKE ${pt})
+              AND (a.last_name ILIKE ${pa} OR a.name_display ILIKE ${pa}
+               OR concat_ws(' ', a.first_name, a.last_name) ILIKE ${pa})
+            )`);
+          }
+
+          for (const value of (titleAndAuthor ? [] : [titleDisplay, subtitleDisplay, titleKeyword])) {
             if (!value) continue;
             params.push(`%${value}%`);
             const p = `$${params.length}`;
@@ -390,7 +407,7 @@ COUNT(b.id) FILTER (WHERE b.top_book = true)::int AS top_books
             )`);
           }
 
-          if (authorLast) {
+          if (!titleAndAuthor && authorLast) {
             params.push(`%${authorLast}%`);
             const p = `$${params.length}`;
             matches.push(`(
@@ -399,7 +416,7 @@ COUNT(b.id) FILTER (WHERE b.top_book = true)::int AS top_books
               OR concat_ws(' ', a.first_name, a.last_name) ILIKE ${p}
             )`);
           }
-          if (authorFirst) {
+          if (!titleAndAuthor && authorFirst) {
             params.push(`%${authorFirst}%`);
             const p = `$${params.length}`;
             matches.push(`(
@@ -407,7 +424,7 @@ COUNT(b.id) FILTER (WHERE b.top_book = true)::int AS top_books
               OR concat_ws(' ', a.first_name, a.last_name) ILIKE ${p}
             )`);
           }
-          if (authorDisplay) {
+          if (!titleAndAuthor && authorDisplay) {
             params.push(`%${authorDisplay}%`);
             const p = `$${params.length}`;
             matches.push(`(
