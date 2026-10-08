@@ -1910,4 +1910,214 @@ router.patch("/books/by-title/action", async (req, res) => {
     return res.status(500).json({ error: "action_bulk_update_failed", detail: String(e?.message || e) });
   }
 });
+/* -------------------- title translations -------------------- */
+const { TITLE_LOCALES, normalizeTitleLocale, titleTranslationsReady } = require("../utils/titleLocale");
+
+const NOT_READY = {
+  error: "feature_not_ready",
+  message: "Title translations are not active yet: the database update (Flyway V20261006_01/02) has not been applied.",
+};
+
+const TITLE_KINDS = ["original", "official", "free"];
+
+function rowsToTranslationMap(list) {
+  const out = {};
+  for (const t of Array.isArray(list) ? list : []) {
+    if (!t || !t.locale) continue;
+    out[t.locale] = {
+      title: t.title || "",
+      kind: t.title_kind || "free",
+      available: t.edition_available ?? null,
+      note: t.note || "",
+    };
+  }
+  return out;
+}
+
+// "de", "DE", " en " -> "de"/"en"; "" -> null; anything else -> undefined (invalid)
+function normalizeLangCode(v) {
+  if (v === null) return null;
+  const s = String(v ?? "").trim().toLowerCase();
+  if (!s) return null;
+  return /^[a-z]{2}$/.test(s) ? s : undefined;
+}
+
+async function loadBookLanguageInfo(db, id) {
+  const { rows } = await db.query(
+    `SELECT locale, title, title_kind, edition_available, note
+       FROM public.book_title_translations WHERE book_id = $1::uuid`,
+    [id]
+  );
+  const { rows: bk } = await db.query(
+    `SELECT language, original_language, original_title FROM public.books WHERE id = $1::uuid`,
+    [id]
+  );
+  return {
+    edition_language: bk[0]?.language || "",
+    original_language: bk[0]?.original_language || "",
+    original_title: bk[0]?.original_title || "",
+    translations: rowsToTranslationMap(rows),
+  };
+}
+
+// GET /api/admin/title-translations
+// Every book ever presented as a highlight, with its language facts and per-locale titles.
+router.get("/title-translations", async (req, res) => {
+  const pool = req.app.get("pgPool");
+  if (!pool) return res.status(500).json({ error: "pgPool missing" });
+  if (!(await titleTranslationsReady(pool))) return res.status(503).json(NOT_READY);
+
+  try {
+    const { rows } = await pool.query(`
+      WITH hl AS (
+        SELECT book_id, MAX(presented_at) AS last_presented_at,
+               ARRAY_AGG(DISTINCT presented_as) AS presented_as
+        FROM public.highlights
+        WHERE presented_as IN ('finished', 'received')
+        GROUP BY book_id
+      )
+      SELECT
+        b.id::text AS id,
+        COALESCE(NULLIF(b.title_display, ''), NULLIF(b.title_keyword, '')) AS title,
+        COALESCE(NULLIF(a.name_display, ''), concat_ws(' ', a.first_name, a.last_name)) AS author,
+        b.language AS edition_language,
+        b.original_language,
+        b.original_title,
+        hl.presented_as,
+        hl.last_presented_at,
+        COALESCE(
+          (SELECT json_agg(json_build_object(
+                    'locale', t.locale,
+                    'title', t.title,
+                    'title_kind', t.title_kind,
+                    'edition_available', t.edition_available,
+                    'note', t.note))
+             FROM public.book_title_translations t
+            WHERE t.book_id = b.id),
+          '[]'::json
+        ) AS translations
+      FROM hl
+      JOIN public.books b ON b.id = hl.book_id
+      LEFT JOIN public.authors a ON a.id = b.author_id
+      ORDER BY hl.last_presented_at DESC NULLS LAST
+    `);
+
+    res.json({
+      locales: TITLE_LOCALES,
+      kinds: TITLE_KINDS,
+      items: rows.map((r) => ({
+        id: r.id,
+        title: r.title,
+        author: r.author,
+        edition_language: r.edition_language || "",
+        original_language: r.original_language || "",
+        original_title: r.original_title || "",
+        presented_as: r.presented_as,
+        last_presented_at: r.last_presented_at,
+        translations: rowsToTranslationMap(r.translations),
+      })),
+    });
+  } catch (err) {
+    console.error("GET /api/admin/title-translations error", err);
+    res.status(500).json({ error: "internal_error", detail: String(err?.message || err) });
+  }
+});
+
+// PUT /api/admin/books/:id/title-translations
+// Body: {
+//   edition_language?: "de",      -> books.language           ("" clears)
+//   original_language?: "en",     -> books.original_language  ("" clears)
+//   original_title?: "…",         -> books.original_title     ("" clears)
+//   translations: {
+//     en: { title: "…", kind: "original"|"official"|"free", available?: false|null, note?: "…" }, …
+//   }
+// }
+// kind original/official => edition_available = true. Empty title removes that locale.
+router.put("/books/:id/title-translations", async (req, res) => {
+  const pool = req.app.get("pgPool");
+  if (!pool) return res.status(500).json({ error: "pgPool missing" });
+  if (!(await titleTranslationsReady(pool))) return res.status(503).json(NOT_READY);
+
+  const id = String(req.params.id || "").trim();
+  const body = req.body || {};
+  const input = body.translations;
+  if (!id) return res.status(400).json({ error: "missing_id" });
+  if (!input || typeof input !== "object") {
+    return res.status(400).json({ error: "translations_object_required" });
+  }
+
+  const bookUpdates = {};
+  for (const [key, col] of [["edition_language", "language"], ["original_language", "original_language"]]) {
+    if (body[key] === undefined) continue;
+    const code = normalizeLangCode(body[key]);
+    if (code === undefined) {
+      return res.status(400).json({ error: "invalid_language_code", field: key, hint: "two letters, e.g. de, en, pt" });
+    }
+    bookUpdates[col] = code;
+  }
+  if (body.original_title !== undefined) {
+    bookUpdates.original_title = String(body.original_title ?? "").trim().slice(0, 500) || null;
+  }
+
+  const rows = [];
+  for (const [rawLocale, rawValue] of Object.entries(input)) {
+    const locale = normalizeTitleLocale(rawLocale);
+    if (!locale) continue;
+    const v = rawValue && typeof rawValue === "object" ? rawValue : { title: rawValue };
+    const title = String(v.title ?? "").trim().slice(0, 500) || null;
+    const kind = TITLE_KINDS.includes(v.kind) ? v.kind : "free";
+    const available = kind === "free" ? (v.available === false ? false : null) : true;
+    const note = String(v.note ?? "").trim().slice(0, 300) || null;
+    rows.push({ locale, title, kind, available, note });
+  }
+
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+
+    const cols = Object.keys(bookUpdates);
+    if (cols.length) {
+      const sets = cols.map((c, i) => `${c} = $${i + 2}`).join(", ");
+      await client.query(
+        `UPDATE public.books SET ${sets} WHERE id = $1::uuid`,
+        [id, ...cols.map((c) => bookUpdates[c])]
+      );
+    }
+
+    for (const r of rows) {
+      if (!r.title) {
+        await client.query(
+          `DELETE FROM public.book_title_translations WHERE book_id = $1::uuid AND locale = $2`,
+          [id, r.locale]
+        );
+        continue;
+      }
+      await client.query(
+        `
+        INSERT INTO public.book_title_translations
+          (book_id, locale, title, title_kind, edition_available, note, updated_at)
+        VALUES ($1::uuid, $2, $3::text, $4::text, $5::boolean, $6::text, now())
+        ON CONFLICT (book_id, locale) DO UPDATE SET
+          title = EXCLUDED.title,
+          title_kind = EXCLUDED.title_kind,
+          edition_available = EXCLUDED.edition_available,
+          note = EXCLUDED.note,
+          updated_at = now()
+        `,
+        [id, r.locale, r.title, r.kind, r.available, r.note]
+      );
+    }
+
+    const info = await loadBookLanguageInfo(client, id);
+    await client.query("COMMIT");
+    res.json({ ok: true, id, ...info });
+  } catch (err) {
+    await client.query("ROLLBACK").catch(() => {});
+    console.error("PUT /api/admin/books/:id/title-translations error", err);
+    res.status(500).json({ error: "save_failed", detail: String(err?.message || err) });
+  } finally {
+    client.release();
+  }
+});
+
 module.exports = router;

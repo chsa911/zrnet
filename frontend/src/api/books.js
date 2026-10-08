@@ -233,9 +233,25 @@ export async function listPublicBooks(
   };
 }
 
-export async function getPublicBook(id, { signal } = {}) {
+export async function getPublicBook(id, { signal, lang } = {}) {
   if (!id) throw new Error("Missing book id");
-  return http(`/public/books/${encodeURIComponent(id)}`, { signal });
+  const qs = qsFromObject({ lang });
+  return http(`/public/books/${encodeURIComponent(id)}${qs ? `?${qs}` : ""}`, { signal });
+}
+
+/* ---------------- admin: title translations ---------------- */
+
+export async function listTitleTranslations({ signal } = {}) {
+  return http(`/admin/title-translations`, { signal });
+}
+
+export async function saveTitleTranslations(bookId, payload, { signal } = {}) {
+  if (!bookId) throw new Error("Missing book id");
+  return http(`/admin/books/${encodeURIComponent(bookId)}/title-translations`, {
+    method: "PUT",
+    json: payload,
+    signal,
+  });
 }
 
 export async function listStockAuthors({ limit = 80, signal } = {}) {

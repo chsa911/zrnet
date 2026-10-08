@@ -1819,6 +1819,8 @@ sub_genre_id: normalizeInt(body.sub_genre_id),
           purchase_url: normalizeStr(body.purchase_url),
           comment: normalizeStr(body.comment),
           original_language: normalizeStr(body.original_language),
+          // language of the physical copy; new books (e.g. phone upload) default to German
+          language: (normalizeStr(body.language) || "de").toLowerCase(),
           request_id: requestId,
         };
 

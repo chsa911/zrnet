@@ -4,6 +4,7 @@ import { useI18n } from "../context/I18nContext";
 import { getPublicBook } from "../api/books";
 import { createPublicBookComment, listPublicBookComments } from "../api/comments";
 import { coverUrl } from "../utils/covers";
+import { bookLangLabel, languageName } from "../utils/bookLanguages";
 import "./BookPage.css";
 
 function isAbortError(e) {
@@ -35,6 +36,7 @@ export default function BookPage() {
   const [err, setErr] = useState("");
   const [loading, setLoading] = useState(true);
   const [coverBroken, setCoverBroken] = useState(false);
+  const [shareMsg, setShareMsg] = useState("");
 
   const [comments, setComments] = useState([]);
   const [commentsLoading, setCommentsLoading] = useState(false);
@@ -61,7 +63,7 @@ export default function BookPage() {
         setErr("");
         setBook(null);
 
-        const data = await getPublicBook(safeId, { signal: ac.signal });
+        const data = await getPublicBook(safeId, { signal: ac.signal, lang: locale });
         setBook(data);
       } catch (e) {
         if (isAbortError(e)) return;
@@ -72,7 +74,7 @@ export default function BookPage() {
     })();
 
     return () => ac.abort();
-  }, [safeId, t]);
+  }, [safeId, t, locale]);
 
   useEffect(() => {
     if (!safeId) return;
@@ -132,6 +134,28 @@ export default function BookPage() {
 
   const purchaseUrl = buyFromQS || book?.purchase_url || book?.purchase_link || "";
   const purchaseHost = purchaseUrl ? getHost(purchaseUrl) : "";
+
+  async function shareBook() {
+    const url = `${window.location.origin}/book/${encodeURIComponent(safeId)}`;
+    const text = author && author !== "—" ? `${title} – ${author}` : title;
+
+    if (navigator.share) {
+      try {
+        await navigator.share({ title, text, url });
+        return;
+      } catch (e) {
+        if (e?.name === "AbortError") return; // user closed the share sheet
+      }
+    }
+
+    try {
+      await navigator.clipboard.writeText(url);
+      setShareMsg(t("book.share_copied"));
+    } catch {
+      window.prompt(t("book.share_copy_prompt"), url);
+    }
+    window.setTimeout(() => setShareMsg(""), 2500);
+  }
 
   const commentsApprovedText = commentsLoading
     ? t("book.loading")
@@ -195,17 +219,65 @@ export default function BookPage() {
 
             <div className="zr-bookpage__card">
               <h1 className="zr-bookpage__title">{title}</h1>
+              {(() => {
+                const orig = book?.originalTitle || book?.titleOriginal || "";
+                return orig && orig !== title ? (
+                  <div className="zr-bookpage__origTitle">
+                    {bookLangLabel(locale, "original_title")}: {orig}
+                  </div>
+                ) : null;
+              })()}
               <div className="zr-bookpage__author">{author || "—"}</div>
-
-              {/* Ähnliche Bücher Button */}
-              {subGenreId && subGenreName ? (
-                <Link
-  to={`/sub-genre/${book.sub_genre_id}?exclude=${book.id}`}
-  className="zr-btn2 zr-btn2--ghost zr-bookpage__similar-btn"
->
-  Ähnliche Bücher · {book.sub_genre_name} →
-</Link>
+              {book?.editionLanguage || book?.originalLanguage || book?.titleKind ? (
+                <div className="zr-bookpage__langs">
+                  {book?.editionLanguage ? (
+                    <span>{bookLangLabel(locale, "edition")}: {languageName(book.editionLanguage, locale)}</span>
+                  ) : null}
+                  {book?.originalLanguage && book.originalLanguage !== book.editionLanguage ? (
+                    <span>{bookLangLabel(locale, "original")}: {languageName(book.originalLanguage, locale)}</span>
+                  ) : null}
+                  {book?.titleKind === "official" ? (
+                    <span className="zr-bookpage__avail zr-bookpage__avail--yes">{bookLangLabel(locale, "kind_official")}</span>
+                  ) : null}
+                  {book?.titleKind === "free" ? (
+                    <span className="zr-bookpage__avail">
+                      {bookLangLabel(locale, book?.editionAvailable === false ? "kind_free_no" : "kind_free")}
+                    </span>
+                  ) : null}
+                </div>
               ) : null}
+
+              <div className="zr-bookpage__actions">
+                {/* Ähnliche Bücher Button */}
+                {subGenreId && subGenreName ? (
+                  <Link
+                    to={`/sub-genre/${book.sub_genre_id}?exclude=${book.id}`}
+                    className="zr-btn2 zr-btn2--ghost zr-bookpage__similar-btn"
+                  >
+                    Ähnliche Bücher · {book.sub_genre_name} →
+                  </Link>
+                ) : null}
+
+                <button
+                  type="button"
+                  className="zr-btn2 zr-btn2--ghost zr-bookpage__share-btn"
+                  onClick={shareBook}
+                  title={t("book.share_title")}
+                >
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                    <circle cx="18" cy="5" r="3" />
+                    <circle cx="6" cy="12" r="3" />
+                    <circle cx="18" cy="19" r="3" />
+                    <line x1="8.59" y1="13.51" x2="15.42" y2="17.49" />
+                    <line x1="15.41" y1="6.51" x2="8.59" y2="10.49" />
+                  </svg>
+                  {t("book.share")}
+                </button>
+
+                {shareMsg ? (
+                  <span className="zr-bookpage__shareMsg" role="status">{shareMsg}</span>
+                ) : null}
+              </div>
 
               <div className="zr-bookpage__leaveBox">
                 <div className="zr-bookpage__leaveHeader">

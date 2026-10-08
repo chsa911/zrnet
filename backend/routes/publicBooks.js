@@ -5,6 +5,11 @@ const express = require("express");
 const router = express.Router();
 const crypto = require("crypto");
 const { resolveCoverUrl } = require("../utils/covers");
+const {
+  normalizeTitleLocale,
+  titleTranslationsReady,
+  titleTranslationJoin,
+} = require("../utils/titleLocale");
 
 function getPool(req) {
   const pool = req.app.get("pgPool");
@@ -159,6 +164,8 @@ async function buildPurchaseLinks(pool, { isbn13, isbn10, bookId }) {
 router.get("/home-titles", async (req, res) => {
   try {
     const pool = getPool(req);
+    const lang = normalizeTitleLocale(req.query.lang);
+    const ttReady = await titleTranslationsReady(pool);
 
     const { rows } = await pool.query(`
       SELECT
@@ -170,7 +177,10 @@ router.get("/home-titles", async (req, res) => {
         b.id::text AS id,
         b.id::text AS book_id,
 
-        ${TITLE_EXPR} AS title,
+        COALESCE(NULLIF(tt.title, ''), ${TITLE_EXPR}) AS title,
+        ${TITLE_EXPR} AS title_original,
+        tt.title_kind,
+        tt.edition_available,
         ${AUTHOR_EXPR} AS author,
 
         ('/uploads/covers/normalized/' || b.id::text || '.jpg') AS cover_url
@@ -193,11 +203,13 @@ router.get("/home-titles", async (req, res) => {
       LEFT JOIN public.authors a
         ON a.id = b.author_id
 
+      ${titleTranslationJoin(ttReady, "$1")}
+
       ORDER BY
         h.presented_as,
         h.presented_at DESC,
         h.id DESC
-    `);
+    `, [lang]);
 
     res.json({ books: rows || [] });
   } catch (err) {
@@ -282,6 +294,14 @@ router.get("/", async (req, res) => {
           `b.reading_status_updated_at >= $${params.length - 1}::timestamptz AND b.reading_status_updated_at < $${params.length}::timestamptz`
         );
       }
+    } else if (bucket === "all") {
+      // public collection: everything owned or read — no wishlist
+      where.push("b.reading_status IN ('in_stock', 'in_progress', 'finished', 'abandoned')");
+    } else if (bucket === "available") {
+      // available = on the shelf or currently being read (home page "In meiner Sammlung")
+      where.push("b.reading_status IN ('in_stock', 'in_progress')");
+      orderBy =
+        "b.reading_status_updated_at DESC NULLS LAST, b.registered_at DESC NULLS LAST, b.id ASC";
     } else if (bucket === "stock" || bucket === "in_stock") {
       where.push("(open_ba.barcode IS NOT NULL OR b.reading_status = 'in_stock')");
       orderBy =
@@ -876,6 +896,8 @@ router.get("/:id", async (req, res) => {
     const pool = getPool(req);
     const id = String(req.params.id || "").trim();
     if (!id) return res.status(400).json({ error: "missing_id" });
+    const lang = normalizeTitleLocale(req.query.lang);
+    const ttReady = await titleTranslationsReady(pool);
 
     const { rows } = await pool.query(
       `
@@ -883,7 +905,13 @@ router.get("/:id", async (req, res) => {
         b.id::text AS id,
         b.author_id::text AS author_id,
         ${AUTHOR_EXPR} AS author_name_display,
-        ${TITLE_EXPR}  AS book_title_display,
+        COALESCE(NULLIF(tt.title, ''), ${TITLE_EXPR}) AS book_title_display,
+        ${TITLE_EXPR}  AS book_title_original,
+        tt.title_kind,
+        tt.edition_available,
+        b.language AS edition_language,
+        b.original_language,
+        ${ttReady ? "b.original_title" : "NULL::text AS original_title"},
         b.publisher,
         b.pages,
         b.comment,
@@ -905,6 +933,7 @@ router.get("/:id", async (req, res) => {
       LEFT JOIN public.authors a ON a.id = b.author_id
       LEFT JOIN public.sub_genres sg ON sg.id = b.sub_genre_id
   LEFT JOIN public.genres g ON g.id = b.genre_id
+      ${titleTranslationJoin(ttReady, "$2")}
       LEFT JOIN LATERAL (
         SELECT barcode
         FROM public.book_barcodes bb
@@ -914,7 +943,7 @@ router.get("/:id", async (req, res) => {
       WHERE b.id::text = $1
       LIMIT 1
       `,
-      [id]
+      [id, lang]
     );
 
     if (!rows[0]) return res.status(404).json({ error: "not_found" });
@@ -954,6 +983,16 @@ router.get("/:id", async (req, res) => {
 
       author: r.author_name_display || "",
       title: r.book_title_display || "",
+      titleOriginal: r.book_title_original || "",
+      title_original: r.book_title_original || "",
+      titleLocale: lang,
+      // 'original' | 'official' (published edition title) | 'free' (sinngemäß) | null (no row)
+      titleKind: r.title_kind || null,
+      originalTitle: r.original_title || null,
+      // availability of a published edition in the requested UI language: true / false / null (unknown)
+      editionAvailable: r.edition_available ?? null,
+      editionLanguage: r.edition_language || null,
+      originalLanguage: r.original_language || null,
       publisher: r.publisher,
       pages: r.pages,
       comment: r.comment,

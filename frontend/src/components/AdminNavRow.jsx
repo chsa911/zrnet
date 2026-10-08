@@ -91,6 +91,14 @@ export default function AdminNavRow({ style }) {
       >
         💬 Comments
       </Link>
+
+      <Link
+        to="/admin/title-translations"
+        className="zr-btn2 zr-btn2--ghost"
+        style={baseBtn(pathname === "/admin/title-translations")}
+      >
+        🌐 Titel-Übersetzungen
+      </Link>
     </div>
   );
 }

@@ -2,12 +2,14 @@
   import { Link } from "react-router-dom";
   import "./HomeTitlesPage.css";
   import { coverUrl } from "../utils/covers";
+  import { useI18n } from "../context/I18nContext";
   const API_ROOT = import.meta.env.VITE_API_ROOT || "";
 
   export default function HomeTitlesPage() {
     const [books, setBooks] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState("");
+    const { locale } = useI18n();
 
     useEffect(() => {
       let mounted = true;
@@ -17,7 +19,7 @@
           setLoading(true);
           setError("");
 
-          const res = await fetch(`${API_ROOT}/api/public/books/home-titles`);
+          const res = await fetch(`${API_ROOT}/api/public/books/home-titles?lang=${encodeURIComponent(locale)}`);
           if (!res.ok) throw new Error(`HTTP ${res.status}`);
 
           const data = await res.json();
@@ -34,7 +36,7 @@
       return () => {
         mounted = false;
       };
-    }, []);
+    }, [locale]);
 
     const hasCover = (b) => Boolean(coverUrl(b));
 

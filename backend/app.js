@@ -206,22 +206,32 @@ app.post("/api/books/:bookId/cover", coverUpload.single("cover"), async (req, re
 });
 
 /* ---------- public endpoints (must be after CORS) ---------- */
+const { normalizeTitleLocale, titleTranslationsReady, titleTranslationJoin } = require("./utils/titleLocale");
 app.get("/api/public/home-highlights", async (req, res) => {
   try {
     const pool = req.app.get("pgPool");
     if (!pool) return res.status(500).json({ error: "pgPool_missing" });
+    const lang = normalizeTitleLocale(req.query.lang);
+    const ttReady = await titleTranslationsReady(pool);
 
     const { rows } = await pool.query(`
       SELECT
         b.home_featured_slot AS slot,
         b.id::text AS id,
         a.name_display AS author_name_display,
-        COALESCE(NULLIF(b.title_display, ''), NULLIF(b.title_keyword, '')) AS title_display,
+        COALESCE(
+          NULLIF(tt.title, ''),
+          NULLIF(b.title_display, ''),
+          NULLIF(b.title_keyword, '')
+        ) AS title_display,
+        COALESCE(NULLIF(b.title_display, ''), NULLIF(b.title_keyword, '')) AS title_original,
+        tt.title_kind,
         b.purchase_url AS buy
       FROM public.books b
       LEFT JOIN public.authors a ON a.id = b.author_id
+      ${titleTranslationJoin(ttReady, "$1")}
       WHERE b.home_featured_slot IN ('finished','received')
-    `);
+    `, [lang]);
 
     const empty = {
       id: "",
@@ -245,6 +255,8 @@ app.get("/api/public/home-highlights", async (req, res) => {
         id: r.id,
         authorNameDisplay: r.author_name_display || null,
         titleDisplay: r.title_display || null,
+        titleOriginal: r.title_original || null,
+        titleKind: r.title_kind || null,
         cover_home: coverUrl,
         cover_full: coverUrl,
         cover: coverUrl,

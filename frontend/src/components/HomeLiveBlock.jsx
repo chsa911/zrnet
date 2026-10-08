@@ -33,7 +33,7 @@ function HighlightCard({ item, label, to, bgImage, left = false }) {
 }
 
 export default function HomeLiveBlock() {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const year = 2026;
   const HIGHLIGHT_FALLBACK = "";
 
@@ -70,7 +70,7 @@ export default function HomeLiveBlock() {
 
     (async () => {
       try {
-        const res = await fetch(apiUrl("/public/home-highlights"), {
+        const res = await fetch(apiUrl(`/public/home-highlights?lang=${encodeURIComponent(locale)}`), {
           signal: ac.signal,
           cache: "no-store",
           headers: { Accept: "application/json" },
@@ -83,7 +83,7 @@ export default function HomeLiveBlock() {
     })();
 
     return () => ac.abort();
-  }, []);
+  }, [locale]);
 
   useEffect(() => {
     const ac = new AbortController();
