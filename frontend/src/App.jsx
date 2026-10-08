@@ -129,6 +129,12 @@ export default function App() {
       {/* ✅ Make the layout route explicit */}
       <Route path="/" element={<Layout />}>
         <Route index element={<Home />} />
+        {/* Social-media entry points: show the home page, but keep the
+            path so Cloudflare Web Analytics can tell the channels apart.
+            Linked as christopherspages.com/youtube and /tiktok, which
+            Cloudflare redirects here. */}
+        <Route path="youtube" element={<Home />} />
+        <Route path="tiktok" element={<Home />} />
         <Route path="titles" element={<HomeTitlesPage />} />
         <Route path="collection" element={<CollectionPage />} />
 
