@@ -4,6 +4,7 @@ import { Link, Navigate, useParams } from "react-router-dom";
 import { useI18n } from "../context/I18nContext";
 import { INFO_PAGES } from "./infoPages";
 import "./InfoPage.css";
+import { useSeo } from "../utils/seo";
 
 function Block({ block, t }) {
   switch (block.type) {
@@ -76,6 +77,13 @@ export default function InfoPage() {
 
   const resolvedSlug = slug === "so-funktionierts" ? "technik" : slug;
 const page = INFO_PAGES[resolvedSlug];
+  const firstParagraphKey = (page?.blocks || []).find((b) => b?.type === "p" && b?.key)?.key;
+  useSeo({
+    title: page ? t(page.titleKey) : undefined,
+    description: firstParagraphKey ? t(firstParagraphKey) : undefined,
+    path: page ? `/info/${resolvedSlug === "technik" ? "so-funktionierts" : resolvedSlug}` : undefined,
+    noindex: !page,
+  });
 if (!page) return <Navigate to="/" replace />;
   const isLegal = resolvedSlug === "impressum" || resolvedSlug === "datenschutz";
   if (isLegal) {

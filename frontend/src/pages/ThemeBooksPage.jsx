@@ -2,6 +2,8 @@ import React, { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { listBooks } from "../api/books";
 import { listThemesSummary } from "../api/themes";
+import { useSeo } from "../utils/seo";
+import { useI18n } from "../context/I18nContext";
 
 const DEFAULT_LIMIT = 30;
 
@@ -25,6 +27,15 @@ export default function ThemeBooksPage() {
   const [total, setTotal] = useState(0);
 
   const pages = useMemo(() => Math.max(1, Math.ceil((total || 0) / limit)), [total, limit]);
+
+  const { t } = useI18n();
+  const themeName = themeMeta?.full_name || abbr;
+  useSeo({
+    title: themeName ? t("seo.theme.title", { theme: themeName }) : undefined,
+    description: themeMeta?.description || (themeName ? t("seo.theme.desc", { theme: themeName }) : undefined),
+    path: abbr ? `/bookthemes/${encodeURIComponent(abbr)}` : undefined,
+    image: themeMeta?.image_path || undefined,
+  });
 
   // Load theme metadata (name/image/description) for a nice header.
   useEffect(() => {

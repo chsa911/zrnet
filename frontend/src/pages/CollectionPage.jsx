@@ -5,6 +5,7 @@ import { listPublicBooks } from "../api/books";
 import { coverHomeUrl } from "../utils/covers";
 import "./home_minimal.css";
 import "./CollectionPage.css";
+import { useSeo } from "../utils/seo";
 
 const PAGE_SIZE = 48;
 
@@ -54,6 +55,7 @@ function BookCard({ book, t }) {
 
 export default function CollectionPage() {
   const { t, locale } = useI18n();
+  useSeo({ title: t("collection.title"), description: t("seo.collection.desc"), path: "/collection" });
   const [sp, setSp] = useSearchParams();
 
   const filterKey = FILTERS.some((f) => f.key === sp.get("filter")) ? sp.get("filter") : DEFAULT_FILTER;

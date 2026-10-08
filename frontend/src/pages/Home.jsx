@@ -5,6 +5,7 @@ import { apiUrl } from "../api/apiRoot";
 import "./home_minimal.css";
 import HomeLiveBlock from "../components/HomeLiveBlock";
 import { coverHomeUrl } from "../utils/covers";
+import { useSeo } from "../utils/seo";
 
 function toIntOrNull(v) {
   if (v === null || v === undefined) return null;
@@ -32,6 +33,12 @@ function HighlightCard({ item, label, to, bgImage, left = false }) {
 }
 export default function Home() {
   const { t, locale } = useI18n();
+  useSeo({
+    title: t("seo.home.title"),
+    description: t("seo.home.desc"),
+    path: "/", // also used by /youtube and /tiktok
+    image: "/assets/images/allgemein/hosentasche_link.jpeg",
+  });
   const year = 2026;
   const HERO_IMG = "/assets/images/allgemein/hosentasche_link.jpeg";
   const HIGHLIGHT_FALLBACK = "";

@@ -1,6 +1,8 @@
 import React, { useEffect, useRef, useState } from "react";
 import { Link, useParams, useSearchParams } from "react-router-dom";
 import "./SubGenrePage.css";
+import { useSeo } from "../utils/seo";
+import { useI18n } from "../context/I18nContext";
 
 const API_ROOT = import.meta.env.VITE_API_ROOT || "";
 
@@ -23,6 +25,14 @@ export default function SubGenrePage() {
       .then((json) => { setData(json); setLoading(false); })
       .catch((e) => { setError("Bücher konnten nicht geladen werden."); setLoading(false); });
   }, [id]);
+
+  const { t } = useI18n();
+  const subGenreName = data?.subGenre?.name || "";
+  useSeo({
+    title: subGenreName ? t("seo.subgenre.title", { name: subGenreName }) : undefined,
+    description: subGenreName ? t("seo.subgenre.desc", { name: subGenreName }) : undefined,
+    path: id ? `/sub-genre/${encodeURIComponent(id)}` : undefined,
+  });
 
   function scroll(dir) {
     const el = rowRef.current;

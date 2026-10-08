@@ -3,6 +3,7 @@
   import "./HomeTitlesPage.css";
   import { coverUrl } from "../utils/covers";
   import { useI18n } from "../context/I18nContext";
+import { useSeo } from "../utils/seo";
   const API_ROOT = import.meta.env.VITE_API_ROOT || "";
 
   export default function HomeTitlesPage() {
@@ -10,6 +11,8 @@
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState("");
     const { locale } = useI18n();
+    const { t } = useI18n();
+    useSeo({ title: t("seo.titles.title"), description: t("seo.titles.desc"), path: "/titles" });
 
     useEffect(() => {
       let mounted = true;

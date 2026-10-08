@@ -6,6 +6,7 @@ import { createPublicBookComment, listPublicBookComments } from "../api/comments
 import { coverUrl } from "../utils/covers";
 import { bookLangLabel, languageName } from "../utils/bookLanguages";
 import "./BookPage.css";
+import { useSeo } from "../utils/seo";
 
 function isAbortError(e) {
   return (
@@ -131,6 +132,24 @@ export default function BookPage() {
   const title = book?.title || "—";
   const author = book?.author || "—";
   const comment = book?.comment || "";
+
+  const hasAuthor = author && author !== "—";
+  useSeo({
+    title: book
+      ? hasAuthor
+        ? t("seo.book.title", { title, author })
+        : t("seo.book.title_noauthor", { title })
+      : undefined,
+    description: book
+      ? comment
+        ? `${hasAuthor ? `${title} – ${author}` : title}: ${comment}`
+        : t("seo.book.desc", { title, author: hasAuthor ? author : "" })
+      : undefined,
+    path: safeId ? `/book/${encodeURIComponent(safeId)}` : undefined,
+    image: book?.cover_url || undefined,
+    type: "book",
+    noindex: !!err,
+  });
 
   const purchaseUrl = buyFromQS || book?.purchase_url || book?.purchase_link || "";
   const purchaseHost = purchaseUrl ? getHost(purchaseUrl) : "";

@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { listMostReadAuthors } from "../api/books";
 import { useI18n } from "../context/I18nContext";
+import { useSeo } from "../utils/seo";
 
 // hardcoded favorites (from your old HTML screenshot)
 // kept as a fallback if DB doesn't have a favorite/top-book set yet.
@@ -40,6 +41,7 @@ function buyUrl(author, title) {
 
 export default function MostReadAuthorsPage() {
   const { t } = useI18n();
+  useSeo({ title: t("seo.top_authors.title"), description: t("seo.top_authors.desc"), path: "/top-authors" });
 
   const [rows, setRows] = useState([]);
   const [err, setErr] = useState("");

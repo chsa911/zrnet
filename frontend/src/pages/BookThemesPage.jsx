@@ -2,6 +2,8 @@ import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { listThemesSummary } from "../api/themes";
 import "./BookThemesPage.css";
+import { useSeo } from "../utils/seo";
+import { useI18n } from "../context/I18nContext";
 
 const HERO_IMG_PRIMARY = "/assets/images/allgemein/buecherschrank_ganz_offen.avif";
 const HERO_IMG_FALLBACK = "/assets/images/allgemein/buecher_schrank.webp";
@@ -9,6 +11,8 @@ const TILE_FALLBACK_IMG = HERO_IMG_PRIMARY;
 
 export default function BookThemesPage() {
   const navigate = useNavigate();
+  const { t } = useI18n();
+  useSeo({ title: t("seo.themes.title"), description: t("seo.themes.desc"), path: "/bookthemes" });
 
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState("");

@@ -3,9 +3,11 @@ import { Link } from "react-router-dom";
 
 import { useI18n } from "../context/I18nContext";
 import "./BetaTestPage.css";
+import { useSeo } from "../utils/seo";
 
 export default function BetaTestPage() {
   const { t } = useI18n();
+  useSeo({ title: t("beta.title"), path: "/beta-test" });
 
   const audience = [
     t("beta.audience_1"),

@@ -6,6 +6,8 @@ import { getApiRoot } from "../api/apiRoot";
 import BookForm from "../components/BookForm";
 import "./AuthorPage.css";
 import { coverUrl } from "../utils/covers";
+import { useSeo } from "../utils/seo";
+import { useI18n } from "../context/I18nContext";
 
 function isAbortError(e) {
   return (
@@ -302,6 +304,13 @@ export default function AuthorPage() {
     if (displayFromItems && String(displayFromItems).trim()) return String(displayFromItems).trim();
     return d || "Author";
   }, [authorResolved.display, items]);
+
+  const { t: tSeo } = useI18n();
+  useSeo({
+    title: authorName && authorName !== "Author" ? tSeo("seo.author.title", { author: authorName }) : undefined,
+    description:
+      authorName && authorName !== "Author" ? tSeo("seo.author.desc", { author: authorName }) : undefined,
+  });
 
   // Determine authorId for photo filename (best-effort)
   const authorIdForImage = useMemo(() => {

@@ -320,6 +320,7 @@ app.get(["/api", "/api/"], (req, res) => {
 /* ---------- routes ---------- */
 app.use("/api/admin", require("./routes/admin"));
 app.use("/api/enrich", require("./routes/enrich"));
+app.use("/api/public/sitemap.xml", require("./routes/sitemap"));
 app.use("/api/public/books", require("./routes/publicBooks"));
 app.use("/api/public/authors", require("./routes/publicAuthors"));
 app.use("/api/public/newsletter", require("./routes/publicNewsletter"));

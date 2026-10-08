@@ -2,6 +2,7 @@ import { Link } from "react-router-dom";
 import { useI18n } from "../context/I18nContext";
 import { formatEta } from "../utils/comingSoon";
 import "./home_minimal.css";
+import { useSeo } from "../utils/seo";
 
 /**
  * Friendly placeholder for pages that are linked but not finished.
@@ -21,6 +22,9 @@ export default function ComingSoonPage({ eta = null, titleKey = "", notFound = f
     : when
       ? t("coming_soon.text_eta", { when })
       : t("coming_soon.text");
+
+  // Placeholder and "not found" pages should not show up in Google.
+  useSeo({ title, description: text, noindex: true });
 
   return (
     <section className="zr-section" style={{ maxWidth: 720, margin: "48px auto", padding: "0 16px" }}>

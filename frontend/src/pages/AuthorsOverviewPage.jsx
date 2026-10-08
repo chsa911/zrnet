@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useI18n } from "../context/I18nContext";
+import { useSeo } from "../utils/seo";
 
 function normKey(s) {
   return String(s || "").toLowerCase().trim();
@@ -40,6 +41,7 @@ function makeEmptyCountFilters(fields) {
 
 export default function AuthorsOverviewPage() {
   const { t } = useI18n();
+  useSeo({ title: t("ao_title"), description: t("seo.authors.desc"), path: "/authors" });
 
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(false);

@@ -3,9 +3,11 @@ import { Link } from "react-router-dom";
 
 import { useI18n } from "../context/I18nContext";
 import "./CoachingPage.css";
+import { useSeo } from "../utils/seo";
 
 export default function CoachingPage() {
   const { t } = useI18n();
+  useSeo({ title: t("coaching.title"), path: "/coaching" });
 
   const audience = [
     t("coaching.audience_1"),
