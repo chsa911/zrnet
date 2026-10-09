@@ -145,6 +145,8 @@ export default function TopBar() {
 <Link to="/admin/highlights/received">Highlights</Link>
 <Link to="/admin/sync-issues">Sync Issues</Link>
 <Link to="/admin/barcodes">Barcodes</Link>
+<Link to="/admin/check-book">Buch prüfen</Link>
+<Link to="/admin/barcode-check">Prüfen &amp; Ergänzen</Link>
 <hr/>
 </>) : null}
 <Link to="/recent-highlights">Recent Highlights</Link>

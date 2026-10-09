@@ -107,6 +107,13 @@
 .zr-more__menu a:hover{
   background: rgba(0,0,0,0.04);
 }
+.zr-more__menu hr{
+  width: 100%;
+  height: 0;
+  border: 0;
+  border-top: 1px solid var(--border, #e5e7eb);
+  margin: 6px 0;
+}
 
 /* Language dropdown */
 .zr-langmenu{
