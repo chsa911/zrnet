@@ -95,18 +95,15 @@ function makeTitleKeyword(title) {
     const s = String(v).trim().toLowerCase();
     return PAGE_NUM_POSITIONS.includes(s) ? s : null;
   }
-  // Letztes Wort der letzten Seite -> 2 Buchstaben (ä->a …), 1 Buchstabe -> "x0", "00" = kein Text
+  // Letztes Wort im Buch: ganzes Wort speichern (Satzzeichen/Anführungszeichen am Rand weg).
+  // Die 2 Buchstaben für die Buch-Nummer bildet die DB selbst (books.last_word_code).
   function normalizeLastWord(v) {
     if (v === undefined || v === null) return null;
-    const raw = String(v).trim().toLowerCase();
-    if (raw === "00") return "00";
-    const letters = raw
-      .normalize("NFD")
-      .replace(/[\u0300-\u036f]/g, "")
-      .replace(/ß/g, "ss")
-      .replace(/[^a-z]/g, "");
-    if (!letters) return null;
-    return letters.length === 1 ? `${letters}0` : letters.slice(0, 2);
+    const s = String(v)
+      .trim()
+      .replace(/^[^\p{L}\p{N}]+|[^\p{L}\p{N}]+$/gu, "")
+      .slice(0, 100);
+    return s || null;
   }
   // phys_code: BBB HHH SSSS PP KKK WW, z. B. 1252100950or024st (Leerzeichen erlaubt)
   const PHYS_CODE_RE = /^[0-9]{10}(ol|om|or|ml|mr|ul|um|ur|00)[0-9]{3}([a-z][a-z0]|00)$/;
@@ -391,6 +388,7 @@ sub: row.subgenre_abbr ?? row.sub_genre ?? null,
       page_num_pos: row.page_num_pos ?? null,
       chapters: row.chapters ?? null,
       last_word: row.last_word ?? null,
+      last_word_code: row.last_word_code ?? null,
       phys_code: row.phys_code ?? null,
       year_first_published: row.year_first_published ?? null,
       first_publish_year: row.year_first_published ?? null,
@@ -3406,6 +3404,7 @@ async function setHighlight(req, res) {
           page_num_pos: api.page_num_pos,
           chapters: api.chapters,
           last_word: api.last_word,
+          last_word_code: api.last_word_code,
         };
       };
 

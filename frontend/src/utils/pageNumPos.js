@@ -42,7 +42,7 @@ function intOrZero(x) {
   return Number.isFinite(n) && n > 0 ? n : 0;
 }
 
-// Letztes Wort -> 2 Zeichen wie im Backend ("Ärger" -> "ar", "I" -> "i0", "00" bleibt)
+// Letztes Wort -> 2 Zeichen wie in der DB (phys_code_word); gespeichert wird das ganze Wort ("Ärger" -> "ar", "I" -> "i0", "00" bleibt)
 export function normalizeLastWord(v) {
   const raw = String(v ?? "").trim().toLowerCase();
   if (raw === "00") return "00";
@@ -50,6 +50,7 @@ export function normalizeLastWord(v) {
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
     .replace(/ß/g, "ss")
+    .replace(/ø/g, "o")
     .replace(/[^a-z]/g, "");
   if (!letters) return "";
   return letters.length === 1 ? `${letters}0` : letters.slice(0, 2);

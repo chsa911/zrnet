@@ -1411,10 +1411,10 @@ if (pages == null || pages < 0) {
       aria-label="Anzahl Kapitel"
     />
     <input
-      {...fieldProps("last_word", "Wort", { autoCapitalize: "off", autoComplete: "off", spellCheck: false, style: { width: "3.6ch" } })}
+      {...fieldProps("last_word", "Wort", { autoCapitalize: "off", autoComplete: "off", spellCheck: false, maxLength: 100, style: { width: "3.6ch" } })}
       title={
         normalizeLastWord(v.last_word)
-          ? `Letztes Wort → ${normalizeLastWord(v.last_word)}`
+          ? `Letztes Wort „${String(v.last_word).trim()}“ → ${normalizeLastWord(v.last_word)} in der Buch-Nummer`
           : "Letztes Wort im ganzen Buch (ganzes Wort oder 2 Buchstaben, 00 = kein Text)"
       }
       aria-label="Letztes Wort im ganzen Buch"

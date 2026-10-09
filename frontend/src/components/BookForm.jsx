@@ -812,7 +812,7 @@ export default function BookForm({
     if (String(v.page_num_pos || "").trim()) payload.page_num_pos = String(v.page_num_pos).trim();
     const chapters = parseIntOrNull(v.chapters);
     if (chapters !== null && chapters >= 0) payload.chapters = chapters;
-    if (normalizeLastWord(v.last_word)) payload.last_word = normalizeLastWord(v.last_word);
+    if (normalizeLastWord(v.last_word)) payload.last_word = String(v.last_word).trim();
 
     const tk1 = parseIntOrNull(v.title_keyword_position);
     const tk2 = parseIntOrNull(v.title_keyword2_position);

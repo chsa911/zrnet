@@ -689,7 +689,7 @@ export default function BookFormStagingPwa({
     if (String(v.page_num_pos || "").trim()) payload.page_num_pos = String(v.page_num_pos).trim();
     const chapterCount = parseIntOrNull(v.chapters);
     if (chapterCount !== null && chapterCount >= 0) payload.chapters = chapterCount;
-    if (normalizeLastWord(v.last_word)) payload.last_word = normalizeLastWord(v.last_word);
+    if (normalizeLastWord(v.last_word)) payload.last_word = String(v.last_word).trim();
 
     const nullableStrings = [
       "author_firstname",
