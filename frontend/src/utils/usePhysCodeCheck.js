@@ -4,13 +4,15 @@ import { formatPhysCode } from "./pageNumPos";
 
 // Live-Prüfung beim Eintippen: Gibt es die Buch-Nummer schon (exakt) oder
 // ein sehr ähnliches Buch (gleiche Seiten/Position/Kapitel, Maße ±2 mm)?
-// -> { checking, taken, book, similar }
+// Die Nummer darf mehrfach vorkommen (gleiches Exemplar, mehrere Einträge) –
+// "known" ist nur ein Hinweis, nichts wird gesperrt.
+// -> { checking, known: [book], book, similar }
 export default function usePhysCodeCheck(code, excludeId) {
-  const [state, setState] = useState({ checking: false, taken: false, book: null, similar: [] });
+  const [state, setState] = useState({ checking: false, known: [], book: null, similar: [] });
 
   useEffect(() => {
     if (!code) {
-      setState({ checking: false, taken: false, book: null, similar: [] });
+      setState({ checking: false, known: [], book: null, similar: [] });
       return undefined;
     }
     const ctrl = new AbortController();
@@ -20,12 +22,12 @@ export default function usePhysCodeCheck(code, excludeId) {
         const r = await checkPhysCode(code, { exclude: excludeId || undefined, signal: ctrl.signal });
         setState({
           checking: false,
-          taken: !!r?.exact,
+          known: Array.isArray(r?.exact_all) ? r.exact_all : r?.exact ? [r.exact] : [],
           book: r?.exact || null,
           similar: Array.isArray(r?.similar) ? r.similar : [],
         });
       } catch (e) {
-        if (e?.name !== "AbortError") setState({ checking: false, taken: false, book: null, similar: [] });
+        if (e?.name !== "AbortError") setState({ checking: false, known: [], book: null, similar: [] });
       }
     }, 350);
     return () => {
@@ -42,8 +44,24 @@ export function bookShortText(book) {
   return `${who || "Buch"}${book?.barcode ? ` (${book.barcode})` : ""}`;
 }
 
-export function physCodeTakenText(code, book) {
-  return `Nr ${formatPhysCode(code)} ist schon vergeben: ${bookShortText(book)}`;
+const STATUS_DE = {
+  in_progress: "liest gerade",
+  in_stock: "im Bestand",
+  finished: "gelesen",
+  abandoned: "abgebrochen",
+  wishlist: "Wunschliste",
+};
+
+// Hinweis (keine Sperre): Nummer gibt es schon in N Einträgen
+export function physCodeKnownText(code, books) {
+  const list = (books || []).filter(Boolean);
+  if (!list.length) return "";
+  const items = list
+    .slice(0, 3)
+    .map((b) => `${bookShortText(b)}${STATUS_DE[b.reading_status] ? `, ${STATUS_DE[b.reading_status]}` : ""}`)
+    .join(" · ");
+  const more = list.length > 3 ? ` · +${list.length - 3}` : "";
+  return `Nr ${formatPhysCode(code)} schon ${list.length}× erfasst: ${items}${more}`;
 }
 
 function signed(n) {

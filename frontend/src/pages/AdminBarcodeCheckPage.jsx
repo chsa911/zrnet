@@ -2,7 +2,19 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { Link } from "react-router-dom";
 import AdminNavRow from "../components/AdminNavRow";
 import { listBooks, updateBook } from "../api/books";
+
 import { buildPhysCode, formatPhysCode, isValidPageNumPos, PAGE_NUM_POS_HELP } from "../utils/pageNumPos";
+
+// Platzhalter-Suche: "ob0x" / "ob0*" = beginnt mit ob0, "ob01?" = ein beliebiges
+// Zeichen. Liefert eine RegExp für den aktuellen Barcode oder null (normaler Scan).
+function barcodeWildcardRegex(input) {
+  const s = String(input || "").trim().toLowerCase().replace(/\s+/g, "");
+  if (!s || !/^[a-z0-9*?]+$/.test(s)) return null;
+  const pat = s.replace(/([0-9])x/g, "$1*");
+  if (!/[*?]/.test(pat) || !/[a-z0-9]/.test(pat)) return null;
+  const body = pat.replace(/\*+/g, ".*").replace(/\?/g, ".");
+  return new RegExp(`^${body}$`, "i");
+}
 
 // Prüfen & Ergänzen – wie Search & Update, aber mit den physischen Feldern.
 // Barcode scannen -> Zeile erscheint -> Seiten abgleichen, Breite/Höhe prüfen,
@@ -308,6 +320,7 @@ export default function AdminBarcodeCheckPage() {
     const ctrl = new AbortController();
     setLoading(true);
     setErr("");
+    const wildcard = barcodeWildcardRegex(q.q);
     listBooks(
       {
         q: q.q,
@@ -316,8 +329,9 @@ export default function AdminBarcodeCheckPage() {
         sortBy: q.sortBy,
         order: q.order,
         // bei einer gezielten Suche (Barcode) nicht wegfiltern
-        incomplete: q.q ? undefined : q.incomplete ? "true" : undefined,
-        barcoded: q.q ? undefined : q.barcoded ? "true" : undefined,
+        // bei Platzhalter-Suche (ob0x) gelten die Filter weiterhin
+        incomplete: q.q && !wildcard ? undefined : q.incomplete ? "true" : undefined,
+        barcoded: q.q && !wildcard ? undefined : q.barcoded ? "true" : undefined,
       },
       { signal: ctrl.signal }
     )
@@ -327,7 +341,12 @@ export default function AdminBarcodeCheckPage() {
         // Scan: nur das Buch, das den Barcode AKTUELL hat. Alles andere (frühere
         // Bücher aus der History, Konflikte, Teil-Treffer) nur als Hinweis –
         // oder grau, wenn der Barcode gerade keinem Buch gehört.
-        if (q.q) {
+        if (wildcard) {
+          // Platzhalter: alle Bücher, deren AKTUELLER Barcode passt; Treffer nur
+          // über die History/Konflikte fallen weg.
+          list = list.filter((b) => wildcard.test(String(b?.barcode || "")));
+          setExactFound(true);
+        } else if (q.q) {
           const needle = q.q.trim().toLowerCase();
           const exact = list.filter((b) => String(b?.barcode || "").toLowerCase() === needle);
           rest = list.filter((b) => String(b?.barcode || "").toLowerCase() !== needle);

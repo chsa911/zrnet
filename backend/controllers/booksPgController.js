@@ -3408,8 +3408,9 @@ async function setHighlight(req, res) {
   // GET /api/books/phys-code/:code?exclude=<bookId>&tol=2
   // -> {
   //      code, decoded: {width_mm,height_mm,pages,page_num_pos,chapters},
-  //      available: bool,          // no OTHER book has exactly this number
-  //      exact: book | null,       // the book with exactly this number
+  //      available: true,          // number may be used by several entries
+  //      exact: book | null,       // first entry with exactly this number
+  //      exact_all: [book],        // all entries with exactly this number
   //      similar: [ {book, diff} ] // same pages/position/chapters, size within ±tol mm
   //    }
   async function lookupPhysCode(req, res) {
@@ -3471,11 +3472,13 @@ async function setHighlight(req, res) {
         };
       };
 
-      let exact = null;
+      // Die Nummer darf mehrfach vorkommen (gleiches Exemplar, mehrere
+      // Einträge/Lesedurchgänge). exact = erster Treffer, exact_all = alle.
+      const exactAll = [];
       const similar = [];
       for (const r of rows) {
         if (r.phys_code === code) {
-          exact = await toBrief(r.id);
+          exactAll.push(await toBrief(r.id));
         } else {
           similar.push({
             book: await toBrief(r.id),
@@ -3484,7 +3487,16 @@ async function setHighlight(req, res) {
         }
       }
 
-      return res.json({ code, decoded: d, available: !exact, exact, book: exact, similar });
+      const exact = exactAll[0] || null;
+      return res.json({
+        code,
+        decoded: d,
+        available: true,
+        exact,
+        exact_all: exactAll,
+        book: exact,
+        similar,
+      });
     } catch (err) {
       console.error("lookupPhysCode error", err);
       return res.status(500).json({ error: "lookup_failed" });

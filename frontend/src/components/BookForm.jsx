@@ -10,7 +10,7 @@ import {
 } from "../utils/uploadQueue";
 import { startIsbnScanner } from "../utils/isbnScanner";
 import { PAGE_NUM_POSITIONS, buildPhysCode, formatPhysCode, normalizeLastWord } from "../utils/pageNumPos";
-import usePhysCodeCheck, { physCodeTakenText, similarText } from "../utils/usePhysCodeCheck";
+import usePhysCodeCheck, { physCodeKnownText, similarText } from "../utils/usePhysCodeCheck";
 
 /* ---------- tolerant field picker ---------- */
 const norm = (s) => String(s || "").toLowerCase().replace(/[^a-z0-9]/g, "");
@@ -833,11 +833,6 @@ export default function BookForm({
     e.preventDefault();
     setMsg("");
 
-    if (physCheck.taken) {
-      setMsg(physCodeTakenText(physCode, physCheck.book));
-      return;
-    }
-
     if (coverPrepBusy) {
       setMsg("Cover wird noch vorbereitet. Bitte kurz warten.");
       return;
@@ -1130,12 +1125,12 @@ export default function BookForm({
         {buildPhysCode(v) ? (
           <small style={{ fontFamily: "monospace" }}>Nr: {formatPhysCode(buildPhysCode(v))}</small>
         ) : null}
-        {physCheck.taken ? (
-          <small style={{ color: "#dc2626", fontWeight: 700 }}>
-            {physCodeTakenText(physCode, physCheck.book)}
+        {physCheck.known.length ? (
+          <small style={{ color: "#1d4ed8", fontWeight: 700 }}>
+            {physCodeKnownText(physCode, physCheck.known)}
           </small>
         ) : null}
-        {!physCheck.taken && physCheck.similar.length ? (
+        {!physCheck.known.length && physCheck.similar.length ? (
           <small style={{ color: "#b45309", fontWeight: 700 }}>{similarText(physCheck.similar)}</small>
         ) : null}
       </label>

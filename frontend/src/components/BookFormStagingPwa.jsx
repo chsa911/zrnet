@@ -10,7 +10,7 @@ import {
 import { previewBarcode } from "../api/barcodes";
 import { startIsbnScanner } from "../utils/isbnScanner";
 import { PAGE_NUM_POSITIONS, buildPhysCode, formatPhysCode, normalizeLastWord } from "../utils/pageNumPos";
-import usePhysCodeCheck, { physCodeTakenText, similarText } from "../utils/usePhysCodeCheck";
+import usePhysCodeCheck, { physCodeKnownText, similarText } from "../utils/usePhysCodeCheck";
 import { friendlySaveErrorMessage, isNoResponseError, newRequestId } from "../utils/saveFeedback";
 
 const toStr = (v) => (v === undefined || v === null ? "" : String(v));
@@ -642,11 +642,6 @@ export default function BookFormStagingPwa({
       return;
     }
 
-    if (physCheck.taken) {
-      setMsg(physCodeTakenText(physCode, physCheck.book), "error");
-      return;
-    }
-
     if (coverPrepBusy) {
       setMsg("Cover wird noch vorbereitet. Bitte kurz warten.", "error");
       return;
@@ -1022,12 +1017,12 @@ export default function BookFormStagingPwa({
         {buildPhysCode(v) ? (
           <div style={{ fontFamily: "monospace", fontSize: 13 }}>Nr: {formatPhysCode(buildPhysCode(v))}</div>
         ) : null}
-        {physCheck.taken ? (
-          <div style={{ color: "#dc2626", fontWeight: 700, fontSize: 13 }}>
-            {physCodeTakenText(physCode, physCheck.book)}
+        {physCheck.known.length ? (
+          <div style={{ color: "#1d4ed8", fontWeight: 700, fontSize: 13 }}>
+            {physCodeKnownText(physCode, physCheck.known)}
           </div>
         ) : null}
-        {!physCheck.taken && physCheck.similar.length ? (
+        {!physCheck.known.length && physCheck.similar.length ? (
           <div style={{ color: "#b45309", fontWeight: 700, fontSize: 13 }}>{similarText(physCheck.similar)}</div>
         ) : null}
       </div>

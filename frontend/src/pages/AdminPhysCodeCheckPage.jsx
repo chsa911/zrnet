@@ -132,8 +132,14 @@ export default function AdminPhysCodeCheckPage() {
         <div style={{ display: "grid", gap: 10 }}>
           {res.exact ? (
             <>
-              <div style={{ fontWeight: 900, color: "#15803d" }}>✓ Das ist dieses Buch:</div>
-              <BookCard book={res.exact} tone="exact" />
+              <div style={{ fontWeight: 900, color: "#15803d" }}>
+                {(res.exact_all?.length || 1) > 1
+                  ? `✓ Dieses Buch – ${res.exact_all.length} Einträge:`
+                  : "✓ Das ist dieses Buch:"}
+              </div>
+              {(res.exact_all?.length ? res.exact_all : [res.exact]).map((b) => (
+                <BookCard key={b.id} book={b} tone="exact" />
+              ))}
             </>
           ) : (
             <div style={{ fontWeight: 900 }}>Kein Buch mit genau dieser Nummer.</div>

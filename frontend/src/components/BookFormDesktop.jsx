@@ -12,7 +12,7 @@ import {
 import { previewBarcode } from "../api/barcodes";
 import { BookCodeVisual } from "../utils/bookCodeDisplay";
 import { PAGE_NUM_POS_HELP, buildPhysCode, formatPhysCode, isValidPageNumPos, normalizeLastWord, pageNumPosLabel } from "../utils/pageNumPos";
-import usePhysCodeCheck, { physCodeTakenText, similarText } from "../utils/usePhysCodeCheck";
+import usePhysCodeCheck, { physCodeKnownText, similarText } from "../utils/usePhysCodeCheck";
 import { friendlySaveErrorMessage, newRequestId } from "../utils/saveFeedback";
 
 const norm = (s) => String(s || "").toLowerCase().replace(/[^a-z0-9]/g, "");
@@ -894,11 +894,6 @@ if (pages == null || pages < 0) {
     e.preventDefault();
     showMsg("", "info");
 
-    if (physCheck.taken) {
-      showMsg(physCodeTakenText(physCode, physCheck.book), "error");
-      return;
-    }
-
     let payload;
     try {
       payload = buildPayload();
@@ -1422,8 +1417,8 @@ if (pages == null || pages < 0) {
     {physCode ? (
       <span
         title={
-          physCheck.taken
-            ? physCodeTakenText(physCode, physCheck.book)
+          physCheck.known.length
+            ? physCodeKnownText(physCode, physCheck.known)
             : physCheck.similar.length
               ? similarText(physCheck.similar)
               : "Buch-Nummer: Breite Höhe Seiten Position Kapitel Wort"
@@ -1434,12 +1429,12 @@ if (pages == null || pages < 0) {
           alignSelf: "center",
           whiteSpace: "nowrap",
           padding: "0 8px",
-          color: physCheck.taken ? "#dc2626" : physCheck.similar.length ? "#b45309" : undefined,
-          fontWeight: physCheck.taken || physCheck.similar.length ? 800 : undefined,
+          color: physCheck.known.length ? "#1d4ed8" : physCheck.similar.length ? "#b45309" : undefined,
+          fontWeight: physCheck.known.length || physCheck.similar.length ? 800 : undefined,
         }}
       >
         {formatPhysCode(physCode)}
-        {physCheck.taken ? " ✗ vergeben" : physCheck.checking ? "" : physCheck.similar.length ? " ≈ ähnlich" : " ✓"}
+        {physCheck.known.length ? ` ↺ schon ${physCheck.known.length}× erfasst` : physCheck.checking ? "" : physCheck.similar.length ? " ≈ ähnlich" : " ✓"}
       </span>
     ) : null}
 
