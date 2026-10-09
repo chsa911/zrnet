@@ -1,33 +1,35 @@
 // Position der Seitenzahl + eindeutige Buch-Nummer (books.phys_code)
 //
-// Nummer: 14 Ziffern, feste Blöcke   BBB HHH SSSS P KKK   z. B. 125 210 0950 9 024
+// Nummer: feste Blöcke   BBB HHH SSSS PP KKK WW   z. B. 125 210 0950 or 024 st
 //   BBB  Breite in mm      HHH  Höhe in mm
-//   SSSS Seiten (0000 = keine Seitenzahl)
-//   P    Position der Seitenzahl wie auf dem Ziffernblock (7 8 9 oben, 1 2 3 unten, 0 keine)
+//   SSSS Seiten = letzte Seite, die mit einer Seitenzahl bedruckt ist (0000 = keine Seitenzahl)
+//   PP   Position der Seitenzahl auf dieser Seite: ol om or (oben), ml mr (mitte links/rechts), ul um ur (unten), 00 keine
 //   KKK  Kapitel (000 = keine / unbekannt)
+//   WW   erste 2 Buchstaben des allerletzten Wortes im ganzen Buch (ä->a; 1 Buchstabe -> "i0"; 00 = kein Text)
 // Die DB leitet die Nummer per Trigger ab, leert sie nie, stellt verlorene Werte
 // daraus wieder her und erzwingt Eindeutigkeit. Diese Datei = Vorschau im Formular.
 
-// Reihenfolge wie auf dem Ziffernblock
 export const PAGE_NUM_POSITIONS = [
-  { value: "7", label: "oben links" },
-  { value: "8", label: "oben mitte" },
-  { value: "9", label: "oben rechts" },
-  { value: "1", label: "unten links" },
-  { value: "2", label: "unten mitte" },
-  { value: "3", label: "unten rechts" },
-  { value: "0", label: "keine Seitenzahl" },
+  { value: "ol", label: "oben links" },
+  { value: "om", label: "oben mitte" },
+  { value: "or", label: "oben rechts" },
+  { value: "ml", label: "mitte links" },
+  { value: "mr", label: "mitte rechts" },
+  { value: "ul", label: "unten links" },
+  { value: "um", label: "unten mitte" },
+  { value: "ur", label: "unten rechts" },
+  { value: "00", label: "keine Seitenzahl" },
 ];
 
 export const PAGE_NUM_POS_HELP =
-  "Position der Seitenzahl wie auf dem Ziffernblock: 7 8 9 = oben links/mitte/rechts, 1 2 3 = unten links/mitte/rechts, 0 = keine";
+  "Position der Seitenzahl: ol om or = oben links/mitte/rechts, ml mr = mitte links/rechts, ul um ur = unten links/mitte/rechts, 00 = keine";
 
 export function isValidPageNumPos(v) {
-  return PAGE_NUM_POSITIONS.some((p) => p.value === String(v ?? "").trim());
+  return PAGE_NUM_POSITIONS.some((p) => p.value === String(v ?? "").trim().toLowerCase());
 }
 
 export function pageNumPosLabel(v) {
-  return PAGE_NUM_POSITIONS.find((p) => p.value === String(v ?? "").trim())?.label || "";
+  return PAGE_NUM_POSITIONS.find((p) => p.value === String(v ?? "").trim().toLowerCase())?.label || "";
 }
 
 function pad(n, len) {
@@ -40,30 +42,44 @@ function intOrZero(x) {
   return Number.isFinite(n) && n > 0 ? n : 0;
 }
 
+// Letztes Wort -> 2 Zeichen wie im Backend ("Ärger" -> "ar", "I" -> "i0", "00" bleibt)
+export function normalizeLastWord(v) {
+  const raw = String(v ?? "").trim().toLowerCase();
+  if (raw === "00") return "00";
+  const letters = raw
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/ß/g, "ss")
+    .replace(/[^a-z]/g, "");
+  if (!letters) return "";
+  return letters.length === 1 ? `${letters}0` : letters.slice(0, 2);
+}
+
 // Formularwerte -> Nummer (ohne Leerzeichen) oder "" wenn unvollständig
 export function buildPhysCode(v) {
   const w = Number(String(v?.width_cm ?? "").replace(",", "."));
   const h = Number(String(v?.height_cm ?? "").replace(",", "."));
-  const pos = String(v?.page_num_pos ?? "").trim();
-  if (!(w > 0) || !(h > 0) || !isValidPageNumPos(pos)) return "";
+  const pos = String(v?.page_num_pos ?? "").trim().toLowerCase();
+  const word = normalizeLastWord(v?.last_word);
+  if (!(w > 0) || !(h > 0) || !isValidPageNumPos(pos) || !word) return "";
   const wMm = Math.round(w * 10); // wie Backend cmToMm
   const hMm = Math.round(h * 10);
-  const code = `${pad(wMm, 3)}${pad(hMm, 3)}${pad(intOrZero(v?.pages), 4)}${pos}${pad(intOrZero(v?.chapters), 3)}`;
+  const code = `${pad(wMm, 3)}${pad(hMm, 3)}${pad(intOrZero(v?.pages), 4)}${pos}${pad(intOrZero(v?.chapters), 3)}${word}`;
   return PHYS_CODE_RE.test(code) ? code : "";
 }
 
-export const PHYS_CODE_RE = /^[0-9]{10}[0123789][0-9]{3}$/;
+export const PHYS_CODE_RE = /^[0-9]{10}(ol|om|or|ml|mr|ul|um|ur|00)[0-9]{3}([a-z][a-z0]|00)$/;
 
 export function normalizePhysCode(s) {
-  const c = String(s ?? "").replace(/\s+/g, "");
+  const c = String(s ?? "").replace(/\s+/g, "").toLowerCase();
   return PHYS_CODE_RE.test(c) ? c : "";
 }
 
-// 12521009509024 -> "125 210 0950 9 024"
+// 1252100950or024st -> "125 210 0950 or 024 st"
 export function formatPhysCode(code) {
   const c = String(code ?? "").replace(/\s+/g, "");
-  if (c.length !== 14) return c;
-  return `${c.slice(0, 3)} ${c.slice(3, 6)} ${c.slice(6, 10)} ${c.slice(10, 11)} ${c.slice(11)}`;
+  if (c.length !== 17) return c;
+  return `${c.slice(0, 3)} ${c.slice(3, 6)} ${c.slice(6, 10)} ${c.slice(10, 12)} ${c.slice(12, 15)} ${c.slice(15)}`;
 }
 
 // Nummer -> Einzelwerte
@@ -74,7 +90,8 @@ export function decodePhysCode(code) {
     width_mm: Number(c.slice(0, 3)),
     height_mm: Number(c.slice(3, 6)),
     pages: Number(c.slice(6, 10)),
-    page_num_pos: c.slice(10, 11),
-    chapters: Number(c.slice(11, 14)),
+    page_num_pos: c.slice(10, 12),
+    chapters: Number(c.slice(12, 15)),
+    last_word: c.slice(15, 17),
   };
 }

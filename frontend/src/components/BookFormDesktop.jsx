@@ -11,7 +11,7 @@ import {
 } from "../api/books";
 import { previewBarcode } from "../api/barcodes";
 import { BookCodeVisual } from "../utils/bookCodeDisplay";
-import { PAGE_NUM_POS_HELP, buildPhysCode, formatPhysCode, isValidPageNumPos, pageNumPosLabel } from "../utils/pageNumPos";
+import { PAGE_NUM_POS_HELP, buildPhysCode, formatPhysCode, isValidPageNumPos, normalizeLastWord, pageNumPosLabel } from "../utils/pageNumPos";
 import usePhysCodeCheck, { physCodeTakenText, similarText } from "../utils/usePhysCodeCheck";
 import { friendlySaveErrorMessage, newRequestId } from "../utils/saveFeedback";
 
@@ -159,6 +159,7 @@ const emptyForm = {
   pages: "",
   page_num_pos: "",
   chapters: "",
+  last_word: "",
   width_cm: "",
   height_cm: "",
   purchase_url: "",
@@ -368,6 +369,7 @@ export default function BookFormDesktop({
       pages: toStr(pick(b, ["pages"])),
       page_num_pos: toStr(pick(b, ["page_num_pos"])),
       chapters: toStr(pick(b, ["chapters"])),
+      last_word: toStr(pick(b, ["last_word"])),
       width_cm: toStr(pick(b, ["width_cm", "width", "bbreite"])),
       height_cm: toStr(pick(b, ["height_cm", "height", "bhoehe"])),
       purchase_url: toStr(pick(b, ["purchase_url"])),
@@ -783,10 +785,13 @@ if (pages == null || pages < 0) {
     // damit der eindeutige Buch-Code (phys_code) gebildet werden kann.
     if (!isEdit && createReadingStatus !== "wishlist") {
       if (!isValidPageNumPos(v.page_num_pos)) {
-        throw new Error("Position der Seitenzahl ist erforderlich: 7 8 9 = oben, 1 2 3 = unten (links/mitte/rechts), 0 = keine.");
+        throw new Error("Position der Seitenzahl ist erforderlich: ol om or = oben, ml mr = mitte, ul um ur = unten (links/mitte/rechts), 00 = keine.");
+      }
+      if (!normalizeLastWord(v.last_word)) {
+        throw new Error("Letztes Wort im Buch ist erforderlich (00 = kein Text).");
       }
       if (!buildPhysCode(v)) {
-        throw new Error("Buch-Nummer unvollständig: Breite, Höhe und Position der Seitenzahl angeben.");
+        throw new Error("Buch-Nummer unvollständig: Breite, Höhe, Position der Seitenzahl und letztes Wort angeben.");
       }
     }
     if (!isEdit && assignBarcode && !finalBarcode) {
@@ -814,6 +819,7 @@ if (pages == null || pages < 0) {
       "original_language",
       "comment",
       "page_num_pos",
+      "last_word",
     ];
 
     for (const k of strings) {
@@ -1388,21 +1394,30 @@ if (pages == null || pages < 0) {
   <div className="bfd-row">
     <input {...numberProps("width_cm", "Width", "2.8ch")} />
     <input {...numberProps("height_cm", "Height", "2.8ch")} />
-    <input {...fieldProps("pages", "Pages", { inputMode: "numeric", style: { width: "3.0ch" }, required: true, })} />
+    <input {...fieldProps("pages", "Pages", { inputMode: "numeric", style: { width: "3.0ch" }, required: true, title: "Letzte Seite, die mit einer Seitenzahl bedruckt ist (0 = keine Seitenzahl)" })} />
     <input
-      {...fieldProps("page_num_pos", "Pos", { inputMode: "numeric", maxLength: 1, style: { width: "3.0ch" } })}
+      {...fieldProps("page_num_pos", "Pos", { maxLength: 2, autoCapitalize: "off", autoComplete: "off", spellCheck: false, style: { width: "3.0ch" } })}
       title={isValidPageNumPos(v.page_num_pos) ? `Position der Seitenzahl: ${pageNumPosLabel(v.page_num_pos)}` : PAGE_NUM_POS_HELP}
       aria-label="Position der Seitenzahl"
       onChange={(e) => {
-        // nur eine erlaubte Ziffer (Ziffernblock-Logik): 7 8 9 / 1 2 3 / 0
-        const digits = String(e.target.value || "").replace(/[^0123789]/g, "");
-        setField("page_num_pos", digits.slice(-1));
+        // zwei Zeichen: ol om or / ml mr / ul um ur / 00 (keine Seitenzahl)
+        const t = String(e.target.value || "").toLowerCase().replace(/[^a-z0-9]/g, "").slice(0, 2);
+        if (t === "" || /^[omu0]$/.test(t) || /^(ol|om|or|ml|mr|ul|um|ur|00)$/.test(t)) setField("page_num_pos", t);
       }}
     />
     <input
       {...fieldProps("chapters", "Kap", { inputMode: "numeric", style: { width: "2.8ch" } })}
       title="Anzahl Kapitel (leer = 0)"
       aria-label="Anzahl Kapitel"
+    />
+    <input
+      {...fieldProps("last_word", "Wort", { autoCapitalize: "off", autoComplete: "off", spellCheck: false, style: { width: "3.6ch" } })}
+      title={
+        normalizeLastWord(v.last_word)
+          ? `Letztes Wort → ${normalizeLastWord(v.last_word)}`
+          : "Letztes Wort im ganzen Buch (ganzes Wort oder 2 Buchstaben, 00 = kein Text)"
+      }
+      aria-label="Letztes Wort im ganzen Buch"
     />
     {physCode ? (
       <span
@@ -1411,7 +1426,7 @@ if (pages == null || pages < 0) {
             ? physCodeTakenText(physCode, physCheck.book)
             : physCheck.similar.length
               ? similarText(physCheck.similar)
-              : "Buch-Nummer: Breite Höhe Seiten Position Kapitel"
+              : "Buch-Nummer: Breite Höhe Seiten Position Kapitel Wort"
         }
         style={{
           fontFamily: "monospace",

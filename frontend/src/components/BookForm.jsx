@@ -9,7 +9,7 @@ import {
   upsertUploadJob,
 } from "../utils/uploadQueue";
 import { startIsbnScanner } from "../utils/isbnScanner";
-import { PAGE_NUM_POSITIONS, buildPhysCode, formatPhysCode } from "../utils/pageNumPos";
+import { PAGE_NUM_POSITIONS, buildPhysCode, formatPhysCode, normalizeLastWord } from "../utils/pageNumPos";
 import usePhysCodeCheck, { physCodeTakenText, similarText } from "../utils/usePhysCodeCheck";
 
 /* ---------- tolerant field picker ---------- */
@@ -398,6 +398,7 @@ export default function BookForm({
       pages: toStr(pick(b, ["pages"])),
       page_num_pos: toStr(pick(b, ["page_num_pos"])),
       chapters: toStr(pick(b, ["chapters"])),
+      last_word: toStr(pick(b, ["last_word"])),
 
       width_cm: toStr(pick(b, ["width_cm", "width"])),
       height_cm: toStr(pick(b, ["height_cm", "height"])),
@@ -811,6 +812,7 @@ export default function BookForm({
     if (String(v.page_num_pos || "").trim()) payload.page_num_pos = String(v.page_num_pos).trim();
     const chapters = parseIntOrNull(v.chapters);
     if (chapters !== null && chapters >= 0) payload.chapters = chapters;
+    if (normalizeLastWord(v.last_word)) payload.last_word = normalizeLastWord(v.last_word);
 
     const tk1 = parseIntOrNull(v.title_keyword_position);
     const tk2 = parseIntOrNull(v.title_keyword2_position);
@@ -1112,6 +1114,18 @@ export default function BookForm({
           value={v.chapters || ""}
           onChange={(e) => setField("chapters", e.target.value)}
           placeholder="24"
+        />
+      </label>
+
+      <label style={{ display: "grid", gap: 6 }}>
+        <span>Letztes Wort im ganzen Buch</span>
+        <input
+          className="zr-input"
+          type="text"
+          autoCapitalize="off"
+          value={v.last_word || ""}
+          onChange={(e) => setField("last_word", e.target.value)}
+          placeholder="still (00 = kein Text)"
         />
         {buildPhysCode(v) ? (
           <small style={{ fontFamily: "monospace" }}>Nr: {formatPhysCode(buildPhysCode(v))}</small>

@@ -87,20 +87,31 @@ function makeTitleKeyword(title) {
     if (!Number.isFinite(n)) return null;
     return Math.trunc(n);
   }
-  // Position der Seitenzahl wie auf dem Ziffernblock:
-  // 7 oben links, 8 oben mitte, 9 oben rechts, 1 unten links, 2 unten mitte, 3 unten rechts, 0 keine
-  const PAGE_NUM_POSITIONS = [0, 1, 2, 3, 7, 8, 9];
+  // Position der Seitenzahl: ol om or (oben links/mitte/rechts), ml mr (mitte links/rechts),
+  // ul um ur (unten links/mitte/rechts), 00 = keine Seitenzahl
+  const PAGE_NUM_POSITIONS = ["ol", "om", "or", "ml", "mr", "ul", "um", "ur", "00"];
   function normalizePageNumPos(v) {
     if (v === undefined || v === null) return null;
-    const s = String(v).trim();
-    if (!/^[0-9]$/.test(s)) return null;
-    const n = Number(s);
-    return PAGE_NUM_POSITIONS.includes(n) ? n : null;
+    const s = String(v).trim().toLowerCase();
+    return PAGE_NUM_POSITIONS.includes(s) ? s : null;
   }
-  // phys_code: 14 Ziffern BBB HHH SSSS P KKK (Leerzeichen erlaubt)
-  const PHYS_CODE_RE = /^[0-9]{10}[0123789][0-9]{3}$/;
+  // Letztes Wort der letzten Seite -> 2 Buchstaben (ä->a …), 1 Buchstabe -> "x0", "00" = kein Text
+  function normalizeLastWord(v) {
+    if (v === undefined || v === null) return null;
+    const raw = String(v).trim().toLowerCase();
+    if (raw === "00") return "00";
+    const letters = raw
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/ß/g, "ss")
+      .replace(/[^a-z]/g, "");
+    if (!letters) return null;
+    return letters.length === 1 ? `${letters}0` : letters.slice(0, 2);
+  }
+  // phys_code: BBB HHH SSSS PP KKK WW, z. B. 1252100950or024st (Leerzeichen erlaubt)
+  const PHYS_CODE_RE = /^[0-9]{10}(ol|om|or|ml|mr|ul|um|ur|00)[0-9]{3}([a-z][a-z0]|00)$/;
   function normalizePhysCode(v) {
-    const s = String(v ?? "").replace(/\s+/g, "");
+    const s = String(v ?? "").replace(/\s+/g, "").toLowerCase();
     return PHYS_CODE_RE.test(s) ? s : null;
   }
   function decodePhysCode(code) {
@@ -110,8 +121,9 @@ function makeTitleKeyword(title) {
       width_mm: Number(c.slice(0, 3)),
       height_mm: Number(c.slice(3, 6)),
       pages: Number(c.slice(6, 10)),
-      page_num_pos: Number(c.slice(10, 11)),
-      chapters: Number(c.slice(11, 14)),
+      page_num_pos: c.slice(10, 12),
+      chapters: Number(c.slice(12, 15)),
+      last_word: c.slice(15, 17),
     };
   }
   function normalizeChapters(v) {
@@ -378,6 +390,7 @@ sub: row.subgenre_abbr ?? row.sub_genre ?? null,
       pages: row.pages ?? null,
       page_num_pos: row.page_num_pos ?? null,
       chapters: row.chapters ?? null,
+      last_word: row.last_word ?? null,
       phys_code: row.phys_code ?? null,
       year_first_published: row.year_first_published ?? null,
       first_publish_year: row.year_first_published ?? null,
@@ -1221,8 +1234,8 @@ title_keyword: "b.title_keyword",
       const listCols = await getColumns(pool, "books");
       let physCodeSearch = "";
       const qDigits = q.replace(/\s+/g, "");
-      if (listCols.has("phys_code") && /^[0-9]{3,}$/.test(qDigits)) {
-        params.push(`%${qDigits}%`);
+      if (listCols.has("phys_code") && /^[0-9]{3,}([a-z0-9]{1,7})?$/i.test(qDigits)) {
+        params.push(`%${qDigits.toLowerCase()}%`);
         physCodeSearch = `b.phys_code LIKE $${params.length} OR`;
       }
 
@@ -1855,6 +1868,7 @@ sub_genre_id: normalizeInt(body.sub_genre_id),
           pages: normalizeInt(body.pages),
           page_num_pos: normalizePageNumPos(body.page_num_pos),
           chapters: normalizeChapters(body.chapters),
+          last_word: normalizeLastWord(body.last_word),
           year_first_published: normalizeInt(body.year_first_published ?? body.first_publish_year),
           width: Number.isFinite(wMm) ? wMm : null,
           height: Number.isFinite(hMm) ? hMm : null,
@@ -2173,6 +2187,7 @@ if (body.sub_genre_id !== undefined && cols.has("sub_genre_id")) {
       if (body.pages !== undefined) updates.pages = normalizeInt(body.pages);
       if (body.page_num_pos !== undefined) updates.page_num_pos = normalizePageNumPos(body.page_num_pos);
       if (body.chapters !== undefined) updates.chapters = normalizeChapters(body.chapters);
+      if (body.last_word !== undefined) updates.last_word = normalizeLastWord(body.last_word);
       if ((body.year_first_published ?? body.first_publish_year) !== undefined) {
         updates.year_first_published = normalizeInt(body.year_first_published ?? body.first_publish_year);
       }
@@ -2458,6 +2473,7 @@ if (
       if (body.pages !== undefined) updates.pages = normalizeInt(body.pages);
       if (body.page_num_pos !== undefined) updates.page_num_pos = normalizePageNumPos(body.page_num_pos);
       if (body.chapters !== undefined) updates.chapters = normalizeChapters(body.chapters);
+      if (body.last_word !== undefined) updates.last_word = normalizeLastWord(body.last_word);
       if ((body.year_first_published ?? body.first_publish_year) !== undefined) {
         updates.year_first_published = normalizeInt(body.year_first_published ?? body.first_publish_year);
       }
@@ -2823,6 +2839,7 @@ if ((patch.sub_genre_abbr ?? patch.subgenre_abbr) !== undefined) {
       if (patch.pages !== undefined) updates.pages = normalizeInt(patch.pages);
       if (patch.page_num_pos !== undefined) updates.page_num_pos = normalizePageNumPos(patch.page_num_pos);
       if (patch.chapters !== undefined) updates.chapters = normalizeChapters(patch.chapters);
+      if (patch.last_word !== undefined) updates.last_word = normalizeLastWord(patch.last_word);
       if ((patch.year_first_published ?? patch.first_publish_year) !== undefined) {
         updates.year_first_published = normalizeInt(patch.year_first_published ?? patch.first_publish_year);
       }
@@ -3361,7 +3378,7 @@ async function setHighlight(req, res) {
           AND (
             b.phys_code = $1
             OR (
-              substr(b.phys_code, 7, 8) = $2
+              substr(b.phys_code, 7, 11) = $2
               AND abs(substr(b.phys_code, 1, 3)::int - $3) <= $5
               AND abs(substr(b.phys_code, 4, 3)::int - $4) <= $5
             )
@@ -3388,6 +3405,7 @@ async function setHighlight(req, res) {
           pages: api.pages,
           page_num_pos: api.page_num_pos,
           chapters: api.chapters,
+          last_word: api.last_word,
         };
       };
 

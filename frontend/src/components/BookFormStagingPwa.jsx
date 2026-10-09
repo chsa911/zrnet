@@ -9,7 +9,7 @@ import {
 } from "../api/books";
 import { previewBarcode } from "../api/barcodes";
 import { startIsbnScanner } from "../utils/isbnScanner";
-import { PAGE_NUM_POSITIONS, buildPhysCode, formatPhysCode } from "../utils/pageNumPos";
+import { PAGE_NUM_POSITIONS, buildPhysCode, formatPhysCode, normalizeLastWord } from "../utils/pageNumPos";
 import usePhysCodeCheck, { physCodeTakenText, similarText } from "../utils/usePhysCodeCheck";
 import { friendlySaveErrorMessage, isNoResponseError, newRequestId } from "../utils/saveFeedback";
 
@@ -312,6 +312,7 @@ function initialStateFromBook(b = {}) {
     pages: toStr(b.pages),
     page_num_pos: toStr(b.page_num_pos),
     chapters: toStr(b.chapters),
+    last_word: toStr(b.last_word),
     isbn13: toStr(b.isbn13),
     isbn10: toStr(b.isbn10),
     purchase_url: toStr(b.purchase_url),
@@ -688,6 +689,7 @@ export default function BookFormStagingPwa({
     if (String(v.page_num_pos || "").trim()) payload.page_num_pos = String(v.page_num_pos).trim();
     const chapterCount = parseIntOrNull(v.chapters);
     if (chapterCount !== null && chapterCount >= 0) payload.chapters = chapterCount;
+    if (normalizeLastWord(v.last_word)) payload.last_word = normalizeLastWord(v.last_word);
 
     const nullableStrings = [
       "author_firstname",
@@ -1002,6 +1004,18 @@ export default function BookFormStagingPwa({
               onChange={(e) => setField("chapters", e.target.value)}
               placeholder="24"
               title="Anzahl Kapitel (leer = 0)"
+            />
+          </label>
+          <label style={{ display: "grid", gap: 6, maxWidth: 160 }}>
+            <span>Letztes Wort</span>
+            <input
+              className="zr-input"
+              type="text"
+              autoCapitalize="off"
+              value={v.last_word || ""}
+              onChange={(e) => setField("last_word", e.target.value)}
+              placeholder="still"
+              title="Letztes Wort im ganzen Buch (00 = kein Text)"
             />
           </label>
         </div>

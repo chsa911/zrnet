@@ -28,7 +28,7 @@ function BookCard({ book, diff, tone }) {
       <div style={{ fontFamily: "monospace", marginTop: 6 }}>Nr {formatPhysCode(book.phys_code)}</div>
       <div style={{ fontSize: 13, opacity: 0.8, marginTop: 4 }}>
         {book.width_cm ?? "?"} × {book.height_cm ?? "?"} cm · {book.pages ?? "?"} Seiten ·{" "}
-        {pageNumPosLabel(book.page_num_pos) || "?"} · {book.chapters ?? "?"} Kapitel
+        {pageNumPosLabel(book.page_num_pos) || "?"} · {book.chapters ?? "?"} Kapitel · Wort „{book.last_word ?? "?"}“
         {book.barcode ? ` · Barcode ${book.barcode}` : ""}
         {book.reading_status ? ` · ${book.reading_status}` : ""}
       </div>
@@ -43,7 +43,7 @@ function BookCard({ book, diff, tone }) {
 
 export default function AdminPhysCodeCheckPage() {
   const [codeInput, setCodeInput] = useState("");
-  const [v, setV] = useState({ width_cm: "", height_cm: "", pages: "", page_num_pos: "", chapters: "" });
+  const [v, setV] = useState({ width_cm: "", height_cm: "", pages: "", page_num_pos: "", chapters: "", last_word: "" });
   const [res, setRes] = useState(null);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
@@ -80,7 +80,7 @@ export default function AdminPhysCodeCheckPage() {
       <AdminNavRow />
       <h1 style={{ margin: 0 }}>Buch prüfen</h1>
       <div style={{ opacity: 0.8 }}>
-        Letzte Seite vermessen und Werte eingeben, oder die 14-stellige Nummer direkt eintippen.
+        Buch vermessen, letzte nummerierte Seite (Seitenzahl + Position) und letztes Wort im Buch ablesen – oder die Nummer direkt eintippen.
       </div>
 
       <div style={{ ...box, display: "grid", gap: 10 }}>
@@ -88,8 +88,8 @@ export default function AdminPhysCodeCheckPage() {
           <span>Nummer</span>
           <input
             style={{ ...inp, fontFamily: "monospace" }}
-            inputMode="numeric"
-            placeholder="125 210 0950 9 024"
+            autoCapitalize="off"
+            placeholder="125 210 0950 or 024 st"
             value={codeInput}
             onChange={(e) => setCodeInput(e.target.value)}
           />
@@ -109,6 +109,7 @@ export default function AdminPhysCodeCheckPage() {
             </select>
           </label>
           <label style={lbl}><span>Kapitel</span><input style={inp} inputMode="numeric" placeholder="24" value={v.chapters} onChange={set("chapters")} /></label>
+          <label style={lbl}><span>Letztes Wort</span><input style={inp} autoCapitalize="off" placeholder="still" value={v.last_word} onChange={set("last_word")} /></label>
         </div>
       </div>
 
@@ -117,11 +118,11 @@ export default function AdminPhysCodeCheckPage() {
           <div style={{ fontFamily: "monospace", fontSize: 22, fontWeight: 900 }}>{formatPhysCode(code)}</div>
           <div style={{ fontSize: 13, marginTop: 4 }}>
             Breite {decoded.width_mm / 10} cm · Höhe {decoded.height_mm / 10} cm · {decoded.pages} Seiten ·{" "}
-            {pageNumPosLabel(decoded.page_num_pos)} · {decoded.chapters} Kapitel
+            {pageNumPosLabel(decoded.page_num_pos)} · {decoded.chapters} Kapitel · letztes Wort „{decoded.last_word}…“
           </div>
         </div>
       ) : codeInput.trim() ? (
-        <div style={{ color: "#dc2626" }}>Nummer muss 14 Ziffern haben: BBB HHH SSSS P KKK (P = 7 8 9 1 2 3 oder 0).</div>
+        <div style={{ color: "#dc2626" }}>Format: BBB HHH SSSS PP KKK WW, z. B. 125 210 0950 or 024 st (PP = ol om or ml mr ul um ur, 00 = keine; WW = letztes Wort).</div>
       ) : null}
 
       {err ? <div style={{ color: "#dc2626" }}>{err}</div> : null}
