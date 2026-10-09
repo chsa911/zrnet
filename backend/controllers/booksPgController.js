@@ -1309,6 +1309,16 @@ title_keyword: "b.title_keyword",
       where.push(`b.top_book = true`);
     }
 
+    // Prüfliste: nur Bücher ohne vollständige Buch-Nummer (phys_code)
+    if (normalizeBool(req.query.incomplete) === true) {
+      where.push(`b.phys_code IS NULL`);
+    }
+
+    // nur Bücher, die aktuell einen Barcode haben (physisch vorhanden)
+    if (normalizeBool(req.query.barcoded) === true) {
+      where.push(`EXISTS (SELECT 1 FROM public.book_barcodes bbx WHERE bbx.book_id = b.id)`);
+    }
+
     const since = normalizeStr(req.query.since);
     if (since) {
       params.push(since);

@@ -39,6 +39,7 @@ import KauflinkUpdatePage from "./pages/KauflinkUpdatePage";
 import SubGenrePage from "./pages/SubGenrePage";
 import CoachingPage from "./pages/CoachingPage";
 import AdminPhysCodeCheckPage from "./pages/AdminPhysCodeCheckPage";
+import AdminBarcodeCheckPage from "./pages/AdminBarcodeCheckPage";
 const ENV_BASE = (import.meta?.env?.VITE_API_BASE_URL || import.meta?.env?.VITE_API_BASE || "").trim();
 const BASE = String(ENV_BASE || API_BASE || "/api").replace(/\/$/, "");
 
@@ -194,6 +195,7 @@ export default function App() {
         <Route path="admin/authors" element={<AdminOnly><AdminAuthorsOverviewPage /></AdminOnly>} />
         <Route path="admin/search-update" element={<AdminOnly><SearchUpdatePage /></AdminOnly>} />
         <Route path="admin/check-book" element={<AdminOnly><AdminPhysCodeCheckPage /></AdminOnly>} />
+        <Route path="admin/barcode-check" element={<AdminOnly><AdminBarcodeCheckPage /></AdminOnly>} />
         <Route path="admin/sync-issues" element={<AdminOnly><SyncIssuePage /></AdminOnly>} />
         <Route path="admin/barcodes" element={<AdminOnly><BarcodeDashboardPage /></AdminOnly>} />
         <Route path="admin/comments" element={<AdminOnly><AdminCommentsPage /></AdminOnly>} />
