@@ -381,7 +381,11 @@ export default function SearchUpdatePage() {
       // barcode history automatically -- no separate click needed. If the
       // search box is empty, hide whatever history panel was showing.
       const trimmed = searchText.trim();
-      if (trimmed) {
+      // Platzhalter (ob0x, ob0*, ob01?) -> nur Liste filtern, kein Verlauf
+      const isWildcard = /[*?]|[0-9]x/i.test(trimmed);
+      if (trimmed && isWildcard) {
+        setBarcodeHistory(null);
+      } else if (trimmed) {
         openBarcodeHistory(trimmed);
       } else {
         setBarcodeHistory(null);

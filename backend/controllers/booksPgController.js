@@ -1,5 +1,6 @@
   const fs = require("fs");
   const path = require("path");
+  const { barcodeWildcardPattern } = require("../utils/barcodeWildcard");
   // Add this near your other variable definitions
   // backend/controllers/booksPgController.js
   // Postgres implementation for /api/books endpoints.
@@ -1244,7 +1245,31 @@ title_keyword: "b.title_keyword",
     const params = [];
 
     const q = normalizeStr(req.query.q);
-    if (q) {
+    // Platzhalter-Suche für Barcodes: "ob0x" / "ob0*" = beginnt mit ob0,
+    // "ob01?" = genau ein beliebiges Zeichen. Sucht dann NUR in Barcodes.
+    const qBarcodePattern = q ? barcodeWildcardPattern(q) : null;
+    if (qBarcodePattern) {
+      params.push(qBarcodePattern);
+      const p = `$${params.length}`;
+      where.push(
+        `(
+          bb.barcode ILIKE ${p} OR
+          EXISTS (
+            SELECT 1
+            FROM public.barcode_assignments ba_hist
+            WHERE ba_hist.book_id = b.id
+              AND ba_hist.barcode ILIKE ${p}
+          ) OR
+          EXISTS (
+            SELECT 1
+            FROM public.barcode_conflict_observations co
+            WHERE co.book_id = b.id
+              AND co.resolved = false
+              AND co.barcode ILIKE ${p}
+          )
+        )`
+      );
+    } else if (q) {
       params.push(`%${q}%`);
       const p = `$${params.length}`;
       // phys_code (Breite-Höhe-Seiten-Position-Kapitel) only once the migration exists
