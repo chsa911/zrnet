@@ -12,6 +12,7 @@ const {
   setHighlight,
   recordBarcodeConflict,
   resolveBarcodeConflict,
+  lookupPhysCode,
 } = require("../controllers/booksPgController");
 
 // List + search
@@ -20,6 +21,9 @@ router.get("/list", listBooks);
 
 // Autocomplete
 router.get("/autocomplete", autocomplete);
+
+// phys_code (Breite-Höhe-Seiten-Position) uniqueness check
+router.get("/phys-code/:code", lookupPhysCode);
 
 // Barcode history
 router.get("/barcodes/:barcode/history", getBarcodeHistory);

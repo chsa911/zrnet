@@ -11,6 +11,9 @@ import {
 } from "../api/books";
 import { previewBarcode } from "../api/barcodes";
 import { BookCodeVisual } from "../utils/bookCodeDisplay";
+import { PAGE_NUM_POS_HELP, buildPhysCode, formatPhysCode, isValidPageNumPos, pageNumPosLabel } from "../utils/pageNumPos";
+import usePhysCodeCheck, { physCodeTakenText, similarText } from "../utils/usePhysCodeCheck";
+import { friendlySaveErrorMessage, newRequestId } from "../utils/saveFeedback";
 
 const norm = (s) => String(s || "").toLowerCase().replace(/[^a-z0-9]/g, "");
 
@@ -54,51 +57,6 @@ function parseIntOrNull(s) {
 // that always wins. This map is the fallback for codes that come back as a
 // bare `{ error: "<code>" }` with no message, plus a generic fallback for
 // anything unrecognized so the user is never shown a raw error code.
-const BOOK_SAVE_ERROR_MESSAGES = {
-  missing_required_fields:
-    "Bitte Pflichtfelder ausfüllen (Titel, Autor, Verlag, Seiten).",
-  width_and_height_required:
-    "Breite und Höhe sind erforderlich, um einen Barcode zuzuweisen.",
-  no_series_for_size: "Für diese Maße wurde keine passende Serie gefunden.",
-  no_barcodes_available: "Kein freier Barcode für diese Serie verfügbar.",
-  barcode_not_found: "Barcode wurde nicht gefunden.",
-  barcode_not_available: "Barcode ist nicht verfügbar.",
-  barcode_already_assigned: "Barcode ist bereits einem anderen Buch zugewiesen.",
-  barcode_already_assigned_to_other_book:
-    "Barcode ist bereits einem anderen Buch zugewiesen.",
-  barcode_wrong_position: "Barcode passt nicht zur erwarteten Position.",
-  barcode_wrong_prefix: "Barcode passt nicht zur erwarteten Serie.",
-  barcode_has_unresolved_conflict:
-    "Dieser Barcode hat eine ungelöste Konflikt-Markierung (auf einem anderen Buch beobachtet). Bitte zuerst klären oder einen anderen Barcode wählen.",
-  duplicate_value: "Dieser Eintrag existiert bereits (Duplikat).",
-  invalid_reference:
-    "Ein verknüpfter Datensatz (z. B. Autor, Verlag oder Genre) wurde nicht gefunden.",
-  missing_required_field: "Ein Pflichtfeld fehlt.",
-  invalid_value: "Eine Eingabe ist ungültig.",
-  invalid_input_format: "Ein Feld hat ein ungültiges Format.",
-  internal_error: "Speichern ist fehlgeschlagen (Serverfehler). Bitte erneut versuchen.",
-};
-
-// Turns a thrown error from the books API into a friendly German message.
-// `err.message` is what api/books.js throws - it's already the backend's
-// `message` field when present, otherwise the bare `error` code or HTTP text.
-function friendlySaveErrorMessage(err) {
-  if (!err) return "Fehler beim Speichern.";
-
-  if (err instanceof TypeError || /failed to fetch|networkerror/i.test(String(err?.message))) {
-    return "Server nicht erreichbar. Bitte Internetverbindung prüfen und erneut versuchen.";
-  }
-
-  const raw = String(err?.message || "").trim();
-  if (!raw) return "Fehler beim Speichern.";
-
-  // If the backend already sent a human-readable message (contains spaces /
-  // umlauts), trust it as-is.
-  if (/[ äöüß]/i.test(raw)) return raw;
-
-  return BOOK_SAVE_ERROR_MESSAGES[raw] || `Fehler beim Speichern (${raw}).`;
-}
-
 function parseFloatOrNull(s) {
   const t = String(s ?? "").trim().replace(",", ".");
   if (!t) return null;
@@ -199,6 +157,8 @@ const emptyForm = {
   title_keyword3: "",
   title_keyword3_position: "",
   pages: "",
+  page_num_pos: "",
+  chapters: "",
   width_cm: "",
   height_cm: "",
   purchase_url: "",
@@ -406,6 +366,8 @@ export default function BookFormDesktop({
       title_keyword3: toStr(pick(b, ["title_keyword3"])),
       title_keyword3_position: toStr(pick(b, ["title_keyword3_position"])),
       pages: toStr(pick(b, ["pages"])),
+      page_num_pos: toStr(pick(b, ["page_num_pos"])),
+      chapters: toStr(pick(b, ["chapters"])),
       width_cm: toStr(pick(b, ["width_cm", "width", "bbreite"])),
       height_cm: toStr(pick(b, ["height_cm", "height", "bhoehe"])),
       purchase_url: toStr(pick(b, ["purchase_url"])),
@@ -417,6 +379,7 @@ export default function BookFormDesktop({
   }, [initialBook]);
 
   const [v, setV] = useState(initial);
+  const requestIdRef = useRef(null);
   const [busy, setBusy] = useState(false);
   const [isbnBusy, setIsbnBusy] = useState(false);
   const [msg, setMsg] = useState("");
@@ -642,6 +605,10 @@ export default function BookFormDesktop({
     };
   }, [isEdit, v.title_display, v.name_display, v.author_lastname]);
 
+  // phys_code (Breite-Höhe-Seiten-Position-Autor) muss eindeutig sein
+  const physCode = buildPhysCode(v);
+  const physCheck = usePhysCodeCheck(physCode, isEdit ? (bookId || initialBook?._id || initialBook?.id) : existingMatch?.id);
+
   function setField(key, val) {
     setV((prev) => {
       const next = { ...prev, [key]: val };
@@ -808,9 +775,20 @@ export default function BookFormDesktop({
     const hCm = parseFloatOrNull(v.height_cm);
 const pages = parseIntOrNull(v.pages);
 
-if (pages == null || pages <= 0) {
-  throw new Error("Pages ist erforderlich.");
+// Pages ist Pflicht, 0 ist gültig (Buch ohne Seitenzahlen)
+if (pages == null || pages < 0) {
+  throw new Error("Pages ist erforderlich (0 = keine Seitenzahl).");
 }
+    // Registrierung (nicht Wishlist): Position der Seitenzahl ist Pflicht,
+    // damit der eindeutige Buch-Code (phys_code) gebildet werden kann.
+    if (!isEdit && createReadingStatus !== "wishlist") {
+      if (!isValidPageNumPos(v.page_num_pos)) {
+        throw new Error("Position der Seitenzahl ist erforderlich: 7 8 9 = oben, 1 2 3 = unten (links/mitte/rechts), 0 = keine.");
+      }
+      if (!buildPhysCode(v)) {
+        throw new Error("Buch-Nummer unvollständig: Breite, Höhe und Position der Seitenzahl angeben.");
+      }
+    }
     if (!isEdit && assignBarcode && !finalBarcode) {
       if (!(wCm > 0 && hCm > 0)) throw new Error("Breite + Höhe oder BookCode nötig.");
     }
@@ -835,6 +813,7 @@ if (pages == null || pages <= 0) {
       "purchase_url",
       "original_language",
       "comment",
+      "page_num_pos",
     ];
 
     for (const k of strings) {
@@ -877,6 +856,7 @@ if (pages == null || pages <= 0) {
       "title_keyword2_position",
       "title_keyword3_position",
       "pages",
+      "chapters",
       "published_titles",
       "number_of_millionsellers",
     ];
@@ -908,6 +888,11 @@ if (pages == null || pages <= 0) {
     e.preventDefault();
     showMsg("", "info");
 
+    if (physCheck.taken) {
+      showMsg(physCodeTakenText(physCode, physCheck.book), "error");
+      return;
+    }
+
     let payload;
     try {
       payload = buildPayload();
@@ -921,7 +906,16 @@ if (pages == null || pages <= 0) {
       return;
     }
 
+    // Same id for every retry of this entry: if a previous attempt reached the
+    // server but the answer got lost, the backend returns that book instead of
+    // creating a duplicate (and assigning a second barcode).
+    if (!isEdit && !payload.draft_id) {
+      if (!requestIdRef.current) requestIdRef.current = newRequestId();
+      payload.requestId = requestIdRef.current;
+    }
+
     setBusy(true);
+    showMsg("Speichere …", "info");
     try {
       let saved;
       if (isEdit) {
@@ -931,6 +925,12 @@ if (pages == null || pages <= 0) {
       } else {
         saved = await registerBook(payload);
       }
+
+      // Only report success when the server confirmed a stored record.
+      if (!isEdit && !(saved?.id || saved?._id)) {
+        throw Object.assign(new Error("missing_book_id_in_response"), { code: "missing_book_id_in_response" });
+      }
+      requestIdRef.current = null;
       onSuccess?.({ payload, saved });
 
       let successMsg = payload.draft_id ? "Vorhandenes Buch aktualisiert ✔" : isEdit ? "Gespeichert." : "Gespeichert ✔";
@@ -1253,6 +1253,7 @@ if (pages == null || pages <= 0) {
               className="bfd-btn bfd-btn-clear"
               disabled={busy}
               onClick={() => {
+                requestIdRef.current = null;
                 setV({ ...emptyForm });
                 setExistingMatch(null);
                 setExistingMatches([]);
@@ -1388,6 +1389,44 @@ if (pages == null || pages <= 0) {
     <input {...numberProps("width_cm", "Width", "2.8ch")} />
     <input {...numberProps("height_cm", "Height", "2.8ch")} />
     <input {...fieldProps("pages", "Pages", { inputMode: "numeric", style: { width: "3.0ch" }, required: true, })} />
+    <input
+      {...fieldProps("page_num_pos", "Pos", { inputMode: "numeric", maxLength: 1, style: { width: "3.0ch" } })}
+      title={isValidPageNumPos(v.page_num_pos) ? `Position der Seitenzahl: ${pageNumPosLabel(v.page_num_pos)}` : PAGE_NUM_POS_HELP}
+      aria-label="Position der Seitenzahl"
+      onChange={(e) => {
+        // nur eine erlaubte Ziffer (Ziffernblock-Logik): 7 8 9 / 1 2 3 / 0
+        const digits = String(e.target.value || "").replace(/[^0123789]/g, "");
+        setField("page_num_pos", digits.slice(-1));
+      }}
+    />
+    <input
+      {...fieldProps("chapters", "Kap", { inputMode: "numeric", style: { width: "2.8ch" } })}
+      title="Anzahl Kapitel (leer = 0)"
+      aria-label="Anzahl Kapitel"
+    />
+    {physCode ? (
+      <span
+        title={
+          physCheck.taken
+            ? physCodeTakenText(physCode, physCheck.book)
+            : physCheck.similar.length
+              ? similarText(physCheck.similar)
+              : "Buch-Nummer: Breite Höhe Seiten Position Kapitel"
+        }
+        style={{
+          fontFamily: "monospace",
+          fontSize: 16,
+          alignSelf: "center",
+          whiteSpace: "nowrap",
+          padding: "0 8px",
+          color: physCheck.taken ? "#dc2626" : physCheck.similar.length ? "#b45309" : undefined,
+          fontWeight: physCheck.taken || physCheck.similar.length ? 800 : undefined,
+        }}
+      >
+        {formatPhysCode(physCode)}
+        {physCheck.taken ? " ✗ vergeben" : physCheck.checking ? "" : physCheck.similar.length ? " ≈ ähnlich" : " ✓"}
+      </span>
+    ) : null}
 
     <span className="bfd-top-fill">
       {barcodePreviewLoading
@@ -1540,6 +1579,7 @@ if (pages == null || pages <= 0) {
           className="bfd-btn bfd-btn-clear"
           disabled={busy}
           onClick={() => {
+            requestIdRef.current = null;
             setV({ ...emptyForm });
             setExistingMatch(null);
             setExistingMatches([]);

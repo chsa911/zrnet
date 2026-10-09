@@ -45,6 +45,14 @@ export default function AdminNavRow({ style }) {
       </Link>
 
       <Link
+        to="/admin/check-book"
+        className="zr-btn2 zr-btn2--ghost"
+        style={baseBtn(pathname === "/admin/check-book")}
+      >
+        🔢 Buch prüfen
+      </Link>
+
+      <Link
         to="/admin/authors"
         className="zr-btn2 zr-btn2--ghost"
         style={baseBtn(pathname === "/admin/authors")}

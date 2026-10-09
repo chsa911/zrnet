@@ -9,6 +9,8 @@ import {
   upsertUploadJob,
 } from "../utils/uploadQueue";
 import { startIsbnScanner } from "../utils/isbnScanner";
+import { PAGE_NUM_POSITIONS, buildPhysCode, formatPhysCode } from "../utils/pageNumPos";
+import usePhysCodeCheck, { physCodeTakenText, similarText } from "../utils/usePhysCodeCheck";
 
 /* ---------- tolerant field picker ---------- */
 const norm = (s) => String(s || "").toLowerCase().replace(/[^a-z0-9]/g, "");
@@ -394,6 +396,8 @@ export default function BookForm({
       title_keyword3: toStr(pick(b, ["title_keyword3"])),
       title_keyword3_position: toStr(pick(b, ["title_keyword3_position"])),
       pages: toStr(pick(b, ["pages"])),
+      page_num_pos: toStr(pick(b, ["page_num_pos"])),
+      chapters: toStr(pick(b, ["chapters"])),
 
       width_cm: toStr(pick(b, ["width_cm", "width"])),
       height_cm: toStr(pick(b, ["height_cm", "height"])),
@@ -510,6 +514,10 @@ export default function BookForm({
       };
     }
   }, [scannerOpen]);
+
+  // phys_code (Breite-Höhe-Seiten-Position-Autor) muss eindeutig sein
+  const physCode = buildPhysCode(v);
+  const physCheck = usePhysCodeCheck(physCode, isEdit ? (bookId || initialBook?._id || initialBook?.id) : undefined);
 
   function setField(key, val) {
     setV((prev) => ({ ...prev, [key]: val }));
@@ -800,6 +808,9 @@ export default function BookForm({
 
     const pages = parseIntOrNull(v.pages);
     if (pages !== null) payload.pages = pages;
+    if (String(v.page_num_pos || "").trim()) payload.page_num_pos = String(v.page_num_pos).trim();
+    const chapters = parseIntOrNull(v.chapters);
+    if (chapters !== null && chapters >= 0) payload.chapters = chapters;
 
     const tk1 = parseIntOrNull(v.title_keyword_position);
     const tk2 = parseIntOrNull(v.title_keyword2_position);
@@ -820,6 +831,11 @@ export default function BookForm({
     e.preventDefault();
     setMsg("");
 
+    if (physCheck.taken) {
+      setMsg(physCodeTakenText(physCode, physCheck.book));
+      return;
+    }
+
     if (coverPrepBusy) {
       setMsg("Cover wird noch vorbereitet. Bitte kurz warten.");
       return;
@@ -831,8 +847,8 @@ export default function BookForm({
     }
 
     const pages = parseIntOrNull(v.pages);
-    if (pages === null || pages <= 0) {
-      setMsg("Bitte Seitenzahl eingeben.");
+    if (pages === null || pages < 0) {
+      setMsg("Bitte Seitenzahl eingeben (0 = keine Seitenzahl).");
       return;
     }
 
@@ -1071,6 +1087,43 @@ export default function BookForm({
           onChange={(e) => setField("pages", e.target.value)}
           placeholder="320"
         />
+      </label>
+
+      <label style={{ display: "grid", gap: 6 }}>
+        <span>Position der Seitenzahl</span>
+        <select
+          className="zr-input"
+          value={v.page_num_pos || ""}
+          onChange={(e) => setField("page_num_pos", e.target.value)}
+        >
+          <option value="">–</option>
+          {PAGE_NUM_POSITIONS.map((p) => (
+            <option key={p.value} value={p.value}>{p.value} – {p.label}</option>
+          ))}
+        </select>
+      </label>
+
+      <label style={{ display: "grid", gap: 6 }}>
+        <span>Kapitel</span>
+        <input
+          className="zr-input"
+          type="text"
+          inputMode="numeric"
+          value={v.chapters || ""}
+          onChange={(e) => setField("chapters", e.target.value)}
+          placeholder="24"
+        />
+        {buildPhysCode(v) ? (
+          <small style={{ fontFamily: "monospace" }}>Nr: {formatPhysCode(buildPhysCode(v))}</small>
+        ) : null}
+        {physCheck.taken ? (
+          <small style={{ color: "#dc2626", fontWeight: 700 }}>
+            {physCodeTakenText(physCode, physCheck.book)}
+          </small>
+        ) : null}
+        {!physCheck.taken && physCheck.similar.length ? (
+          <small style={{ color: "#b45309", fontWeight: 700 }}>{similarText(physCheck.similar)}</small>
+        ) : null}
       </label>
 
       {scannerOpen ? (

@@ -9,6 +9,9 @@ import {
 } from "../api/books";
 import { previewBarcode } from "../api/barcodes";
 import { startIsbnScanner } from "../utils/isbnScanner";
+import { PAGE_NUM_POSITIONS, buildPhysCode, formatPhysCode } from "../utils/pageNumPos";
+import usePhysCodeCheck, { physCodeTakenText, similarText } from "../utils/usePhysCodeCheck";
+import { friendlySaveErrorMessage, isNoResponseError, newRequestId } from "../utils/saveFeedback";
 
 const toStr = (v) => (v === undefined || v === null ? "" : String(v));
 
@@ -307,6 +310,8 @@ function initialStateFromBook(b = {}) {
     subtitle_display: toStr(b.subtitle_display),
     publisher_name_display: toStr(b.publisher_name_display),
     pages: toStr(b.pages),
+    page_num_pos: toStr(b.page_num_pos),
+    chapters: toStr(b.chapters),
     isbn13: toStr(b.isbn13),
     isbn10: toStr(b.isbn10),
     purchase_url: toStr(b.purchase_url),
@@ -331,7 +336,14 @@ export default function BookFormStagingPwa({
   const [v, setV] = useState(initial);
   const [busy, setBusy] = useState(false);
   const [coverPrepBusy, setCoverPrepBusy] = useState(false);
-  const [msg, setMsg] = useState("");
+  // kind: "info" | "success" | "warning" | "error" – drives the colour of the
+  // feedback box, so failures are always visibly red.
+  const [msgState, setMsgState] = useState({ text: "", kind: "info" });
+  const msg = msgState.text;
+  const setMsg = (text, kind = "info") => setMsgState({ text: String(text || ""), kind });
+  // Book is stored, but its cover upload failed → next tap only retries the cover.
+  const [pendingCover, setPendingCover] = useState(null); // { id, label }
+  const requestIdRef = useRef(null);
   const [coverFile, setCoverFile] = useState(null);
   const [coverPreviewUrl, setCoverPreviewUrl] = useState("");
   const [isbnBusy, setIsbnBusy] = useState(false);
@@ -351,9 +363,9 @@ export default function BookFormStagingPwa({
   }, [initial]);
 
   useEffect(() => {
-    if (!msg) return;
+    if (!msgState.text) return;
     msgRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-  }, [msg]);
+  }, [msgState]);
 
   useEffect(() => {
     return () => {
@@ -445,7 +457,7 @@ export default function BookFormStagingPwa({
       } catch (err) {
         if (cancelled) return;
         closeIsbnScanner();
-        setMsg(err?.message || "Scanner konnte nicht gestartet werden.");
+        setMsg(err?.message || "Scanner konnte nicht gestartet werden.", "error");
       } finally {
         if (!cancelled) setScannerStarting(false);
       }
@@ -461,6 +473,10 @@ export default function BookFormStagingPwa({
       stopIsbnScannerRef.current = () => {};
     };
   }, [scannerOpen]);
+
+  // phys_code (Breite-Höhe-Seiten-Position-Autor) muss eindeutig sein
+  const physCode = buildPhysCode(v);
+  const physCheck = usePhysCodeCheck(physCode, isEdit ? (bookId || initialBook?._id || initialBook?.id) : undefined);
 
   function setField(key, value) {
     setV((prev) => ({ ...prev, [key]: value }));
@@ -495,7 +511,7 @@ export default function BookFormStagingPwa({
 
       setMsg("ISBN gefunden ✔ (Daten wurden ergänzt)" + (Array.isArray(r?.warnings) && r.warnings.length ? `\n⚠ ${r.warnings.join("\n⚠ ")}` : ""));
     } catch (e) {
-      setMsg(e?.message || "ISBN Lookup fehlgeschlagen");
+      setMsg(e?.message || "ISBN Lookup fehlgeschlagen", "error");
     } finally {
       setIsbnBusy(false);
     }
@@ -583,7 +599,7 @@ export default function BookFormStagingPwa({
         await fillFromLookup(isbn);
       }
     } catch (err) {
-      setMsg(err?.message || "ISBN konnte aus dem Foto nicht gelesen werden.");
+      setMsg(err?.message || "ISBN konnte aus dem Foto nicht gelesen werden.", "error");
     } finally {
       setScanBusy(false);
     }
@@ -597,13 +613,13 @@ export default function BookFormStagingPwa({
     try {
       const normalized = await normalizeCoverFile(raw, 1600, 0.78);
       if ((normalized.size ?? 0) < 1024) {
-        setMsg("Cover-Foto ist leer oder zu klein. Bitte erneut aufnehmen.");
+        setMsg("Cover-Foto ist leer oder zu klein. Bitte erneut aufnehmen.", "error");
         setCoverFile(null);
         return;
       }
       setCoverFile(normalized);
     } catch (err) {
-      setMsg(err?.message || "Cover-Foto konnte nicht vorbereitet werden.");
+      setMsg(err?.message || "Cover-Foto konnte nicht vorbereitet werden.", "error");
       setCoverFile(null);
     } finally {
       setCoverPrepBusy(false);
@@ -620,12 +636,22 @@ export default function BookFormStagingPwa({
     }
     explicitSubmitRef.current = false;
 
+    if (pendingCover) {
+      await retryPendingCover();
+      return;
+    }
+
+    if (physCheck.taken) {
+      setMsg(physCodeTakenText(physCode, physCheck.book), "error");
+      return;
+    }
+
     if (coverPrepBusy) {
-      setMsg("Cover wird noch vorbereitet. Bitte kurz warten.");
+      setMsg("Cover wird noch vorbereitet. Bitte kurz warten.", "error");
       return;
     }
     if (!isEdit && !coverFile) {
-      setMsg("Bitte zuerst ein Cover-Foto aufnehmen.");
+      setMsg("Bitte zuerst ein Cover-Foto aufnehmen.", "error");
       return;
     }
 
@@ -643,7 +669,7 @@ export default function BookFormStagingPwa({
         Number.isFinite(widthCm) && widthCm > 0 &&
         Number.isFinite(heightCm) && heightCm > 0;
       if (!ok) {
-        setMsg("Bitte unter „Weitere Felder“ Barcode angeben oder Breite + Höhe eintragen.");
+        setMsg("Bitte unter „Weitere Felder“ Barcode angeben oder Breite + Höhe eintragen.", "error");
         return;
       }
     }
@@ -659,6 +685,9 @@ export default function BookFormStagingPwa({
 
     const pageCount = parseIntOrNull(v.pages);
     if (pageCount !== null) payload.pages = pageCount;
+    if (String(v.page_num_pos || "").trim()) payload.page_num_pos = String(v.page_num_pos).trim();
+    const chapterCount = parseIntOrNull(v.chapters);
+    if (chapterCount !== null && chapterCount >= 0) payload.chapters = chapterCount;
 
     const nullableStrings = [
       "author_firstname",
@@ -680,52 +709,128 @@ export default function BookFormStagingPwa({
     if (!isEdit && createReadingStatus) payload.reading_status = createReadingStatus;
 
     if (coverFile && (coverFile.size ?? 0) < 1024) {
-      setMsg("Cover-Foto ist leer. Bitte Foto erneut aufnehmen.");
+      setMsg("Cover-Foto ist leer. Bitte Foto erneut aufnehmen.", "error");
       return;
     }
 
+    // Same id for every retry of this entry: if an earlier attempt reached the
+    // server but the answer was lost (iPhone in a dead spot, app backgrounded),
+    // the backend returns that book instead of creating a duplicate.
+    if (!isEdit) {
+      if (!requestIdRef.current) requestIdRef.current = newRequestId();
+      payload.requestId = requestIdRef.current;
+    }
+
     setBusy(true);
+    setMsg(coverFile ? "Speichere Buch …" : "Speichere …", "info");
+    let saved;
     try {
-      let saved;
       if (isEdit) {
         saved = await updateBook(bookId || initialBook?._id || initialBook?.id, payload);
       } else {
         saved = await registerBook(payload);
       }
-
-      const savedId =
-        saved?.id ||
-        saved?._id ||
-        bookId ||
-        initialBook?._id ||
-        initialBook?.id;
-
-      let coverUploadFailed = false;
-      if (coverFile && savedId) {
-        try {
-          await uploadCover(savedId, coverFile);
-          setCoverFile(null);
-        } catch (e) {
-          coverUploadFailed = true;
-          setMsg(`${isEdit ? "Gespeichert" : "Gespeichert"}, aber Cover-Upload fehlgeschlagen: ${e?.message || "Fehler"}`);
-        }
-      }
-
-      onSuccess && onSuccess({ payload, saved });
-      if (!coverUploadFailed) setMsg(isEdit ? "Gespeichert." : "Gespeichert ✔");
-
-      if (!isEdit) {
-        setV(initialStateFromBook({}));
-        setBarcodePreview(null);
-        setBarcodePreviewErr("");
-      }
     } catch (err) {
-      setMsg(err?.message || "Fehler beim Speichern");
-    } finally {
+      console.error("[BookFormStagingPwa] save failed", err);
+      const base = friendlySaveErrorMessage(err);
+      const hint = isNoResponseError(err)
+        ? " Unklar, ob gespeichert wurde – einfach erneut auf Speichern tippen, es entsteht kein Duplikat."
+        : "";
+      setMsg(`❌ Nicht gespeichert: ${base}${base.includes("Duplikat") ? "" : hint}`, "error");
       setBusy(false);
       explicitSubmitRef.current = false;
+      return; // form values and cover photo stay in place for the retry
+    }
+
+    const savedId =
+      saved?.id ||
+      saved?._id ||
+      (isEdit ? bookId || initialBook?._id || initialBook?.id : null);
+
+    if (!savedId) {
+      setMsg(`❌ ${friendlySaveErrorMessage({ code: "missing_book_id_in_response" })}`, "error");
+      setBusy(false);
+      return;
+    }
+
+    requestIdRef.current = null;
+    onSuccess && onSuccess({ payload, saved });
+
+    const barcode = String(saved?.barcode || "").trim();
+    const savedText = (isEdit ? "Gespeichert." : "Gespeichert ✔") + (!isEdit && barcode ? ` · Barcode: ${barcode}` : "");
+    const label = String(saved?.title_display || payload.title_display || "").trim();
+
+    if (coverFile) {
+      setMsg(`${savedText} · Lade Cover hoch …`, "info");
+      try {
+        await uploadCover(savedId, coverFile);
+      } catch (e) {
+        console.error("[BookFormStagingPwa] cover upload failed", e);
+        setPendingCover({ id: savedId, label, savedText });
+        setMsg(
+          `⚠ ${savedText}, aber das Cover wurde NICHT hochgeladen: ${friendlySaveErrorMessage(e, "Upload fehlgeschlagen.")}\n` +
+            "Tippe auf „Cover erneut hochladen“ – das Buch wird dabei nicht noch einmal angelegt.",
+          "warning"
+        );
+        setBusy(false);
+        return; // keep cover + form until the cover is safely stored
+      }
+    }
+
+    finishSuccess(savedText);
+    setBusy(false);
+  }
+
+  function finishSuccess(text) {
+    setMsg(text, "success");
+    setCoverFile(null);
+    setPendingCover(null);
+    requestIdRef.current = null;
+    if (!isEdit) {
+      setV(initialStateFromBook({}));
+      setBarcodePreview(null);
+      setBarcodePreviewErr("");
     }
   }
+
+  async function retryPendingCover() {
+    if (!pendingCover) return;
+    if (coverPrepBusy) {
+      setMsg("Cover wird noch vorbereitet. Bitte kurz warten.", "error");
+      return;
+    }
+    if (!coverFile || (coverFile.size ?? 0) < 1024) {
+      setMsg("Cover-Foto fehlt oder ist leer. Bitte neu aufnehmen und dann „Cover erneut hochladen“ tippen.", "error");
+      return;
+    }
+    setBusy(true);
+    setMsg("Lade Cover hoch …", "info");
+    try {
+      await uploadCover(pendingCover.id, coverFile);
+      finishSuccess(`${pendingCover.savedText || "Gespeichert ✔"} · Cover hochgeladen ✔`);
+    } catch (e) {
+      console.error("[BookFormStagingPwa] cover retry failed", e);
+      setMsg(
+        `⚠ Buch ist gespeichert, Cover-Upload erneut fehlgeschlagen: ${friendlySaveErrorMessage(e, "Upload fehlgeschlagen.")}\n` +
+          "Später nochmal „Cover erneut hochladen“ tippen oder „Ohne Cover weiter“.",
+        "warning"
+      );
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  function skipPendingCover() {
+    const t = pendingCover?.savedText || "Gespeichert ✔";
+    finishSuccess(`${t} · ohne Cover (kann später nachgereicht werden)`);
+  }
+
+  const MSG_STYLES = {
+    info: { borderColor: "rgba(0,0,0,0.12)", background: "rgba(0,0,0,0.02)" },
+    success: { borderColor: "rgba(22,163,74,0.35)", background: "rgba(22,163,74,0.06)" },
+    warning: { borderColor: "rgba(217,119,6,0.45)", background: "rgba(217,119,6,0.08)" },
+    error: { borderColor: "rgba(200,0,0,0.35)", background: "rgba(200,0,0,0.05)" },
+  };
 
   return (
     <form onSubmit={onSubmit} onKeyDown={preventImplicitSubmit} noValidate style={{ display: "grid", gap: 12 }}>
@@ -735,10 +840,9 @@ export default function BookFormStagingPwa({
         <div
           ref={msgRef}
           className="zr-card"
-          style={{
-            borderColor: msg.toLowerCase().includes("fehler") ? "rgba(200,0,0,0.25)" : "rgba(0,0,0,0.12)",
-            background: msg.toLowerCase().includes("fehler") ? "rgba(200,0,0,0.04)" : "rgba(0,0,0,0.02)",
-          }}
+          role={msgState.kind === "error" || msgState.kind === "warning" ? "alert" : "status"}
+          aria-live="polite"
+          style={{ ...(MSG_STYLES[msgState.kind] || MSG_STYLES.info), whiteSpace: "pre-line" }}
         >
           {msg}
         </div>
@@ -863,17 +967,55 @@ export default function BookFormStagingPwa({
 
       <div className="zr-card" style={{ display: "grid", gap: 10 }}>
         <div style={{ fontWeight: 900 }}>3. Pages</div>
-        <label style={{ display: "grid", gap: 6, maxWidth: 160 }}>
-          <span>Pages</span>
-          <input
-            className="zr-input"
-            type="text"
-            inputMode="numeric"
-            value={v.pages}
-            onChange={(e) => setField("pages", e.target.value)}
-            placeholder="320"
-          />
-        </label>
+        <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "end" }}>
+          <label style={{ display: "grid", gap: 6, maxWidth: 160 }}>
+            <span>Pages</span>
+            <input
+              className="zr-input"
+              type="text"
+              inputMode="numeric"
+              value={v.pages}
+              onChange={(e) => setField("pages", e.target.value)}
+              placeholder="320"
+            />
+          </label>
+          <label style={{ display: "grid", gap: 6 }}>
+            <span>Position der Seitenzahl</span>
+            <select
+              className="zr-input"
+              value={v.page_num_pos || ""}
+              onChange={(e) => setField("page_num_pos", e.target.value)}
+            >
+              <option value="">–</option>
+              {PAGE_NUM_POSITIONS.map((p) => (
+                <option key={p.value} value={p.value}>{p.value} – {p.label}</option>
+              ))}
+            </select>
+          </label>
+          <label style={{ display: "grid", gap: 6, maxWidth: 120 }}>
+            <span>Kapitel</span>
+            <input
+              className="zr-input"
+              type="text"
+              inputMode="numeric"
+              value={v.chapters || ""}
+              onChange={(e) => setField("chapters", e.target.value)}
+              placeholder="24"
+              title="Anzahl Kapitel (leer = 0)"
+            />
+          </label>
+        </div>
+        {buildPhysCode(v) ? (
+          <div style={{ fontFamily: "monospace", fontSize: 13 }}>Nr: {formatPhysCode(buildPhysCode(v))}</div>
+        ) : null}
+        {physCheck.taken ? (
+          <div style={{ color: "#dc2626", fontWeight: 700, fontSize: 13 }}>
+            {physCodeTakenText(physCode, physCheck.book)}
+          </div>
+        ) : null}
+        {!physCheck.taken && physCheck.similar.length ? (
+          <div style={{ color: "#b45309", fontWeight: 700, fontSize: 13 }}>{similarText(physCheck.similar)}</div>
+        ) : null}
       </div>
 
       <div className="zr-toolbar" style={{ marginTop: 4 }}>
@@ -885,8 +1027,19 @@ export default function BookFormStagingPwa({
             explicitSubmitRef.current = true;
           }}
         >
-          {busy ? "…" : coverPrepBusy ? "Vorbereiten…" : submitLabel}
+          {busy ? "Speichere…" : coverPrepBusy ? "Vorbereiten…" : pendingCover ? "Cover erneut hochladen" : submitLabel}
         </button>
+
+        {pendingCover ? (
+          <button
+            className="zr-btn2 zr-btn2--ghost"
+            type="button"
+            onClick={skipPendingCover}
+            disabled={busy || coverPrepBusy}
+          >
+            Ohne Cover weiter
+          </button>
+        ) : null}
 
         {onCancel ? (
           <button

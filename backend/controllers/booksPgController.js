@@ -87,6 +87,37 @@ function makeTitleKeyword(title) {
     if (!Number.isFinite(n)) return null;
     return Math.trunc(n);
   }
+  // Position der Seitenzahl wie auf dem Ziffernblock:
+  // 7 oben links, 8 oben mitte, 9 oben rechts, 1 unten links, 2 unten mitte, 3 unten rechts, 0 keine
+  const PAGE_NUM_POSITIONS = [0, 1, 2, 3, 7, 8, 9];
+  function normalizePageNumPos(v) {
+    if (v === undefined || v === null) return null;
+    const s = String(v).trim();
+    if (!/^[0-9]$/.test(s)) return null;
+    const n = Number(s);
+    return PAGE_NUM_POSITIONS.includes(n) ? n : null;
+  }
+  // phys_code: 14 Ziffern BBB HHH SSSS P KKK (Leerzeichen erlaubt)
+  const PHYS_CODE_RE = /^[0-9]{10}[0123789][0-9]{3}$/;
+  function normalizePhysCode(v) {
+    const s = String(v ?? "").replace(/\s+/g, "");
+    return PHYS_CODE_RE.test(s) ? s : null;
+  }
+  function decodePhysCode(code) {
+    const c = normalizePhysCode(code);
+    if (!c) return null;
+    return {
+      width_mm: Number(c.slice(0, 3)),
+      height_mm: Number(c.slice(3, 6)),
+      pages: Number(c.slice(6, 10)),
+      page_num_pos: Number(c.slice(10, 11)),
+      chapters: Number(c.slice(11, 14)),
+    };
+  }
+  function normalizeChapters(v) {
+    const n = normalizeInt(v);
+    return n !== null && n >= 0 ? n : null;
+  }
   function normalizeStr(v) {
   if (v === undefined || v === null) return null;
   const s = String(v).trim();
@@ -345,6 +376,9 @@ sub: row.subgenre_abbr ?? row.sub_genre ?? null,
       title_keyword3_position: row.title_keyword3_position ?? null,
 
       pages: row.pages ?? null,
+      page_num_pos: row.page_num_pos ?? null,
+      chapters: row.chapters ?? null,
+      phys_code: row.phys_code ?? null,
       year_first_published: row.year_first_published ?? null,
       first_publish_year: row.year_first_published ?? null,
       width_cm: widthCm,
@@ -491,6 +525,18 @@ action_country: row.action_country ?? null,
           "Ein sehr ähnlicher Bucheintrag wurde gerade eben bereits angelegt. Bitte den vorhandenen Eintrag weiterverwenden.",
         existing_book_id: parseExistingBookIdFromPgDetail(detail),
         detail: detail || null,
+      });
+    }
+
+    // phys_code (Breite-Höhe-Seiten-Position-Kapitel) must identify exactly one book.
+    if (code === "23505" && /books_phys_code_unique/i.test(constraint + " " + msg)) {
+      const m = detail.match(/=\(([^)]*)\)/);
+      return res.status(409).json({
+        error: "phys_code_taken",
+        message:
+          `Die Buch-Nummer ${m ? m[1] + " " : ""}gehört bereits zu einem anderen Buch. ` +
+          "Bitte Maße, Seitenzahl, Position der Seitenzahl und Kapitel prüfen.",
+        phys_code: m ? m[1] : null,
       });
     }
 
@@ -1171,6 +1217,14 @@ title_keyword: "b.title_keyword",
     if (q) {
       params.push(`%${q}%`);
       const p = `$${params.length}`;
+      // phys_code (Breite-Höhe-Seiten-Position-Kapitel) only once the migration exists
+      const listCols = await getColumns(pool, "books");
+      let physCodeSearch = "";
+      const qDigits = q.replace(/\s+/g, "");
+      if (listCols.has("phys_code") && /^[0-9]{3,}$/.test(qDigits)) {
+        params.push(`%${qDigits}%`);
+        physCodeSearch = `b.phys_code LIKE $${params.length} OR`;
+      }
 
       where.push(
         `(
@@ -1185,6 +1239,7 @@ title_keyword: "b.title_keyword",
           b.title_keyword3 ILIKE ${p} OR
           b.isbn10 ILIKE ${p} OR
           b.isbn13 ILIKE ${p} OR
+          ${physCodeSearch}
           bb.barcode ILIKE ${p} OR
           EXISTS (
             SELECT 1
@@ -1692,7 +1747,8 @@ return res.json({
       if (!titleOk) missingFields.push("title");
       if (!authorOk) missingFields.push("author");
       if (!publisherOk) missingFields.push("publisher");
-      if (!Number.isFinite(pagesVal) || pagesVal <= 0) missingFields.push("pages");
+      // pages is required, but 0 is a valid entry (book without page numbers)
+      if (!Number.isFinite(pagesVal) || pagesVal < 0) missingFields.push("pages");
       if (missingFields.length) {
         return res.status(400).json({ error: "missing_required_fields", fields: missingFields });
       }
@@ -1797,6 +1853,8 @@ sub_genre_id: normalizeInt(body.sub_genre_id),
           title_keyword3_position: normalizeInt(body.title_keyword3_position),
 
           pages: normalizeInt(body.pages),
+          page_num_pos: normalizePageNumPos(body.page_num_pos),
+          chapters: normalizeChapters(body.chapters),
           year_first_published: normalizeInt(body.year_first_published ?? body.first_publish_year),
           width: Number.isFinite(wMm) ? wMm : null,
           height: Number.isFinite(hMm) ? hMm : null,
@@ -1889,6 +1947,27 @@ sub_genre_id: normalizeInt(body.sub_genre_id),
         client.release();
       }
     } catch (err) {
+      // Two attempts with the same requestId raced (e.g. a retry fired while the
+      // first request was still running). The unique index let exactly one of
+      // them win – answer with that book instead of a duplicate error.
+      if (
+        requestId &&
+        String(err?.code || "") === "23505" &&
+        /books_request_id_unique/i.test(`${err?.constraint || ""} ${err?.message || ""}`)
+      ) {
+        try {
+          const ex = await pool.query(`SELECT id FROM public.books WHERE request_id = $1 LIMIT 1`, [requestId]);
+          const existingId = ex.rows[0]?.id;
+          if (existingId) {
+            await resolveSaveAttempt(pool, attemptId, { status: "success", bookId: existingId });
+            const existing = await fetchBookWithBarcode(pool, existingId);
+            return res.status(200).json(rowToApi(existing));
+          }
+        } catch (lookupErr) {
+          console.error("request_id race lookup failed", lookupErr);
+        }
+      }
+
       await resolveSaveAttempt(pool, attemptId, {
         status: "failed",
         errorMessage: String(err?.message || err),
@@ -2092,6 +2171,8 @@ if (body.sub_genre_id !== undefined && cols.has("sub_genre_id")) {
       }
 
       if (body.pages !== undefined) updates.pages = normalizeInt(body.pages);
+      if (body.page_num_pos !== undefined) updates.page_num_pos = normalizePageNumPos(body.page_num_pos);
+      if (body.chapters !== undefined) updates.chapters = normalizeChapters(body.chapters);
       if ((body.year_first_published ?? body.first_publish_year) !== undefined) {
         updates.year_first_published = normalizeInt(body.year_first_published ?? body.first_publish_year);
       }
@@ -2253,7 +2334,8 @@ if (body.sub_genre_id !== undefined && cols.has("sub_genre_id")) {
         if (!titleOk) missingFields.push("title");
         if (!authorOk) missingFields.push("author");
         if (!publisherOk) missingFields.push("publisher");
-        if (!Number.isFinite(pagesVal) || pagesVal <= 0) missingFields.push("pages");
+        // pages is required, but 0 is a valid entry (book without page numbers)
+        if (!Number.isFinite(pagesVal) || pagesVal < 0) missingFields.push("pages");
         if (missingFields.length) {
           await client.query("ROLLBACK");
           return res.status(400).json({ error: "missing_required_fields", fields: missingFields });
@@ -2374,6 +2456,8 @@ if (
       }
 
       if (body.pages !== undefined) updates.pages = normalizeInt(body.pages);
+      if (body.page_num_pos !== undefined) updates.page_num_pos = normalizePageNumPos(body.page_num_pos);
+      if (body.chapters !== undefined) updates.chapters = normalizeChapters(body.chapters);
       if ((body.year_first_published ?? body.first_publish_year) !== undefined) {
         updates.year_first_published = normalizeInt(body.year_first_published ?? body.first_publish_year);
       }
@@ -2396,7 +2480,8 @@ if (
         if (!normalizeStr(effectiveTitle)) missingFields.push("title");
         if (!finalAuthorId) missingFields.push("author");
         if (!finalPublisherId) missingFields.push("publisher");
-        if (!Number.isFinite(effectivePages) || effectivePages <= 0) missingFields.push("pages");
+        // pages is required, but 0 is a valid entry (book without page numbers)
+        if (!Number.isFinite(effectivePages) || effectivePages < 0) missingFields.push("pages");
         if (missingFields.length) {
           await client.query("ROLLBACK");
           await resolveSaveAttempt(pool, attemptId, {
@@ -2736,6 +2821,8 @@ if ((patch.sub_genre_abbr ?? patch.subgenre_abbr) !== undefined) {
       }
 
       if (patch.pages !== undefined) updates.pages = normalizeInt(patch.pages);
+      if (patch.page_num_pos !== undefined) updates.page_num_pos = normalizePageNumPos(patch.page_num_pos);
+      if (patch.chapters !== undefined) updates.chapters = normalizeChapters(patch.chapters);
       if ((patch.year_first_published ?? patch.first_publish_year) !== undefined) {
         updates.year_first_published = normalizeInt(patch.year_first_published ?? patch.first_publish_year);
       }
@@ -2838,7 +2925,8 @@ if ((patch.sub_genre_abbr ?? patch.subgenre_abbr) !== undefined) {
           if (!normalizeStr(effectiveTitle)) missingFields.push("title");
           if (!effectiveAuthorId) missingFields.push("author");
           if (!effectivePublisherId) missingFields.push("publisher");
-          if (!Number.isFinite(effectivePages) || effectivePages <= 0) missingFields.push("pages");
+          // pages is required, but 0 is a valid entry (book without page numbers)
+          if (!Number.isFinite(effectivePages) || effectivePages < 0) missingFields.push("pages");
           if (!Number.isFinite(effectiveWidth) || effectiveWidth <= 0) missingFields.push("width");
           if (!Number.isFinite(effectiveHeight) || effectiveHeight <= 0) missingFields.push("height");
 
@@ -3238,6 +3326,91 @@ async function setHighlight(req, res) {
   }
 }
 
+  /* ----------------------- phys_code lookup / control ----------------------- */
+  // GET /api/books/phys-code/:code?exclude=<bookId>&tol=2
+  // -> {
+  //      code, decoded: {width_mm,height_mm,pages,page_num_pos,chapters},
+  //      available: bool,          // no OTHER book has exactly this number
+  //      exact: book | null,       // the book with exactly this number
+  //      similar: [ {book, diff} ] // same pages/position/chapters, size within ±tol mm
+  //    }
+  async function lookupPhysCode(req, res) {
+    try {
+      const pool = getPool(req);
+      const cols = await getColumns(pool, "books");
+      if (!cols.has("phys_code")) {
+        return res.json({ available: true, exact: null, similar: [], unsupported: true });
+      }
+
+      const code = normalizePhysCode(req.params.code);
+      if (!code) return res.status(400).json({ error: "invalid_phys_code" });
+      const d = decodePhysCode(code);
+      const exclude = normalizeUuid(req.query.exclude);
+      const tol = clampInt(req.query.tol, 2, 0, 10);
+
+      // decode from the stored number (not from width/height), so lost
+      // single values never hide a book
+      const { rows } = await pool.query(
+        `
+        SELECT b.id, b.phys_code,
+               substr(b.phys_code, 1, 3)::int AS w,
+               substr(b.phys_code, 4, 3)::int AS h
+        FROM public.books b
+        WHERE b.phys_code IS NOT NULL
+          AND ($6::uuid IS NULL OR b.id <> $6::uuid)
+          AND (
+            b.phys_code = $1
+            OR (
+              substr(b.phys_code, 7, 8) = $2
+              AND abs(substr(b.phys_code, 1, 3)::int - $3) <= $5
+              AND abs(substr(b.phys_code, 4, 3)::int - $4) <= $5
+            )
+          )
+        ORDER BY (b.phys_code = $1) DESC,
+                 abs(substr(b.phys_code, 1, 3)::int - $3) + abs(substr(b.phys_code, 4, 3)::int - $4)
+        LIMIT 20
+        `,
+        [code, code.slice(6), d.width_mm, d.height_mm, tol, exclude]
+      );
+
+      const toBrief = async (id) => {
+        const api = rowToApi(await fetchBookWithBarcode(pool, id));
+        return {
+          id: api.id,
+          title_display: api.title_display,
+          author_name_display: api.author_name_display,
+          publisher_name_display: api.publisher_name_display,
+          barcode: api.barcode,
+          reading_status: api.reading_status,
+          phys_code: api.phys_code,
+          width_cm: api.width_cm,
+          height_cm: api.height_cm,
+          pages: api.pages,
+          page_num_pos: api.page_num_pos,
+          chapters: api.chapters,
+        };
+      };
+
+      let exact = null;
+      const similar = [];
+      for (const r of rows) {
+        if (r.phys_code === code) {
+          exact = await toBrief(r.id);
+        } else {
+          similar.push({
+            book: await toBrief(r.id),
+            diff: { width_mm: r.w - d.width_mm, height_mm: r.h - d.height_mm },
+          });
+        }
+      }
+
+      return res.json({ code, decoded: d, available: !exact, exact, book: exact, similar });
+    } catch (err) {
+      console.error("lookupPhysCode error", err);
+      return res.status(500).json({ error: "lookup_failed" });
+    }
+  }
+
   module.exports = {
     listBooks,
     getBook,
@@ -3250,4 +3423,5 @@ async function setHighlight(req, res) {
     setHighlight,
     recordBarcodeConflict,
     resolveBarcodeConflict,
+    lookupPhysCode,
   };

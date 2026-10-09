@@ -13,28 +13,68 @@ function buildUrl(path) {
   return `${BASE}${p}`;
 }
 
-async function http(path, { method = "GET", json, body, headers, signal } = {}) {
-  const res = await fetch(buildUrl(path), {
-    method,
-    cache: "no-store",
-    credentials: "include",
-    headers:
-      json
-        ? { "Content-Type": "application/json", ...(headers || {}) }
-        : headers,
-    body: json ? JSON.stringify(json) : body,
-    signal,
-  });
+// Default time limit for API calls. Without it, a stalled mobile connection
+// leaves the save button spinning forever and the user never learns that
+// nothing was confirmed.
+const DEFAULT_TIMEOUT_MS = 30_000;
+export const UPLOAD_TIMEOUT_MS = 120_000;
 
-  const text = await res.text();
+function apiError(message, extra = {}) {
+  const err = new Error(message);
+  Object.assign(err, extra);
+  return err;
+}
+
+async function http(path, { method = "GET", json, body, headers, signal, timeoutMs = DEFAULT_TIMEOUT_MS } = {}) {
+  const ctrl = new AbortController();
+  let timedOut = false;
+  const timer = timeoutMs
+    ? setTimeout(() => {
+        timedOut = true;
+        ctrl.abort();
+      }, timeoutMs)
+    : null;
+  const forwardAbort = () => ctrl.abort();
+  if (signal) {
+    if (signal.aborted) ctrl.abort();
+    else signal.addEventListener("abort", forwardAbort, { once: true });
+  }
+
+  let res;
+  let text;
+  try {
+    res = await fetch(buildUrl(path), {
+      method,
+      cache: "no-store",
+      credentials: "include",
+      headers:
+        json
+          ? { "Content-Type": "application/json", ...(headers || {}) }
+          : headers,
+      body: json ? JSON.stringify(json) : body,
+      signal: ctrl.signal,
+    });
+    text = await res.text();
+  } catch (e) {
+    // No (complete) answer from the server: the request may or may not have
+    // been processed. Mark it so callers can offer a safe retry.
+    if (timedOut) throw apiError("timeout", { code: "timeout", noResponse: true, cause: e });
+    if (e?.name === "AbortError") throw e; // aborted by the caller
+    throw apiError("network_error", { code: "network_error", noResponse: true, cause: e });
+  } finally {
+    if (timer) clearTimeout(timer);
+    if (signal) signal.removeEventListener("abort", forwardAbort);
+  }
 
   if (!res.ok) {
-    let msg = text || `HTTP ${res.status}`;
+    let data = null;
     try {
-      const j = text ? JSON.parse(text) : null;
-      msg = j?.message || j?.error || msg;
+      data = text ? JSON.parse(text) : null;
     } catch {}
-    throw new Error(msg);
+    const code = (data && typeof data === "object" && data.error) || `http_${res.status}`;
+    // Prefer the backend's readable message; never surface an HTML error page.
+    const msg = (data && typeof data === "object" && (data.message || data.error)) || code;
+    throw apiError(String(msg), { status: res.status, code: String(code), data });
   }
 
   if (!text) return null;
@@ -82,6 +122,12 @@ export async function autocomplete(field, q, { limit = 200, signal } = {}) {
   const qs = qsFromObject({ field, q, limit });
   const data = await http(`/books/autocomplete?${qs}`, { signal });
   return Array.isArray(data) ? data : [];
+}
+
+// phys_code (Breite-Höhe-Seiten-Position): is it already used by another book?
+export async function checkPhysCode(code, { exclude, signal } = {}) {
+  const qs = qsFromObject({ exclude });
+  return http(`/books/phys-code/${encodeURIComponent(code)}${qs ? `?${qs}` : ""}`, { signal });
 }
 
 export async function registerBook(payload, { signal } = {}) {
@@ -178,6 +224,7 @@ export async function uploadCover(id, file, { signal } = {}) {
     method: "POST",
     body: fd,
     signal,
+    timeoutMs: UPLOAD_TIMEOUT_MS,
   });
 }
 
@@ -297,5 +344,6 @@ export async function uploadBookCover(bookId, file, { signal } = {}) {
     method: "POST",
     body: formData,
     signal,
+    timeoutMs: UPLOAD_TIMEOUT_MS,
   });
 }
