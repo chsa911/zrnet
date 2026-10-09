@@ -12,9 +12,11 @@ import { buildPhysCode, formatPhysCode, isValidPageNumPos, PAGE_NUM_POS_HELP } f
 //                           und weiter zur nächsten Zeile; Strg/Cmd+Enter = speichern;
 //                           Esc = Zeile zurücksetzen.
 
-const EDIT_KEYS = ["pages", "width_cm", "height_cm", "page_num_pos", "chapters", "last_word"];
+const EDIT_KEYS = ["pages", "width_cm", "height_cm", "page_num_pos", "chapters", "last_word", "language"];
+const LANG_RE = /^[a-z]{2}(-[a-z]{2})?$/i;
+const LANG_SUGGEST = ["de", "en", "fr", "es", "it", "nl", "pt", "sv", "da", "no", "pl", "ru", "tr", "la"];
 const SIZE_TOL_MM = 2;
-const GRID = "120px 80px 80px 80px 56px 64px 140px 175px 48px minmax(160px, 1fr)";
+const GRID = "120px 80px 80px 80px 56px 64px 140px 60px 175px 48px minmax(160px, 1fr)";
 
 function str(v) {
   return v === null || v === undefined ? "" : String(v);
@@ -25,10 +27,25 @@ function num(v) {
   const n = Number(s);
   return Number.isFinite(n) ? n : null;
 }
+// Kurzformen für die Sprache: d -> de, e -> en …
+const LANG_SHORT = { d: "de", e: "en", f: "fr", s: "es", i: "it", n: "nl", p: "pt", r: "ru", l: "la" };
+function expandLang(v) {
+  const t = String(v ?? "").trim().toLowerCase();
+  return LANG_SHORT[t] || t;
+}
+// Vorgaben, wenn noch nichts gespeichert ist
+const DEFAULTS = { page_num_pos: "ur", language: "de" };
+function draftWithDefaults(b) {
+  const d = draftFromBook(b);
+  for (const [k, v] of Object.entries(DEFAULTS)) if (!String(d[k] ?? "").trim()) d[k] = v;
+  return d;
+}
+
 function draftFromBook(b) {
   return Object.fromEntries(EDIT_KEYS.map((k) => [k, str(b?.[k])]));
 }
 function isSame(k, a, b) {
+  if (k === "language") return expandLang(a) === expandLang(b);
   if (k === "last_word" || k === "page_num_pos") return String(a ?? "").trim().toLowerCase() === String(b ?? "").trim().toLowerCase();
   return num(a) === num(b);
 }
@@ -37,6 +54,7 @@ function errText(e) {
   if (c === "phys_code_taken") return "Nummer schon an anderes Buch vergeben";
   if (c === "width_cannot_be_cleared") return "Breite kann nicht gelöscht werden";
   if (c === "height_cannot_be_cleared") return "Höhe kann nicht gelöscht werden";
+  if (c === "invalid_language") return "Sprache ungültig (z. B. de, en, fr)";
   if (c === "timeout" || c === "network_error") return "Keine Antwort – nochmal speichern";
   return e?.message || "Fehler beim Speichern";
 }
@@ -57,16 +75,22 @@ function writePref(key, v) {
 }
 
 // ── eine Zeile ──────────────────────────────────────────────────────────────
-const CheckRow = React.memo(function CheckRow({ book, index, registerFirst, focusRow, onSaved }) {
-  const [draft, setDraft] = useState(() => draftFromBook(book));
+const CheckRow = React.memo(function CheckRow({ book, index, registerFirst, focusRow, onSaved, muted = false, extraHint = null }) {
+  const [draft, setDraft] = useState(() => draftWithDefaults(book));
+  const touchedRef = useRef(false); // Autosave nur, wenn in der Zeile wirklich gearbeitet wurde
   const [saving, setSaving] = useState(false);
   const [rowErr, setRowErr] = useState("");
   const [flash, setFlash] = useState(false);
   const refs = useRef({});
+  const rowRef = useRef(null);
+  const savingRef = useRef(false);
+  const lastSavedRef = useRef(null); // Entwurf, der gerade gespeichert wurde (gegen Doppel-Speichern)
 
   // neue Daten vom Server -> Entwurf zurücksetzen
   useEffect(() => {
-    setDraft(draftFromBook(book));
+    setDraft(draftWithDefaults(book));
+    touchedRef.current = false;
+    lastSavedRef.current = null;
   }, [book]);
 
   const orig = useMemo(() => draftFromBook(book), [book]);
@@ -74,6 +98,7 @@ const CheckRow = React.memo(function CheckRow({ book, index, registerFirst, focu
   const dirty = changed.length > 0;
   const preview = buildPhysCode(draft);
   const posInvalid = draft.page_num_pos.trim() !== "" && !isValidPageNumPos(draft.page_num_pos);
+  const langInvalid = draft.language.trim() !== "" && !LANG_RE.test(expandLang(draft.language));
 
   function sizeDiffMm(k) {
     const a = num(draft[k]);
@@ -86,20 +111,28 @@ const CheckRow = React.memo(function CheckRow({ book, index, registerFirst, focu
   function cls(k) {
     const empty = String(draft[k] ?? "").trim() === "";
     if (k === "page_num_pos" && posInvalid) return "pc-in is-bad";
+    if (k === "language" && langInvalid) return "pc-in is-bad";
     if (changed.includes(k)) return "pc-in is-changed";
     if (empty && ["width_cm", "height_cm", "page_num_pos", "last_word"].includes(k)) return "pc-in is-missing";
     return "pc-in";
   }
   function tip(k) {
     if (k === "page_num_pos") return PAGE_NUM_POS_HELP;
+    if (k === "language") return `Sprache dieses Exemplars (de, en, fr … · Kurz: d e f s i n p)${changed.includes(k) ? ` · gespeichert: ${orig[k] || "—"}` : ""}`;
     if (changed.includes(k)) return `gespeichert: ${orig[k] || "—"}`;
     return undefined;
   }
 
   async function save() {
-    if (saving) return false;
+    if (savingRef.current) return false;
+    const draftKey = JSON.stringify(draft);
+    if (lastSavedRef.current === draftKey) return true;
     if (posInvalid) {
       setRowErr("Position ungültig");
+      return false;
+    }
+    if (langInvalid) {
+      setRowErr("Sprache ungültig (z. B. de, en, fr)");
       return false;
     }
     if (!dirty) {
@@ -118,12 +151,16 @@ const CheckRow = React.memo(function CheckRow({ book, index, registerFirst, focu
         payload[k] = v ? v.toLowerCase() : null;
       } else if (k === "last_word") {
         if (v) payload[k] = v;
+      } else if (k === "language") {
+        payload[k] = v ? expandLang(v) : null;
       }
     }
+    savingRef.current = true;
     setSaving(true);
     setRowErr("");
     try {
       const saved = Object.keys(payload).length ? await updateBook(book.id || book._id, payload) : null;
+      lastSavedRef.current = draftKey;
       onSaved(book.id || book._id, saved);
       setFlash(true);
       setTimeout(() => setFlash(false), 900);
@@ -132,20 +169,30 @@ const CheckRow = React.memo(function CheckRow({ book, index, registerFirst, focu
       setRowErr(errText(e));
       return false;
     } finally {
+      savingRef.current = false;
       setSaving(false);
     }
+  }
+
+  // Autosave: Fokus verlässt die Zeile (anderes Feld, Suchfeld, nächster Scan)
+  function onRowBlur(e) {
+    if (rowRef.current && e.relatedTarget && rowRef.current.contains(e.relatedTarget)) return;
+    if (touchedRef.current && dirty && !posInvalid && !langInvalid) save();
   }
 
   function onKey(k) {
     return async (e) => {
       if (e.key === "Escape") {
         e.preventDefault();
-        setDraft(orig);
+        setDraft(draftWithDefaults(book));
+        touchedRef.current = false;
         setRowErr("");
+        lastSavedRef.current = null;
         return;
       }
       if (e.key !== "Enter") return;
       e.preventDefault();
+      touchedRef.current = true;
       const last = k === EDIT_KEYS[EDIT_KEYS.length - 1];
       if (e.ctrlKey || e.metaKey || last) {
         const ok = await save();
@@ -159,6 +206,7 @@ const CheckRow = React.memo(function CheckRow({ book, index, registerFirst, focu
   }
 
   const set = (k) => (e) => {
+    touchedRef.current = true;
     setRowErr("");
     setDraft((p) => ({ ...p, [k]: e.target.value }));
   };
@@ -187,8 +235,8 @@ const CheckRow = React.memo(function CheckRow({ book, index, registerFirst, focu
   const pagesChanged = changed.includes("pages") && orig.pages !== "";
 
   return (
-    <div className={`pc-row ${flash ? "is-flash" : ""} ${dirty ? "is-dirty" : ""}`}>
-      <div className="pc-cell pc-mono pc-code-cell" title={`${book?.title_display || "(ohne Titel)"}${book?.author_name_display ? " – " + book.author_name_display : ""}${book?.reading_status ? " · " + book.reading_status : ""}`}>
+    <div ref={rowRef} onBlur={onRowBlur} className={`pc-row ${flash ? "is-flash" : ""} ${dirty ? "is-dirty" : ""} ${muted ? "is-muted" : ""}`}>
+      <div className="pc-cell pc-mono pc-code-cell" title={`${muted ? "Barcode-Treffer aus History/Konflikt · " : ""}${book?.title_display || "(ohne Titel)"}${book?.author_name_display ? " – " + book.author_name_display : ""}${book?.reading_status ? " · " + book.reading_status : ""}`}>
         <Link to={`/admin/search-update?q=${encodeURIComponent(book?.barcode || "")}`} tabIndex={-1}>
           {book?.barcode || "—"}
         </Link>
@@ -199,6 +247,7 @@ const CheckRow = React.memo(function CheckRow({ book, index, registerFirst, focu
       {input("page_num_pos", { maxLength: 2, placeholder: "ur" })}
       {input("chapters", { inputMode: "numeric" })}
       {input("last_word", { placeholder: "Wort" })}
+      {input("language", { maxLength: 5, placeholder: "de", list: "pc-lang-list" })}
       <div className={`pc-cell pc-mono pc-code ${preview ? "" : "is-incomplete"}`} title={book?.phys_code ? `gespeichert: ${formatPhysCode(book.phys_code)}` : "noch keine Nummer"}>
         {preview ? formatPhysCode(preview) : book?.phys_code ? formatPhysCode(book.phys_code) : "—"}
       </div>
@@ -206,6 +255,7 @@ const CheckRow = React.memo(function CheckRow({ book, index, registerFirst, focu
         {saving ? "…" : dirty ? "💾" : "✓"}
       </button>
       <div className="pc-cell pc-hint">
+        {extraHint}
         {rowErr ? <span className="pc-err">{rowErr}</span> : null}
         {pagesChanged ? <span className="pc-warn">Seiten ≠ {orig.pages} – richtiges Buch?</span> : null}
         {!pagesChanged && !orig.pages ? <span className="pc-warn">Seiten fehlen</span> : null}
@@ -230,6 +280,8 @@ export default function AdminBarcodeCheckPage() {
     order: readPref("pc.order", "desc"),
   }));
   const [items, setItems] = useState([]);
+  const [others, setOthers] = useState([]);
+  const [exactFound, setExactFound] = useState(true); // weitere Treffer zum Barcode (History / Konflikt / Teil-Treffer)
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState("");
@@ -271,12 +323,25 @@ export default function AdminBarcodeCheckPage() {
     )
       .then((data) => {
         let list = Array.isArray(data?.items) ? data.items : Array.isArray(data) ? data : [];
-        // exakter Barcode-Treffer nach oben
+        let rest = [];
+        // Scan: nur das Buch, das den Barcode AKTUELL hat. Alles andere (frühere
+        // Bücher aus der History, Konflikte, Teil-Treffer) nur als Hinweis –
+        // oder grau, wenn der Barcode gerade keinem Buch gehört.
         if (q.q) {
           const needle = q.q.trim().toLowerCase();
-          list = [...list].sort((a, b) => (String(b?.barcode || "").toLowerCase() === needle) - (String(a?.barcode || "").toLowerCase() === needle));
+          const exact = list.filter((b) => String(b?.barcode || "").toLowerCase() === needle);
+          rest = list.filter((b) => String(b?.barcode || "").toLowerCase() !== needle);
+          if (exact.length) list = exact;
+          else {
+            list = rest;
+            rest = [];
+          }
+          setExactFound(exact.length > 0);
+        } else {
+          setExactFound(true);
         }
         setItems(list);
+        setOthers(rest);
         setTotal(Number.isFinite(data?.total) ? data.total : list.length);
         // gescannter Barcode -> direkt ins Seiten-Feld der ersten Zeile
         if (q.q && list.length) setTimeout(() => focusRow(0), 0);
@@ -284,6 +349,7 @@ export default function AdminBarcodeCheckPage() {
       .catch((e) => {
         if (e?.name === "AbortError") return;
         setItems([]);
+        setOthers([]);
         setTotal(0);
         setErr(e?.message || "Fehler beim Laden");
       })
@@ -337,13 +403,14 @@ export default function AdminBarcodeCheckPage() {
         .pc-bar select { font-size: 14px; padding: 6px; }
         .pc-meta { font-size: 13px; opacity: .8; margin-left: auto; }
         .pc-scroll { overflow-x: auto; border: 4px solid #666; }
-        .pc-table { min-width: 900px; }
+        .pc-table { min-width: 960px; }
         .pc-head, .pc-row { display: grid; grid-template-columns: ${GRID}; align-items: stretch; }
         .pc-head { background: #e5e7eb; font-weight: 900; font-size: 13px; position: sticky; top: 0; z-index: 1; }
         .pc-head > div { padding: 6px; border-right: 1px solid #bbb; }
         .pc-row { border-top: 1px solid #ddd; background: #fff; transition: background .3s; }
         .pc-row.is-dirty { background: #fffbeb; }
         .pc-row.is-flash { background: #dcfce7; }
+        .pc-row.is-muted { opacity: .6; }
         .pc-cell { padding: 6px; font-size: 14px; border-right: 1px solid #eee; display: flex; align-items: center; min-width: 0; }
         .pc-ellip { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block; line-height: 26px; }
         .pc-mono { font-family: monospace; }
@@ -420,6 +487,7 @@ export default function AdminBarcodeCheckPage() {
             <div title={PAGE_NUM_POS_HELP}>Pos</div>
             <div>Kap.</div>
             <div>Letztes Wort</div>
+            <div title="Sprache dieses Exemplars">Spr.</div>
             <div>Nummer</div>
             <div></div>
             <div>Hinweis</div>
@@ -427,6 +495,11 @@ export default function AdminBarcodeCheckPage() {
           {err ? <div className="pc-alert" style={{ color: "#b91c1c" }}>{err}</div> : null}
           {loading ? <div className="pc-alert">Lade…</div> : null}
           {!loading && !err && !items.length ? <div className="pc-alert">Keine Bücher gefunden.</div> : null}
+          {!loading && !err && q.q && !exactFound && items.length ? (
+            <div className="pc-alert" style={{ color: "#b45309" }}>
+              Barcode „{q.q}“ gehört aktuell keinem Buch. Frühere / ähnliche Treffer:
+            </div>
+          ) : null}
           {!loading &&
             items.map((b, i) => (
               <CheckRow
@@ -436,14 +509,26 @@ export default function AdminBarcodeCheckPage() {
                 registerFirst={registerFirst}
                 focusRow={focusRow}
                 onSaved={onSaved}
+                muted={!!q.q && !exactFound}
+                extraHint={
+                  q.q && exactFound && i === 0 && others.length ? (
+                    <Link className="pc-warn" to={`/admin/search-update?q=${encodeURIComponent(q.q)}`} tabIndex={-1}>
+                      +{others.length} weitere Treffer (History)
+                    </Link>
+                  ) : null
+                }
               />
             ))}
         </div>
       </div>
 
+      <datalist id="pc-lang-list">
+        {LANG_SUGGEST.map((l) => <option key={l} value={l} />)}
+      </datalist>
+
       <div className="pc-help">
-        Enter = nächstes Feld · Enter im letzten Feld = speichern + nächste Zeile · Strg/Cmd+Enter = speichern · Esc = Zeile zurücksetzen ·
-        Gelb = geändert, Rot = fehlt · Pos: ol om or ml mr ul um ur, 00 = keine
+        Enter = nächstes Feld · Enter im letzten Feld = speichern + nächste Zeile · Zeile verlassen = automatisch speichern · Strg/Cmd+Enter = speichern · Esc = Zeile zurücksetzen ·
+        Gelb = geändert, Rot = fehlt · Pos: ol om or ml mr ul um ur, 00 = keine · Vorgabe Pos = ur, Spr. = de (nur Enter drücken) · Spr. kurz: d=de e=en f=fr s=es i=it n=nl p=pt
       </div>
 
       <div className="pc-pager">

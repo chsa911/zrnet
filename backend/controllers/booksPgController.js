@@ -137,6 +137,19 @@ function clampInt(v, fallback, min, max) {
   if (!Number.isFinite(n)) return fallback;
   return Math.max(min, Math.min(max, Math.trunc(n)));
 }
+  // language of the physical copy: "de", "en", "pt-br" … (lowercase), empty -> null
+  function normalizeCopyLanguage(v) {
+    const t = String(v ?? "").trim().toLowerCase().replace("_", "-");
+    if (!t) return null;
+    if (!/^[a-z]{2}(-[a-z]{2})?$/.test(t)) {
+      const err = new Error(`invalid language "${v}"`);
+      err.status = 400;
+      err.code = "invalid_language";
+      throw err;
+    }
+    return t;
+  }
+
   function normalizeBool(v) {
     if (v === true || v === false) return v;
     if (v === "true") return true;
@@ -418,6 +431,7 @@ sub: row.subgenre_abbr ?? row.sub_genre ?? null,
       isbn10: row.isbn10 ?? null,
       title_en: row.title_en ?? null,
       original_language: row.original_language ?? null,
+      language: row.language ?? null,
      comment: row.comment ?? null,
 action_time_period_display: row.action_time_period_display ?? null,
 action_continent: row.action_continent ?? null,
@@ -528,6 +542,11 @@ action_country: row.action_country ?? null,
     const detail = String(err?.detail || "");
     const constraint = String(err?.constraint || "");
     const column = String(err?.column || "");
+
+    // our own validation errors (e.g. normalizeCopyLanguage)
+    if (code === "invalid_language") {
+      return res.status(400).json({ error: "invalid_language", message: "Ungültige Sprache (z. B. de, en, fr)." });
+    }
 
     if (code === "23505" && /near_duplicate_book_blocked/i.test(msg)) {
       return res.status(409).json({
@@ -2163,6 +2182,9 @@ if (body.sub_genre_id !== undefined && cols.has("sub_genre_id")) {
       if (body.original_language !== undefined && cols.has("original_language")) {
         updates.original_language = normalizeStr(body.original_language);
       }
+      if (body.language !== undefined && cols.has("language")) {
+        updates.language = normalizeCopyLanguage(body.language);
+      }
       if (isbnInfo && cols.has("isbn13")) updates.isbn13 = isbnInfo.isbn13;
       if (isbnInfo && cols.has("isbn10")) updates.isbn10 = isbnInfo.isbn10;
       if (isbnInfo && cols.has("isbn13_raw")) updates.isbn13_raw = isbnInfo.isbn13_raw;
@@ -2450,6 +2472,9 @@ if (
       }
       if (body.original_language !== undefined && cols.has("original_language")) {
         updates.original_language = normalizeStr(body.original_language);
+      }
+      if (body.language !== undefined && cols.has("language")) {
+        updates.language = normalizeCopyLanguage(body.language);
       }
       if (isbnInfo && cols.has("isbn13")) updates.isbn13 = isbnInfo.isbn13;
       if (isbnInfo && cols.has("isbn10")) updates.isbn10 = isbnInfo.isbn10;
@@ -2816,6 +2841,9 @@ if ((patch.sub_genre_abbr ?? patch.subgenre_abbr) !== undefined) {
 }
       if (patch.original_language !== undefined && cols.has("original_language")) {
         updates.original_language = normalizeStr(patch.original_language);
+      }
+      if (patch.language !== undefined && cols.has("language")) {
+        updates.language = normalizeCopyLanguage(patch.language);
       }
       if (isbnInfo && cols.has("isbn13")) updates.isbn13 = isbnInfo.isbn13;
       if (isbnInfo && cols.has("isbn10")) updates.isbn10 = isbnInfo.isbn10;
