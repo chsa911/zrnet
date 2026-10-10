@@ -55,6 +55,10 @@ const DEATH_DATE_RE = /^(\d{4}|\d{1,2}\.\d{4}|\d{1,2}\.\d{1,2}\.\d{4}|\d{4}-\d{2
 
 // Vorbelegung Nationalität bei Neuanlage; überschreibt nie eine schon gespeicherte Nationalität des Autors
 const DEFAULT_AUTHOR_NATIONALITY = "D";
+// Vorbelegung Originalsprache bei Neuanlage (Deutsch)
+const DEFAULT_ORIGINAL_LANGUAGE = "de";
+// Vorbelegung Genre bei Neuanlage: Fiction (genres.abbr = "F")
+const DEFAULT_GENRE_ABBR = "F";
 
 // Handlungs-Region (books.action_continent) – gleiche Codes wie auf der Suche/Update-Seite
 const REGION_OPTIONS = [
@@ -237,7 +241,7 @@ const emptyForm = {
   purchase_url: "",
   isbn13: "",
   isbn10: "",
-  original_language: "",
+  original_language: DEFAULT_ORIGINAL_LANGUAGE,
   comment: "",
   genre_id: "",
   sub_genre_id: "",
@@ -458,7 +462,7 @@ export default function BookFormDesktop({
       purchase_url: toStr(pick(b, ["purchase_url"])),
       isbn13: toStr(pick(b, ["isbn13"])),
       isbn10: toStr(pick(b, ["isbn10"])),
-      original_language: toStr(pick(b, ["original_language"])).toLowerCase(),
+      original_language: toStr(pick(b, ["original_language"])).toLowerCase() || (isEdit ? "" : DEFAULT_ORIGINAL_LANGUAGE),
       comment: toStr(pick(b, ["comment"])),
       genre_id: toStr(pick(b, ["genre_id"])),
       sub_genre_id: toStr(pick(b, ["sub_genre_id"])),
@@ -474,6 +478,10 @@ export default function BookFormDesktop({
   const [v, setV] = useState(initial);
   // true, sobald die Nationalität von Hand geändert wurde (sonst ist "D" nur Vorbelegung)
   const nationalityTouchedRef = useRef(false);
+  // true, sobald die Originalsprache von Hand gewählt wurde (sonst darf die ISBN-Suche "de" ersetzen)
+  const origLangTouchedRef = useRef(false);
+  // true, sobald Genre/Subgenre von Hand gewählt wurden (sonst wird Fiction vorbelegt)
+  const genreTouchedRef = useRef(false);
   const requestIdRef = useRef(null);
   const [busy, setBusy] = useState(false);
   const [isbnBusy, setIsbnBusy] = useState(false);
@@ -520,6 +528,17 @@ export default function BookFormDesktop({
     () => (v.genre_id ? subGenres.filter((sg) => sg.genre_id === String(v.genre_id)) : subGenres),
     [subGenres, v.genre_id]
   );
+  const defaultGenreId = useMemo(() => {
+    const g =
+      genres.find((x) => String(x.abbr || "").toLowerCase() === DEFAULT_GENRE_ABBR.toLowerCase()) ||
+      genres.find((x) => /^fiction/i.test(String(x.name || "")));
+    return g ? g.id : "";
+  }, [genres]);
+  useEffect(() => {
+    if (isEdit || genreTouchedRef.current || !defaultGenreId) return;
+    if (v.genre_id || v.sub_genre_id) return;
+    setV((prev) => (prev.genre_id || prev.sub_genre_id ? prev : { ...prev, genre_id: defaultGenreId }));
+  }, [isEdit, defaultGenreId, v.genre_id, v.sub_genre_id]);
   const [existingMatches, setExistingMatches] = useState([]);
   const [existingMatch, setExistingMatch] = useState(null);
   const [hoveredMatch, setHoveredMatch] = useState(null);
@@ -551,6 +570,8 @@ export default function BookFormDesktop({
   useEffect(() => {
     setV(initial);
     nationalityTouchedRef.current = false;
+    origLangTouchedRef.current = false;
+    genreTouchedRef.current = false;
     setExistingMatches([]);
     setExistingMatch(null);
     setHoveredMatch(null);
@@ -866,7 +887,10 @@ export default function BookFormDesktop({
         title_keyword_position: prev.title_keyword_position || kw.pos || "",
         pages: prev.pages || toStr(s.pages),
         purchase_url: prev.purchase_url || s.purchase_url || s.purchaseUrl || s.url || "",
-        original_language: prev.original_language || ((m) => (/^[a-z]{2}$/.test(m) ? m : ""))(String(s.original_language || s.language || "").trim().toLowerCase().replace(/^(eng)$/, "en").replace(/^(ger|deu)$/, "de").replace(/^(fre|fra)$/, "fr").replace(/^(spa)$/, "es").replace(/^(ita)$/, "it")),
+        original_language: ((found) =>
+          !isEdit && !origLangTouchedRef.current
+            ? found || prev.original_language
+            : prev.original_language || found)(((m) => (/^[a-z]{2}$/.test(m) ? m : ""))(String(s.original_language || s.language || "").trim().toLowerCase().replace(/^(eng)$/, "en").replace(/^(ger|deu)$/, "de").replace(/^(fre|fra)$/, "fr").replace(/^(spa)$/, "es").replace(/^(ita)$/, "it"))),
         author_id: prev.author_id || s.author_id || "",
         author_lastname: prev.author_lastname || s.author_lastname || last || "",
         author_firstname: prev.author_firstname || s.author_firstname || first || "",
@@ -1095,7 +1119,7 @@ if (pages == null || pages < 0) {
 
       showMsg(successMsg, "success");
       if (!isEdit) {
-        setV({ ...emptyForm }); nationalityTouchedRef.current = false;
+        setV({ ...emptyForm }); nationalityTouchedRef.current = false; origLangTouchedRef.current = false; genreTouchedRef.current = false;
         setExistingMatches([]);
         setExistingMatch(null);
       }
@@ -1429,7 +1453,7 @@ if (pages == null || pages < 0) {
               disabled={busy}
               onClick={() => {
                 requestIdRef.current = null;
-                setV({ ...emptyForm }); nationalityTouchedRef.current = false;
+                setV({ ...emptyForm }); nationalityTouchedRef.current = false; origLangTouchedRef.current = false; genreTouchedRef.current = false;
                 setExistingMatch(null);
                 setExistingMatches([]);
                 setTitleAuthorMatches([]);
@@ -1630,6 +1654,7 @@ if (pages == null || pages < 0) {
         aria-label="Genre (Fiction / Non-Fiction)"
         title="Genre (Fiction / Non-Fiction)"
         onChange={(e) => {
+          genreTouchedRef.current = true;
           const g = e.target.value;
           setV((prev) => {
             const keepSub = g && subGenres.some((sg) => sg.id === String(prev.sub_genre_id) && sg.genre_id === g);
@@ -1649,6 +1674,7 @@ if (pages == null || pages < 0) {
         aria-label="Subgenre"
         title="Subgenre"
         onChange={(e) => {
+          genreTouchedRef.current = true;
           const id = e.target.value;
           const sg = subGenres.find((x) => x.id === id);
           setV((prev) => ({ ...prev, sub_genre_id: id, genre_id: sg ? sg.genre_id : prev.genre_id }));
@@ -1742,7 +1768,7 @@ if (pages == null || pages < 0) {
           disabled={busy}
           aria-label="Originalsprache"
           title="Originalsprache"
-          onChange={(e) => setField("original_language", e.target.value)}
+          onChange={(e) => { origLangTouchedRef.current = true; setField("original_language", e.target.value); }}
         >
           <option value="">Originalsprache</option>
           {v.original_language && !LANGUAGE_OPTIONS.some((l) => l.value === v.original_language) ? (
@@ -1917,7 +1943,7 @@ if (pages == null || pages < 0) {
           disabled={busy}
           onClick={() => {
             requestIdRef.current = null;
-            setV({ ...emptyForm }); nationalityTouchedRef.current = false;
+            setV({ ...emptyForm }); nationalityTouchedRef.current = false; origLangTouchedRef.current = false; genreTouchedRef.current = false;
             setExistingMatch(null);
             setExistingMatches([]);
             showMsg("", "info");
