@@ -216,7 +216,7 @@ const pickCover = useMemo(
                 {t("home_cta_technique")}
               </Link>
             )}
-            <Link className="zr-btn2 zr-btn2--ghost" to="/news#testzugang">
+            <Link className="zr-btn2 zr-btn2--ghost" to="/news">
               {t("home_secondary_cta")}
             </Link>
           </div>

@@ -7,9 +7,6 @@
 // - Texte pro Sprache (de, en, es, fr, pt-BR). Fehlt eine Sprache, wird Englisch,
 //   sonst Deutsch angezeigt. "text" darf mehrere Absätze haben (Array).
 
-const BETA_MAIL =
-  "mailto:christopher@christopherspages.com?subject=Interesse%20an%20PagesInLine%20Testzugang";
-
 const NEWS = [
   {
     id: "datenbank-suche",
@@ -93,56 +90,6 @@ const NEWS = [
       text: [
         "A partir de agora, é aqui que você fica sabendo o que acontece no Christophers Pages e no PagesInLine – novas funções, novos livros na coleção e tudo o que interessa a leitores.",
       ],
-    },
-  },
-  {
-    id: "testzugang",
-    date: "2026-03-12",
-    link: { href: BETA_MAIL },
-    de: {
-      tag: "PagesInLine",
-      title: "Erste Testzugänge für PagesInLine",
-      text: [
-        "Der Kern von PagesInLine funktioniert: Bücher per Smartphone erfassen, eindeutig zuordnen und den Lesefortschritt sichtbar halten.",
-        "Jetzt suchen wir erste Nutzerinnen und Nutzer – besonders Vielleser, Pendler und alle mit vielen eigenen Büchern zuhause –, um den Ablauf im echten Lesealltag zu prüfen. Schreib uns per E-Mail, wenn du dabei sein möchtest.",
-      ],
-      linkLabel: "Testzugang per E-Mail anfragen",
-    },
-    en: {
-      tag: "PagesInLine",
-      title: "First test access for PagesInLine",
-      text: [
-        "The core of PagesInLine works: capture books with your smartphone, identify them clearly and keep your reading progress visible.",
-        "We're now looking for first users – especially avid readers, commuters and anyone with lots of books at home – to try it in everyday reading. Send us an email if you'd like to take part.",
-      ],
-      linkLabel: "Request test access by email",
-    },
-    es: {
-      tag: "PagesInLine",
-      title: "Primeros accesos de prueba para PagesInLine",
-      text: [
-        "El núcleo de PagesInLine ya funciona: registrar libros con el móvil, identificarlos con claridad y mantener visible tu progreso de lectura.",
-        "Buscamos a los primeros usuarios –sobre todo grandes lectores, personas que viajan a diario y quienes tienen muchos libros en casa– para probarlo en la lectura diaria. Escríbenos si quieres participar.",
-      ],
-      linkLabel: "Solicitar acceso por correo",
-    },
-    fr: {
-      tag: "PagesInLine",
-      title: "Premiers accès test pour PagesInLine",
-      text: [
-        "Le cœur de PagesInLine fonctionne : enregistrer ses livres avec le smartphone, les identifier clairement et garder sa progression de lecture en vue.",
-        "Nous cherchons maintenant les premiers utilisateurs – grands lecteurs, pendulaires et tous ceux qui ont beaucoup de livres chez eux – pour le tester au quotidien. Écris-nous si tu veux participer.",
-      ],
-      linkLabel: "Demander un accès par e-mail",
-    },
-    "pt-BR": {
-      tag: "PagesInLine",
-      title: "Primeiros acessos de teste ao PagesInLine",
-      text: [
-        "O núcleo do PagesInLine já funciona: cadastrar livros pelo celular, identificá-los com clareza e manter seu progresso de leitura visível.",
-        "Agora procuramos os primeiros usuários – principalmente quem lê muito, quem passa tempo no transporte e quem tem muitos livros em casa – para testar no dia a dia. Mande um e-mail se quiser participar.",
-      ],
-      linkLabel: "Pedir acesso por e-mail",
     },
   },
 ];

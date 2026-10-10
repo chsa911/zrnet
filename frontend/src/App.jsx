@@ -146,7 +146,7 @@ export default function App() {
         <Route path="bookthemes.html" element={<Navigate to="/bookthemes" replace />} />
 
         <Route path="news" element={<NewsPage />} />
-        <Route path="beta-test" element={<Navigate to="/news#testzugang" replace />} />
+        <Route path="beta-test" element={<Navigate to="/news" replace />} />
         <Route path="coaching" element={<CoachingPage />} />
 
         {/* analytics */}

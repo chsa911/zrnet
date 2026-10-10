@@ -16,7 +16,8 @@
     "lint": "eslint .",
     "cleanup:test:dry": "node ./scripts/cleanupTestData.js",
     "cleanup:test:run": "DRY_RUN=false node ./scripts/cleanupTestData.js",
-    "check:suggestions": "node scripts/checkBarcodeSuggestions.js"
+    "check:suggestions": "node scripts/checkBarcodeSuggestions.js",
+    "fix:barcode-status": "node scripts/fixBarcodeInventoryStatus.js"
   },
   "dependencies": {
     "cookie-parser": "^1.4.7",
