@@ -41,7 +41,7 @@ export default function HomeLiveBlock() {
   const [stats, setStats] = useState({
     total_books: null,
     finished: null,
-    top: null,
+    abandoned: null,
   });
 
   const proofStats = useMemo(
@@ -57,9 +57,9 @@ export default function HomeLiveBlock() {
         meta: t("home_proof_finished_meta"),
       },
       {
-        key: "top",
-        label: t("home_proof_top_label"),
-        meta: t("home_proof_top_meta"),
+        key: "abandoned",
+        label: t("home_proof_abandoned_label"),
+        meta: t("home_proof_abandoned_meta"),
       },
     ],
     [t]
@@ -112,7 +112,7 @@ export default function HomeLiveBlock() {
               data.stock
           ),
           finished: toIntOrNull(data.finished ?? data.finished_books ?? data.finishedBooks),
-          top: toIntOrNull(data.top ?? data.top_books ?? data.topBooks),
+          abandoned: toIntOrNull(data.abandoned ?? data.abandoned_books ?? data.abandonedBooks),
         });
       } catch {
         // keep previous values

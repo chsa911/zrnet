@@ -28,7 +28,7 @@ import AbbreviationsAdminPage from "./pages/AbbreviationsAdminPage";
 import ThemeSubthemesAuthorsPage from "./pages/ThemeSubthemesAuthorsPage";
 import { processUploadQueue } from "./utils/uploadQueue";
 import AuthorsIndexPage from "./pages/AuthorsIndexPage";
-import BetaTestPage from "./pages/BetaTestPage";
+import NewsPage from "./pages/NewsPage";
 import AdminAuthorTitlesPage from "./pages/AdminAuthorTitlesPage";
 import AdminAuthorPage from "./pages/AdminAuthorPage";
 import HomeTitlesPage from "./pages/HomeTitlesPage";
@@ -145,7 +145,8 @@ export default function App() {
         <Route path="bookthemes/:abbr" element={<ThemeBooksPage />} />
         <Route path="bookthemes.html" element={<Navigate to="/bookthemes" replace />} />
 
-        <Route path="beta-test" element={<BetaTestPage />} />
+        <Route path="news" element={<NewsPage />} />
+        <Route path="beta-test" element={<Navigate to="/news#testzugang" replace />} />
         <Route path="coaching" element={<CoachingPage />} />
 
         {/* analytics */}

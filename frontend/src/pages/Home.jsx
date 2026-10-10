@@ -47,7 +47,7 @@ export default function Home() {
   const [stats, setStats] = useState({
     total_books: null,
     finished: null,
-    top: null,
+    abandoned: null,
   });
 
   const heroParagraphs = useMemo(
@@ -100,10 +100,10 @@ export default function Home() {
         to: "/stats/finished",
       },
       {
-        key: "top",
-        label: t("home_proof_top_label"),
-        meta: t("home_proof_top_meta"),
-        to: "/stats/top",
+        key: "abandoned",
+        label: t("home_proof_abandoned_label"),
+        meta: t("home_proof_abandoned_meta"),
+        to: "/stats/abandoned",
       },
     ],
     [t]
@@ -157,7 +157,7 @@ export default function Home() {
               data.stock
           ),
           finished: toIntOrNull(data.finished ?? data.finished_books ?? data.finishedBooks),
-          top: toIntOrNull(data.top ?? data.top_books ?? data.topBooks),
+          abandoned: toIntOrNull(data.abandoned ?? data.abandoned_books ?? data.abandonedBooks),
         });
       } catch {
         // keep previous values
@@ -216,7 +216,7 @@ const pickCover = useMemo(
                 {t("home_cta_technique")}
               </Link>
             )}
-            <Link className="zr-btn2 zr-btn2--ghost" to="/beta-test#beta-signup">
+            <Link className="zr-btn2 zr-btn2--ghost" to="/news#testzugang">
               {t("home_secondary_cta")}
             </Link>
           </div>

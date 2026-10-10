@@ -113,8 +113,8 @@ export default function TopBar() {
           <Link className="zr-nav__link" to="/info/so-funktionierts">
             {t("nav_technique")}
           </Link>
-          <Link className="zr-nav__link" to="/beta-test">
-            {t("nav_beta_test")}
+          <Link className="zr-nav__link" to="/news">
+            {t("nav_news")}
           </Link>
           <Link className="zr-nav__link" to="/coaching">
             {t("nav_coaching")}
