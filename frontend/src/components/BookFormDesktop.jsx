@@ -59,6 +59,8 @@ const DEFAULT_AUTHOR_NATIONALITY = "D";
 const DEFAULT_ORIGINAL_LANGUAGE = "de";
 // Vorbelegung Genre bei Neuanlage: Fiction (genres.abbr = "F")
 const DEFAULT_GENRE_ABBR = "F";
+// Vorbelegung Position der Seitenzahl bei Neuanlage: unten rechts
+const DEFAULT_PAGE_NUM_POS = "ur";
 
 // Handlungs-Region (books.action_continent) – gleiche Codes wie auf der Suche/Update-Seite
 const REGION_OPTIONS = [
@@ -233,7 +235,7 @@ const emptyForm = {
   title_keyword3: "",
   title_keyword3_position: "",
   pages: "",
-  page_num_pos: "",
+  page_num_pos: DEFAULT_PAGE_NUM_POS,
   chapters: "",
   last_word: "",
   width_cm: "",
@@ -454,7 +456,7 @@ export default function BookFormDesktop({
       title_keyword3: toStr(pick(b, ["title_keyword3"])),
       title_keyword3_position: toStr(pick(b, ["title_keyword3_position"])),
       pages: toStr(pick(b, ["pages"])),
-      page_num_pos: toStr(pick(b, ["page_num_pos"])),
+      page_num_pos: toStr(pick(b, ["page_num_pos"])) || (isEdit ? "" : DEFAULT_PAGE_NUM_POS),
       chapters: toStr(pick(b, ["chapters"])),
       last_word: toStr(pick(b, ["last_word"])),
       width_cm: toStr(pick(b, ["width_cm", "width", "bbreite"])),
