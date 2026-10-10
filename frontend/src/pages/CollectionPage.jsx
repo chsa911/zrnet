@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Link, useSearchParams } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { useI18n } from "../context/I18nContext";
-import { listPublicBooks } from "../api/books";
+import { listPublicBooks, suggestAuthors } from "../api/books";
 import { coverHomeUrl } from "../utils/covers";
 import "./home_minimal.css";
 import "./CollectionPage.css";
@@ -23,6 +23,10 @@ function isAbortError(e) {
   return e?.name === "AbortError" || String(e?.message || "").toLowerCase().includes("abort");
 }
 
+function authorHref(name) {
+  return `/author/${encodeURIComponent(name)}`;
+}
+
 function BookCard({ book, t }) {
   const [broken, setBroken] = useState(false);
   const src = coverHomeUrl(book);
@@ -36,7 +40,8 @@ function BookCard({ book, t }) {
     badge = t("collection.badge_available");
 
   return (
-    <Link to={`/book/${encodeURIComponent(book.id)}`} className="zr-coll-card">
+    <div className="zr-coll-card">
+      <Link to={`/book/${encodeURIComponent(book.id)}`} className="zr-coll-cardLink">
       <div className="zr-coll-cover">
         {src && !broken ? (
           <img src={src} alt="" loading="lazy" onError={() => setBroken(true)} />
@@ -48,8 +53,15 @@ function BookCard({ book, t }) {
         {badge ? <span className="zr-coll-badge">{badge}</span> : null}
       </div>
       <div className="zr-coll-title">{title}</div>
-      <div className="zr-coll-author">{book.author || "—"}</div>
-    </Link>
+      </Link>
+      {book.author ? (
+        <Link to={authorHref(book.author)} className="zr-coll-author" title={t("collection.author_link", { author: book.author })}>
+          {book.author}
+        </Link>
+      ) : (
+        <div className="zr-coll-author">—</div>
+      )}
+    </div>
   );
 }
 
@@ -68,6 +80,54 @@ export default function CollectionPage() {
   const [err, setErr] = useState("");
   const [offset, setOffset] = useState(0);
   const acRef = useRef(null);
+  const navigate = useNavigate();
+  const [suggest, setSuggest] = useState([]);
+  const [suggestOpen, setSuggestOpen] = useState(false);
+  const [activeIdx, setActiveIdx] = useState(-1);
+
+  // author suggestions while typing (from the public API, not the raw DB)
+  useEffect(() => {
+    const term = input.trim();
+    if (term.length < 2) {
+      setSuggest([]);
+      return undefined;
+    }
+    const ac = new AbortController();
+    const id = setTimeout(async () => {
+      try {
+        const rows = await suggestAuthors({ q: term, limit: 6, signal: ac.signal });
+        setSuggest(rows);
+        setActiveIdx(-1);
+      } catch (e) {
+        if (!isAbortError(e)) setSuggest([]);
+      }
+    }, 200);
+    return () => {
+      clearTimeout(id);
+      ac.abort();
+    };
+  }, [input]);
+
+  function openAuthor(name) {
+    setSuggestOpen(false);
+    navigate(authorHref(name));
+  }
+
+  function onSearchKey(e) {
+    if (!suggestOpen || !suggest.length) return;
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      setActiveIdx((i) => (i + 1) % suggest.length);
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      setActiveIdx((i) => (i <= 0 ? suggest.length - 1 : i - 1));
+    } else if (e.key === "Enter" && activeIdx >= 0) {
+      e.preventDefault();
+      openAuthor(suggest[activeIdx].author);
+    } else if (e.key === "Escape") {
+      setSuggestOpen(false);
+    }
+  }
 
   const bucket = useMemo(() => FILTERS.find((f) => f.key === filterKey)?.bucket, [filterKey]);
 
@@ -137,14 +197,50 @@ export default function CollectionPage() {
         <label htmlFor="coll-search" className="zr-coll-srOnly">
           {t("collection.search_label")}
         </label>
-        <input
-          id="coll-search"
-          type="search"
-          className="zr-coll-search"
-          placeholder={t("collection.search_placeholder")}
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-        />
+        <div className="zr-coll-searchWrap">
+          <input
+            id="coll-search"
+            type="search"
+            className="zr-coll-search"
+            placeholder={t("collection.search_placeholder")}
+            value={input}
+            autoComplete="off"
+            role="combobox"
+            aria-expanded={suggestOpen && suggest.length > 0}
+            aria-controls="coll-suggest"
+            aria-activedescendant={activeIdx >= 0 ? `coll-sugg-${activeIdx}` : undefined}
+            onChange={(e) => {
+              setInput(e.target.value);
+              setSuggestOpen(true);
+            }}
+            onFocus={() => setSuggestOpen(true)}
+            onBlur={() => setTimeout(() => setSuggestOpen(false), 150)}
+            onKeyDown={onSearchKey}
+          />
+          {suggestOpen && suggest.length > 0 ? (
+            <ul id="coll-suggest" className="zr-coll-suggest" role="listbox" aria-label={t("collection.suggest_label")}>
+              <li className="zr-coll-suggest__head" aria-hidden="true">{t("collection.suggest_label")}</li>
+              {suggest.map((a, i) => (
+                <li
+                  key={a.id}
+                  id={`coll-sugg-${i}`}
+                  role="option"
+                  aria-selected={i === activeIdx}
+                  className={`zr-coll-suggest__item ${i === activeIdx ? "is-active" : ""}`}
+                  onMouseDown={(e) => {
+                    e.preventDefault();
+                    openAuthor(a.author);
+                  }}
+                >
+                  <span className="zr-coll-suggest__name">{a.author}</span>
+                  <span className="zr-coll-suggest__count">
+                    {t(a.count === 1 ? "collection.count_one" : "collection.count", { count: nf.format(a.count) })}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          ) : null}
+        </div>
         <div className="zr-coll-filters" role="group" aria-label={t("collection.filter_label")}>
           {FILTERS.map((f) => (
             <button

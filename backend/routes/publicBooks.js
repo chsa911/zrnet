@@ -112,7 +112,8 @@ const AUTHOR_EXPR = `COALESCE(
 )`;
 const TITLE_EXPR =
   "COALESCE(NULLIF(b.title_display,''), NULLIF(b.title_keyword,''))";
-const PUBLISHER_EXPR = "COALESCE(p.name, b.publisher)";
+// canonical publisher name only – legacy books.publisher may no longer exist
+const PUBLISHER_EXPR = "p.name";
 
 // purchase providers (optional) — compute best link from isbn + templates
 function applyTemplate(tpl, { isbn13, isbn10, bookId }) {
@@ -427,7 +428,8 @@ router.get("/", async (req, res) => {
       published_titles: r.published_titles ?? null,
       publishedTitles: r.published_titles ?? null,
 
-      cover: r.cover,
+      // filesystem check: finds new (normalized/) and old (covers/) covers
+      cover: resolveCoverUrl(r.id) || null,
     }));
 
     const wantsMeta =
@@ -512,6 +514,51 @@ router.get("/stats", async (req, res) => {
     return res.json(out);
   } catch (err) {
     console.error("GET /api/public/books/stats error", err);
+    return res.status(500).json({ error: "internal_error" });
+  }
+});
+
+/**
+ * GET /api/public/books/author-suggest?q=kin&limit=6
+ * Autocomplete for the public collection: authors whose name matches,
+ * with the number of public books (owned or read, no wishlist).
+ */
+router.get("/author-suggest", async (req, res) => {
+  try {
+    const pool = getPool(req);
+    const q = normStr(req.query.q);
+    const limit = clampInt(req.query.limit, 6, 1, 20);
+    if (!q || q.length < 2) return res.json([]);
+
+    const { rows } = await pool.query(
+      `
+      SELECT
+        a.id::text AS id,
+        ${AUTHOR_EXPR} AS author,
+        COUNT(b.id)::int AS count,
+        COUNT(b.id) FILTER (WHERE b.reading_status IN ('in_stock', 'in_progress'))::int AS available
+      FROM public.authors a
+      JOIN public.books b ON b.author_id = a.id
+      WHERE b.reading_status IN ('in_stock', 'in_progress', 'finished', 'abandoned')
+        AND (
+          ${AUTHOR_EXPR} ILIKE $1
+          OR a.name ILIKE $1
+          OR a.full_name ILIKE $1
+          OR a.last_name ILIKE $2
+        )
+      GROUP BY a.id, 2
+      ORDER BY
+        (a.last_name ILIKE $2 OR ${AUTHOR_EXPR} ILIKE $2) DESC,
+        count DESC,
+        author ASC
+      LIMIT $3
+      `,
+      [`%${q}%`, `${q}%`, limit]
+    );
+
+    return res.json(rows.filter((r) => r.author && r.author.trim()));
+  } catch (err) {
+    console.error("GET /api/public/books/author-suggest error", err);
     return res.status(500).json({ error: "internal_error" });
   }
 });

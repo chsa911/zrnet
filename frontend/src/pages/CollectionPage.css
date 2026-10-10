@@ -19,7 +19,7 @@
 .zr-coll-empty p { margin: 0; }
 .zr-coll-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 24px 18px; }
 .zr-coll-card { display: flex; flex-direction: column; gap: 6px; text-decoration: none; color: inherit; min-width: 0; }
-.zr-coll-card:hover .zr-coll-title { text-decoration: underline; }
+
 .zr-coll-cover {
   position: relative; aspect-ratio: 2 / 3; border-radius: 10px; overflow: hidden;
   background: #f2f2f2; box-shadow: 0 6px 18px rgba(0,0,0,0.08);
@@ -39,3 +39,23 @@
 .zr-coll-more { justify-content: center; margin-top: 28px; }
 .zr-coll-srOnly { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 @media (max-width: 520px) { .zr-coll-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px 14px; } }
+
+/* card: cover+title link to the book, author links to the author page */
+.zr-coll-cardLink { display: flex; flex-direction: column; gap: 6px; text-decoration: none; color: inherit; }
+.zr-coll-cardLink:hover .zr-coll-title { text-decoration: underline; }
+a.zr-coll-author { text-decoration: none; }
+a.zr-coll-author:hover { color: #06603d; text-decoration: underline; }
+
+/* author suggestions under the search field */
+.zr-coll-searchWrap { position: relative; }
+.zr-coll-suggest {
+  position: absolute; z-index: 20; left: 0; right: 0; top: calc(100% + 6px);
+  margin: 0; padding: 6px; list-style: none; background: #fff;
+  border: 1px solid var(--border, rgba(0,0,0,0.15)); border-radius: 16px;
+  box-shadow: 0 12px 32px rgba(0,0,0,0.12);
+}
+.zr-coll-suggest__head { padding: 6px 12px 4px; font-size: 11px; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; color: rgba(0,0,0,0.5); }
+.zr-coll-suggest__item { display: flex; justify-content: space-between; gap: 12px; padding: 10px 12px; border-radius: 10px; cursor: pointer; }
+.zr-coll-suggest__item:hover, .zr-coll-suggest__item.is-active { background: #e9f7f1; }
+.zr-coll-suggest__name { font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.zr-coll-suggest__count { flex: none; font-size: 13px; color: rgba(0,0,0,0.55); }

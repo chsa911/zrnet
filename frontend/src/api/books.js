@@ -307,6 +307,13 @@ export async function listStockAuthors({ limit = 80, signal } = {}) {
   return Array.isArray(data) ? data : [];
 }
 
+// Autocomplete for the public collection search
+export async function suggestAuthors({ q, limit = 6, signal } = {}) {
+  const qs = qsFromObject({ q, limit });
+  const data = await http(`/public/books/author-suggest?${qs}`, { signal });
+  return Array.isArray(data) ? data : [];
+}
+
 export async function listMostReadAuthors({ limit = 50, signal } = {}) {
   const qs = qsFromObject({ limit });
   const data = await http(`/public/books/most-read-authors?${qs}`, { signal });

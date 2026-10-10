@@ -460,5 +460,7 @@
   "seo.titles.title": "Neueste Highlights",
   "seo.titles.desc": "Die neuesten Bücher, die Christopher gelesen hat und empfiehlt.",
   "seo.subgenre.title": "{name} – ähnliche Bücher",
-  "seo.subgenre.desc": "Bücher im Subgenre {name} aus Christophers Papierbuch-Sammlung."
+  "seo.subgenre.desc": "Bücher im Subgenre {name} aus Christophers Papierbuch-Sammlung.",
+  "collection.suggest_label": "Autor:innen",
+  "collection.author_link": "Alle Bücher von {author}"
 }

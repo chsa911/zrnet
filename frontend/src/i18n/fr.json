@@ -358,5 +358,7 @@
   "collection.filter_available": "Disponibles",
   "collection.filter_abandoned": "Abandonnés",
   "collection.badge_available": "Disponible",
-  "collection.badge_abandoned": "Abandonné"
+  "collection.badge_abandoned": "Abandonné",
+  "collection.suggest_label": "Auteurs",
+  "collection.author_link": "Tous les livres de {author}"
 }

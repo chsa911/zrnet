@@ -501,5 +501,7 @@
   "seo.titles.title": "Recent highlights",
   "seo.titles.desc": "The latest books Christopher has read and recommends.",
   "seo.subgenre.title": "{name} – similar books",
-  "seo.subgenre.desc": "Books in the sub-genre {name} from Christopher's paper-book collection."
+  "seo.subgenre.desc": "Books in the sub-genre {name} from Christopher's paper-book collection.",
+  "collection.suggest_label": "Authors",
+  "collection.author_link": "All books by {author}"
 }
