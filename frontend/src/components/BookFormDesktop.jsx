@@ -44,6 +44,21 @@ function displayIsbnForBook(b) {
   return primary;
 }
 
+// Titel 2, 3, … : so viele Felder wie "# Titel" minus 1 (max. 19 zusätzliche)
+const MAX_EXTRA_TITLES = 19;
+function extraTitleCount(numberTitles) {
+  const n = parseInt(String(numberTitles ?? "").trim(), 10);
+  if (!Number.isFinite(n) || n <= 1) return 0;
+  return Math.min(n - 1, MAX_EXTRA_TITLES);
+}
+function extraTitlesForSave(list, numberTitles) {
+  const arr = (Array.isArray(list) ? list : [])
+    .slice(0, extraTitleCount(numberTitles))
+    .map((t) => String(t ?? "").trim());
+  while (arr.length && !arr[arr.length - 1]) arr.pop();
+  return arr;
+}
+
 function parseIntOrNull(s) {
   const t = String(s ?? "").trim();
   if (!t) return null;
@@ -149,6 +164,8 @@ const emptyForm = {
   number_of_millionsellers: "",
   publisher_name_display: "",
   title_display: "",
+  number_titles: "1",
+  extra_titles: [],
   subtitle_display: "",
   title_keyword: "",
   title_keyword_position: "",
@@ -359,6 +376,8 @@ export default function BookFormDesktop({
       number_of_millionsellers: toStr(pick(b, ["number_of_millionsellers"])),
       publisher_name_display: toStr(pick(b, ["publisher_name_display"])),
       title_display: toStr(pick(b, ["title_display", "titleDisplay", "title"])),
+      number_titles: toStr(pick(b, ["number_titles"])) || "1",
+      extra_titles: Array.isArray(b.extra_titles) ? b.extra_titles.map(toStr) : [],
       subtitle_display: toStr(pick(b, ["subtitle_display"])),
       title_keyword: toStr(pick(b, ["title_keyword", "keyword"])),
       title_keyword_position: toStr(pick(b, ["title_keyword_position"])),
@@ -858,6 +877,7 @@ if (pages == null || pages < 0) {
 
     const ints = [
       "authors_number",
+      "number_titles",
       "title_keyword_position",
       "title_keyword2_position",
       "title_keyword3_position",
@@ -876,6 +896,16 @@ if (pages == null || pages < 0) {
       const n = parseIntOrNull(raw);
       if (n === null) throw new Error(`${k} ist keine gültige Zahl.`);
       if (!isEdit || n !== parseIntOrNull(prevRaw)) payload[k] = n;
+    }
+
+    {
+      const next = extraTitlesForSave(v.extra_titles, v.number_titles);
+      const prev = extraTitlesForSave(initial.extra_titles, initial.number_titles);
+      if (!isEdit) {
+        if (next.length) payload.extra_titles = next;
+      } else if (JSON.stringify(next) !== JSON.stringify(prev)) {
+        payload.extra_titles = next;
+      }
     }
 
     if (isEdit && showUnknownFields) {
@@ -1319,6 +1349,8 @@ if (pages == null || pages < 0) {
                       isbn10: toStr(m.isbn10 ?? prev.isbn10),
                       title_display: toStr(m.title_display ?? m.main_title_display ?? prev.title_display),
                       subtitle_display: toStr(m.subtitle_display ?? prev.subtitle_display),
+                      number_titles: toStr(m.number_titles ?? prev.number_titles),
+                      extra_titles: Array.isArray(m.extra_titles) ? m.extra_titles.map(toStr) : prev.extra_titles,
                       author_id: toStr(m.author_id ?? prev.author_id),
                       authors_number: toStr(m.authors_number ?? prev.authors_number),
                       name_display: toStr(m.name_display ?? m.author_name_display ?? m.author_display ?? prev.name_display),
@@ -1509,12 +1541,44 @@ if (pages == null || pages < 0) {
 </div>
 </div>
       <div className="bfd-row bfd-tight-row">
-        <input
-          {...fieldProps("title_display", "Title", {
-            className: "bfd-input bfd-input-wide",
-          })}
-        />
+        <div style={{ display: "flex", alignItems: "stretch", width: "100%", gap: "0.1em" }}>
+          <input
+            {...fieldProps("number_titles", "#", {
+              inputMode: "numeric",
+              style: { width: "1.35ch", textAlign: "center", flexShrink: 0 },
+            })}
+            title="Anzahl Titel in diesem Buch (Sammelband), Standard 1"
+            aria-label="Anzahl Titel in diesem Buch"
+          />
+          <input
+            {...fieldProps("title_display", "Title", {
+              className: "bfd-input",
+              style: { flex: "1 1 0", minWidth: 0, width: 0 },
+            })}
+          />
+        </div>
       </div>
+
+      {Array.from({ length: extraTitleCount(v.number_titles) }, (_, i) => (
+        <div className="bfd-row bfd-tight-row" key={`extra-title-${i}`}>
+          <input
+            className="bfd-input bfd-input-wide"
+            placeholder={`Title ${i + 2}`}
+            aria-label={`Titel ${i + 2}`}
+            value={(v.extra_titles || [])[i] ?? ""}
+            disabled={busy}
+            onChange={(e) => {
+              const val = e.target.value;
+              setV((prev) => {
+                const list = [...(prev.extra_titles || [])];
+                while (list.length < i) list.push("");
+                list[i] = val;
+                return { ...prev, extra_titles: list };
+              });
+            }}
+          />
+        </div>
+      ))}
 
       <div className="bfd-row">
         <input

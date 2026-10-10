@@ -43,3 +43,6 @@ Thumbs.db
 # Uploaded cover images
 backend/public/uploads/covers*
 !backend/public/uploads/covers.gitkeep
+# Titel-Anreicherung (Cache + Prüflisten)
+backend/scripts/.cache/
+titel_vorschlaege*.csv

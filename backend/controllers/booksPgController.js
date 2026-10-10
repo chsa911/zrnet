@@ -89,6 +89,18 @@ function makeTitleKeyword(title) {
     if (!Number.isFinite(n)) return null;
     return Math.trunc(n);
   }
+  // Anzahl Titel in einem Buch (Sammelband): ganze Zahl >= 1, Standard 1
+  function normalizeNumberTitles(v) {
+    const n = normalizeInt(v);
+    return n !== null && n >= 1 ? n : 1;
+  }
+  // Weitere Titel (Titel 2, 3, …) als Liste; leere am Ende werden entfernt
+  function normalizeExtraTitles(v) {
+    if (v === undefined || v === null || v === "") return [];
+    const arr = (Array.isArray(v) ? v : [v]).map((t) => String(t ?? "").trim());
+    while (arr.length && !arr[arr.length - 1]) arr.pop();
+    return arr;
+  }
   // Position der Seitenzahl: ol om or (oben links/mitte/rechts), ml mr (mitte links/rechts),
   // ul um ur (unten links/mitte/rechts), 00 = keine Seitenzahl
   const PAGE_NUM_POSITIONS = ["ol", "om", "or", "ml", "mr", "ul", "um", "ur", "00"];
@@ -392,6 +404,8 @@ sub: row.subgenre_abbr ?? row.sub_genre ?? null,
 
       title_display: row.title_display ?? null,
       subtitle_display: row.subtitle_display ?? null,
+      number_titles: row.number_titles ?? 1,
+      extra_titles: Array.isArray(row.extra_titles) ? row.extra_titles : [],
       title_keyword: row.title_keyword ?? null,
       title_keyword_position: row.title_keyword_position ?? null,
       title_keyword2: row.title_keyword2 ?? null,
@@ -1917,6 +1931,8 @@ sub_genre_id: normalizeInt(body.sub_genre_id),
 
           title_display: normalizeStr(body.title_display),
           subtitle_display: normalizeStr(body.subtitle_display),
+          number_titles: normalizeNumberTitles(body.number_titles),
+          extra_titles: normalizeExtraTitles(body.extra_titles),
           title_en: normalizeStr(body.title_en),
           isbn13: isbnInfo.isbn13,
           isbn10: isbnInfo.isbn10,
@@ -2211,6 +2227,12 @@ if (body.sub_genre_id !== undefined && cols.has("sub_genre_id")) {
       if (body.title_keyword_position !== undefined) {
         updates.title_keyword_position = normalizeInt(body.title_keyword_position);
       }
+      if (body.number_titles !== undefined && cols.has("number_titles")) {
+        updates.number_titles = normalizeNumberTitles(body.number_titles);
+      }
+      if (body.extra_titles !== undefined && cols.has("extra_titles")) {
+        updates.extra_titles = normalizeExtraTitles(body.extra_titles);
+      }
       if (body.title_keyword2 !== undefined) updates.title_keyword2 = normalizeStr(body.title_keyword2);
       if (body.title_keyword2_position !== undefined) {
         updates.title_keyword2_position = normalizeInt(body.title_keyword2_position);
@@ -2499,6 +2521,12 @@ if (
 }
       if (body.title_keyword_position !== undefined) {
         updates.title_keyword_position = normalizeInt(body.title_keyword_position);
+      }
+      if (body.number_titles !== undefined && cols.has("number_titles")) {
+        updates.number_titles = normalizeNumberTitles(body.number_titles);
+      }
+      if (body.extra_titles !== undefined && cols.has("extra_titles")) {
+        updates.extra_titles = normalizeExtraTitles(body.extra_titles);
       }
       if (body.title_keyword2 !== undefined) updates.title_keyword2 = normalizeStr(body.title_keyword2);
       if (body.title_keyword2_position !== undefined) {
@@ -2868,6 +2896,12 @@ if ((patch.sub_genre_abbr ?? patch.subgenre_abbr) !== undefined) {
 }
       if (patch.title_keyword_position !== undefined) {
         updates.title_keyword_position = normalizeInt(patch.title_keyword_position);
+      }
+      if (patch.number_titles !== undefined && cols.has("number_titles")) {
+        updates.number_titles = normalizeNumberTitles(patch.number_titles);
+      }
+      if (patch.extra_titles !== undefined && cols.has("extra_titles")) {
+        updates.extra_titles = normalizeExtraTitles(patch.extra_titles);
       }
       if (patch.title_keyword2 !== undefined) updates.title_keyword2 = normalizeStr(patch.title_keyword2);
       if (patch.title_keyword2_position !== undefined) {
