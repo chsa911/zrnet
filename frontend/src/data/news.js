@@ -60,35 +60,35 @@ const NEWS = [
       tag: "Website",
       title: "Neu: Die News-Seite",
       text: [
-        "Hier erfährst du ab sofort, was sich bei Christophers Pages und PagesInLine tut – neue Funktionen, Neuzugänge in der Sammlung und alles, was für dich als Leserin oder Leser interessant ist.",
+        "Hier erfährst du ab sofort, was sich bei Christophers Pages tut – neue Funktionen, Neuzugänge in der Sammlung und alles, was für dich als Leserin oder Leser interessant ist.",
       ],
     },
     en: {
       tag: "Website",
       title: "New: the news page",
       text: [
-        "From now on, this is where you'll find out what's happening at Christophers Pages and PagesInLine – new features, new arrivals in the collection and anything else worth knowing for readers.",
+        "From now on, this is where you'll find out what's happening at Christophers Pages – new features, new arrivals in the collection and anything else worth knowing for readers.",
       ],
     },
     es: {
       tag: "Web",
       title: "Novedad: la página de noticias",
       text: [
-        "A partir de ahora encontrarás aquí lo que pasa en Christophers Pages y PagesInLine: nuevas funciones, nuevas incorporaciones a la colección y todo lo que interesa a los lectores.",
+        "A partir de ahora encontrarás aquí lo que pasa en Christophers Pages: nuevas funciones, nuevas incorporaciones a la colección y todo lo que interesa a los lectores.",
       ],
     },
     fr: {
       tag: "Site",
       title: "Nouveau : la page d’actualités",
       text: [
-        "Désormais, c’est ici que tu découvres ce qui se passe chez Christophers Pages et PagesInLine : nouvelles fonctions, nouveaux livres dans la collection et tout ce qui intéresse les lecteurs.",
+        "Désormais, c’est ici que tu découvres ce qui se passe chez Christophers Pages : nouvelles fonctions, nouveaux livres dans la collection et tout ce qui intéresse les lecteurs.",
       ],
     },
     "pt-BR": {
       tag: "Site",
       title: "Novidade: a página de notícias",
       text: [
-        "A partir de agora, é aqui que você fica sabendo o que acontece no Christophers Pages e no PagesInLine – novas funções, novos livros na coleção e tudo o que interessa a leitores.",
+        "A partir de agora, é aqui que você fica sabendo o que acontece no Christophers Pages – novas funções, novos livros na coleção e tudo o que interessa a leitores.",
       ],
     },
   },
