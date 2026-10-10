@@ -5,7 +5,6 @@ import {
   findDraft,
   lookupIsbn,
   registerBook,
-  recordBarcodeConflict,
   registerExistingBook,
   updateBook,
 } from "../api/books";
@@ -14,6 +13,62 @@ import { BookCodeVisual } from "../utils/bookCodeDisplay";
 import { PAGE_NUM_POS_HELP, buildPhysCode, formatPhysCode, isValidPageNumPos, normalizeLastWord, pageNumPosLabel } from "../utils/pageNumPos";
 import usePhysCodeCheck, { physCodeKnownText, similarText } from "../utils/usePhysCodeCheck";
 import { friendlySaveErrorMessage, newRequestId } from "../utils/saveFeedback";
+
+const API_ROOT = import.meta.env.VITE_API_ROOT || "";
+
+// Sprache des Exemplars (books.language) – Backend erwartet ISO-Code wie "de" oder "pt-br"
+const LANGUAGE_OPTIONS = [
+  { value: "de", label: "Deutsch" },
+  { value: "en", label: "Englisch" },
+  { value: "fr", label: "Französisch" },
+  { value: "es", label: "Spanisch" },
+  { value: "it", label: "Italienisch" },
+  { value: "nl", label: "Niederländisch" },
+  { value: "pt", label: "Portugiesisch" },
+  { value: "sv", label: "Schwedisch" },
+  { value: "da", label: "Dänisch" },
+  { value: "no", label: "Norwegisch" },
+  { value: "fi", label: "Finnisch" },
+  { value: "pl", label: "Polnisch" },
+  { value: "cs", label: "Tschechisch" },
+  { value: "ru", label: "Russisch" },
+  { value: "tr", label: "Türkisch" },
+  { value: "el", label: "Griechisch" },
+  { value: "la", label: "Latein" },
+  { value: "ja", label: "Japanisch" },
+  { value: "zh", label: "Chinesisch" },
+];
+
+// Datum + Genauigkeit -> Eingabeformat: year "1999", month "05.1999", day/unbekannt "03.05.1999"
+function lifeDateForInput(raw, precision) {
+  const t = String(raw ?? "").trim();
+  let m;
+  if ((m = t.match(/^(\d{4})-(\d{2})-(\d{2})/))) {
+    if (precision === "year") return m[1];
+    if (precision === "month") return `${m[2]}.${m[1]}`;
+    return `${m[3]}.${m[2]}.${m[1]}`;
+  }
+  if ((m = t.match(/^(\d{4})-(\d{2})$/))) return `${m[2]}.${m[1]}`;
+  return t;
+}
+const DEATH_DATE_RE = /^(\d{4}|\d{1,2}\.\d{4}|\d{1,2}\.\d{1,2}\.\d{4}|\d{4}-\d{2}-\d{2})$/;
+
+// Vorbelegung Nationalität bei Neuanlage; überschreibt nie eine schon gespeicherte Nationalität des Autors
+const DEFAULT_AUTHOR_NATIONALITY = "D";
+
+// Handlungs-Region (books.action_continent) – gleiche Codes wie auf der Suche/Update-Seite
+const REGION_OPTIONS = [
+  { value: "0", label: "Asien" },
+  { value: "1", label: "Südliches Afrika" },
+  { value: "2", label: "Nordamerika" },
+  { value: "3", label: "Südamerika" },
+  { value: "4", label: "Mitteleuropa" },
+  { value: "5", label: "Ostaustralien" },
+  { value: "6", label: "Nordafrika" },
+  { value: "7", label: "Westaustralien" },
+  { value: "8", label: "Nordeuropa" },
+  { value: "9", label: "Südeuropa" },
+];
 
 const norm = (s) => String(s || "").toLowerCase().replace(/[^a-z0-9]/g, "");
 
@@ -157,7 +212,7 @@ const emptyForm = {
   author_lastname: "",
   author_firstname: "",
   name_display: "",
-  author_nationality: "",
+  author_nationality: DEFAULT_AUTHOR_NATIONALITY,
   place_of_birth: "",
   male_female: "",
   published_titles: "",
@@ -184,6 +239,15 @@ const emptyForm = {
   isbn10: "",
   original_language: "",
   comment: "",
+  genre_id: "",
+  sub_genre_id: "",
+  year_first_published: "",
+  action_continent: "",
+  action_country: "",
+  language: "",
+  author_death_date: "",
+  author_birth_date: "",
+  author_death_date_raw: "",
 };
 
 async function getImageFingerprint(id, primarySrc) {
@@ -369,7 +433,7 @@ export default function BookFormDesktop({
       author_lastname: toStr(pick(b, ["author_lastname", "author_last_name"])),
       author_firstname: toStr(pick(b, ["author_firstname", "author_first_name"])),
       name_display: toStr(pick(b, ["name_display", "author_name_display"])),
-      author_nationality: toStr(pick(b, ["author_nationality"])),
+      author_nationality: toStr(pick(b, ["author_nationality"])) || (isEdit ? "" : DEFAULT_AUTHOR_NATIONALITY),
       place_of_birth: toStr(pick(b, ["place_of_birth"])),
       male_female: toStr(pick(b, ["male_female"])),
       published_titles: toStr(pick(b, ["published_titles"])),
@@ -394,24 +458,28 @@ export default function BookFormDesktop({
       purchase_url: toStr(pick(b, ["purchase_url"])),
       isbn13: toStr(pick(b, ["isbn13"])),
       isbn10: toStr(pick(b, ["isbn10"])),
-      original_language: toStr(pick(b, ["original_language"])),
+      original_language: toStr(pick(b, ["original_language"])).toLowerCase(),
       comment: toStr(pick(b, ["comment"])),
+      genre_id: toStr(pick(b, ["genre_id"])),
+      sub_genre_id: toStr(pick(b, ["sub_genre_id"])),
+      year_first_published: toStr(pick(b, ["year_first_published", "first_publish_year"])),
+      action_continent: toStr(pick(b, ["action_continent"])),
+      action_country: toStr(pick(b, ["action_country"])),
+      language: toStr(pick(b, ["language"])).toLowerCase(),
+      author_birth_date: lifeDateForInput(toStr(pick(b, ["author_birth_date", "birth_date"])), toStr(pick(b, ["author_birth_date_precision"]))),
+      author_death_date: lifeDateForInput(toStr(pick(b, ["author_death_date", "death_date"])), toStr(pick(b, ["author_death_date_precision"]))),
     };
   }, [initialBook]);
 
   const [v, setV] = useState(initial);
+  // true, sobald die Nationalität von Hand geändert wurde (sonst ist "D" nur Vorbelegung)
+  const nationalityTouchedRef = useRef(false);
   const requestIdRef = useRef(null);
   const [busy, setBusy] = useState(false);
   const [isbnBusy, setIsbnBusy] = useState(false);
   const [msg, setMsg] = useState("");
   const [msgType, setMsgType] = useState("info"); // "success" | "error" | "info"
 
-  // "Found a barcode already used by another book" — logs a conflict
-  // observation after save, completely separate from the normal barcode
-  // assignment above. Never sent as payload.barcode, never touches
-  // book_barcodes/barcode_assignments.
-  const [conflictBarcode, setConflictBarcode] = useState("");
-  const [conflictNote, setConflictNote] = useState("");
 
   function showMsg(text, type = "info") {
     setMsg(text);
@@ -422,6 +490,36 @@ export default function BookFormDesktop({
   const [barcodePreviewErr, setBarcodePreviewErr] = useState("");
   const [barcodePreviewLoading, setBarcodePreviewLoading] = useState(false);
   const [extras, setExtras] = useState({});
+
+  // Genre (Fiction / Non-Fiction) + Subgenre lists from DB
+  const [genres, setGenres] = useState([]);       // { id, abbr, name }
+  const [subGenres, setSubGenres] = useState([]); // { id, genre_id, name, abbr }
+  useEffect(() => {
+    let alive = true;
+    fetch(`${API_ROOT}/api/public/sub-genres`)
+      .then((r) => r.json())
+      .then((data) => {
+        if (!alive || !Array.isArray(data)) return;
+        const gm = new Map();
+        for (const sg of data) {
+          if (sg?.genre_id != null && !gm.has(String(sg.genre_id))) {
+            gm.set(String(sg.genre_id), { id: String(sg.genre_id), abbr: sg.genre_abbr || "", name: sg.genre_name || sg.genre_abbr || "" });
+          }
+        }
+        setGenres([...gm.values()].sort((a, b) => a.name.localeCompare(b.name, "de")));
+        setSubGenres(
+          data
+            .map((sg) => ({ id: String(sg.id), genre_id: String(sg.genre_id), name: sg.name || sg.abbr || "", abbr: sg.abbr || "" }))
+            .sort((a, b) => a.name.localeCompare(b.name, "de"))
+        );
+      })
+      .catch((e) => console.error("[BookFormDesktop] sub-genres load failed", e));
+    return () => { alive = false; };
+  }, []);
+  const visibleSubGenres = useMemo(
+    () => (v.genre_id ? subGenres.filter((sg) => sg.genre_id === String(v.genre_id)) : subGenres),
+    [subGenres, v.genre_id]
+  );
   const [existingMatches, setExistingMatches] = useState([]);
   const [existingMatch, setExistingMatch] = useState(null);
   const [hoveredMatch, setHoveredMatch] = useState(null);
@@ -452,6 +550,7 @@ export default function BookFormDesktop({
 
   useEffect(() => {
     setV(initial);
+    nationalityTouchedRef.current = false;
     setExistingMatches([]);
     setExistingMatch(null);
     setHoveredMatch(null);
@@ -767,7 +866,7 @@ export default function BookFormDesktop({
         title_keyword_position: prev.title_keyword_position || kw.pos || "",
         pages: prev.pages || toStr(s.pages),
         purchase_url: prev.purchase_url || s.purchase_url || s.purchaseUrl || s.url || "",
-        original_language: prev.original_language || s.original_language || s.language || "",
+        original_language: prev.original_language || ((m) => (/^[a-z]{2}$/.test(m) ? m : ""))(String(s.original_language || s.language || "").trim().toLowerCase().replace(/^(eng)$/, "en").replace(/^(ger|deu)$/, "de").replace(/^(fre|fra)$/, "fr").replace(/^(spa)$/, "es").replace(/^(ita)$/, "it")),
         author_id: prev.author_id || s.author_id || "",
         author_lastname: prev.author_lastname || s.author_lastname || last || "",
         author_firstname: prev.author_firstname || s.author_firstname || first || "",
@@ -821,7 +920,20 @@ if (pages == null || pages < 0) {
     if (wCm !== null) payload.width_cm = wCm;
     if (hCm !== null) payload.height_cm = hCm;
 
+    {
+      const dd = String(v.author_death_date || "").trim();
+      if (dd && !DEATH_DATE_RE.test(dd)) throw new Error("Todesdatum: z. B. 1999 oder 03.05.1999");
+      const bd = String(v.author_birth_date || "").trim();
+      if (bd && !DEATH_DATE_RE.test(bd)) throw new Error("Geburtsdatum: z. B. 12.04.1947 oder nur 1947");
+      const ol = String(v.original_language || "").trim();
+      if (ol && !/^[a-z]{2}$/.test(ol)) throw new Error(`Originalsprache „${ol}“ ungültig – bitte aus der Liste wählen (2-Buchstaben-Code).`);
+    }
+
     const strings = [
+      "action_country",
+      "language",
+      "author_birth_date",
+      "author_death_date",
       "author_lastname",
       "author_firstname",
       "name_display",
@@ -849,6 +961,12 @@ if (pages == null || pages < 0) {
       } else if (next !== prev) {
         payload[k] = next;
       }
+    }
+
+    if (!isEdit && !nationalityTouchedRef.current && String(v.author_nationality || "").trim() === DEFAULT_AUTHOR_NATIONALITY) {
+      // nur Vorbelegung: Backend setzt "D" nur, wenn der Autor noch keine Nationalität hat
+      delete payload.author_nationality;
+      payload.author_nationality_default = DEFAULT_AUTHOR_NATIONALITY;
     }
 
     const nextAuthorId = String(v.author_id || "").trim() || null;
@@ -885,6 +1003,10 @@ if (pages == null || pages < 0) {
       "chapters",
       "published_titles",
       "number_of_millionsellers",
+      "genre_id",
+      "sub_genre_id",
+      "year_first_published",
+      "action_continent",
     ];
     for (const k of ints) {
       const raw = String(v[k] ?? "").trim();
@@ -970,30 +1092,12 @@ if (pages == null || pages < 0) {
         successMsg += ` · Zugewiesener Barcode: ${assignedBarcode}`;
       }
 
-      const foundBarcode = String(conflictBarcode || "").trim();
-      if (!isEdit && foundBarcode) {
-        const newId = saved?.id || saved?._id;
-        try {
-          await recordBarcodeConflict(newId, {
-            barcode: foundBarcode,
-            note: String(conflictNote || "").trim() || undefined,
-          });
-          successMsg += ` · Barcode-Fund "${foundBarcode}" ist schon vergeben und wurde als Konflikt vermerkt (ungelöst)` +
-            (assignedBarcode ? ` – bitte ${assignedBarcode} ins Buch kleben.` : ".");
-        } catch (conflictErr) {
-          // Book itself is already saved successfully -- don't lose that.
-          // Just surface that the conflict note failed separately.
-          successMsg += ` · ⚠ Barcode-Fund "${foundBarcode}" konnte NICHT vermerkt werden: ${conflictErr?.message || conflictErr}`;
-        }
-      }
 
       showMsg(successMsg, "success");
       if (!isEdit) {
-        setV({ ...emptyForm });
+        setV({ ...emptyForm }); nationalityTouchedRef.current = false;
         setExistingMatches([]);
         setExistingMatch(null);
-        setConflictBarcode("");
-        setConflictNote("");
       }
     } catch (err) {
       console.error("Buch konnte nicht gespeichert werden", err);
@@ -1123,6 +1227,46 @@ if (pages == null || pages < 0) {
 
 .bfd-top-frame + .bfd-row {
   margin-top: 0 !important;
+}
+
+.bfd-stack {
+  flex: 0 0 auto;
+  align-self: stretch;
+  display: flex;
+  flex-direction: column;
+  width: clamp(160px, 16vw, 260px);
+  border: 3px solid rgba(0,0,0,.65);
+  border-left: 0;
+  box-sizing: border-box;
+}
+
+.bfd-stack-field {
+  flex: 1 1 0;
+  min-height: 0;
+  width: 100%;
+  font: inherit;
+  font-size: clamp(16px, 1.6vw, 24px);
+  font-weight: 900;
+  color: #333;
+  background: #fff;
+  border: 0;
+  border-radius: 0;
+  padding: 0 0.4em;
+  box-sizing: border-box;
+  cursor: pointer;
+}
+
+.bfd-stack--compact .bfd-stack-field {
+  font-size: clamp(12px, 1.15vw, 18px);
+}
+
+.bfd-stack-field::placeholder {
+  color: rgba(0,0,0,.55);
+  font-weight: 900;
+}
+
+.bfd-stack-field + .bfd-stack-field {
+  border-top: 3px solid rgba(0,0,0,.65);
 }
 
 .bfd-top-fill {
@@ -1285,7 +1429,7 @@ if (pages == null || pages < 0) {
               disabled={busy}
               onClick={() => {
                 requestIdRef.current = null;
-                setV({ ...emptyForm });
+                setV({ ...emptyForm }); nationalityTouchedRef.current = false;
                 setExistingMatch(null);
                 setExistingMatches([]);
                 setTitleAuthorMatches([]);
@@ -1477,11 +1621,50 @@ if (pages == null || pages < 0) {
           ? <BookCodeVisual code={barcodePreview.candidate} />
           : ""}
     </span>
+
+    <div className="bfd-genre bfd-stack">
+      <select
+        className="bfd-stack-field"
+        value={v.genre_id}
+        disabled={busy}
+        aria-label="Genre (Fiction / Non-Fiction)"
+        title="Genre (Fiction / Non-Fiction)"
+        onChange={(e) => {
+          const g = e.target.value;
+          setV((prev) => {
+            const keepSub = g && subGenres.some((sg) => sg.id === String(prev.sub_genre_id) && sg.genre_id === g);
+            return { ...prev, genre_id: g, sub_genre_id: keepSub ? prev.sub_genre_id : "" };
+          });
+        }}
+      >
+        <option value="">Genre</option>
+        {genres.map((g) => (
+          <option key={g.id} value={g.id}>{g.name}</option>
+        ))}
+      </select>
+      <select
+        className="bfd-stack-field"
+        value={v.sub_genre_id}
+        disabled={busy}
+        aria-label="Subgenre"
+        title="Subgenre"
+        onChange={(e) => {
+          const id = e.target.value;
+          const sg = subGenres.find((x) => x.id === id);
+          setV((prev) => ({ ...prev, sub_genre_id: id, genre_id: sg ? sg.genre_id : prev.genre_id }));
+        }}
+      >
+        <option value="">Subgenre</option>
+        {visibleSubGenres.map((sg) => (
+          <option key={sg.id} value={sg.id}>{sg.name}</option>
+        ))}
+      </select>
+    </div>
   </div>
 
   <div className="bfd-row bfd-tight-row">
     <div style={{ display: "flex", alignItems: "stretch", width: "100%", gap: "0.1em" }}>
-      <input {...fieldProps("isbn10", "ISBN-10", { className: "bfd-input", style: { flex: "1 1 0", minWidth: 0, width: 0 } })} />
+      <input {...fieldProps("isbn10", "ISBN-10", { className: "bfd-input", style: { flex: "0 0 auto", width: "calc(10ch + 0.06em + 6px)", minWidth: 0 } })} />
       <button
         type="button"
         className="bfd-btn"
@@ -1492,11 +1675,115 @@ if (pages == null || pages < 0) {
       >
         {isbnBusy ? "…" : "🔍"}
       </button>
+
+      <div className="bfd-stack" style={{ flex: "1 1 0", minWidth: 0, width: "auto", borderLeft: "3px solid rgba(0,0,0,.65)" }}>
+        <input
+          className="bfd-stack-field"
+          value={v.year_first_published}
+          placeholder="Erscheinungsjahr"
+          inputMode="numeric"
+          maxLength={4}
+          disabled={busy}
+          aria-label="Erscheinungsjahr"
+          title="Erscheinungsjahr (Erstveröffentlichung)"
+          onChange={(e) => setField("year_first_published", String(e.target.value || "").replace(/\D/g, "").slice(0, 4))}
+        />
+        <select
+          className="bfd-stack-field"
+          value={v.action_continent}
+          disabled={busy}
+          aria-label="Region"
+          title="Region (Handlungsort)"
+          onChange={(e) => setField("action_continent", e.target.value)}
+        >
+          <option value="">Region</option>
+          {REGION_OPTIONS.map((r) => (
+            <option key={r.value} value={r.value}>{r.label}</option>
+          ))}
+        </select>
+        <input
+          className="bfd-stack-field"
+          value={v.action_country}
+          placeholder="Land"
+          disabled={busy}
+          maxLength={100}
+          aria-label="Land"
+          title="Land (Handlungsort)"
+          onChange={(e) => setField("action_country", e.target.value)}
+        />
+      </div>
     </div>
   </div>
 
   <div className="bfd-row bfd-tight-row">
-    <input {...fieldProps("isbn13", "ISBN-13", { className: "bfd-input bfd-input-wide" })} />
+    <div style={{ display: "flex", alignItems: "stretch", width: "100%" }}>
+      <input {...fieldProps("isbn13", "ISBN-13", { className: "bfd-input", style: { flex: "0 0 auto", width: "calc(13ch + 0.06em + 6px)", minWidth: 0 } })} />
+
+      <div className="bfd-stack bfd-stack--compact" style={{ flex: "1 1 0", minWidth: 0, width: "auto", borderLeft: 0 }}>
+        <select
+          className="bfd-stack-field"
+          value={v.language}
+          disabled={busy}
+          aria-label="Sprache des Buchs"
+          title="Sprache des Buchs (leer = Deutsch bei Neuanlage)"
+          onChange={(e) => setField("language", e.target.value)}
+        >
+          <option value="">Sprache</option>
+          {v.language && !LANGUAGE_OPTIONS.some((l) => l.value === v.language) ? (
+            <option value={v.language}>{v.language}</option>
+          ) : null}
+          {LANGUAGE_OPTIONS.map((l) => (
+            <option key={l.value} value={l.value}>{l.label}</option>
+          ))}
+        </select>
+        <select
+          className="bfd-stack-field"
+          value={v.original_language}
+          disabled={busy}
+          aria-label="Originalsprache"
+          title="Originalsprache"
+          onChange={(e) => setField("original_language", e.target.value)}
+        >
+          <option value="">Originalsprache</option>
+          {v.original_language && !LANGUAGE_OPTIONS.some((l) => l.value === v.original_language) ? (
+            <option value={v.original_language}>{v.original_language}</option>
+          ) : null}
+          {LANGUAGE_OPTIONS.map((l) => (
+            <option key={l.value} value={l.value}>{l.label}</option>
+          ))}
+        </select>
+        <input
+          className="bfd-stack-field"
+          value={v.author_nationality}
+          placeholder="Nationalität Autor"
+          disabled={busy}
+          maxLength={60}
+          aria-label="Nationalität des Autors"
+          title="Nationalität des Autors (Land, z. B. D, RCH, USA)"
+          onChange={(e) => { nationalityTouchedRef.current = true; setField("author_nationality", e.target.value); }}
+        />
+        <input
+          className="bfd-stack-field"
+          value={v.author_birth_date}
+          placeholder="Geburtsdatum Autor"
+          disabled={busy}
+          maxLength={10}
+          aria-label="Geburtsdatum des Autors"
+          title="Geburtsdatum des Autors – z. B. 12.04.1947 oder nur 1947"
+          onChange={(e) => setField("author_birth_date", String(e.target.value || "").replace(/[^\d.-]/g, "").slice(0, 10))}
+        />
+        <input
+          className="bfd-stack-field"
+          value={v.author_death_date}
+          placeholder="Todesdatum Autor"
+          disabled={busy}
+          maxLength={10}
+          aria-label="Todesdatum des Autors"
+          title="Todesdatum des Autors – z. B. 03.05.1999 oder nur 1999 (leer = lebt)"
+          onChange={(e) => setField("author_death_date", String(e.target.value || "").replace(/[^\d.-]/g, "").slice(0, 10))}
+        />
+      </div>
+    </div>
   </div>
 
   <div className="bfd-row bfd-tight-row">
@@ -1618,30 +1905,6 @@ if (pages == null || pages < 0) {
         </div>
       </div>
 
-      {!isEdit ? (
-        <div className="bfd-row" style={{ flexDirection: "column", gap: 6, border: "2px dashed #d08a00", padding: 10, marginBottom: 12 }}>
-          <strong style={{ fontSize: 16 }}>Barcode-Fund (bereits vergeben / Konflikt)</strong>
-          <span style={{ fontSize: 13, color: "#666" }}>
-            Nur ausfüllen, wenn auf dem physischen Buch ein Barcode klebt, der laut System schon einem
-            anderen Buch zugeordnet ist. Wird als ungelöster Konflikt vermerkt — verändert die normale
-            Barcode-Zuweisung oben NICHT.
-          </span>
-          <input
-            className="bfd-input"
-            placeholder="Gefundener Barcode, z. B. dik030"
-            value={conflictBarcode}
-            disabled={busy}
-            onChange={(e) => setConflictBarcode(e.target.value)}
-          />
-          <input
-            className="bfd-input"
-            placeholder="Notiz (optional)"
-            value={conflictNote}
-            disabled={busy}
-            onChange={(e) => setConflictNote(e.target.value)}
-          />
-        </div>
-      ) : null}
 
       <div className="bfd-row">
         <button className="bfd-btn bfd-btn-primary" disabled={busy} type="submit">
@@ -1654,7 +1917,7 @@ if (pages == null || pages < 0) {
           disabled={busy}
           onClick={() => {
             requestIdRef.current = null;
-            setV({ ...emptyForm });
+            setV({ ...emptyForm }); nationalityTouchedRef.current = false;
             setExistingMatch(null);
             setExistingMatches([]);
             showMsg("", "info");

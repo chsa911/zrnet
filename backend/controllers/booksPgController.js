@@ -385,6 +385,10 @@ cover_url: null,
       male_female: row.male_female ?? null,
       published_titles: row.published_titles ?? null,
       number_of_millionsellers: row.number_of_millionsellers ?? null,
+      author_birth_date: row.author_birth_date ?? null,
+      author_death_date: row.author_death_date ?? null,
+      author_birth_date_precision: row.author_birth_date_precision ?? null,
+      author_death_date_precision: row.author_death_date_precision ?? null,
 genre_id: row.genre_id ?? null,
 sub_genre_id: row.sub_genre_id ?? null,
 
@@ -483,7 +487,11 @@ action_country: row.action_country ?? null,
     a.place_of_birth AS place_of_birth,
     a.male_female AS male_female,
     a.published_titles AS published_titles,
-    a.number_of_millionsellers AS number_of_millionsellers
+    a.number_of_millionsellers AS number_of_millionsellers,
+    a.birth_date::text AS author_birth_date,
+    a.death_date::text AS author_death_date,
+    to_jsonb(a) ->> 'birth_date_precision' AS author_birth_date_precision,
+    to_jsonb(a) ->> 'death_date_precision' AS author_death_date_precision
   `;
 
   const PUBLISHER_RESOLVE_SELECT_SQL = `
@@ -526,6 +534,86 @@ action_country: row.action_country ?? null,
     return out;
   }
 
+  /* ------------------- author life dates (birth year / death date) ------------------ */
+
+  const _colTypeCache = new Map(); // "table.col" => { ts, type }
+
+  async function getColumnType(db, table, col) {
+    const key = `${table}.${col}`;
+    const now = Date.now();
+    const cached = _colTypeCache.get(key);
+    if (cached && now - cached.ts < 5 * 60 * 1000) return cached.type;
+    const { rows } = await db.query(
+      `SELECT data_type FROM information_schema.columns
+        WHERE table_schema = 'public' AND table_name = $1 AND column_name = $2`,
+      [table, col]
+    );
+    const type = rows[0]?.data_type ? String(rows[0].data_type).toLowerCase() : null;
+    _colTypeCache.set(key, { ts: now, type });
+    return type;
+  }
+
+  // "1947" | "1999-05-03" | "3.5.1999" | "03.05.1999" -> { y, m, d } (m/d may be null)
+  function parseLooseDate(v) {
+    const t = String(v ?? "").trim();
+    if (!t) return null;
+    let m;
+    if ((m = t.match(/^(\d{4})$/))) return { y: +m[1], m: null, d: null };
+    if ((m = t.match(/^(\d{4})-(\d{1,2})(?:-(\d{1,2}))?/))) return { y: +m[1], m: +m[2], d: m[3] ? +m[3] : null };
+    if ((m = t.match(/^(\d{1,2})\.(\d{1,2})\.(\d{4})$/))) return { y: +m[3], m: +m[2], d: +m[1] };
+    if ((m = t.match(/^(\d{1,2})\.(\d{4})$/))) return { y: +m[2], m: +m[1], d: null };
+    const err = new Error(`invalid date "${v}"`);
+    err.status = 400;
+    err.code = "invalid_author_date";
+    throw err;
+  }
+
+  function lifeDateForColumn(parsed, type) {
+    if (!parsed) return null;
+    const pad = (n) => String(n).padStart(2, "0");
+    if (/int|numeric/.test(type || "")) return parsed.y;
+    const iso = `${parsed.y}-${pad(parsed.m || 1)}-${pad(parsed.d || 1)}`;
+    if (/date|timestamp/.test(type || "")) return iso;
+    // text-like column: keep only the precision we actually know
+    if (!parsed.m) return String(parsed.y);
+    if (!parsed.d) return `${parsed.y}-${pad(parsed.m)}`;
+    return iso;
+  }
+
+  // Writes authors.birth_date / authors.death_date for the author of the given book.
+  // Only touches fields present in the request body ("" clears).
+  async function applyAuthorLifeDates(db, bookId, src) {
+    const b = src || {};
+    // author_birth_date: genaues Datum oder nur Jahr; author_birth_year: alt, nur Jahr
+    const birthRaw = b.author_birth_date !== undefined ? b.author_birth_date : b.author_birth_year;
+    const hasBirth = birthRaw !== undefined;
+    const hasDeath = b.author_death_date !== undefined;
+    if (!bookId || (!hasBirth && !hasDeath)) return;
+
+    const authorCols = await getColumns(db, "authors");
+    const sets = [];
+    const params = [bookId];
+    const precisionOf = (p) => (!p ? null : !p.m ? "year" : !p.d ? "month" : "day");
+    const addLifeDate = async (col, raw) => {
+      if (!authorCols.has(col)) return;
+      const parsed = parseLooseDate(raw);
+      params.push(lifeDateForColumn(parsed, await getColumnType(db, "authors", col)));
+      sets.push(`${col} = $${params.length}`);
+      if (authorCols.has(`${col}_precision`)) {
+        params.push(precisionOf(parsed));
+        sets.push(`${col}_precision = $${params.length}::public.date_precision`);
+      }
+    };
+    if (hasBirth) await addLifeDate("birth_date", birthRaw);
+    if (hasDeath) await addLifeDate("death_date", b.author_death_date);
+    if (!sets.length) return;
+    await db.query(
+      `UPDATE public.authors SET ${sets.join(", ")}
+        WHERE id = (SELECT author_id FROM public.books WHERE id = $1::uuid)`,
+      params
+    );
+  }
+
   /* ------------------------- author / publisher helpers ---------------------- */
 
   function normalizeKey(v) {
@@ -560,6 +648,9 @@ action_country: row.action_country ?? null,
     const column = String(err?.column || "");
 
     // our own validation errors (e.g. normalizeCopyLanguage)
+    if (code === "invalid_author_date") {
+      return res.status(400).json({ error: "invalid_author_date", message: "Ungültiges Datum beim Autor (z. B. 1947 oder 03.05.1999)." });
+    }
     if (code === "invalid_language") {
       return res.status(400).json({ error: "invalid_language", message: "Ungültige Sprache (z. B. de, en, fr)." });
     }
@@ -658,6 +749,7 @@ action_country: row.action_country ?? null,
       numberOfMillionSellers,
       maleFemale,
       authorNationality,
+      nationalityDefault, // nur setzen, wenn der Autor noch keine Nationalität hat
       placeOfBirth,
     }
   ) {
@@ -676,6 +768,7 @@ action_country: row.action_country ?? null,
     const effMillions = normalizeInt(numberOfMillionSellers);
     const effMaleFemale = normalizeStr(maleFemale);
     const effNationality = normalizeStr(authorNationality);
+    const effNationalityDefault = effNationality ? null : normalizeStr(nationalityDefault);
     const effPlaceOfBirth = normalizeStr(placeOfBirth);
    const k = normalizeKey(key || effDisplay || effLast);
     if (!authorUuid && !k) return null;
@@ -695,7 +788,7 @@ action_country: row.action_country ?? null,
           published_titles = COALESCE($5, published_titles),
 number_of_millionsellers = COALESCE($6, number_of_millionsellers),
 male_female = COALESCE($7, male_female),
-author_nationality = COALESCE($8, author_nationality),
+author_nationality = COALESCE($8, author_nationality, $10),
 place_of_birth = COALESCE($9, place_of_birth)
         WHERE id = $1::uuid
         RETURNING ${baseCols}
@@ -710,6 +803,7 @@ place_of_birth = COALESCE($9, place_of_birth)
   effMaleFemale,
   effNationality,
   effPlaceOfBirth,
+  effNationalityDefault,
 ]
       );
       return rows[0] || null;
@@ -794,7 +888,7 @@ place_of_birth = COALESCE($9, place_of_birth)
           published_titles = COALESCE(EXCLUDED.published_titles, public.authors.published_titles),
           number_of_millionsellers = COALESCE(EXCLUDED.number_of_millionsellers, public.authors.number_of_millionsellers),
           male_female = COALESCE(EXCLUDED.male_female, public.authors.male_female),
-          author_nationality = COALESCE(EXCLUDED.author_nationality, public.authors.author_nationality),
+          author_nationality = COALESCE($10, public.authors.author_nationality, EXCLUDED.author_nationality),
           place_of_birth = COALESCE(EXCLUDED.place_of_birth, public.authors.place_of_birth)
         RETURNING ${baseCols}
         `,
@@ -806,8 +900,9 @@ place_of_birth = COALESCE($9, place_of_birth)
           effPublished,
           effMillions,
           effMaleFemale,
-          effNationality,
+          effNationality ?? effNationalityDefault,
           effPlaceOfBirth,
+          effNationality,
         ]
       );
       return rows[0] || null;
@@ -1885,6 +1980,7 @@ return res.json({
           numberOfMillionSellers: authorMillionsRaw,
           maleFemale: authorMaleFemaleRaw,
           authorNationality: authorNationalityRaw,
+          nationalityDefault: normalizeStr(req.body?.author_nationality_default),
           placeOfBirth: authorPlaceOfBirthRaw,
         });
 
@@ -1917,6 +2013,8 @@ sub_genre_id: normalizeInt(body.sub_genre_id),
           chapters: normalizeChapters(body.chapters),
           last_word: normalizeLastWord(body.last_word),
           year_first_published: normalizeInt(body.year_first_published ?? body.first_publish_year),
+          action_continent: normalizeInt(body.action_continent),
+          action_country: normalizeStr(body.action_country),
           width: Number.isFinite(wMm) ? wMm : null,
           height: Number.isFinite(hMm) ? hMm : null,
 
@@ -1964,6 +2062,8 @@ sub_genre_id: normalizeInt(body.sub_genre_id),
 
         const bookId = insertedRow?.id;
         if (!bookId) throw new Error("book_insert_failed");
+
+        await applyAuthorLifeDates(client, bookId, req.body);
 
         if (bookId && cols.has("home_featured_slot") && homeFeaturedSlot) {
           await setHomeFeaturedSlotTx(client, bookId, homeFeaturedSlot);
@@ -2164,6 +2264,7 @@ if (body.sub_genre_id !== undefined && cols.has("sub_genre_id")) {
           numberOfMillionSellers: authorMillionsRaw,
           maleFemale: authorMaleFemaleRaw,
           authorNationality: authorNationalityRaw,
+          nationalityDefault: normalizeStr(req.body?.author_nationality_default),
           placeOfBirth: authorPlaceOfBirthRaw,
         });
         if (cols.has("author_id")) updates.author_id = authorRow?.id ?? effectiveAuthorId ?? null;
@@ -2249,6 +2350,8 @@ if (body.sub_genre_id !== undefined && cols.has("sub_genre_id")) {
       if ((body.year_first_published ?? body.first_publish_year) !== undefined) {
         updates.year_first_published = normalizeInt(body.year_first_published ?? body.first_publish_year);
       }
+      if (body.action_continent !== undefined) updates.action_continent = normalizeInt(body.action_continent);
+      if (body.action_country !== undefined) updates.action_country = normalizeStr(body.action_country);
 
       if (body.width_cm !== undefined) {
         const w = toNum(body.width_cm);
@@ -2289,6 +2392,8 @@ if (body.sub_genre_id !== undefined && cols.has("sub_genre_id")) {
           [...values, id]
         );
       }
+
+      await applyAuthorLifeDates(client, id, req.body);
 
       if (hasHomeFeaturedSlot && cols.has("home_featured_slot")) {
         await setHomeFeaturedSlotTx(client, id, nextHomeFeaturedSlot);
@@ -2469,6 +2574,7 @@ if (
     numberOfMillionSellers: authorMillionsRaw,
     maleFemale: authorMaleFemaleRaw,
     authorNationality: authorNationalityRaw,
+    nationalityDefault: normalizeStr(req.body?.author_nationality_default),
     placeOfBirth: authorPlaceOfBirthRaw,
   });
 
@@ -2544,6 +2650,8 @@ if (
       if ((body.year_first_published ?? body.first_publish_year) !== undefined) {
         updates.year_first_published = normalizeInt(body.year_first_published ?? body.first_publish_year);
       }
+      if (body.action_continent !== undefined) updates.action_continent = normalizeInt(body.action_continent);
+      if (body.action_country !== undefined) updates.action_country = normalizeStr(body.action_country);
 
       if (body.width_cm !== undefined) {
         const w = toNum(body.width_cm);
@@ -2601,6 +2709,8 @@ if (
           [...values, id]
         );
       }
+
+      await applyAuthorLifeDates(client, id, req.body);
 
       if (hasHomeFeaturedSlot && cols.has("home_featured_slot")) {
         await setHomeFeaturedSlotTx(client, id, nextHomeFeaturedSlot);
@@ -2833,6 +2943,7 @@ if ((patch.sub_genre_abbr ?? patch.subgenre_abbr) !== undefined) {
           numberOfMillionSellers: authorMillionsRaw,
           maleFemale: authorMaleFemaleRaw,
           authorNationality: authorNationalityRaw,
+          nationalityDefault: normalizeStr(req.body?.author_nationality_default),
           placeOfBirth: authorPlaceOfBirthRaw,
         });
         if (cols.has("author_id")) updates.author_id = authorRow?.id ?? effectiveAuthorId ?? null;
@@ -2919,6 +3030,8 @@ if ((patch.sub_genre_abbr ?? patch.subgenre_abbr) !== undefined) {
       if ((patch.year_first_published ?? patch.first_publish_year) !== undefined) {
         updates.year_first_published = normalizeInt(patch.year_first_published ?? patch.first_publish_year);
       }
+      if (patch.action_continent !== undefined) updates.action_continent = normalizeInt(patch.action_continent);
+      if (patch.action_country !== undefined) updates.action_country = normalizeStr(patch.action_country);
 
       if (patch.width_cm !== undefined) {
         const w = toNum(patch.width_cm);
@@ -3069,6 +3182,8 @@ if ((patch.sub_genre_abbr ?? patch.subgenre_abbr) !== undefined) {
           [...values, id]
         );
       }
+
+      await applyAuthorLifeDates(client, id, req.body);
 
       if (hasHomeFeaturedSlot && cols.has("home_featured_slot")) {
         await setHomeFeaturedSlotTx(client, id, nextHomeFeaturedSlot);

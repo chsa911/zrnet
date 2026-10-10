@@ -190,18 +190,21 @@ function scoreCandidate(c, b, byIsbn) {
     const titleWords = norm(c.title).split(" ");
     const ok = kp.filter((k) => titleWords[k.pos - 1] && (titleWords[k.pos - 1] === k.word || titleWords[k.pos - 1].startsWith(k.word.slice(0, -1)))).length;
     if (ok === kp.length) { score += 15; why.push("Positionen passen"); }
-    else if (ok === 0) { score -= 10; why.push("Positionen passen nicht"); }
   }
   // author
-  const last = norm(b.author_last);
-  if (last) {
-    if (c.authors.some((a) => norm(a).split(" ").includes(last.split(" ").pop()))) { score += 30; why.push("Autor"); }
+  const PARTICLES = new Set(["de", "da", "del", "von", "van", "der", "den", "le", "la", "di", "du", "y"]);
+  const lastParts = norm(b.author_last).split(" ").filter((x) => x.length > 1 && !PARTICLES.has(x));
+  if (lastParts.length) {
+    const ok = c.authors.some((a) => { const aw = norm(a).split(" "); return lastParts.every((p) => aw.includes(p)); });
+    if (ok) { score += 30; why.push("Autor"); }
     else { score -= 25; why.push("anderer Autor"); }
   }
+  // Fremdsprachige Ausgaben (z. B. ungarisch) abwerten; de/en bleiben neutral
+  if (c.lang && !/^(de|ger|deu|en|eng|)$/i.test(c.lang.trim())) { score -= 25; why.push(`Sprache ${c.lang}`); }
   // pages
   if (b.pages && c.pages) {
     const d = Math.abs(c.pages - b.pages) / b.pages;
-    if (d <= 0.05) { score += 20; why.push("Seiten"); }
+    if (d <= 0.05) { score += 20; why.push("Seiten"); c._pagesOk = true; }
     else if (d <= 0.15) { score += 10; why.push("Seiten ~"); }
     else if (d > 0.35) { score -= 10; why.push("Seiten weit weg"); }
   }
@@ -321,12 +324,14 @@ async function suggest() {
       newTitle = best.title;
       if (norm(newTitle) === norm(b.title_display)) status = "unveraendert";
       else status = best.score >= 85 ? "auto" : best.score >= 55 ? "pruefen" : "kein_treffer";
+      const oneWord = words(b.title_display).length === 1;
+      if (status === "auto" && oneWord && !/Seiten(,|$)/.test(best.why) && !best.why.startsWith("ISBN")) status = "pruefen";
       if (status === "kein_treffer") newTitle = "";
     }
     stats[status]++;
     results.set(k, grp.map((bk) => [
       status === "auto" ? "ja" : "nein", status, best?.score ?? "", bk.title_display, newTitle, best?.subtitle || "",
-      bk.author_full || "", (best?.authors || []).join(", "), bk.pages || "", best?.pages || "", bk.isbn13 || "",
+      bk.author_full || "", (best?.authors || []).map((a) => a.replace(/\s*\[[^\]]*\]/g, "").trim()).filter((a, i, arr) => a && arr.indexOf(a) === i).join("; "), bk.pages || "", best?.pages || "", bk.isbn13 || "",
       bk.isbn13 ? "" : (best?.isbn13 || ""), best?.source || "", best?.why || "", stubReasons(bk).join(","), bk.raw_title || "", bk.id,
     ].map(csvCell).join(";")));
     if (++n % 25 === 0 || n === keys.length) {
