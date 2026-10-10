@@ -1,7 +1,8 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import AdminNavRow from "../components/AdminNavRow";
-import { listBooks, updateBook } from "../api/books";
+import { getBook, listBooks, updateBook } from "../api/books";
+import BookForm from "../components/BookFormSwitcher";
 
 import { buildPhysCode, formatPhysCode, isValidPageNumPos, PAGE_NUM_POS_HELP } from "../utils/pageNumPos";
 
@@ -28,7 +29,8 @@ const EDIT_KEYS = ["pages", "width_cm", "height_cm", "page_num_pos", "chapters",
 const LANG_RE = /^[a-z]{2}(-[a-z]{2})?$/i;
 const LANG_SUGGEST = ["de", "en", "fr", "es", "it", "nl", "pt", "sv", "da", "no", "pl", "ru", "tr", "la"];
 const SIZE_TOL_MM = 2;
-const GRID = "120px 80px 80px 80px 56px 64px 140px 60px 175px 48px minmax(160px, 1fr)";
+const API_ROOT = import.meta.env.VITE_API_ROOT || "";
+const GRID = "120px 80px 80px 80px 56px 64px 140px 60px 76px 175px 48px 40px 40px minmax(160px, 1fr)";
 
 function str(v) {
   return v === null || v === undefined ? "" : String(v);
@@ -87,7 +89,7 @@ function writePref(key, v) {
 }
 
 // ── eine Zeile ──────────────────────────────────────────────────────────────
-const CheckRow = React.memo(function CheckRow({ book, index, registerFirst, focusRow, onSaved, muted = false, extraHint = null }) {
+const CheckRow = React.memo(function CheckRow({ book, index, registerFirst, focusRow, onSaved, onEdit, onAbandoned, genres = [], muted = false, extraHint = null }) {
   const [draft, setDraft] = useState(() => draftWithDefaults(book));
   const touchedRef = useRef(false); // Autosave nur, wenn in der Zeile wirklich gearbeitet wurde
   const [saving, setSaving] = useState(false);
@@ -186,6 +188,60 @@ const CheckRow = React.memo(function CheckRow({ book, index, registerFirst, focu
     }
   }
 
+  // Genre (Fiction / Nonfiction …) – wie in Search & Update: gilt für alle
+  // Exemplare desselben Titels und wird sofort gespeichert.
+  async function saveGenre(abbr) {
+    if (savingRef.current || !abbr) return;
+    if (!String(book?.title_display || "").trim()) {
+      setRowErr("Kein Titel – Genre über ✎ setzen");
+      return;
+    }
+    const genre = genres.find((g) => g.abbr === abbr);
+    savingRef.current = true;
+    setSaving(true);
+    setRowErr("");
+    try {
+      const res = await fetch(`${API_ROOT}/api/admin/books/by-title/genre`, {
+        method: "PATCH",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title_display: book.title_display, author_id: book.author_id ?? null, genre_abbr: abbr }),
+      });
+      const json = await res.json().catch(() => null);
+      if (!res.ok) throw new Error(json?.detail || json?.error || `HTTP ${res.status}`);
+      if (!json?.updated) throw new Error("Kein Buch aktualisiert");
+      onSaved(book.id || book._id, { genre_abbr: abbr, genre_id: genre?.id ?? null, genre_name: genre?.genre_display ?? null, subgenre_abbr: null, sub_genre_id: null, subgenre_name: null });
+    } catch (e) {
+      setRowErr(`Genre: ${e?.message || "Fehler"}`);
+    } finally {
+      savingRef.current = false;
+      setSaving(false);
+    }
+  }
+
+  // Buch als abgebrochen markieren (gibt den Barcode frei)
+  async function abandon() {
+    if (savingRef.current) return;
+    const label = `${book?.barcode || ""} ${book?.title_display ? "– " + book.title_display : ""}`.trim();
+    if (!window.confirm(`„${label}“ als abgebrochen (abandoned) markieren?\nDer Barcode wird dabei freigegeben.`)) return;
+    // offene Änderungen in der Zeile vorher sichern
+    if (dirty && !posInvalid && !langInvalid) {
+      const ok = await save();
+      if (!ok) return;
+    }
+    savingRef.current = true;
+    setSaving(true);
+    setRowErr("");
+    try {
+      await updateBook(book.id || book._id, { reading_status: "abandoned" });
+      onAbandoned(book.id || book._id);
+    } catch (e) {
+      setRowErr(errText(e));
+      savingRef.current = false;
+      setSaving(false);
+    }
+  }
+
   // Autosave: Fokus verlässt die Zeile (anderes Feld, Suchfeld, nächster Scan)
   function onRowBlur(e) {
     if (rowRef.current && e.relatedTarget && rowRef.current.contains(e.relatedTarget)) return;
@@ -260,11 +316,23 @@ const CheckRow = React.memo(function CheckRow({ book, index, registerFirst, focu
       {input("chapters", { inputMode: "numeric" })}
       {input("last_word", { placeholder: "Wort" })}
       {input("language", { maxLength: 5, placeholder: "de", list: "pc-lang-list" })}
+      <div className="pc-cell pc-genre" title={book?.genre_name || "Genre"}>
+        <select tabIndex={-1} value={book?.genre_abbr || ""} disabled={saving} onChange={(e) => saveGenre(e.target.value)}>
+          <option value="" disabled>—</option>
+          {genres.map((g) => <option key={g.abbr} value={g.abbr}>{g.abbr}</option>)}
+        </select>
+      </div>
       <div className={`pc-cell pc-mono pc-code ${preview ? "" : "is-incomplete"}`} title={book?.phys_code ? `gespeichert: ${formatPhysCode(book.phys_code)}` : "noch keine Nummer"}>
         {preview ? formatPhysCode(preview) : book?.phys_code ? formatPhysCode(book.phys_code) : "—"}
       </div>
       <button type="button" className={`pc-save ${dirty ? "is-dirty" : ""}`} onClick={save} disabled={saving} title={dirty ? `Speichern (${changed.join(", ")})` : "Geprüft"}>
         {saving ? "…" : dirty ? "💾" : "✓"}
+      </button>
+      <button type="button" tabIndex={-1} className="pc-act" onClick={() => onEdit(book)} disabled={saving} title="Alle Daten bearbeiten">
+        ✎
+      </button>
+      <button type="button" tabIndex={-1} className="pc-act pc-abandon" onClick={abandon} disabled={saving || book?.reading_status === "abandoned"} title="Als abgebrochen (abandoned) markieren">
+        ✗
       </button>
       <div className="pc-cell pc-hint">
         {extraHint}
@@ -298,6 +366,23 @@ export default function AdminBarcodeCheckPage() {
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState("");
   const [savedCount, setSavedCount] = useState(0);
+  const [editingBook, setEditingBook] = useState(null);
+  const [editLoading, setEditLoading] = useState(false);
+  const [genres, setGenres] = useState([]); // { id, abbr, genre_display }
+
+  useEffect(() => {
+    fetch(`${API_ROOT}/api/public/sub-genres`)
+      .then((r) => r.json())
+      .then((data) => {
+        if (!Array.isArray(data)) return;
+        const map = {};
+        data.forEach((sg) => {
+          if (sg.genre_abbr && !map[sg.genre_id]) map[sg.genre_id] = { id: sg.genre_id, abbr: sg.genre_abbr, genre_display: sg.genre_name };
+        });
+        setGenres(Object.values(map));
+      })
+      .catch(() => {});
+  }, []);
 
   const searchRef = useRef(null);
   const firstInputs = useRef({});
@@ -398,6 +483,31 @@ export default function AdminBarcodeCheckPage() {
     if (saved) setItems((list) => list.map((b) => ((b.id || b._id) === id ? { ...b, ...saved } : b)));
   }, []);
 
+  const onAbandoned = useCallback((id) => {
+    setSavedCount((n) => n + 1);
+    setItems((list) => list.filter((b) => (b.id || b._id) !== id));
+    setTotal((t) => Math.max(0, t - 1));
+  }, []);
+
+  const onEdit = useCallback(async (b) => {
+    const id = b?.id || b?._id;
+    if (!id) return;
+    setEditLoading(true);
+    try {
+      const full = await getBook(id);
+      setEditingBook(full && typeof full === "object" ? full : b);
+    } catch {
+      setEditingBook(b);
+    } finally {
+      setEditLoading(false);
+    }
+  }, []);
+
+  function closeEditor() {
+    setEditingBook(null);
+    setTimeout(() => searchRef.current?.focus(), 0);
+  }
+
   function submitSearch(e) {
     e.preventDefault();
     const v = searchText.trim();
@@ -422,7 +532,7 @@ export default function AdminBarcodeCheckPage() {
         .pc-bar select { font-size: 14px; padding: 6px; }
         .pc-meta { font-size: 13px; opacity: .8; margin-left: auto; }
         .pc-scroll { overflow-x: auto; border: 4px solid #666; }
-        .pc-table { min-width: 960px; }
+        .pc-table { min-width: 1200px; }
         .pc-head, .pc-row { display: grid; grid-template-columns: ${GRID}; align-items: stretch; }
         .pc-head { background: #e5e7eb; font-weight: 900; font-size: 13px; position: sticky; top: 0; z-index: 1; }
         .pc-head > div { padding: 6px; border-right: 1px solid #bbb; }
@@ -442,6 +552,16 @@ export default function AdminBarcodeCheckPage() {
         .pc-in.is-bad { background: #fca5a5; }
         .pc-save { border: 0; background: #f3f4f6; font-size: 18px; cursor: pointer; }
         .pc-save.is-dirty { background: #fbbf24; }
+        .pc-act { border: 0; border-left: 1px solid #eee; background: #f9fafb; font-size: 17px; cursor: pointer; }
+        .pc-act:hover:not(:disabled) { background: #e0e7ff; }
+        .pc-abandon { color: #b91c1c; font-weight: 900; }
+        .pc-abandon:hover:not(:disabled) { background: #fee2e2; }
+        .pc-act:disabled { opacity: .4; cursor: default; }
+        .pc-genre { padding: 2px 4px; }
+        .pc-genre select { width: 100%; font-size: 14px; font-weight: 700; padding: 3px 2px; }
+        .pc-modal { position: fixed; inset: 0; background: rgba(0,0,0,.45); z-index: 50; display: flex; justify-content: center; align-items: flex-start; overflow-y: auto; padding: 24px 12px; }
+        .pc-modal-box { background: #fff; border: 4px solid #666; padding: 18px; width: 100%; max-width: 1100px; position: relative; }
+        .pc-modal-x { position: absolute; top: 6px; right: 8px; border: 0; background: none; font-size: 22px; cursor: pointer; }
         .pc-code-cell a { color: inherit; font-weight: 700; text-decoration: none; }
         .pc-code-cell a:hover { text-decoration: underline; }
         .pc-hint { gap: 8px; flex-wrap: wrap; }
@@ -507,8 +627,11 @@ export default function AdminBarcodeCheckPage() {
             <div>Kap.</div>
             <div>Letztes Wort</div>
             <div title="Sprache dieses Exemplars">Spr.</div>
+            <div title="Genre (Fiction / Nonfiction)">Genre</div>
             <div>Nummer</div>
             <div></div>
+            <div title="Alle Daten bearbeiten">✎</div>
+            <div title="Abgebrochen">✗</div>
             <div>Hinweis</div>
           </div>
           {err ? <div className="pc-alert" style={{ color: "#b91c1c" }}>{err}</div> : null}
@@ -528,6 +651,9 @@ export default function AdminBarcodeCheckPage() {
                 registerFirst={registerFirst}
                 focusRow={focusRow}
                 onSaved={onSaved}
+                onEdit={onEdit}
+                onAbandoned={onAbandoned}
+                genres={genres}
                 muted={!!q.q && !exactFound}
                 extraHint={
                   q.q && exactFound && i === 0 && others.length ? (
@@ -549,6 +675,29 @@ export default function AdminBarcodeCheckPage() {
         Enter = nächstes Feld · Enter im letzten Feld = speichern + nächste Zeile · Zeile verlassen = automatisch speichern · Strg/Cmd+Enter = speichern · Esc = Zeile zurücksetzen ·
         Gelb = geändert, Rot = fehlt · Pos: ol om or ml mr ul um ur, 00 = keine · Vorgabe Pos = ur, Spr. = de (nur Enter drücken) · Spr. kurz: d=de e=en f=fr s=es i=it n=nl p=pt
       </div>
+
+      {editLoading ? <div className="pc-modal"><div className="pc-modal-box">Lade…</div></div> : null}
+      {editingBook ? (
+        <div className="pc-modal" onMouseDown={(e) => { if (e.target === e.currentTarget) closeEditor(); }}>
+          <div className="pc-modal-box">
+            <button type="button" className="pc-modal-x" onClick={closeEditor} title="Schließen">✕</button>
+            <BookForm
+              mode="edit"
+              bookId={editingBook.id || editingBook._id}
+              initialBook={editingBook}
+              lockBarcode={true}
+              showUnknownFields={false}
+              excludeUnknownKeys={["reading_status"]}
+              submitLabel="Speichern"
+              onCancel={closeEditor}
+              onSuccess={({ saved }) => {
+                onSaved(editingBook.id || editingBook._id, saved && typeof saved === "object" ? saved : null);
+                closeEditor();
+              }}
+            />
+          </div>
+        </div>
+      ) : null}
 
       <div className="pc-pager">
         <button type="button" onClick={() => canPrev && setQuery({ page: q.page - 1 })} disabled={!canPrev}>← Zurück</button>

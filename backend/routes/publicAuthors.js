@@ -33,8 +33,8 @@ const AUTHOR_EXPR = "NULLIF(TRIM(a.name_display), '')";
 
 // Same idea, but without table alias for direct authors-table queries.
 // Kept as fallback-aware so top-books can still resolve older/incomplete rows.
-const AUTHOR_COL_EXPR =
-  "COALESCE(NULLIF(TRIM(name_display), ''), NULLIF(TRIM(full_name), ''), NULLIF(TRIM(name), ''))";
+// only name_display is public (name/full_name hold raw import data)
+const AUTHOR_COL_EXPR = "NULLIF(TRIM(name_display), '')";
 
 const TITLE_EXPR = "COALESCE(NULLIF(b.title_display,''), NULLIF(b.title_keyword,''))";
 
@@ -272,9 +272,7 @@ router.get(
         `
         SELECT
           id::text AS id,
-          name,
           name_display,
-          full_name,
           first_name,
           last_name,
           birth_date,
@@ -336,15 +334,10 @@ router.get("/top-books", async (req, res) => {
         FROM public.authors
         WHERE
           (${AUTHOR_COL_EXPR} ILIKE $2)
-          OR (name ILIKE $2)
-          OR (full_name ILIKE $2)
-          OR (abbr ILIKE $2)
         ORDER BY
           CASE
             WHEN LOWER(${AUTHOR_COL_EXPR}) = LOWER($1) THEN 0
-            WHEN LOWER(name) = LOWER($1) THEN 1
-            WHEN LOWER(full_name) = LOWER($1) THEN 2
-            ELSE 3
+            ELSE 1
           END,
           ${AUTHOR_COL_EXPR} ASC NULLS LAST
         LIMIT 1

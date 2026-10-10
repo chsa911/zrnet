@@ -1378,6 +1378,14 @@ title_keyword: "b.title_keyword",
       );
     }
 
+    // Gleicher Titel = gleicher Autor + gleicher title_display (ohne Groß-/Kleinschreibung,
+    // ohne Leerzeichen am Rand). Bücher ohne Titel zählen jeweils für sich.
+    const TITLE_KEY_SQL = (alias) =>
+      `COALESCE(NULLIF(lower(btrim(${alias}.title_display)), ''), ${alias}.id::text)`;
+
+    const distinctRaw = String(req.query.distinct ?? req.query.distinctTitles ?? "").toLowerCase();
+    const distinctTitles = distinctRaw === "1" || distinctRaw === "true";
+
     const whereSql = where.length ? `WHERE ${where.join(" AND ")}` : "";
 
     const fromJoinSql = `
@@ -1394,11 +1402,22 @@ title_keyword: "b.title_keyword",
       ) bb ON true
     `;
 
+    // "Nur verschiedene Titel": pro Titel genau ein Exemplar (das je nach
+    // aktueller Sortierung erste) – Filter/Suche gelten wie gewohnt.
+    const listWhereSql = distinctTitles
+      ? `${whereSql ? `${whereSql} AND` : "WHERE"} b.id IN (
+          SELECT DISTINCT ON (b.author_id, ${TITLE_KEY_SQL("b")}) b.id
+          ${fromJoinSql}
+          ${whereSql}
+          ORDER BY b.author_id, ${TITLE_KEY_SQL("b")}, ${sortCol} ${order} NULLS LAST
+        )`
+      : whereSql;
+
     const countRes = await pool.query(
       `
       SELECT count(*)::int AS total
       ${fromJoinSql}
-      ${whereSql}
+      ${listWhereSql}
       `,
       params
     );
@@ -1415,9 +1434,16 @@ sg.abbr AS subgenre_abbr,
 g.genre_display AS genre_name,
 sg.name AS subgenre_name,
 ${AUTHOR_RESOLVE_SELECT_SQL},
-        ${PUBLISHER_RESOLVE_SELECT_SQL}
+        ${PUBLISHER_RESOLVE_SELECT_SQL},
+        COALESCE(tc.title_copies, 1)::int AS title_copies
       ${fromJoinSql}
-      ${whereSql}
+      LEFT JOIN (
+        SELECT author_id, ${TITLE_KEY_SQL("bt")} AS title_key, count(*)::int AS title_copies
+        FROM public.books bt
+        GROUP BY 1, 2
+      ) tc ON tc.author_id IS NOT DISTINCT FROM b.author_id
+          AND tc.title_key = ${TITLE_KEY_SQL("b")}
+      ${listWhereSql}
       ORDER BY ${sortCol} ${order} NULLS LAST
       LIMIT $${params.length + 1} OFFSET $${params.length + 2}
       `,
@@ -1432,6 +1458,7 @@ const items = listRes.rows.map((row) => {
 
   return {
     ...book,
+    title_copies: Number(row.title_copies) || 1,
     cover_available: !!cover,
     cover_url:  cover?.full  || null,
     cover_home: cover?.home  || cover?.full || null,

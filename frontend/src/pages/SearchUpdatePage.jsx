@@ -267,7 +267,7 @@ export default function SearchUpdatePage() {
     const qParam = searchParams.get("q") || "";
     const pages = pagesParam ? Number(pagesParam) : undefined;
     return {
-      q: qParam, page: 1, limit: 20, sortBy: "last_action_at", order: "desc", status: "",
+      q: qParam, page: 1, limit: 20, sortBy: "last_action_at", order: "desc", status: "", distinct: "",
       ...(pages ? { pages } : {}),
     };
   });
@@ -413,7 +413,7 @@ export default function SearchUpdatePage() {
     }
     loadBooks();
     return () => { cancelled = true; };
-  }, [q.page, q.limit, q.sortBy, q.order, q.q, q.pages, q.status, refreshTick]);
+  }, [q.page, q.limit, q.sortBy, q.order, q.q, q.pages, q.status, q.distinct, refreshTick]);
 
   // fetch wrapper for the bulk "by-title" endpoints: throws on HTTP errors
   async function patchJsonOrThrow(url, body) {
@@ -648,7 +648,9 @@ export default function SearchUpdatePage() {
         .su-code--clickable:hover { background: #111; color: #fff; }
         .su-code--clickable:hover .su-sub { color: #fff; }
         .su-author { color: #333; font-size: clamp(18px, 1.7vw, 30px); font-weight: 850; letter-spacing: -0.04em; }
-        .su-title { color: #333; font-size: clamp(18px, 1.9vw, 34px); font-weight: 750; letter-spacing: -0.035em; }
+        .su-title { color: #333; font-size: clamp(18px, 1.9vw, 34px); font-weight: 750; letter-spacing: -0.035em; gap: 6px; }
+        .su-copies-badge { flex: 0 0 auto; align-self: flex-start; margin-top: 10px; min-width: 24px; height: 24px; padding: 0 7px; border: 0; border-radius: 999px; background: #3a6e2a; color: #fff; font-size: 13px; font-weight: 800; line-height: 24px; letter-spacing: 0; text-align: center; cursor: pointer; }
+        .su-copies-badge:hover { background: #2c5520; }
         .su-pages { justify-content: flex-end; color: #555; font-size: clamp(12px, 1.4vw, 26px); font-weight: 750; letter-spacing: -0.03em; }
         .su-pages .su-text { overflow: visible; text-overflow: clip; white-space: nowrap; }
         .su-year { justify-content: flex-end; color: #555; font-size: clamp(11px, 1.2vw, 22px); font-weight: 750; letter-spacing: -0.03em; }
@@ -757,6 +759,10 @@ export default function SearchUpdatePage() {
               <option value="abandoned">Abandoned</option>
               <option value="finished,abandoned">Finished + Abandoned</option>
             </select>
+            <select className="su-filter" value={q.distinct || ""} onChange={(e) => setQuery({ distinct: e.target.value, page: 1 })} aria-label="Ansicht" title="Nur verschiedene Titel: jeder Titel (Autor + Titel) erscheint nur einmal">
+              <option value="">Alle Exemplare</option>
+              <option value="1">Verschiedene Titel</option>
+            </select>
             <select className="su-filter" value={q.order} onChange={(e) => setQuery({ order: e.target.value, page: 1 })} aria-label="Ordnung">
               <option value="desc">↓</option>
               <option value="asc">↑</option>
@@ -832,6 +838,22 @@ export default function SearchUpdatePage() {
                     <span className="su-text">
                       <InlineEditable value={b?.title_keyword ?? ""} disabled={isBusy} onSave={(val) => saveActionField(b, "title_keyword", val)} />
                     </span>
+                    {Number(b?.title_copies) > 1 ? (
+                      <button
+                        type="button"
+                        className="su-copies-badge"
+                        title={`${b.title_copies} Exemplare von „${b?.title_display || b?.title_keyword}“ – klicken, um alle anzuzeigen`}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          const t = String(b?.title_display || b?.title_keyword || "").trim();
+                          if (!t) return;
+                          setSearchText(t);
+                          setQuery({ ...searchPatch(t), distinct: "" });
+                        }}
+                      >
+                        {b.title_copies}
+                      </button>
+                    ) : null}
                   </div>
 
                   <div className="su-cell su-pages" title={b?.added_at ? `Added: ${fmtDateTitle(b.added_at)}` : "Added: —"}>

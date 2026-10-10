@@ -421,3 +421,15 @@
 .zr-author__topOneMeta{
   min-width: 0;
 }
+.zr-author__avatar--initials{
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  box-sizing: border-box;
+  background: linear-gradient(160deg, #e9f7f1, #d7ece3);
+  color: #06603d;
+  font-weight: 800;
+  font-size: 22px;
+  letter-spacing: 0.02em;
+}

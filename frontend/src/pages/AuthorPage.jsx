@@ -73,6 +73,35 @@ function displayStatus(st) {
   return s || "";
 }
 
+function authorInitials(name) {
+  const parts = String(name || "").trim().split(/\s+/).filter((w) => /^\p{L}/u.test(w));
+  if (!parts.length) return "";
+  const first = parts[0][0];
+  const last = parts.length > 1 ? parts[parts.length - 1][0] : "";
+  return (first + last).toUpperCase();
+}
+
+// Photo if one exists, otherwise initials. No fallback image -> no error loop.
+function AuthorAvatar({ src, name }) {
+  const [broken, setBroken] = useState(false);
+  if (src && !broken) {
+    return (
+      <img
+        className="zr-author__avatar"
+        src={src}
+        alt={name}
+        loading="lazy"
+        onError={() => setBroken(true)}
+      />
+    );
+  }
+  return (
+    <div className="zr-author__avatar zr-author__avatar--initials" aria-hidden="true">
+      {authorInitials(name)}
+    </div>
+  );
+}
+
 export default function AuthorPage() {
   const { author: authorParam } = useParams();
   const navigate = useNavigate();
@@ -543,7 +572,7 @@ export default function AuthorPage() {
     return `/admin?next=${encodeURIComponent(next)}`;
   }, [location.pathname, location.search, location.hash]);
 
-  const authorPhotoSrc = `/assets/images/authors/${authorIdForImage || "default"}.jpg`;
+  const authorPhotoSrc = authorIdForImage ? `/assets/images/authors/${authorIdForImage}.jpg` : "";
 
   return (
     <section className="zr-section zr-author" aria-busy={loading ? "true" : "false"}>
@@ -584,15 +613,7 @@ export default function AuthorPage() {
 
       {/* Header with author photo */}
       <div className="zr-author__head">
-        <img
-          className="zr-author__avatar"
-          src={authorPhotoSrc}
-          alt={authorName}
-          loading="lazy"
-          onError={(e) => {
-            e.currentTarget.src = "/assets/images/authors/default.jpg";
-          }}
-        />
+        <AuthorAvatar key={authorPhotoSrc} src={authorPhotoSrc} name={authorName} />
         <div>
           <h1 className="zr-author__title">{authorName}</h1>
           <p className="zr-lede">All readings by this author (from your reading life).</p>

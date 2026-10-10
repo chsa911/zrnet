@@ -67,15 +67,11 @@ async function resolveAuthorByKey(pool, key) {
       LOWER(abbr) = LOWER($1)
       OR regexp_replace(lower(abbr), '[^a-z0-9]+', '', 'g') = $2
       OR LOWER(name_display) = LOWER($1)
-      OR LOWER(name) = LOWER($1)
-      OR LOWER(full_name) = LOWER($1)
     ORDER BY
       CASE
-        WHEN LOWER(abbr) = LOWER($1) THEN 0
-        WHEN regexp_replace(lower(abbr), '[^a-z0-9]+', '', 'g') = $2 THEN 1
-        WHEN LOWER(name_display) = LOWER($1) THEN 2
-        WHEN LOWER(name) = LOWER($1) THEN 3
-        WHEN LOWER(full_name) = LOWER($1) THEN 4
+        WHEN LOWER(name_display) = LOWER($1) THEN 0
+        WHEN LOWER(abbr) = LOWER($1) THEN 1
+        WHEN regexp_replace(lower(abbr), '[^a-z0-9]+', '', 'g') = $2 THEN 2
         ELSE 9
       END,
       name_display ASC
@@ -105,11 +101,8 @@ function countLinks(text) {
 }
 
 // single sources of truth for public display
-const AUTHOR_EXPR = `COALESCE(
-  NULLIF(a.name_display, ''),
-  NULLIF(concat_ws(' ', a.last_name, a.first_name), ''),
-  NULLIF(concat_ws(' ', a.first_name, a.last_name), '')
-)`;
+// authors: only name_display is public (name/full_name hold raw import data)
+const AUTHOR_EXPR = "NULLIF(TRIM(a.name_display), '')";
 const TITLE_EXPR =
   "COALESCE(NULLIF(b.title_display,''), NULLIF(b.title_keyword,''))";
 // canonical publisher name only – legacy books.publisher may no longer exist
@@ -329,9 +322,6 @@ router.get("/", async (req, res) => {
         where.push(
           `(
             ${AUTHOR_EXPR} ILIKE ${p}
-            OR a.name ILIKE ${p}
-            OR a.full_name ILIKE ${p}
-            OR a.abbr ILIKE ${p}
           )`
         );
       }
@@ -538,15 +528,11 @@ router.get("/author-suggest", async (req, res) => {
       FROM public.authors a
       JOIN public.books b ON b.author_id = a.id
       WHERE b.reading_status IN ('in_stock', 'in_progress', 'finished', 'abandoned')
-        AND (
-          ${AUTHOR_EXPR} ILIKE $1
-          OR a.name ILIKE $1
-          OR a.full_name ILIKE $1
-          OR a.last_name ILIKE $2
-        )
+        AND ${AUTHOR_EXPR} ILIKE $1
       GROUP BY a.id, 2
       ORDER BY
-        (a.last_name ILIKE $2 OR ${AUTHOR_EXPR} ILIKE $2) DESC,
+        -- name or a later word (e.g. surname) starts with the term
+        (${AUTHOR_EXPR} ILIKE $2 OR ${AUTHOR_EXPR} ILIKE '% ' || $2) DESC,
         count DESC,
         author ASC
       LIMIT $3

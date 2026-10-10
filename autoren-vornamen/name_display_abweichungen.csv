@@ -1,0 +1,85 @@
+kategorie,aktion,id,title,first_name,namenszusatz,name_particle,last_name,name_display,erwartet,neu_first_name,neu_last_name,neu_name_display
+Vorname fehlt in name_display,name_display neu bauen,8514e3bd-108c-4906-8a16-01f054e06bd9,,Felix,von,,Cube,von Cube,Felix von Cube,Felix,Cube,Felix von Cube
+Vorname fehlt in name_display,name_display neu bauen,0692974d-9300-4074-bf47-ab30803cec10,,Geza,von,,Cziffra,von Cziffra,Geza von Cziffra,Geza,Cziffra,Geza von Cziffra
+Vorname fehlt in name_display,name_display neu bauen,07442786-ea07-48ec-9610-0bc6e30539fd,,Erich,von,,Daeniken,von Daeniken,Erich von Daeniken,Erich,Daeniken,Erich von Daeniken
+Vorname fehlt in name_display,name_display neu bauen,c7b2c63d-953b-4887-91a1-525f2176d77c,,Annette,von,,Droste-Huelshoff,von Droste-Huelshoff,Annette von Droste-Huelshoff,Annette,Droste-Huelshoff,Annette von Droste-Huelshoff
+Vorname fehlt in name_display,name_display neu bauen,d02ca51c-33ab-49c6-9710-12d6dc464b43,,Marie,von,,Ebner Eschenbach,von Ebner Eschenbach,Marie von Ebner Eschenbach,Marie,Ebner Eschenbach,Marie von Ebner Eschenbach
+Vorname fehlt in name_display,name_display neu bauen,e20e7923-0f01-4c58-83a1-a57c18024a14,,Joseph,von,,Eichendorff,von Eichendorff,Joseph von Eichendorff,Joseph,Eichendorff,Joseph von Eichendorff
+Vorname fehlt in name_display,name_display neu bauen,5c73a861-3047-423e-ac1c-895566b49140,,Joseph,von,,Eichendorff,von Eichendorff,Joseph von Eichendorff,Joseph,Eichendorff,Joseph von Eichendorff
+Vorname fehlt in name_display,name_display neu bauen,6d8f51f7-3e15-45d0-a902-61912cbfa083,,Evan,,,Green,Green,Evan Green,Evan,Green,Evan Green
+Vorname fehlt in name_display,name_display neu bauen,e6de00b4-8519-4b80-bc55-d752fa962c7a,,David,,,Guterson,Guterson,David Guterson,David,Guterson,David Guterson
+Vorname fehlt in name_display,name_display neu bauen,18bc351f-1e8d-4de3-a8e1-7a474552ca7d,,Eckart,von,,Hirschhausen,von Hirschhausen,Eckart von Hirschhausen,Eckart,Hirschhausen,Eckart von Hirschhausen
+Vorname fehlt in name_display,name_display neu bauen,155dfc38-db05-4fe3-a8d9-927dfa89a68d,,Heinrich,von,,Kleist,von Kleist,Heinrich von Kleist,Heinrich,Kleist,Heinrich von Kleist
+Vorname fehlt in name_display,"MANUELL: zwei Autoren in einem Eintrag, manuell",0d70ae0a-c700-4522-973a-a37da1efb9f1,,Volker / Michael,,,Klüpfel & Kobr,Volker Klüpfel / Michael Kobr,Volker / Michael Klüpfel & Kobr,Volker / Michael,Klüpfel & Kobr,
+Vorname fehlt in name_display,name_display neu bauen,df1d36e9-422b-4cb7-9b63-e43d93ab0c3d,,Ildikó,von,,Kuerthy,von Kuerthy,Ildikó von Kuerthy,Ildikó,Kuerthy,Ildikó von Kuerthy
+Vorname fehlt in name_display,name_display neu bauen,6c287b62-9d43-4af6-9fb7-732cfdb29533,,Nils,,,Minkmar,Minkmar,Nils Minkmar,Nils,Minkmar,Nils Minkmar
+Vorname fehlt in name_display,MANUELL: Pseudonym (Ellis Peters)? manuell,3cb8a3f3-e83c-4c40-a3eb-419b16d04a04,,Edith,,,Pargeter,Ellis Peters,Edith Pargeter,Edith,Pargeter,
+Vorname fehlt in name_display,name_display neu bauen,0a45b347-fd12-46de-881b-6692145ec4bb,,Arturo,,,Perez-Reverte,Perez-Reverte,Arturo Perez-Reverte,Arturo,Perez-Reverte,Arturo Perez-Reverte
+Vorname fehlt in name_display,MANUELL: Verlag statt Autor? manuell,469097fa-d57f-4956-9138-86516b2cb6c2,,Lonely,,,Planet,Simon Richmond,Lonely Planet,Lonely,Planet,
+Vorname fehlt in name_display,name_display neu bauen,fc986ae4-0063-42fe-a832-ad934277203b,,Fritz-Dietlof,,von der,Schulenburg,von der Schulenburg,Fritz-Dietlof von der Schulenburg,Fritz-Dietlof,Schulenburg,Fritz-Dietlof von der Schulenburg
+Vorname fehlt in name_display,name_display neu bauen,c01641cf-1c9b-4a87-a135-204af9d24127,,Heinz,,,Sielmann,Sielmann,Heinz Sielmann,Heinz,Sielmann,Heinz Sielmann
+Vorname fehlt in name_display,"MANUELL: Platzhalter, manuell",3fd8dedd-32a4-4aef-a45f-d53d71946281,,Beo,,,Unbekannt,Unbekannt,Beo Unbekannt,Beo,Unbekannt,
+Vorname fehlt in name_display,"MANUELL: anderer Autor in name_display, manuell",27d2fd98-7c7e-40be-893d-718edf1b2097,,Ric Von,,,Weizsaecker,Helmut R. Schulze,Ric Von Weizsaecker,Ric Von,Weizsaecker,
+Vorname fehlt in name_display,"MANUELL: anderer Autor in name_display, manuell",6a4525c4-64ed-4373-b5cf-9712d331fb5c,,Luci,,,Yamamoto,Isabel Albiston,Luci Yamamoto,Luci,Yamamoto,
+anderer Vorname in name_display,MANUELL: welcher Vorname stimmt?,7827b186-4ef3-458d-a20e-51a07ac1d266,,HG.,,,Butzko,Hans-Günther Butzko,HG. Butzko,HG. ODER Hans-Günther,Butzko,
+anderer Vorname in name_display,MANUELL: welcher Vorname stimmt?,705b9aac-633e-47e1-87fd-3c0e05843967,,Elliott,,,Erwitt,Elliot Erwitt,Elliott Erwitt,Elliott ODER Elliot,Erwitt,
+anderer Vorname in name_display,MANUELL: welcher Vorname stimmt?,b95b88ee-7200-4d75-9c66-362c80905f0a,,Tremayne S.,,,K.,Tremayne  S. K.,Tremayne S. K.,Tremayne S. ODER Tremayne  S.,K.,
+anderer Vorname in name_display,MANUELL: welcher Vorname stimmt?,db91bd1b-4061-41cb-86cd-ee2273f1816a,,Stefan,,,König,Johann König,Stefan König,Stefan ODER Johann,König,
+anderer Vorname in name_display,MANUELL: welcher Vorname stimmt?,e5b48c0b-1ebd-4f77-a60e-b62c6235779e,,Ildikó Von,,,Kürthy,Ildiko von Kürthy,Ildikó Von Kürthy,Ildikó Von ODER Ildiko von,Kürthy,
+anderer Vorname in name_display,MANUELL: welcher Vorname stimmt?,9f2f3f7e-c1c9-47f2-b937-b176c53d7e19,,Betty,,,Mahmoody,Mahtob Mahmoody,Betty Mahmoody,Betty ODER Mahtob,Mahmoody,
+anderer Vorname in name_display,MANUELL: welcher Vorname stimmt?,e4184bcb-9ebb-4d99-8e48-4e268e56d4c9,,Betty,,,Mahmoody,Mahtob Mahmoody,Betty Mahmoody,Betty ODER Mahtob,Mahmoody,
+anderer Vorname in name_display,MANUELL: welcher Vorname stimmt?,021d5e7f-6840-46e2-bdc0-0d7635b1bf6e,,Ouarda,,,Saillo,Quarda Saillo,Ouarda Saillo,Ouarda ODER Quarda,Saillo,
+anderer Vorname in name_display,MANUELL: welcher Vorname stimmt?,29f2c76b-8bbd-4982-ab08-9627154db3e6,,Alois Th,,,Sonnleitner,A. Th. Sonnleitner,Alois Th Sonnleitner,Alois Th ODER A. Th.,Sonnleitner,
+anderer Vorname in name_display,MANUELL: welcher Vorname stimmt?,0b3f9426-a2c3-42b1-9c41-868789155c15,,Isolde / Ludwig,,,Steiner,Dr. Isolde Steiner / Prof. Ludwig Steiner,Isolde / Ludwig Steiner,Isolde / Ludwig ODER Dr. Isolde Steiner / Prof. Ludwig,Steiner,
+gross/klein,Schreibweise aus name_display übernehmen,bb126a22-24ca-48ef-8e94-c8b312b1ea2c,,Institut Européen D'Archéologie Sous-Marine,,,(Paris),Institut Européen d'Archéologie Sous-Marine (Paris),Institut Européen D'Archéologie Sous-Marine (Paris),Institut Européen d'Archéologie Sous-Marine,(Paris),Institut Européen d'Archéologie Sous-Marine (Paris)
+gross/klein,Schreibweise aus name_display übernehmen,fe80439d-66e9-4de2-8d4f-b01f5e1d9041,,Philippe Pozzo Die,,,Borgo,Philippe Pozzo die Borgo,Philippe Pozzo Die Borgo,Philippe Pozzo die,Borgo,Philippe Pozzo die Borgo
+gross/klein,Schreibweise aus name_display übernehmen,244186f9-2cde-4fa0-b7ea-4a0352e95551,,International Group Of,,,Controlling,International Group of Controlling,International Group Of Controlling,International Group of,Controlling,International Group of Controlling
+gross/klein,Schreibweise aus name_display übernehmen,2768ec44-2b1f-4508-80ce-b7cc46e4106f,,Melissa De La,,,Cruz,Melissa De la Cruz,Melissa De La Cruz,Melissa De la,Cruz,Melissa De la Cruz
+gross/klein,Schreibweise aus name_display übernehmen,9537150b-0d3f-4f2d-b71f-7e44db5a9da7,,Don,,,Delillo,Don DeLillo,Don Delillo,Don,DeLillo,Don DeLillo
+gross/klein,Schreibweise aus name_display übernehmen,cf27d6d2-31ab-4bbf-a5ef-10d5292ac720,,Nelson,,,Demille,Nelson DeMille,Nelson Demille,Nelson,DeMille,Nelson DeMille
+gross/klein,Schreibweise aus name_display übernehmen,7c41429a-dd59-4b91-aa7c-4a2f6a08a07c,,David Macneil,,,Doren,David MacNeil Doren,David Macneil Doren,David MacNeil,Doren,David MacNeil Doren
+gross/klein,Schreibweise aus name_display übernehmen,da9f70c8-85bf-45fe-9522-8068966df9cb,,Andrea-Uve Di,,,Fabriciaco,Andrea-Uve di Fabriciaco,Andrea-Uve Di Fabriciaco,Andrea-Uve di,Fabriciaco,Andrea-Uve di Fabriciaco
+gross/klein,Schreibweise aus name_display übernehmen,ac3372dd-2e55-4630-bad6-d65e638d6141,,Dr. Med Bob,,,Flaws,Dr. med Bob Flaws,Dr. Med Bob Flaws,Dr. med Bob,Flaws,Dr. med Bob Flaws
+gross/klein,Schreibweise aus name_display übernehmen,4065ef8a-16a8-4a00-9fac-22237506c95e,,Jane Van Lawick,,,Goodall,Jane van Lawick Goodall,Jane Van Lawick Goodall,Jane van Lawick,Goodall,Jane van Lawick Goodall
+gross/klein,Schreibweise aus name_display übernehmen,ee62ff2c-be08-4109-8c54-8236c59856a2,,Dr. Med. Klaus,,,Grygat,Dr. med. Klaus Grygat,Dr. Med. Klaus Grygat,Dr. med. Klaus,Grygat,Dr. med. Klaus Grygat
+gross/klein,Schreibweise aus name_display übernehmen,71e6815f-6679-4465-9057-d3514ef6cc12,,Magnus,,,Macfarlane-Barrow,Magnus MacFarlane-Barrow,Magnus Macfarlane-Barrow,Magnus,MacFarlane-Barrow,Magnus MacFarlane-Barrow
+gross/klein,Schreibweise aus name_display übernehmen,c352c3a6-3e29-4921-9b70-3f300229bfcd,,Molly,,,Mcadams,Molly McAdams,Molly Mcadams,Molly,McAdams,Molly McAdams
+gross/klein,Schreibweise aus name_display übernehmen,082bf81c-d2e3-4571-9358-2c686f5eaa40,,Carolyn,,,Mccarthy,Carolyn McCarthy,Carolyn Mccarthy,Carolyn,McCarthy,Carolyn McCarthy
+gross/klein,Schreibweise aus name_display übernehmen,c47eb02b-5245-4d0e-876f-a5c2a2e93589,,Evelyn B.,,,Mccune,Evelyn B. McCune,Evelyn B. Mccune,Evelyn B.,McCune,Evelyn B. McCune
+gross/klein,Schreibweise aus name_display übernehmen,cd0b6c66-ad5c-48c1-beab-b127a6b9264c,,Freida,,,Mcfadden,Freida McFadden,Freida Mcfadden,Freida,McFadden,Freida McFadden
+gross/klein,Schreibweise aus name_display übernehmen,fef825a2-caff-4303-b8b9-81e7d2fa8284,,Alister,,,Mcgrath,Alister McGrath,Alister Mcgrath,Alister,McGrath,Alister McGrath
+gross/klein,Schreibweise aus name_display übernehmen,ad3818db-89c9-41f5-9309-bf2f919836d7,,Funny Van,,,Money,Funny van Money,Funny Van Money,Funny van,Money,Funny van Money
+gross/klein,Schreibweise aus name_display übernehmen,9499c8ec-62b6-4f34-9df8-d29c8785a52d,,Margriet De,,,Moor,Margriet de Moor,Margriet De Moor,Margriet de,Moor,Margriet de Moor
+gross/klein,Schreibweise aus name_display übernehmen,e9328ed7-7e32-4b13-a16d-ad0521a8ec39,,Pierre La,,,Mure,Pierre la Mure,Pierre La Mure,Pierre la,Mure,Pierre la Mure
+gross/klein,Schreibweise aus name_display übernehmen,2dda9871-db9b-4b6d-b808-ab8d168f0003,,Mazo De La,,,Roche,Mazo de la Roche,Mazo De La Roche,Mazo de la,Roche,Mazo de la Roche
+gross/klein,Schreibweise aus name_display übernehmen,50975c11-537f-417d-a3a9-5e9dabe4d497,,Antje,,,Schaeffer-KüHnemann,Antje Schaeffer-Kühnemann,Antje Schaeffer-KüHnemann,Antje,Schaeffer-Kühnemann,Antje Schaeffer-Kühnemann
+gross/klein,Schreibweise aus name_display übernehmen,f82af5bc-429f-43ca-9124-91a98e87afe0,,Thassilo Von,,,Scheffer,Thassilo von Scheffer,Thassilo Von Scheffer,Thassilo von,Scheffer,Thassilo von Scheffer
+gross/klein,Schreibweise aus name_display übernehmen,b32ec316-1774-4614-a399-bf24c0b5edc7,,Ildefonso Falcones De,,,Sierra,Ildefonso Falcones de Sierra,Ildefonso Falcones De Sierra,Ildefonso Falcones de,Sierra,Ildefonso Falcones de Sierra
+gross/klein,Schreibweise aus name_display übernehmen,ce5f6b7b-dc2c-4d5b-8b2b-4a8ea56fa025,,Kurt De,,,Swaaf,Kurt de Swaaf,Kurt De Swaaf,Kurt de,Swaaf,Kurt de Swaaf
+gross/klein,Schreibweise aus name_display übernehmen,e3497546-adee-4750-8163-d49580c52305,,Josef Schmitz Van,,,Vorst,Josef Schmitz van Vorst,Josef Schmitz Van Vorst,Josef Schmitz van,Vorst,Josef Schmitz van Vorst
+gross/klein,Schreibweise aus name_display übernehmen,7b634765-c2d2-4203-80f8-91509daa3615,,Janwillem Van De,,,Wetering,Janwillem Van de Wetering,Janwillem Van De Wetering,Janwillem Van de,Wetering,Janwillem Van de Wetering
+gross/klein,Schreibweise aus name_display übernehmen,8f98b8ef-f1ab-4c45-9201-73dc2aa877b5,,Raǧāʾ ʿabdallāh Aṣ-,,,Ṣāniʿ,Raǧāʾ ʿAbdallāh aṣ- Ṣāniʿ,Raǧāʾ ʿabdallāh Aṣ- Ṣāniʿ,Raǧāʾ ʿAbdallāh aṣ-,Ṣāniʿ,Raǧāʾ ʿAbdallāh aṣ- Ṣāniʿ
+leerzeichen/punkt,name_display neu bauen,0a0310d6-7774-4d83-83ab-fccd845d702b,,Gabriele,,,Beyerlein,Gabriele Beyerlein.,Gabriele Beyerlein,Gabriele,Beyerlein,Gabriele Beyerlein
+leerzeichen/punkt,name_display neu bauen,f849e8a7-edcb-4f82-b961-dbf7e28d5d6c,,Bomann,,,Corina,Bomann  Corina,Bomann Corina,Bomann,Corina,Bomann Corina
+leerzeichen/punkt,name_display neu bauen,cbe794d6-f596-4ab2-ac7a-b758c5de3bfa,,Thorsten,,,Wiese,Thorsten  Wiese,Thorsten Wiese,Thorsten,Wiese,Thorsten Wiese
+sonstiges,MANUELL,3c691e56-7950-4e8d-8ef5-23fe554c4054,,Friedrich,,,Albert,Friedrich A. von Hayek,Friedrich Albert,Friedrich,Albert,
+sonstiges,MANUELL,eaf8ac72-99ee-4101-bbc3-80045085ace6,,Mitch,,,Alborch,Mitch Albom,Mitch Alborch,Mitch,Alborch,
+sonstiges,MANUELL,b61062fe-0914-47cb-8b40-3ab8810c8e31,,Maya,,,Anouk,Maya Angelou,Maya Anouk,Maya,Anouk,
+sonstiges,MANUELL,d893e697-e6de-445d-aeae-d0b47a6d45d2,,,,,Bauer Wu,Bau.-Wu,Bauer Wu,,Bauer Wu,
+sonstiges,MANUELL,abaadad9-2d47-4b61-bebb-19c34a2c2470,,Simon,,,Beck,Simon Beckett,Simon Beck,Simon,Beck,
+sonstiges,MANUELL,0ae60260-3fb0-4a19-ac1c-6e45b74a4ad7,,Will,,,Berthold,Willi Berthold,Will Berthold,Will,Berthold,
+sonstiges,MANUELL,d57ce927-a5f4-47a7-b615-184748147bb8,,Federica De,,de,Cesco,Federica De Cesco,Federica De de Cesco,Federica De,Cesco,
+sonstiges,MANUELL,05e318de-b2e5-4395-a9a7-9aaabd2d7f87,,Cornelia Von Schelling; Ann-Christine,,,Cornelia Von Schelling; Ann-Christine Woehrl,Cornelia Von Schelling; Ann-Christine Woehrl,Cornelia Von Schelling; Ann-Christine Cornelia Von Schelling; Ann-Christine Woehrl,Cornelia Von Schelling; Ann-Christine,Cornelia Von Schelling; Ann-Christine Woehrl,
+sonstiges,MANUELL,dc84f9da-640e-4a61-b36d-cfd1a6caaddd,,Constanze,,,Elsner,Constanze,Constanze Elsner,Constanze,Elsner,
+sonstiges,MANUELL,36861a44-a5f8-4ea4-8059-56720939bded,,,,,Grimm,Brothers Grimm,Grimm,,Grimm,
+sonstiges,MANUELL,2d7d5629-4983-4f47-99f0-8c8d714b7e8d,,Thomas,,,Heim,Dr. med. Thomas Heim,Thomas Heim,Thomas,Heim,
+sonstiges,MANUELL,9952e98c-8edc-4b82-b0a3-e82cec4e3c75,,Diana Beate,,,Hellmann,Diana Beate,Diana Beate Hellmann,Diana Beate,Hellmann,
+sonstiges,MANUELL,13d3764e-366c-41e5-84b5-8053ec1c1b7d,,Hugo,,,Hofmannsthal,Hugo von Hofmannsthal,Hugo Hofmannsthal,Hugo,Hofmannsthal,
+sonstiges,MANUELL,ecf51fd8-b46d-432e-9e29-0ef665b24eb9,,Joe,,,Joe Miller,Joe Miller,Joe Joe Miller,Joe,Joe Miller,
+sonstiges,MANUELL,289e3197-1e9b-4f1d-84b4-649f4f7dccad,,Robert T.,,,Kyosaki,Robert T. Kiyosaki,Robert T. Kyosaki,Robert T.,Kyosaki,
+sonstiges,MANUELL,8c016830-4e44-41c6-949b-60ae756eb1da,,,,,Lange-Mueller,Lange-Mu.,Lange-Mueller,,Lange-Mueller,
+sonstiges,MANUELL,78c707a2-c712-4a3d-8839-a27bb048a2c5,,Helmut,,,Müller,Helmut M. Müller,Helmut Müller,Helmut,Müller,
+sonstiges,MANUELL,7d21b799-48a8-4dc7-b957-0534d3e36d3c,,,,,Noname,E.L.Abel,Noname,,Noname,
+sonstiges,MANUELL,b4963ca4-6c7d-4ee4-8d9e-cd1b8fa4aba7,,Wolfgang,,,Wolfgang Kemmer,Wolfgang Kemmer,Wolfgang Wolfgang Kemmer,Wolfgang,Wolfgang Kemmer,
+sonstiges,MANUELL,d724f681-f3ad-45a2-acbd-be3c9eb8e2a2,,,,,Y,"Y,",Y,,Y,
+sonstiges,MANUELL,1f1433bc-dd29-4d87-aaa8-57a0b5cd196f,,Toshikazu,,,川口俊和,Toshikazu Kawaguchi,Toshikazu 川口俊和,Toshikazu,川口俊和,
