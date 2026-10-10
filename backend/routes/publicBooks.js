@@ -47,7 +47,7 @@ async function resolveAuthorByKey(pool, key) {
   if (isUuid(k)) {
     const { rows } = await pool.query(
       `
-      SELECT id::text AS id, name_display, abbreviation, published_titles
+      SELECT id::text AS id, name_display, abbr AS abbreviation, published_titles
       FROM public.authors
       WHERE id = $1::uuid
       LIMIT 1
@@ -61,18 +61,18 @@ async function resolveAuthorByKey(pool, key) {
 
   const { rows } = await pool.query(
     `
-    SELECT id::text AS id, name_display, abbreviation, published_titles
+    SELECT id::text AS id, name_display, abbr AS abbreviation, published_titles
     FROM public.authors
     WHERE
-      LOWER(abbreviation) = LOWER($1)
-      OR regexp_replace(lower(abbreviation), '[^a-z0-9]+', '', 'g') = $2
+      LOWER(abbr) = LOWER($1)
+      OR regexp_replace(lower(abbr), '[^a-z0-9]+', '', 'g') = $2
       OR LOWER(name_display) = LOWER($1)
       OR LOWER(name) = LOWER($1)
       OR LOWER(full_name) = LOWER($1)
     ORDER BY
       CASE
-        WHEN LOWER(abbreviation) = LOWER($1) THEN 0
-        WHEN regexp_replace(lower(abbreviation), '[^a-z0-9]+', '', 'g') = $2 THEN 1
+        WHEN LOWER(abbr) = LOWER($1) THEN 0
+        WHEN regexp_replace(lower(abbr), '[^a-z0-9]+', '', 'g') = $2 THEN 1
         WHEN LOWER(name_display) = LOWER($1) THEN 2
         WHEN LOWER(name) = LOWER($1) THEN 3
         WHEN LOWER(full_name) = LOWER($1) THEN 4
@@ -331,9 +331,7 @@ router.get("/", async (req, res) => {
             ${AUTHOR_EXPR} ILIKE ${p}
             OR a.name ILIKE ${p}
             OR a.full_name ILIKE ${p}
-            OR a.abbreviation ILIKE ${p}
-            OR b.author_display ILIKE ${p}
-            OR b.author ILIKE ${p}
+            OR a.abbr ILIKE ${p}
           )`
         );
       }
@@ -350,7 +348,7 @@ router.get("/", async (req, res) => {
         `(
           ${TITLE_EXPR} ILIKE ${p} OR
           ${AUTHOR_EXPR} ILIKE ${p} OR
-          a.abbreviation ILIKE ${p} OR
+          a.abbr ILIKE ${p} OR
           ${PUBLISHER_EXPR} ILIKE ${p} OR
           b.title_keyword ILIKE ${p} OR
           b.title_keyword2 ILIKE ${p} OR

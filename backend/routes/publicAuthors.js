@@ -97,7 +97,7 @@ router.get("/overview", async (req, res) => {
           ${AUTHOR_EXPR} AS author_display,
           NULLIF(TRIM(a.first_name), '') AS first_sort,
           NULLIF(TRIM(a.last_name), '') AS last_sort,
-          NULLIF(TRIM(a.abbreviation), '') AS abbreviation,
+          NULLIF(TRIM(a.abbr), '') AS abbreviation,
           a.author_nationality,
           COALESCE(a.published_titles, 0)::int AS total,
 
@@ -279,7 +279,7 @@ router.get(
           last_name,
           birth_date,
           death_date,
-          abbreviation,
+          abbr AS abbreviation,
           published_titles,
           number_of_millionsellers,
           male_female,
@@ -338,7 +338,7 @@ router.get("/top-books", async (req, res) => {
           (${AUTHOR_COL_EXPR} ILIKE $2)
           OR (name ILIKE $2)
           OR (full_name ILIKE $2)
-          OR (abbreviation ILIKE $2)
+          OR (abbr ILIKE $2)
         ORDER BY
           CASE
             WHEN LOWER(${AUTHOR_COL_EXPR}) = LOWER($1) THEN 0
