@@ -1,6 +1,7 @@
 // backend/routes/api/barcodes/previewBarcode.js
 const express = require("express");
 const router = express.Router();
+const { pickFreeBarcode, countFreeBarcodes } = require("../../../utils/barcodeHolders");
 
 const cmToMm = (cm) => Math.round(Number(cm) * 10);
 
@@ -113,42 +114,10 @@ if (!cleanPrefixes.length) {
   return res.status(422).json({ error: "no_prefix_for_size" });
 }
    
-    const pick = await pool.query(
-  `
-  SELECT bi.barcode
-  FROM public.barcode_inventory bi
-  LEFT JOIN public.barcode_assignments ba
-    ON lower(ba.barcode) = lower(bi.barcode)
-   AND ba.freed_at IS NULL
-  WHERE bi.status = 'AVAILABLE'
-    AND bi.rank_in_inventory IS NOT NULL
-    AND lower(regexp_replace(bi.barcode, '[0-9]+$', '')) = ANY($1::text[])
-    AND ba.barcode IS NULL
-  ORDER BY
-    array_position($1::text[], lower(regexp_replace(bi.barcode, '[0-9]+$', ''))),
-    bi.rank_in_inventory ASC,
-    lower(bi.barcode) ASC
-  LIMIT 1
-  `,
-  [cleanPrefixes]
-);
-    const candidate = pick.rows[0]?.barcode ?? null;
-
-   const countRes = await pool.query(
-  `
-  SELECT count(*)::int AS available
-  FROM public.barcode_inventory bi
-  LEFT JOIN public.barcode_assignments ba
-    ON lower(ba.barcode) = lower(bi.barcode)
-   AND ba.freed_at IS NULL
-  WHERE bi.status = 'AVAILABLE'
-    AND bi.rank_in_inventory IS NOT NULL
-    AND lower(regexp_replace(bi.barcode, '[0-9]+$', '')) = ANY($1::text[])
-    AND ba.barcode IS NULL
-  `,
-  [cleanPrefixes]
-);
-    const availableCount = countRes.rows[0]?.available ?? 0;
+    // Same rule as the auto-pick on save (pickBestBarcode): a code is only
+    // free when NO in_progress book carries it any more (see barcodeHolders).
+    const candidate = await pickFreeBarcode(pool, cleanPrefixes);
+    const availableCount = await countFreeBarcodes(pool, cleanPrefixes);
 
    return res.json({
   sizegroup,

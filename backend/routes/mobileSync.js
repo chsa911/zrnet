@@ -3,6 +3,7 @@
   const express = require("express");
   const router = express.Router();
   const { adminAuthRequired } = require("../middleware/adminAuth");
+  const { releaseBookBarcodes, isBarcodeHeld } = require("../utils/barcodeHolders");
 
   function getPool(req) {
     const pool = req.app.get("pgPool");
@@ -413,43 +414,7 @@
       prevStatus === "in_progress" &&
       (row.reading_status === "finished" || row.reading_status === "abandoned")
     ) {
-      await client.query(
-        `
-        WITH freed AS (
-          UPDATE public.barcode_assignments
-          SET freed_at = now()
-          WHERE book_id = $1::uuid
-            AND freed_at IS NULL
-          RETURNING barcode
-        )
-        DELETE FROM public.book_barcodes
-        WHERE book_id = $1::uuid
-        `,
-        [bookId]
-      );
-
-      await client.query(
-        `
-        UPDATE public.barcode_inventory bi
-        SET status = 'AVAILABLE',
-            updated_at = now()
-        WHERE EXISTS (
-          SELECT 1
-          FROM public.barcode_assignments ba
-          WHERE lower(ba.barcode) = lower(bi.barcode)
-            AND ba.book_id = $1::uuid
-            AND ba.freed_at IS NOT NULL
-        )
-          AND NOT EXISTS (
-            SELECT 1
-            FROM public.book_barcodes bb2
-            JOIN public.books b2 ON b2.id = bb2.book_id
-            WHERE lower(bb2.barcode) = lower(bi.barcode)
-              AND b2.reading_status = 'in_progress'
-          )
-        `,
-        [bookId]
-      );
+      await releaseBookBarcodes(client, bookId);
     }
 
     return { statusApplied, current: row };
@@ -1031,33 +996,47 @@
   const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
   const isUuid = (v) => UUID_RE.test(String(v || "").trim());
 
-async function freeBarcode(client, barcodeRaw) {
+// Releases the barcode for ONE book only. A code can be painted on several
+// physical books (legacy); it must stay taken until all of them are gone,
+// so other books' ledger rows/links are never touched here, and the code is
+// only marked AVAILABLE when no in_progress book carries it any more.
+// The book's own rows are only released if that book has actually left
+// (is no longer in_progress) — releasing a book that is still in hand would
+// let the code be handed out again while it is still painted on that book.
+async function freeBarcode(client, barcodeRaw, bookId) {
   const barcode = String(barcodeRaw || "").trim();
-  if (!barcode) return;
+  if (!barcode || !bookId) return;
 
-  await client.query(
-    `UPDATE public.barcode_assignments
-     SET freed_at = now()
-     WHERE lower(barcode) = lower($1)
-       AND freed_at IS NULL`,
-    [barcode]
+  const st = await client.query(
+    `SELECT reading_status FROM public.books WHERE id = $1::uuid`,
+    [bookId]
   );
+  const status = st.rows[0]?.reading_status ?? null;
 
-  await client.query(
-    `UPDATE public.barcode_inventory
-     SET status = 'AVAILABLE', updated_at = now()
-     WHERE lower(barcode) = lower($1)`,
-    [barcode]
-  );
-
-  try {
+  if (status !== "in_progress") {
+    await client.query(
+      `UPDATE public.barcode_assignments
+       SET freed_at = now()
+       WHERE lower(barcode) = lower($1)
+         AND book_id = $2::uuid
+         AND freed_at IS NULL`,
+      [barcode, bookId]
+    );
     await client.query(
       `DELETE FROM public.book_barcodes
+       WHERE lower(barcode) = lower($1)
+         AND book_id = $2::uuid`,
+      [barcode, bookId]
+    );
+  }
+
+  if (!(await isBarcodeHeld(client, barcode))) {
+    await client.query(
+      `UPDATE public.barcode_inventory
+       SET status = 'AVAILABLE', updated_at = now()
        WHERE lower(barcode) = lower($1)`,
       [barcode]
     );
-  } catch (e) {
-    console.error("freeBarcode book_barcodes cleanup failed:", e.message);
   }
 }
  
@@ -1139,7 +1118,7 @@ async function freeBarcode(client, barcodeRaw) {
         // 2) Free barcode (use override if provided)
         const barcodeToFree = overrideBarcode || String(row.barcode || "").trim();
         if (barcodeToFree) {
-          await freeBarcode(client, barcodeToFree);
+          await freeBarcode(client, barcodeToFree, bookId);
         }
 
         // 3) Mark receipt as applied so it disappears from needs_review list

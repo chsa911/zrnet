@@ -1,6 +1,7 @@
   const fs = require("fs");
   const path = require("path");
   const { barcodeWildcardPattern } = require("../utils/barcodeWildcard");
+  const { pickFreeBarcode, heldByActiveBookSql, releaseBookBarcodes } = require("../utils/barcodeHolders");
   // Add this near your other variable definitions
   // backend/controllers/booksPgController.js
   // Postgres implementation for /api/books endpoints.
@@ -1000,53 +1001,11 @@ const prefixes = [primaryPrefix, backupPrefix];
   const cleanPrefixes = prefixes.filter(Boolean).map((x) => x.toLowerCase());
   if (!cleanPrefixes.length) return null;
 
-  const r = await pool.query(
-    `
-    SELECT bi.barcode
-    FROM public.barcode_inventory bi
-    WHERE bi.status = 'AVAILABLE'
-      AND bi.rank_in_inventory IS NOT NULL
-      AND lower(regexp_replace(bi.barcode, '[0-9]+$', '')) = ANY($1::text[])
-      AND NOT EXISTS (
-        SELECT 1
-        FROM public.barcode_assignments ba
-        JOIN public.books b ON b.id = ba.book_id
-        WHERE lower(ba.barcode) = lower(bi.barcode)
-          AND ba.freed_at IS NULL
-          AND b.reading_status = 'in_progress'
-      )
-      -- hard rule: only a book with reading_status = 'in_progress' may
-      -- hold a barcode (business rule). So a barcode is only blocked if
-      -- it's linked (via book_barcodes, the actual current-link table,
-      -- not the possibly-desynced barcode_assignments ledger) to a book
-      -- that is still in_progress. Stale links to finished/abandoned/
-      -- wishlist books (leftover rows that were never cleaned up, e.g.
-      -- from the Mongo->Postgres migration) must NOT block re-suggestion.
-      AND NOT EXISTS (
-        SELECT 1
-        FROM public.book_barcodes bb2
-        JOIN public.books b2 ON b2.id = bb2.book_id
-        WHERE lower(bb2.barcode) = lower(bi.barcode)
-          AND b2.reading_status = 'in_progress'
-      )
-      -- never hand out a barcode that an admin has flagged as "also seen
-      -- on another book, unresolved" (barcode_conflict_observations) --
-      -- that would turn a two-book dispute into a three-book one before
-      -- anyone got a chance to sort it out.
-      AND NOT EXISTS (
-        SELECT 1
-        FROM public.barcode_conflict_observations co
-        WHERE lower(co.barcode) = lower(bi.barcode)
-          AND co.resolved = false
-      )
-    ORDER BY
-      array_position($1::text[], lower(regexp_replace(bi.barcode, '[0-9]+$', ''))),
-      bi.rank_in_inventory ASC,
-      lower(bi.barcode) ASC
-    LIMIT 1
-    `,
-    [cleanPrefixes]
-  );
+  // Shared rule (utils/barcodeHolders.js): free only when NO in_progress
+  // book carries the code any more (book_barcodes AND open ledger rows),
+  // and no unresolved conflict observation. Identical to preview-barcode.
+  const picked = await pickFreeBarcode(pool, cleanPrefixes);
+  const r = { rows: picked ? [{ barcode: picked }] : [] };
 
   return r.rows[0]?.barcode ?? null;
 }
@@ -1090,16 +1049,11 @@ const prefixes = [primaryPrefix, backupPrefix];
     // may hold a barcode; finished/abandoned/wishlist links are stale
     // leftovers (legacy data, tolerated but must not block re-assignment
     // going forward) and must NOT block re-assignment.
+    // Checks BOTH the live link and open ledger rows: with legacy
+    // multi-copy codes only one copy can sit in book_barcodes, the others
+    // are only visible as open barcode_assignments rows.
     const activeUse = await pool.query(
-      `
-      SELECT bb.book_id::text AS book_id
-      FROM public.book_barcodes bb
-      JOIN public.books b ON b.id = bb.book_id
-      WHERE lower(bb.barcode) = lower($1)
-        AND bb.book_id <> $2::uuid
-        AND b.reading_status = 'in_progress'
-      LIMIT 1
-      `,
+      `SELECT 1 WHERE ${heldByActiveBookSql("$1", { excludeBookExpr: "$2::uuid" })}`,
       [barcode, bookId]
     );
 
@@ -3090,48 +3044,9 @@ if ((patch.sub_genre_abbr ?? patch.subgenre_abbr) !== undefined) {
         cur.reading_status === "in_progress" &&
         (updates.reading_status === "finished" || updates.reading_status === "abandoned")
       ) {
-        await client.query(
-          `
-          WITH freed AS (
-            UPDATE public.barcode_assignments
-            SET freed_at = now()
-            WHERE book_id = $1::uuid
-              AND freed_at IS NULL
-            RETURNING barcode
-          )
-          DELETE FROM public.book_barcodes
-          WHERE book_id = $1::uuid
-          `,
-          [id]
-        );
-
-        await client.query(
-          `
-          UPDATE public.barcode_inventory bi
-          SET status = 'AVAILABLE',
-              updated_at = now()
-          WHERE EXISTS (
-            SELECT 1
-            FROM public.barcode_assignments ba
-            WHERE lower(ba.barcode) = lower(bi.barcode)
-              AND ba.book_id = $1::uuid
-              AND ba.freed_at IS NOT NULL
-          )
-            -- Authoritative check: only flip back to AVAILABLE once this
-            -- barcode has zero remaining links to a book that is still
-            -- reading_status = 'in_progress' (the only status allowed to
-            -- hold a barcode). Stale finished/abandoned/wishlist links
-            -- (legacy data) must NOT block it from becoming available.
-            AND NOT EXISTS (
-              SELECT 1
-              FROM public.book_barcodes bb2
-              JOIN public.books b2 ON b2.id = bb2.book_id
-              WHERE lower(bb2.barcode) = lower(bi.barcode)
-                AND b2.reading_status = 'in_progress'
-            )
-          `,
-          [id]
-        );
+        // Only this book's rows are closed; the code goes back to AVAILABLE
+        // only when no other in_progress book still carries it.
+        await releaseBookBarcodes(client, id);
       }
 
       await client.query("COMMIT");
