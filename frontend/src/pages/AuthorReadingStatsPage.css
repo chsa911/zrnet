@@ -1,126 +1,296 @@
-/* Public author stats – reuses the admin grid from AuthorsIndexPage.css */
-.ars .authors-row.ars-row {
-  grid-template-columns: minmax(260px, 1fr) 100px 140px 170px 170px 190px;
-  min-width: 1030px;
+/* Public author stats – follows the home page (home_minimal.css) look */
+.ars {
+  --ars-fin: var(--accent, #00c27a);
+  --ars-ab: #e8a33d;
+  --ars-line: rgba(0, 0, 0, 0.08);
+  --ars-cols: 44px minmax(0, 2.4fr) 80px 100px 110px 110px 140px;
+  color: var(--text, #111);
 }
-.ars-title {
-  margin: 0 0 8px;
+
+/* hero */
+.ars-hero h1 {
+  margin: 0 0 12px;
+  font-weight: 950;
+  letter-spacing: -0.04em;
+  font-size: clamp(34px, 4vw, 58px);
+  line-height: 1.02;
+  max-width: 18ch;
+}
+
+/* toolbar */
+.ars-listSection {
+  margin-top: 32px;
 }
 .ars-toolbar {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 16px;
-  margin: 24px 0 20px;
+  justify-content: space-between;
+  gap: 14px;
+  margin-bottom: 16px;
 }
-.ars-search {
-  font: inherit;
-  font-size: 18px;
-  padding: 12px 16px;
-  border: 3px solid #555;
-  width: min(420px, 100%);
-  box-sizing: border-box;
-}
-.ars-count {
-  font-weight: 700;
-  color: #555;
-}
-.ars .ars-date:not(.authors-head-btn) {
-  font-size: clamp(16px, 1.4vw, 22px);
-  letter-spacing: 0;
-  font-weight: 700;
-}
-.ars .ars-zero {
-  opacity: 0.35;
-}
-.ars .ars-total {
-  color: #111;
-}
-.ars .authors-message {
-  padding: 24px;
-  border-bottom: 4px solid #555;
-  font-weight: 700;
-}
-.ars .authors-error {
-  color: #b00020;
-}
-.ars-summary {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0;
-  margin: 24px 0 0;
-  border: 4px solid #555;
-  width: fit-content;
-  max-width: 100%;
-}
-.ars-summary > div {
-  padding: 14px 24px;
-  border-right: 4px solid #555;
-}
-.ars-summary > div:last-child {
-  border-right: 0;
-}
-.ars-summary dt {
-  font-size: 14px;
-  font-weight: 700;
-  color: #555;
-}
-.ars-summary dd {
-  margin: 4px 0 0;
-  font-size: clamp(28px, 2.5vw, 40px);
-  font-weight: 900;
-  letter-spacing: -0.05em;
-  font-variant-numeric: tabular-nums;
-}
-
 .ars-quick {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: 10px;
 }
-.ars-quick__btn {
-  font: inherit;
-  font-size: 16px;
-  font-weight: 700;
-  padding: 10px 16px;
-  border: 3px solid #555;
-  background: #fff;
-  color: #555;
+.ars-quick .zr-btn2 {
   cursor: pointer;
+  font-family: inherit;
 }
-.ars-quick__btn.is-active {
-  background: #555;
-  color: #fff;
+.ars-searchWrap {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.ars-search {
+  font: inherit;
+  font-size: 15px;
+  padding: 11px 18px;
+  border-radius: 999px;
+  border: 1px solid rgba(0, 0, 0, 0.2);
+  background: #fff;
+  width: min(280px, 100%);
+  box-sizing: border-box;
+}
+.ars-search:focus {
+  outline: none;
+  border-color: var(--ars-fin);
+  box-shadow: 0 0 0 3px rgba(0, 194, 122, 0.18);
+}
+.ars-count {
+  font-size: 14px;
+  font-weight: 700;
+  color: rgba(0, 0, 0, 0.55);
+  white-space: nowrap;
 }
 
+/* list */
+.ars-list {
+  border: 1px solid var(--border, rgba(0, 0, 0, 0.1));
+  border-radius: 20px;
+  background: #fff;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.04);
+  overflow: hidden;
+}
+.ars-row {
+  display: grid;
+  grid-template-columns: var(--ars-cols);
+  align-items: center;
+  gap: 12px;
+  padding: 14px 22px;
+  border-top: 1px solid var(--ars-line);
+}
+.ars-row:first-child {
+  border-top: 0;
+}
+.ars-row:not(.ars-row--head):hover {
+  background: rgba(0, 194, 122, 0.04);
+}
+.ars-row--head {
+  background: #f8f8f8;
+  padding-top: 12px;
+  padding-bottom: 12px;
+}
+.ars-th {
+  appearance: none;
+  border: 0;
+  background: none;
+  padding: 0;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 900;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: rgba(0, 0, 0, 0.55);
+  cursor: pointer;
+  text-align: center;
+  white-space: nowrap;
+}
+.ars-th b {
+  font-weight: 700;
+  opacity: 0.5;
+}
+.ars-th.is-active {
+  color: #06603d;
+}
+.ars-th.is-active b {
+  opacity: 1;
+}
+.ars-th.ars-col-author {
+  text-align: left;
+}
+.ars-row > [role="cell"] {
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+.ars-row > .ars-col-author {
+  text-align: left;
+  min-width: 0;
+}
+
+.ars-rank {
+  font-size: 13px;
+  font-weight: 800;
+  color: rgba(0, 0, 0, 0.35);
+  font-variant-numeric: tabular-nums;
+}
+
+.ars-name {
+  display: block;
+  font-size: 19px;
+  font-weight: 900;
+  letter-spacing: -0.02em;
+  color: var(--text, #111);
+  text-decoration: none;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.ars-name:hover {
+  color: #06603d;
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
+
+.ars-bar {
+  margin-top: 8px;
+  height: 6px;
+  max-width: 260px;
+  border-radius: 999px;
+  background: var(--ars-ab);
+  overflow: hidden;
+}
+.ars-bar__fin {
+  display: block;
+  height: 100%;
+  background: var(--ars-fin);
+  border-radius: 999px;
+}
+
+.ars-num {
+  display: inline-block;
+  min-width: 2.2em;
+  font-size: 18px;
+  font-weight: 800;
+  text-decoration: none;
+  border-radius: 999px;
+  padding: 3px 8px;
+}
+.ars-num--fin {
+  color: #06603d;
+  background: rgba(0, 194, 122, 0.12);
+}
+.ars-num--ab {
+  color: #8a5314;
+  background: rgba(232, 163, 61, 0.16);
+}
+.ars-num:hover {
+  filter: brightness(0.95);
+}
+
+.ars-chip--top {
+  display: inline-block;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: 14px;
+  font-weight: 900;
+  color: #0b1a12;
+  background: var(--ars-fin);
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.ars-total {
+  font-size: 22px;
+  font-weight: 950;
+  letter-spacing: -0.03em;
+}
+
+.ars-when {
+  font-size: 14px;
+  font-weight: 700;
+  color: rgba(0, 0, 0, 0.62);
+  white-space: nowrap;
+}
+
+.ars-zero {
+  color: rgba(0, 0, 0, 0.25);
+  font-weight: 700;
+}
+
+.ars-msg {
+  padding: 22px;
+  border-top: 1px solid var(--ars-line);
+  font-weight: 700;
+  color: rgba(0, 0, 0, 0.6);
+}
+.ars-msg--error {
+  color: #b00020;
+}
+
+.ars-more {
+  display: flex;
+  justify-content: center;
+  margin-top: 18px;
+}
+.ars-more .zr-btn2 {
+  cursor: pointer;
+  font-family: inherit;
+}
+
+/* mobile: each author becomes a small card */
 @media (max-width: 700px) {
-  .ars-summary > div {
-    padding: 10px 14px;
+  .ars-row--head {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px 14px;
+    padding: 12px 16px;
   }
-  .ars.authors-brutal-page {
-    padding: 48px 16px 32px;
-  }
-  .ars .authors-row.ars-row {
-    grid-template-columns: minmax(0, 1fr) 52px 56px 56px 60px;
-    min-width: 0;
-  }
-  .ars .ars-date {
+  .ars-row--head .ars-rank {
     display: none;
   }
-  .ars .authors-cell {
-    padding: 14px 10px;
+  .ars-row:not(.ars-row--head) {
+    grid-template-columns: 28px repeat(4, minmax(0, 1fr));
+    grid-template-areas:
+      "rank name name name name"
+      ". top fin ab total"
+      ". when when when when";
+    gap: 8px 6px;
+    padding: 14px 16px;
   }
-  .ars .authors-name {
-    font-size: 20px;
+  .ars-row:not(.ars-row--head) .ars-rank { grid-area: rank; }
+  .ars-row:not(.ars-row--head) .ars-col-author { grid-area: name; }
+  .ars-row:not(.ars-row--head) .ars-col-top_books { grid-area: top; }
+  .ars-row:not(.ars-row--head) .ars-col-finished { grid-area: fin; }
+  .ars-row:not(.ars-row--head) .ars-col-abandoned { grid-area: ab; }
+  .ars-row:not(.ars-row--head) .ars-col-read_total { grid-area: total; }
+  .ars-row:not(.ars-row--head) .ars-col-last_activity {
+    grid-area: when;
+    text-align: left;
+  }
+  .ars-row:not(.ars-row--head) [role="cell"][data-label]:not(.ars-col-last_activity)::before {
+    content: attr(data-label);
+    display: block;
+    font-size: 10px;
+    font-weight: 900;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: rgba(0, 0, 0, 0.45);
+    margin-bottom: 4px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .ars-name {
     white-space: normal;
   }
-  .ars .authors-number {
-    font-size: 22px;
+  .ars-bar {
+    max-width: none;
   }
-  .ars .authors-head .authors-cell {
-    font-size: 13px;
-  }
-  .ars .authors-head-btn b {
-    font-size: 16px;
+  .ars-searchWrap,
+  .ars-search {
+    width: 100%;
   }
 }

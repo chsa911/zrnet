@@ -515,12 +515,12 @@
   "seo.subgenre.desc": "Books in the sub-genre {name} from Christopher's paper-book collection.",
   "collection.suggest_label": "Authors",
   "collection.author_link": "All books by {author}",
-  "ars_title": "Authors: finished & abandoned",
-  "ars_lede": "Per author: top titles and how many books I finished or abandoned.",
+  "ars_title": "The authors I've read",
+  "ars_lede": "Who I read to the very end, who I put down, and whose books made it into my top titles – author by author.",
   "ars_th_author": "Author",
   "ars_th_finished": "Finished",
   "ars_th_abandoned": "Abandoned",
-  "ars_th_activity": "Last activity",
+  "ars_th_activity": "Last",
   "ars_loading": "Loading …",
   "ars_empty": "No entries yet.",
   "ars_th_top": "Top",
@@ -531,5 +531,7 @@
   "ars_sort_name": "A–Z",
   "ars_sort_read": "Total read",
   "ars_sort_activity": "Last activity",
-  "nav_authors": "Authors"
+  "nav_authors": "Authors",
+  "ars_eyebrow": "Live from my collection",
+  "ars_show_more": "Show {n} more"
 }
