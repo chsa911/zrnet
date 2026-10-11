@@ -473,5 +473,22 @@
   "seo.subgenre.title": "{name} – ähnliche Bücher",
   "seo.subgenre.desc": "Bücher im Subgenre {name} aus Christophers Papierbuch-Sammlung.",
   "collection.suggest_label": "Autor:innen",
-  "collection.author_link": "Alle Bücher von {author}"
+  "collection.author_link": "Alle Bücher von {author}",
+  "ars_title": "Autoren: gelesen & abgebrochen",
+  "ars_lede": "Wie viele Bücher je Autor Top-Titel sind und wie viele ich beendet oder abgebrochen habe.",
+  "ars_th_author": "Autor",
+  "ars_th_finished": "Beendet",
+  "ars_th_abandoned": "Abgebrochen",
+  "ars_th_activity": "Letzte Aktivität",
+  "ars_loading": "Lade …",
+  "ars_empty": "Noch keine Einträge.",
+  "ars_th_top": "Top",
+  "ars_search": "Autor suchen …",
+  "ars_count": "{n} / {total} Autoren",
+  "ars_th_read_total": "Gelesen gesamt",
+  "ars_sort_label": "Sortieren",
+  "ars_sort_name": "A–Z",
+  "ars_sort_read": "Gelesen gesamt",
+  "ars_sort_activity": "Letzte Aktivität",
+  "nav_authors": "Autoren"
 }

@@ -371,5 +371,6 @@
   "collection.badge_available": "Disponible",
   "collection.badge_abandoned": "Abandonné",
   "collection.suggest_label": "Auteurs",
-  "collection.author_link": "Tous les livres de {author}"
+  "collection.author_link": "Tous les livres de {author}",
+  "nav_authors": "Auteurs"
 }

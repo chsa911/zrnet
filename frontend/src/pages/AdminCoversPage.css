@@ -1,0 +1,136 @@
+/* Admin: Cover-Übersicht – links Felder, rechts Cover */
+.zr-covers-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 14px;
+  align-items: flex-end;
+  margin: 12px 0 18px;
+}
+.zr-covers-toolbar label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 13px;
+}
+.zr-covers-seg {
+  display: inline-flex;
+  border: 1px solid rgba(0, 0, 0, 0.18);
+  border-radius: 999px;
+  overflow: hidden;
+}
+.zr-covers-seg button {
+  border: 0;
+  background: #fff;
+  padding: 8px 14px;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+.zr-covers-seg button + button { border-left: 1px solid rgba(0, 0, 0, 0.12); }
+.zr-covers-seg button[aria-pressed="true"] { background: rgba(0, 0, 0, 0.08); }
+
+.zr-covers-list { display: flex; flex-direction: column; gap: 16px; }
+
+.zr-cover-card {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 260px;
+  gap: 20px;
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  border-radius: 14px;
+  padding: 16px;
+  background: #fff;
+}
+.zr-cover-card.is-dirty { border-color: #c98a00; box-shadow: 0 0 0 1px #c98a00 inset; }
+
+.zr-cover-fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px 14px;
+  align-content: start;
+}
+.zr-cover-fields label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 13px;
+  font-weight: 600;
+}
+.zr-cover-fields .is-wide { grid-column: 1 / -1; }
+.zr-cover-fields input,
+.zr-cover-fields textarea,
+.zr-covers-toolbar input,
+.zr-covers-toolbar select {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid rgba(0, 0, 0, 0.2);
+  font: inherit;
+  font-weight: 400;
+  background: #fff;
+}
+.zr-cover-meta {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 14px;
+  font-size: 13px;
+  opacity: 0.75;
+}
+.zr-cover-badge {
+  display: inline-block;
+  padding: 1px 8px;
+  border-radius: 999px;
+  font-weight: 700;
+  font-size: 12px;
+}
+.zr-cover-badge.is-reg { background: #e3f3ea; color: #1e6b45; }
+.zr-cover-badge.is-unreg { background: #fdf0d8; color: #8a5a00; }
+
+.zr-cover-actions {
+  grid-column: 1 / -1;
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.zr-cover-image {
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+}
+.zr-cover-image a { display: block; width: 100%; }
+.zr-cover-image img {
+  display: block;
+  width: 100%;
+  height: auto;
+  max-height: 380px;
+  object-fit: contain;
+  border-radius: 8px;
+  background: #f4f4f4;
+}
+.zr-cover-missing {
+  width: 100%;
+  aspect-ratio: 2 / 3;
+  display: grid;
+  place-items: center;
+  border: 1px dashed rgba(0, 0, 0, 0.25);
+  border-radius: 8px;
+  font-size: 13px;
+  opacity: 0.7;
+}
+
+.zr-covers-pager {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  justify-content: center;
+  margin: 20px 0;
+}
+
+@media (max-width: 760px) {
+  .zr-cover-card { grid-template-columns: 1fr; }
+  .zr-cover-image { order: -1; max-width: 220px; margin: 0 auto; }
+  .zr-cover-fields { grid-template-columns: 1fr; }
+}

@@ -1,0 +1,126 @@
+/* Public author stats – reuses the admin grid from AuthorsIndexPage.css */
+.ars .authors-row.ars-row {
+  grid-template-columns: minmax(260px, 1fr) 100px 140px 170px 170px 190px;
+  min-width: 1030px;
+}
+.ars-title {
+  margin: 0 0 8px;
+}
+.ars-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 16px;
+  margin: 24px 0 20px;
+}
+.ars-search {
+  font: inherit;
+  font-size: 18px;
+  padding: 12px 16px;
+  border: 3px solid #555;
+  width: min(420px, 100%);
+  box-sizing: border-box;
+}
+.ars-count {
+  font-weight: 700;
+  color: #555;
+}
+.ars .ars-date:not(.authors-head-btn) {
+  font-size: clamp(16px, 1.4vw, 22px);
+  letter-spacing: 0;
+  font-weight: 700;
+}
+.ars .ars-zero {
+  opacity: 0.35;
+}
+.ars .ars-total {
+  color: #111;
+}
+.ars .authors-message {
+  padding: 24px;
+  border-bottom: 4px solid #555;
+  font-weight: 700;
+}
+.ars .authors-error {
+  color: #b00020;
+}
+.ars-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0;
+  margin: 24px 0 0;
+  border: 4px solid #555;
+  width: fit-content;
+  max-width: 100%;
+}
+.ars-summary > div {
+  padding: 14px 24px;
+  border-right: 4px solid #555;
+}
+.ars-summary > div:last-child {
+  border-right: 0;
+}
+.ars-summary dt {
+  font-size: 14px;
+  font-weight: 700;
+  color: #555;
+}
+.ars-summary dd {
+  margin: 4px 0 0;
+  font-size: clamp(28px, 2.5vw, 40px);
+  font-weight: 900;
+  letter-spacing: -0.05em;
+  font-variant-numeric: tabular-nums;
+}
+
+.ars-quick {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.ars-quick__btn {
+  font: inherit;
+  font-size: 16px;
+  font-weight: 700;
+  padding: 10px 16px;
+  border: 3px solid #555;
+  background: #fff;
+  color: #555;
+  cursor: pointer;
+}
+.ars-quick__btn.is-active {
+  background: #555;
+  color: #fff;
+}
+
+@media (max-width: 700px) {
+  .ars-summary > div {
+    padding: 10px 14px;
+  }
+  .ars.authors-brutal-page {
+    padding: 48px 16px 32px;
+  }
+  .ars .authors-row.ars-row {
+    grid-template-columns: minmax(0, 1fr) 52px 56px 56px 60px;
+    min-width: 0;
+  }
+  .ars .ars-date {
+    display: none;
+  }
+  .ars .authors-cell {
+    padding: 14px 10px;
+  }
+  .ars .authors-name {
+    font-size: 20px;
+    white-space: normal;
+  }
+  .ars .authors-number {
+    font-size: 22px;
+  }
+  .ars .authors-head .authors-cell {
+    font-size: 13px;
+  }
+  .ars .authors-head-btn b {
+    font-size: 16px;
+  }
+}

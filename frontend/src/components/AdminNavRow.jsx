@@ -115,6 +115,14 @@ export default function AdminNavRow({ style }) {
       >
         🌐 Titel-Übersetzungen
       </Link>
+
+      <Link
+        to="/admin/covers"
+        className="zr-btn2 zr-btn2--ghost"
+        style={baseBtn(pathname === "/admin/covers")}
+      >
+        🖼️ Cover
+      </Link>
     </div>
   );
 }

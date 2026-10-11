@@ -4,7 +4,7 @@
 
 export const BOOK_SAVE_ERROR_MESSAGES = {
   missing_required_fields:
-    "Bitte Pflichtfelder ausfüllen (Titel, Autor, Verlag, Seiten).",
+    "Bitte Pflichtfelder ausfüllen (Titel, Autor, Verlag, Breite, Höhe, Seiten, Position der Seitenzahl, Kapitel, letztes Wort).",
   width_and_height_required:
     "Breite und Höhe sind erforderlich, um einen Barcode zuzuweisen.",
   no_series_for_size: "Für diese Maße wurde keine passende Serie gefunden.",

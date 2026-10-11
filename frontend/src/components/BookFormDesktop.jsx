@@ -756,7 +756,11 @@ export default function BookFormDesktop({
     setV((prev) => {
       const next = { ...prev, [key]: val };
       if (!isEdit) {
-        if (["author_lastname", "author_firstname", "name_display"].includes(key)) next.author_id = "";
+        if (["author_lastname", "author_firstname", "name_display"].includes(key)) {
+          next.author_id = "";
+          // anderer Autor: Nationalität des vorher gewählten Autors nicht übernehmen
+          if (!nationalityTouchedRef.current) next.author_nationality = DEFAULT_AUTHOR_NATIONALITY;
+        }
         if (["publisher_name_display"].includes(key)) next.publisher_id = "";
       }
       return next;
@@ -921,13 +925,22 @@ export default function BookFormDesktop({
     const hCm = parseFloatOrNull(v.height_cm);
 const pages = parseIntOrNull(v.pages);
 
-// Pages ist Pflicht, 0 ist gültig (Buch ohne Seitenzahlen)
-if (pages == null || pages < 0) {
+// Pages ist bei Neuanlage Pflicht, 0 ist gültig (Buch ohne Seitenzahlen).
+// Im Edit-Modus gibt es keine Pflichtfelder.
+if (!isEdit && (pages == null || pages < 0)) {
   throw new Error("Pages ist erforderlich (0 = keine Seitenzahl).");
 }
     // Registrierung (nicht Wishlist): Position der Seitenzahl ist Pflicht,
     // damit der eindeutige Buch-Code (phys_code) gebildet werden kann.
     if (!isEdit && createReadingStatus !== "wishlist") {
+      const missing = [];
+      if (!String(v.title_display || "").trim()) missing.push("Titel");
+      if (!String(v.author_id || "").trim() && !String(v.author_lastname || "").trim() && !String(v.name_display || "").trim()) missing.push("Autor");
+      if (!String(v.publisher_id || "").trim() && !String(v.publisher_name_display || "").trim()) missing.push("Verlag");
+      if (!(parseFloatOrNull(v.width_cm) > 0)) missing.push("Breite");
+      if (!(parseFloatOrNull(v.height_cm) > 0)) missing.push("Höhe");
+      { const ch = parseIntOrNull(v.chapters); if (ch == null || ch < 0) missing.push("Kapitel (0 = keine)"); }
+      if (missing.length) throw new Error(`Pflichtfelder fehlen: ${missing.join(", ")}.`);
       if (!isValidPageNumPos(v.page_num_pos)) {
         throw new Error("Position der Seitenzahl ist erforderlich: ol om or = oben, ml mr = mitte, ul um ur = unten (links/mitte/rechts), 00 = keine.");
       }
@@ -1591,7 +1604,7 @@ if (pages == null || pages < 0) {
   <div className="bfd-row">
     <input {...numberProps("width_cm", "Width", "2.8ch")} />
     <input {...numberProps("height_cm", "Height", "2.8ch")} />
-    <input {...fieldProps("pages", "Pages", { inputMode: "numeric", style: { width: "3.0ch" }, required: true, title: "Letzte Seite, die mit einer Seitenzahl bedruckt ist (0 = keine Seitenzahl)" })} />
+    <input {...fieldProps("pages", "Pages", { inputMode: "numeric", style: { width: "3.0ch" }, required: !isEdit, title: "Letzte Seite, die mit einer Seitenzahl bedruckt ist (0 = keine Seitenzahl)" })} />
     <input
       {...fieldProps("page_num_pos", "Pos", { maxLength: 2, autoCapitalize: "off", autoComplete: "off", spellCheck: false, style: { width: "3.0ch" } })}
       title={isValidPageNumPos(v.page_num_pos) ? `Position der Seitenzahl: ${pageNumPosLabel(v.page_num_pos)}` : PAGE_NUM_POS_HELP}
@@ -1603,7 +1616,7 @@ if (pages == null || pages < 0) {
       }}
     />
     <input
-      {...fieldProps("chapters", "Kap", { inputMode: "numeric", style: { width: "2.8ch" } })}
+      {...fieldProps("chapters", "Kap", { inputMode: "numeric", style: { width: "2.8ch" }, required: !isEdit, title: "Anzahl Kapitel (0 = keine Kapitel)" })}
       title="Anzahl Kapitel (leer = 0)"
       aria-label="Anzahl Kapitel"
     />

@@ -19,6 +19,7 @@ import BookThemesPage from "./pages/BookThemesPage";
 import ThemeBooksPage from "./pages/ThemeBooksPage";
 import StatsDetailPage from "./pages/StatsDetailPage";
 import MostReadAuthorsPage from "./pages/MostReadAuthorsPage";
+import AuthorReadingStatsPage from "./pages/AuthorReadingStatsPage";
 import AuthorsOverviewPage from "./pages/AuthorsOverviewPage";
 import AuthorPage from "./pages/AuthorPage";
 import BookPage from "./pages/BookPage";
@@ -35,6 +36,7 @@ import HomeTitlesPage from "./pages/HomeTitlesPage";
 import { API_BASE } from "./api/config";
 import HighlightReceivedPage from "./pages/HighlightReceivedPage";
 import AdminTitleTranslationsPage from "./pages/AdminTitleTranslationsPage";
+import AdminCoversPage from "./pages/AdminCoversPage";
 import KauflinkUpdatePage from "./pages/KauflinkUpdatePage";
 import SubGenrePage from "./pages/SubGenrePage";
 import CoachingPage from "./pages/CoachingPage";
@@ -219,6 +221,7 @@ export default function App() {
   }
 />
 <Route path="admin/title-translations" element={<AdminOnly><AdminTitleTranslationsPage /></AdminOnly>} />
+<Route path="admin/covers" element={<AdminOnly><AdminCoversPage /></AdminOnly>} />
         {/* legacy admin links */}
         <Route path="register" element={<Navigate to="/admin/register" replace />} />
         <Route path="update" element={<Navigate to="/admin/search-update" replace />} />
@@ -229,6 +232,7 @@ export default function App() {
 
         {/* Top authors */}
         <Route path="top-authors" element={<MostReadAuthorsPage />} />
+        <Route path="author-stats" element={<AuthorReadingStatsPage />} />
         <Route path="autoren_meistgelesen.html" element={<Navigate to="/top-authors" replace />} />
         <Route path="autoren_meist_gelesen.html" element={<Navigate to="/top-authors" replace />} />
 

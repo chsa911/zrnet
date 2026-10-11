@@ -514,5 +514,22 @@
   "seo.subgenre.title": "{name} – similar books",
   "seo.subgenre.desc": "Books in the sub-genre {name} from Christopher's paper-book collection.",
   "collection.suggest_label": "Authors",
-  "collection.author_link": "All books by {author}"
+  "collection.author_link": "All books by {author}",
+  "ars_title": "Authors: finished & abandoned",
+  "ars_lede": "Per author: top titles and how many books I finished or abandoned.",
+  "ars_th_author": "Author",
+  "ars_th_finished": "Finished",
+  "ars_th_abandoned": "Abandoned",
+  "ars_th_activity": "Last activity",
+  "ars_loading": "Loading …",
+  "ars_empty": "No entries yet.",
+  "ars_th_top": "Top",
+  "ars_search": "Search author …",
+  "ars_count": "{n} / {total} authors",
+  "ars_th_read_total": "Total read",
+  "ars_sort_label": "Sort",
+  "ars_sort_name": "A–Z",
+  "ars_sort_read": "Total read",
+  "ars_sort_activity": "Last activity",
+  "nav_authors": "Authors"
 }

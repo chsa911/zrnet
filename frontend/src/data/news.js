@@ -9,6 +9,56 @@
 
 const NEWS = [
   {
+    id: "autoren-statistik",
+    date: "2026-10-11",
+    link: { to: "/author-stats" },
+    de: {
+      tag: "Autoren",
+      title: "Neu: Welche Autoren ich gelesen habe",
+      text: [
+        "Unter „Autoren“ im Menü siehst du jetzt für jeden Autor, wie viele seiner Bücher ich beendet und wie viele ich abgebrochen habe, wie viele davon Top-Titel sind und wann ich zuletzt ein Buch von ihm beendet oder abgebrochen habe.",
+        "Du kannst die Liste nach A–Z, nach der Zahl der gelesenen Bücher oder nach der letzten Aktivität sortieren und nach einzelnen Autoren suchen.",
+      ],
+      linkLabel: "Zur Autorenübersicht",
+    },
+    en: {
+      tag: "Authors",
+      title: "New: the authors I have read",
+      text: [
+        "Under “Authors” in the menu you can now see for every author how many of their books I finished and how many I abandoned, how many are top titles, and when I last finished or abandoned one of their books.",
+        "Sort the list A–Z, by number of books read or by last activity, and search for individual authors.",
+      ],
+      linkLabel: "Go to the author overview",
+    },
+    es: {
+      tag: "Autores",
+      title: "Nuevo: los autores que he leído",
+      text: [
+        "En «Autores» del menú ves ahora para cada autor cuántos de sus libros terminé y cuántos abandoné, cuántos son títulos top y cuándo terminé o abandoné por última vez uno de sus libros.",
+        "Puedes ordenar la lista de la A a la Z, por número de libros leídos o por última actividad, y buscar autores concretos.",
+      ],
+      linkLabel: "Ver los autores",
+    },
+    fr: {
+      tag: "Auteurs",
+      title: "Nouveau : les auteurs que j’ai lus",
+      text: [
+        "Sous « Auteurs » dans le menu, tu vois maintenant pour chaque auteur combien de ses livres j’ai terminés et abandonnés, combien sont des titres top, et quand j’ai terminé ou abandonné l’un de ses livres pour la dernière fois.",
+        "Tu peux trier la liste de A à Z, par nombre de livres lus ou par dernière activité, et chercher un auteur précis.",
+      ],
+      linkLabel: "Voir les auteurs",
+    },
+    "pt-BR": {
+      tag: "Autores",
+      title: "Novo: os autores que eu li",
+      text: [
+        "Em “Autores” no menu você vê agora, para cada autor, quantos livros dele eu terminei e quantos abandonei, quantos são títulos top e quando terminei ou abandonei um livro dele pela última vez.",
+        "Ordene a lista de A a Z, pelo número de livros lidos ou pela última atividade, e pesquise autores específicos.",
+      ],
+      linkLabel: "Ver os autores",
+    },
+  },
+  {
     id: "datenbank-suche",
     date: "2026-10-10",
     link: { to: "/collection" },

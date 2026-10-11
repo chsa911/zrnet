@@ -96,12 +96,17 @@ function saveCache(force) {
 }
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
+let googleOff = false;
 const TIMEOUT_MS = Number(arg("--timeout", 8)) * 1000;
 async function getCached(url, kind) {
   if (cache[url] !== undefined) return cache[url];
   for (let attempt = 0; attempt < 2; attempt++) {
     try {
       const res = await fetch(url, { headers: { "User-Agent": "zrnet-title-enrichment/1.0" }, signal: AbortSignal.timeout(TIMEOUT_MS) });
+      if (url.includes("googleapis.com") && (res.status === 429 || res.status === 403)) {
+        if (!googleOff) console.log(`  Google Books lehnt ab (HTTP ${res.status}) – wird für diesen Lauf übersprungen. Tipp: GOOGLE_BOOKS_API_KEY in .env`);
+        googleOff = true; return null;
+      }
       if (res.status === 429 || res.status >= 500) { await sleep(1500 * (attempt + 1)); continue; }
       const body = kind === "json" ? (res.ok ? await res.json() : null) : (res.ok ? await res.text() : null);
       cache[url] = body; cacheDirty++; saveCache();
@@ -146,6 +151,7 @@ async function searchDNB(q, isbn) {
 }
 
 async function searchGoogle(q, isbn) {
+  if (googleOff) return [];
   const key = process.env.GOOGLE_BOOKS_API_KEY ? `&key=${process.env.GOOGLE_BOOKS_API_KEY}` : "";
   const qq = isbn ? `isbn:${isbn}` : [...q.words.map((w) => `intitle:${w}`), ...(q.author ? [`inauthor:${q.author}`] : [])].join("+");
   const url = `https://www.googleapis.com/books/v1/volumes?q=${encodeURIComponent(qq).replace(/%2B/g, "+")}&maxResults=10&printType=books${key}`;
@@ -195,7 +201,8 @@ function scoreCandidate(c, b, byIsbn) {
   const PARTICLES = new Set(["de", "da", "del", "von", "van", "der", "den", "le", "la", "di", "du", "y"]);
   const lastParts = norm(b.author_last).split(" ").filter((x) => x.length > 1 && !PARTICLES.has(x));
   if (lastParts.length) {
-    const ok = c.authors.some((a) => { const aw = norm(a).split(" "); return lastParts.every((p) => aw.includes(p)); });
+    // "Nachname, Vorname" (DNB): nur den Teil vor dem Komma als Nachnamen werten
+    const ok = c.authors.some((a) => { const aw = norm(a.includes(",") ? a.split(",")[0] : a).split(" "); return lastParts.every((p) => aw.includes(p)); });
     if (ok) { score += 30; why.push("Autor"); }
     else { score -= 25; why.push("anderer Autor"); }
   }
@@ -206,7 +213,7 @@ function scoreCandidate(c, b, byIsbn) {
     const d = Math.abs(c.pages - b.pages) / b.pages;
     if (d <= 0.05) { score += 20; why.push("Seiten"); c._pagesOk = true; }
     else if (d <= 0.15) { score += 10; why.push("Seiten ~"); }
-    else if (d > 0.35) { score -= 10; why.push("Seiten weit weg"); }
+    else if (d > 0.15) { score -= 15; why.push("Seiten weit weg"); }
   }
   if (fullWords.length > stub.length * 6 + 6) score -= 5;
   return { score, why: why.join(", ") };
@@ -356,7 +363,8 @@ async function apply() {
   const rows = parseCsv(fs.readFileSync(path.resolve(process.cwd(), file), "utf8"))
     .filter((r) => /^(ja|j|x|1|yes|y)$/i.test(r.uebernehmen) && r.neuer_titel && r.id);
   if (!rows.length) { console.log("Keine Zeilen mit uebernehmen = ja und neuer_titel gefunden."); return; }
-  if (rows.some((r) => /Ã|Â/.test(r.neuer_titel + r.aktueller_titel)))
+  // Nur den NEUEN Titel prüfen: der alte kann in der DB schon kaputte Umlaute haben
+  if (rows.some((r) => /Ã[\u0080-\u00BF]|Â/.test(r.neuer_titel)))
     throw new Error("Umlaute kaputt (Ã¤ statt ä) – CSV in Excel bitte als 'CSV UTF-8' speichern.");
 
   const pool = makePool();

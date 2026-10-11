@@ -422,4 +422,55 @@ router.get("/top-books", async (req, res) => {
   }
 });
 
+/**
+ * GET /api/public/authors/reading-stats
+ * Per author: top books, finished, abandoned + last activity
+ * (latest reading_status_updated_at of a finished/abandoned book).
+ * Only authors with at least one top, finished or abandoned book are returned.
+ */
+router.get("/reading-stats", async (req, res) => {
+  try {
+    const pool = getPool(req);
+    const { rows } = await pool.query(
+      `
+      WITH authored AS (
+        SELECT b.id AS book_id, b.author_id, b.reading_status,
+               b.reading_status_updated_at, COALESCE(b.top_book, false) AS top_book
+        FROM public.books b
+        WHERE b.author_id IS NOT NULL
+        UNION
+        SELECT b.id AS book_id, ba.author_id, b.reading_status,
+               b.reading_status_updated_at, COALESCE(b.top_book, false) AS top_book
+        FROM public.book_authors ba
+        JOIN public.books b ON b.id = ba.book_id
+        WHERE ba.author_id IS NOT NULL
+      ),
+      agg AS (
+        SELECT
+          a.id::text AS id,
+          ${AUTHOR_EXPR} AS author,
+          NULLIF(TRIM(a.last_name), '') AS last_name,
+          NULLIF(TRIM(a.first_name), '') AS first_name,
+          COUNT(DISTINCT x.book_id) FILTER (WHERE x.top_book)::int AS top_books,
+          COUNT(DISTINCT x.book_id) FILTER (WHERE x.reading_status = 'finished')::int AS finished,
+          COUNT(DISTINCT x.book_id) FILTER (WHERE x.reading_status = 'abandoned')::int AS abandoned,
+          MAX(x.reading_status_updated_at) FILTER (WHERE x.reading_status IN ('finished', 'abandoned')) AS last_activity
+        FROM authored x
+        JOIN public.authors a ON a.id = x.author_id
+        WHERE ${AUTHOR_EXPR} IS NOT NULL
+        GROUP BY a.id, a.name_display, a.last_name, a.first_name
+      )
+      SELECT * FROM agg
+      WHERE top_books + finished + abandoned > 0
+      ORDER BY LOWER(COALESCE(last_name, author)) ASC, id ASC
+      `
+    );
+    res.setHeader("Cache-Control", "public, max-age=300");
+    return res.json({ items: rows });
+  } catch (err) {
+    console.error("GET /api/public/authors/reading-stats error", err);
+    return res.status(500).json({ error: "internal_error" });
+  }
+});
+
 module.exports = router;

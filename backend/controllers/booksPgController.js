@@ -1426,6 +1426,17 @@ title_keyword: "b.title_keyword",
       where.push(`EXISTS (SELECT 1 FROM public.book_barcodes bbx WHERE bbx.book_id = b.id)`);
     }
 
+    // registriert = registered_at gesetzt; nicht registriert = registered_at leer
+    const registeredFilter = normalizeBool(req.query.registered);
+    if (registeredFilter === true) where.push(`b.registered_at IS NOT NULL`);
+    else if (registeredFilter === false) where.push(`b.registered_at IS NULL`);
+
+    // nur Bücher, für die auf dem Server eine Cover-Datei liegt
+    if (normalizeBool(req.query.hasCover ?? req.query.has_cover) === true) {
+      params.push(Array.from(buildCoverMap().keys(), (k) => k.toLowerCase()));
+      where.push(`lower(b.id::text) = ANY($${params.length}::text[])`);
+    }
+
     const since = normalizeStr(req.query.since);
     if (since) {
       params.push(since);
@@ -1904,6 +1915,10 @@ return res.json({
       if (!publisherOk) missingFields.push("publisher");
       // pages is required, but 0 is a valid entry (book without page numbers)
       if (!Number.isFinite(pagesVal) || pagesVal < 0) missingFields.push("pages");
+      if (!normalizePageNumPos(body.page_num_pos)) missingFields.push("page_num_pos");
+      // chapters is required, but 0 is a valid entry (book without chapters)
+      if (normalizeChapters(body.chapters) === null) missingFields.push("chapters");
+      if (!normalizeLastWord(body.last_word)) missingFields.push("last_word");
       if (missingFields.length) {
         return res.status(400).json({ error: "missing_required_fields", fields: missingFields });
       }
@@ -2477,7 +2492,7 @@ if (body.sub_genre_id !== undefined && cols.has("sub_genre_id")) {
 
       const curRes = await client.query(
         `
-        SELECT id, registered_at, reading_status, author_id, publisher_id, title_display, pages
+        SELECT *
         FROM public.books
         WHERE id = $1::uuid
         FOR UPDATE
@@ -2514,6 +2529,10 @@ if (body.sub_genre_id !== undefined && cols.has("sub_genre_id")) {
         if (!publisherOk) missingFields.push("publisher");
         // pages is required, but 0 is a valid entry (book without page numbers)
         if (!Number.isFinite(pagesVal) || pagesVal < 0) missingFields.push("pages");
+        if (!(normalizePageNumPos(body.page_num_pos) || normalizePageNumPos(cur.page_num_pos))) missingFields.push("page_num_pos");
+        // chapters is required, but 0 is a valid entry (book without chapters)
+        if ((normalizeChapters(body.chapters) ?? normalizeChapters(cur.chapters)) === null) missingFields.push("chapters");
+        if (!(normalizeLastWord(body.last_word) || normalizeLastWord(cur.last_word))) missingFields.push("last_word");
         if (missingFields.length) {
           await client.query("ROLLBACK");
           return res.status(400).json({ error: "missing_required_fields", fields: missingFields });
@@ -2820,12 +2839,6 @@ if (
       }
       const cur = curRes.rows[0];
 
-      const barcodeRes = await client.query(
-        `SELECT 1 FROM public.book_barcodes WHERE book_id = $1::uuid LIMIT 1`,
-        [id]
-      );
-      const hasBarcode = barcodeRes.rowCount > 0;
-
       const updates = {};
       if (patch.genre_id !== undefined && cols.has("genre_id")) {
   updates.genre_id = normalizeInt(patch.genre_id);
@@ -3099,49 +3112,7 @@ if ((patch.sub_genre_abbr ?? patch.subgenre_abbr) !== undefined) {
         }
       }
 
-      // Books that are (or are about to become) anything other than
-      // "wishlist" must carry full bibliographic data. This catches both
-      // (a) moving a bare wishlist row into in_stock/in_progress/etc. without
-      // filling these in, and (b) clearing them out afterwards via a plain
-      // PATCH while the book is already past wishlist.
-      // "finished" and "abandoned" are exempt: these are terminal states set
-      // on existing entries and should not be blocked by missing bibliographic
-      // data (e.g. width/height never having been recorded).
-      // Books with no barcode assigned yet are also exempt: width/height are
-      // only meaningful once a barcode (and its label size) is picked, so a
-      // barcode-less book shouldn't be blocked from simple edits (e.g. fixing
-      // the page count) just because those fields were never captured.
-      {
-        const effectiveStatus = updates.reading_status !== undefined ? updates.reading_status : cur.reading_status;
-        if (
-          effectiveStatus &&
-          effectiveStatus !== "wishlist" &&
-          effectiveStatus !== "finished" &&
-          effectiveStatus !== "abandoned" &&
-          hasBarcode
-        ) {
-          const effectiveTitle = updates.title_display !== undefined ? updates.title_display : cur.title_display;
-          const effectivePages = updates.pages !== undefined ? updates.pages : cur.pages;
-          const effectiveWidth = updates.width !== undefined ? updates.width : cur.width;
-          const effectiveHeight = updates.height !== undefined ? updates.height : cur.height;
-          const effectiveAuthorId = updates.author_id !== undefined ? updates.author_id : cur.author_id;
-          const effectivePublisherId = updates.publisher_id !== undefined ? updates.publisher_id : cur.publisher_id;
-
-          const missingFields = [];
-          if (!normalizeStr(effectiveTitle)) missingFields.push("title");
-          if (!effectiveAuthorId) missingFields.push("author");
-          if (!effectivePublisherId) missingFields.push("publisher");
-          // pages is required, but 0 is a valid entry (book without page numbers)
-          if (!Number.isFinite(effectivePages) || effectivePages < 0) missingFields.push("pages");
-          if (!Number.isFinite(effectiveWidth) || effectiveWidth <= 0) missingFields.push("width");
-          if (!Number.isFinite(effectiveHeight) || effectiveHeight <= 0) missingFields.push("height");
-
-          if (missingFields.length) {
-            await client.query("ROLLBACK");
-            return res.status(400).json({ error: "missing_required_fields", fields: missingFields });
-          }
-        }
-      }
+      // Edit (PATCH): no mandatory fields – any field may be left empty.
 
       const hasHomeFeaturedSlot =
         hasOwn(patch, "home_featured_slot") || hasOwn(patch, "homeFeaturedSlot");

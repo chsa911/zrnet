@@ -314,6 +314,11 @@ export async function suggestAuthors({ q, limit = 6, signal } = {}) {
   return Array.isArray(data) ? data : [];
 }
 
+export async function listAuthorReadingStats({ signal } = {}) {
+  const data = await http(`/public/authors/reading-stats`, { signal });
+  return Array.isArray(data?.items) ? data.items : [];
+}
+
 export async function listMostReadAuthors({ limit = 50, signal } = {}) {
   const qs = qsFromObject({ limit });
   const data = await http(`/public/books/most-read-authors?${qs}`, { signal });
