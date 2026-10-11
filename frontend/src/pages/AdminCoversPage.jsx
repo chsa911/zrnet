@@ -1,8 +1,8 @@
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import AdminNavRow from "../components/AdminNavRow";
 import RequireAdmin from "../components/RequireAdmin";
-import { listBooks, updateBook } from "../api/books";
+import { listBooks, listCoverFiles, updateBook } from "../api/books";
 import { coverUrl } from "../utils/covers";
 import "./AdminCoversPage.css";
 
@@ -84,11 +84,113 @@ function fmtDate(v) {
   return Number.isNaN(d.getTime()) ? "—" : d.toLocaleDateString("de-DE");
 }
 
+function fmtBytes(n) {
+  if (!Number.isFinite(n)) return "";
+  if (n < 1024 * 1024) return `${Math.round(n / 1024)} KB`;
+  return `${(n / 1024 / 1024).toFixed(1)} MB`;
+}
+
+function fileInfo(f) {
+  return [f.width && f.height ? `${f.width}×${f.height}` : "", fmtBytes(f.bytes)].filter(Boolean).join(" · ");
+}
+
+// Image that degrades to a note when the browser can't render it (e.g. HEIC raw in Chrome).
+function VariantImg({ file, className }) {
+  const [failed, setFailed] = useState(false);
+  if (failed) {
+    return (
+      <div className={`zr-variant-nopreview ${className || ""}`}>
+        Keine Vorschau ({file.name.split(".").pop().toUpperCase()})
+      </div>
+    );
+  }
+  return <img className={className} src={file.url} alt={file.label} loading="lazy" onError={() => setFailed(true)} />;
+}
+
+function CoverLightbox({ files, title, startIndex, onClose }) {
+  const [active, setActive] = useState(startIndex);
+
+  useEffect(() => {
+    function onKey(e) {
+      if (e.key === "Escape") onClose();
+      if (e.key === "ArrowRight") setActive((i) => Math.min(files.length - 1, i + 1));
+      if (e.key === "ArrowLeft") setActive((i) => Math.max(0, i - 1));
+    }
+    window.addEventListener("keydown", onKey);
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      document.body.style.overflow = prev;
+    };
+  }, [files.length, onClose]);
+
+  return (
+    <div className="zr-lightbox" role="dialog" aria-modal="true" aria-label={`Cover-Varianten: ${title}`} onClick={onClose}>
+      <div className="zr-lightbox__inner" onClick={(e) => e.stopPropagation()}>
+        <div className="zr-lightbox__head">
+          <strong>{title || "Ohne Titel"}</strong>
+          <span style={{ opacity: 0.7 }}>{files.length} Dateien · ← → wechseln · Esc schließt</span>
+          <button type="button" className="zr-btn2 zr-btn2--ghost" onClick={onClose} aria-label="Schließen">✕</button>
+        </div>
+        <div className="zr-lightbox__grid">
+          {files.map((f, i) => (
+            <figure
+              key={f.url}
+              className={`zr-lightbox__item${i === active ? " is-active" : ""}`}
+              onClick={() => setActive(i)}
+            >
+              <VariantImg file={f} />
+              <figcaption>
+                <strong>{f.label}</strong>
+                <span>{fileInfo(f)}</span>
+                <span className="zr-lightbox__path">{f.folder}/{f.name}</span>
+                <a href={f.url} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()}>
+                  Datei öffnen ↗
+                </a>
+              </figcaption>
+            </figure>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function CoverCard({ book, onSaved }) {
   const [orig, setOrig] = useState(() => toDraft(book));
   const [draft, setDraft] = useState(orig);
   const [state, setState] = useState({ busy: false, msg: "", err: "" });
   const [imgFailed, setImgFailed] = useState(false);
+  const [files, setFiles] = useState(null); // null = not loaded yet
+  const [filesErr, setFilesErr] = useState("");
+  const [preview, setPreview] = useState(null); // variant shown while hovering a thumb
+  const [lightbox, setLightbox] = useState(null); // index or null
+  const filesReq = useRef(null);
+
+  // Load the variants on first hover/focus/click only – not for every card upfront.
+  const loadFiles = useCallback(() => {
+    if (filesReq.current) return filesReq.current;
+    filesReq.current = listCoverFiles(book.id)
+      .then((r) => {
+        const list = Array.isArray(r?.files) ? r.files : [];
+        setFiles(list);
+        return list;
+      })
+      .catch((e) => {
+        filesReq.current = null;
+        setFilesErr(e?.message || "Varianten konnten nicht geladen werden");
+        return [];
+      });
+    return filesReq.current;
+  }, [book.id]);
+
+  async function openLightbox() {
+    const list = files ?? (await loadFiles());
+    if (!list.length) return;
+    const idx = preview ? list.findIndex((f) => f.url === preview.url) : 0;
+    setLightbox(idx >= 0 ? idx : 0);
+  }
 
   useEffect(() => {
     const d = toDraft(book);
@@ -175,15 +277,56 @@ function CoverCard({ book, onSaved }) {
         </div>
       </div>
 
-      <div className="zr-cover-image">
+      <div className="zr-cover-image" onMouseEnter={loadFiles} onFocus={loadFiles}>
         {src && !imgFailed ? (
-          <a href={src} target="_blank" rel="noreferrer" title="Cover in voller Größe öffnen">
-            <img src={src} alt={`Cover: ${draft.title_display || "ohne Titel"}`} loading="lazy" onError={() => setImgFailed(true)} />
-          </a>
+          <button
+            type="button"
+            className="zr-cover-main"
+            onClick={openLightbox}
+            title="Klicken: alle Bildvarianten anzeigen"
+          >
+            {preview ? (
+              <VariantImg key={preview.url} file={preview} />
+            ) : (
+              <img src={src} alt={`Cover: ${draft.title_display || "ohne Titel"}`} loading="lazy" onError={() => setImgFailed(true)} />
+            )}
+            <span className="zr-cover-main__label">{preview ? preview.label : "Aktives Cover"}</span>
+          </button>
         ) : (
-          <div className="zr-cover-missing">Kein Cover gefunden</div>
+          <button type="button" className="zr-cover-missing" onClick={openLightbox}>
+            Kein Cover gefunden – nach anderen Dateien suchen
+          </button>
         )}
+
+        <div className="zr-cover-variants" onMouseLeave={() => setPreview(null)}>
+          {files === null && !filesErr ? <span className="zr-cover-variants__hint">Varianten laden…</span> : null}
+          {filesErr ? <span className="zr-cover-variants__hint" style={{ color: "#b00020" }}>{filesErr}</span> : null}
+          {files && !files.length ? <span className="zr-cover-variants__hint">Keine Dateien auf dem Server</span> : null}
+          {files?.map((f, i) => (
+            <button
+              key={f.url}
+              type="button"
+              className={`zr-cover-thumb${preview?.url === f.url ? " is-active" : ""}`}
+              onMouseEnter={() => setPreview(f)}
+              onFocus={() => setPreview(f)}
+              onClick={() => setLightbox(i)}
+              title={`${f.label} · ${fileInfo(f)}`}
+            >
+              <VariantImg file={f} />
+              <span>{f.kind === "normalized" ? "aktiv" : f.kind}</span>
+            </button>
+          ))}
+        </div>
       </div>
+
+      {lightbox !== null && files?.length ? (
+        <CoverLightbox
+          files={files}
+          title={draft.title_display}
+          startIndex={lightbox}
+          onClose={() => setLightbox(null)}
+        />
+      ) : null}
     </article>
   );
 }

@@ -326,6 +326,90 @@ COUNT(b.id) FILTER (WHERE b.top_book = true)::int AS top_books
         }
       });
 
+      /* -------------------- cover files (all variants of one book) -------------------- */
+
+      // GET /api/admin/books/:id/cover-files
+      // Lists every image file on disk that belongs to this book:
+      //   covers/raw/{id}.*            -> original upload, untouched
+      //   covers/{id}.jpg              -> legacy root copy
+      //   covers/normalized/{id}.jpg   -> normalized cover (what the site shows)
+      //   covers/normalized/{id}-home.jpg -> home thumbnail
+      //   … plus any other {id}-*.ext leftovers (old timestamped / -raw files)
+      router.get("/books/:id/cover-files", async (req, res) => {
+        const id = String(req.params.id || "").trim().toLowerCase();
+        if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(id)) {
+          return res.status(400).json({ error: "invalid_id" });
+        }
+
+        const uploadRoot = process.env.UPLOAD_ROOT || path.resolve(__dirname, "../../uploads");
+        const coversDir = path.join(uploadRoot, "covers");
+        const IMG_RE = /\.(jpe?g|png|webp|avif|heic|heif|gif|tiff?)$/i;
+        const folders = [
+          { sub: "raw", urlBase: "/uploads/covers/raw" },
+          { sub: "", urlBase: "/uploads/covers" },
+          { sub: "normalized", urlBase: "/uploads/covers/normalized" },
+        ];
+
+        function describe(sub, name) {
+          const base = name.toLowerCase().replace(IMG_RE, "");
+          if (sub === "raw") return { kind: "raw", label: "Original (raw)" };
+          if (sub === "normalized" && base === id) return { kind: "normalized", label: "Normalisiert (aktiv)" };
+          if (sub === "normalized" && base === `${id}-home`) return { kind: "home", label: "Home-Thumbnail" };
+          if (sub === "" && base === id) return { kind: "legacy", label: "Legacy (Root)" };
+          if (base.endsWith("-raw")) return { kind: "raw", label: "Original (raw, alt)" };
+          if (base.endsWith("-home")) return { kind: "home", label: "Home-Thumbnail (alt)" };
+          return { kind: "other", label: name };
+        }
+
+        const order = { normalized: 0, raw: 1, legacy: 2, home: 3, other: 4 };
+        const files = [];
+        try {
+          for (const { sub, urlBase } of folders) {
+            const dir = sub ? path.join(coversDir, sub) : coversDir;
+            let names = [];
+            try {
+              names = await fs.readdir(dir);
+            } catch {
+              continue; // folder does not exist
+            }
+            for (const name of names) {
+              if (!name.toLowerCase().startsWith(id) || !IMG_RE.test(name)) continue;
+              const full = path.join(dir, name);
+              let st;
+              try {
+                st = await fs.stat(full);
+              } catch {
+                continue;
+              }
+              if (!st.isFile()) continue;
+              let width = null;
+              let height = null;
+              try {
+                const meta = await sharp(full).metadata(); // header read only
+                width = meta.width ?? null;
+                height = meta.height ?? null;
+                if (meta.orientation && meta.orientation >= 5) [width, height] = [height, width];
+              } catch {}
+              files.push({
+                ...describe(sub, name),
+                name,
+                folder: sub || "covers",
+                url: `${urlBase}/${encodeURIComponent(name)}?v=${Math.round(st.mtimeMs)}`,
+                bytes: st.size,
+                modified_at: st.mtime.toISOString(),
+                width,
+                height,
+              });
+            }
+          }
+          files.sort((a, b) => (order[a.kind] ?? 9) - (order[b.kind] ?? 9) || a.name.localeCompare(b.name));
+          res.json({ id, files });
+        } catch (e) {
+          console.error("GET /api/admin/books/:id/cover-files error", e);
+          res.status(500).json({ error: "cover_files_failed", detail: String(e?.message || e) });
+        }
+      });
+
       /* -------------------- draft lookup (photo/manual placeholders) -------------------- */
 
       // GET /api/admin/drafts/find?isbn=...&code=...&title_display=...&author_lastname=...&publisher_name_display=...

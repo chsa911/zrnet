@@ -286,6 +286,14 @@ export async function getPublicBook(id, { signal, lang } = {}) {
   return http(`/public/books/${encodeURIComponent(id)}${qs ? `?${qs}` : ""}`, { signal });
 }
 
+/* ---------------- admin: cover files ---------------- */
+
+// All image variants on disk for one book (raw upload, legacy, normalized, home).
+export async function listCoverFiles(bookId, { signal } = {}) {
+  if (!bookId) throw new Error("Missing book id");
+  return http(`/admin/books/${encodeURIComponent(bookId)}/cover-files`, { signal });
+}
+
 /* ---------------- admin: title translations ---------------- */
 
 export async function listTitleTranslations({ signal } = {}) {
