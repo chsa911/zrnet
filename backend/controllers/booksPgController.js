@@ -2920,8 +2920,12 @@ if ((patch.sub_genre_abbr ?? patch.subgenre_abbr) !== undefined) {
           )
         : null;
 
+      // reassign_author: a changed name means "this book has a different author"
+      // -> find that author by name (or create it) instead of renaming the
+      // current author row, which is shared with all of its other books.
+      const reassignAuthor = patch.reassign_author === true;
       const authorIdRaw = normalizeUuid(patch.author_id);
-      const effectiveAuthorId = authorIdRaw || cur.author_id || null;
+      const effectiveAuthorId = authorIdRaw || (reassignAuthor ? null : cur.author_id) || null;
       const authorLastRaw = normalizeStr(patch.author_lastname);
       const authorFirstRaw = normalizeStr(patch.author_firstname);
       const authorDispRaw = normalizeStr(patch.name_display ?? patch.author_name_display);
@@ -2962,8 +2966,10 @@ if ((patch.sub_genre_abbr ?? patch.subgenre_abbr) !== undefined) {
         if (cols.has("author_id")) updates.author_id = authorRow?.id ?? effectiveAuthorId ?? null;
       }
 
+      // reassign_publisher: same as reassign_author, for the publisher row
+      const reassignPublisher = patch.reassign_publisher === true;
       const publisherIdRaw = normalizeUuid(patch.publisher_id);
-      const effectivePublisherId = publisherIdRaw || cur.publisher_id || null;
+      const effectivePublisherId = publisherIdRaw || (reassignPublisher ? null : cur.publisher_id) || null;
       const publisherDispRaw = normalizeStr(patch.publisher_name_display);
       const publisherAbbrRaw = normalizePublisherAbbr(patch.publisher_abbr);
       const publisherKeyRaw = normalizeKey(publisherDispRaw || publisherAbbrRaw);

@@ -51,8 +51,11 @@ export default function BookPage() {
   });
 
   const coverSrc = useMemo(() => {
+    // Once loaded, the server's cover wins: it is the cover of the edition in the current UI language.
+    const fromBook = book ? coverUrl(book) : "";
+    if (fromBook) return fromBook;
     if (coverFromQS) return coverFromQS;
-    return coverUrl(book) || (safeId ? `/uploads/covers/normalized/${encodeURIComponent(safeId)}.jpg` : "");
+    return (safeId ? `/uploads/covers/normalized/${encodeURIComponent(safeId)}.jpg` : "");
   }, [coverFromQS, book, safeId]);
 
   useEffect(() => {
@@ -151,7 +154,8 @@ export default function BookPage() {
     noindex: !!err,
   });
 
-  const purchaseUrl = buyFromQS || book?.purchase_url || book?.purchase_link || "";
+  // Link for the edition in the current UI language first (also after switching language on this page).
+  const purchaseUrl = book?.purchase_url_locale || buyFromQS || book?.purchase_url || book?.purchase_link || "";
   const purchaseHost = purchaseUrl ? getHost(purchaseUrl) : "";
 
   async function shareBook() {

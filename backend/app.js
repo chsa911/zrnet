@@ -8,7 +8,7 @@ const cookieParser = require("cookie-parser");
 const multer = require("multer");
 const sharp = require("sharp");
 
-const { resolveCoverUrl } = require("./utils/covers");
+const { resolveCoverUrl, resolveLocaleCover } = require("./utils/covers");
 const { adminAuthRequired } = require("./middleware/adminAuth");
 
 const app = express();
@@ -206,13 +206,14 @@ app.post("/api/books/:bookId/cover", coverUpload.single("cover"), async (req, re
 });
 
 /* ---------- public endpoints (must be after CORS) ---------- */
-const { normalizeTitleLocale, titleTranslationsReady, titleTranslationJoin } = require("./utils/titleLocale");
+const { normalizeTitleLocale, titleTranslationsReady, titleTranslationJoin, titlePurchaseUrlReady, ttPurchaseUrlExpr } = require("./utils/titleLocale");
 app.get("/api/public/home-highlights", async (req, res) => {
   try {
     const pool = req.app.get("pgPool");
     if (!pool) return res.status(500).json({ error: "pgPool_missing" });
     const lang = normalizeTitleLocale(req.query.lang);
     const ttReady = await titleTranslationsReady(pool);
+    const buyReady = ttReady && (await titlePurchaseUrlReady(pool));
 
     const { rows } = await pool.query(`
       SELECT
@@ -226,7 +227,8 @@ app.get("/api/public/home-highlights", async (req, res) => {
         ) AS title_display,
         COALESCE(NULLIF(b.title_display, ''), NULLIF(b.title_keyword, '')) AS title_original,
         tt.title_kind,
-        b.purchase_url AS buy
+        -- per-language purchase link (edition in the UI language), else the general one
+        COALESCE(${ttPurchaseUrlExpr(ttReady, buyReady)}, b.purchase_url) AS buy
       FROM public.books b
       LEFT JOIN public.authors a ON a.id = b.author_id
       ${titleTranslationJoin(ttReady, "$1")}
@@ -250,16 +252,18 @@ app.get("/api/public/home-highlights", async (req, res) => {
     };
 
     for (const r of rows) {
-      const coverUrl = resolveCoverUrl(r.id);
+      const coverUrl = resolveCoverUrl(r.id, lang);
+      const localeCover = lang ? resolveLocaleCover(r.id, lang) : null;
       const mapped = {
         id: r.id,
         authorNameDisplay: r.author_name_display || null,
         titleDisplay: r.title_display || null,
         titleOriginal: r.title_original || null,
         titleKind: r.title_kind || null,
-        cover_home: coverUrl,
+        cover_home: localeCover?.home || coverUrl,
         cover_full: coverUrl,
         cover: coverUrl,
+        coverLocale: localeCover ? lang : null,
         buy: r.buy,
       };
       if (r.slot === "finished") out.finished = mapped;

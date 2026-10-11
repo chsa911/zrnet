@@ -100,11 +100,27 @@ const CheckRow = React.memo(function CheckRow({ book, index, registerFirst, focu
   const savingRef = useRef(false);
   const lastSavedRef = useRef(null); // Entwurf, der gerade gespeichert wurde (gegen Doppel-Speichern)
 
-  // neue Daten vom Server -> Entwurf zurücksetzen
+  // neue Daten vom Server -> Entwurf zurücksetzen.
+  // Noch nicht gespeicherte Eingaben (z. B. Kap./Wort, wenn danach das Genre
+  // gewählt wird) bleiben dabei erhalten.
+  const prevOrigRef = useRef(null);
   useEffect(() => {
-    setDraft(draftWithDefaults(book));
-    touchedRef.current = false;
+    const fresh = draftWithDefaults(book);
+    const prevOrig = prevOrigRef.current;
+    let keptEdits = false;
+    if (prevOrig && touchedRef.current && lastSavedRef.current !== JSON.stringify(draft)) {
+      for (const k of EDIT_KEYS) {
+        if (!isSame(k, draft[k], prevOrig[k]) && !isSame(k, draft[k], fresh[k])) {
+          fresh[k] = draft[k];
+          keptEdits = true;
+        }
+      }
+    }
+    prevOrigRef.current = draftFromBook(book);
+    setDraft(fresh);
+    touchedRef.current = keptEdits;
     lastSavedRef.current = null;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [book]);
 
   const orig = useMemo(() => draftFromBook(book), [book]);
@@ -197,6 +213,12 @@ const CheckRow = React.memo(function CheckRow({ book, index, registerFirst, focu
       return;
     }
     const genre = genres.find((g) => g.abbr === abbr);
+    // offene Eingaben der Zeile (Kap., Wort …) zuerst speichern,
+    // damit die Nummer gebildet wird und nichts verloren geht
+    if (dirty && !posInvalid && !langInvalid) {
+      const ok = await save();
+      if (!ok) return;
+    }
     savingRef.current = true;
     setSaving(true);
     setRowErr("");

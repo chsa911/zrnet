@@ -1995,7 +1995,8 @@ router.patch("/books/by-title/action", async (req, res) => {
   }
 });
 /* -------------------- title translations -------------------- */
-const { TITLE_LOCALES, normalizeTitleLocale, titleTranslationsReady } = require("../utils/titleLocale");
+const { TITLE_LOCALES, normalizeTitleLocale, titleTranslationsReady, titlePurchaseUrlReady } = require("../utils/titleLocale");
+const { resolveLocaleCover, localeCoverPaths } = require("../utils/covers");
 
 const NOT_READY = {
   error: "feature_not_ready",
@@ -2013,6 +2014,7 @@ function rowsToTranslationMap(list) {
       kind: t.title_kind || "free",
       available: t.edition_available ?? null,
       note: t.note || "",
+      purchase_url: t.purchase_url || "",
     };
   }
   return out;
@@ -2026,9 +2028,10 @@ function normalizeLangCode(v) {
   return /^[a-z]{2}$/.test(s) ? s : undefined;
 }
 
-async function loadBookLanguageInfo(db, id) {
+async function loadBookLanguageInfo(db, id, buyReady = false) {
   const { rows } = await db.query(
-    `SELECT locale, title, title_kind, edition_available, note
+    `SELECT locale, title, title_kind, edition_available, note,
+            ${buyReady ? "purchase_url" : "NULL::text AS purchase_url"}
        FROM public.book_title_translations WHERE book_id = $1::uuid`,
     [id]
   );
@@ -2050,6 +2053,7 @@ router.get("/title-translations", async (req, res) => {
   const pool = req.app.get("pgPool");
   if (!pool) return res.status(500).json({ error: "pgPool missing" });
   if (!(await titleTranslationsReady(pool))) return res.status(503).json(NOT_READY);
+  const buyReady = await titlePurchaseUrlReady(pool);
 
   try {
     const { rows } = await pool.query(`
@@ -2075,7 +2079,8 @@ router.get("/title-translations", async (req, res) => {
                     'title', t.title,
                     'title_kind', t.title_kind,
                     'edition_available', t.edition_available,
-                    'note', t.note))
+                    'note', t.note,
+                    'purchase_url', ${buyReady ? "t.purchase_url" : "NULL::text"}))
              FROM public.book_title_translations t
             WHERE t.book_id = b.id),
           '[]'::json
@@ -2089,6 +2094,7 @@ router.get("/title-translations", async (req, res) => {
     res.json({
       locales: TITLE_LOCALES,
       kinds: TITLE_KINDS,
+      purchase_url_per_locale: buyReady,
       items: rows.map((r) => ({
         id: r.id,
         title: r.title,
@@ -2099,6 +2105,7 @@ router.get("/title-translations", async (req, res) => {
         presented_as: r.presented_as,
         last_presented_at: r.last_presented_at,
         translations: rowsToTranslationMap(r.translations),
+        covers: localeCoversOf(r.id),
       })),
     });
   } catch (err) {
@@ -2121,6 +2128,7 @@ router.put("/books/:id/title-translations", async (req, res) => {
   const pool = req.app.get("pgPool");
   if (!pool) return res.status(500).json({ error: "pgPool missing" });
   if (!(await titleTranslationsReady(pool))) return res.status(503).json(NOT_READY);
+  const buyReady = await titlePurchaseUrlReady(pool);
 
   const id = String(req.params.id || "").trim();
   const body = req.body || {};
@@ -2152,7 +2160,11 @@ router.put("/books/:id/title-translations", async (req, res) => {
     const kind = TITLE_KINDS.includes(v.kind) ? v.kind : "free";
     const available = kind === "free" ? (v.available === false ? false : null) : true;
     const note = String(v.note ?? "").trim().slice(0, 300) || null;
-    rows.push({ locale, title, kind, available, note });
+    const purchaseUrl = String(v.purchase_url ?? "").trim().slice(0, 2000) || null;
+    if (purchaseUrl && !/^https?:\/\//i.test(purchaseUrl)) {
+      return res.status(400).json({ error: "invalid_purchase_url", locale, hint: "must start with http:// or https://" });
+    }
+    rows.push({ locale, title, kind, available, note, purchaseUrl });
   }
 
   const client = await pool.connect();
@@ -2176,6 +2188,24 @@ router.put("/books/:id/title-translations", async (req, res) => {
         );
         continue;
       }
+      if (buyReady) {
+        await client.query(
+          `
+          INSERT INTO public.book_title_translations
+            (book_id, locale, title, title_kind, edition_available, note, purchase_url, updated_at)
+          VALUES ($1::uuid, $2, $3::text, $4::text, $5::boolean, $6::text, $7::text, now())
+          ON CONFLICT (book_id, locale) DO UPDATE SET
+            title = EXCLUDED.title,
+            title_kind = EXCLUDED.title_kind,
+            edition_available = EXCLUDED.edition_available,
+            note = EXCLUDED.note,
+            purchase_url = EXCLUDED.purchase_url,
+            updated_at = now()
+          `,
+          [id, r.locale, r.title, r.kind, r.available, r.note, r.purchaseUrl]
+        );
+        continue;
+      }
       await client.query(
         `
         INSERT INTO public.book_title_translations
@@ -2192,7 +2222,7 @@ router.put("/books/:id/title-translations", async (req, res) => {
       );
     }
 
-    const info = await loadBookLanguageInfo(client, id);
+    const info = await loadBookLanguageInfo(client, id, buyReady);
     await client.query("COMMIT");
     res.json({ ok: true, id, ...info });
   } catch (err) {
@@ -2202,6 +2232,69 @@ router.put("/books/:id/title-translations", async (req, res) => {
   } finally {
     client.release();
   }
+});
+
+/* -------------------- cover per language (edition in that language) -------------------- */
+
+function localeCoversOf(id) {
+  const out = {};
+  for (const l of TITLE_LOCALES) {
+    const c = resolveLocaleCover(id, l);
+    if (c) out[l] = c.full;
+  }
+  return out;
+}
+
+// POST /api/admin/books/:id/locale-cover/:locale  (multipart field: cover)
+// Stores covers/locale/{locale}/{id}.jpg (800x1200) and {id}-home.jpg (400x600).
+// The site shows it for that UI language; otherwise the book's own cover.
+router.post("/books/:id/locale-cover/:locale", upload.single("cover"), async (req, res) => {
+  const id = String(req.params.id || "").trim().toLowerCase();
+  const locale = normalizeTitleLocale(req.params.locale);
+  const p = localeCoverPaths(id, locale);
+  if (!p) return res.status(400).json({ error: "invalid_id_or_locale" });
+  if (!req.file?.buffer || req.file.buffer.length < 1024) {
+    return res.status(400).json({ error: "missing_or_empty_file" });
+  }
+  if (!String(req.file.mimetype || "").startsWith("image/")) {
+    return res.status(400).json({ error: "file_is_not_image" });
+  }
+
+  const pool = req.app.get("pgPool");
+  if (pool) {
+    const { rowCount } = await pool.query(`SELECT 1 FROM public.books WHERE id = $1::uuid`, [id]);
+    if (!rowCount) return res.status(404).json({ error: "book_not_found", id });
+  }
+
+  try {
+    await fs.mkdir(p.dir, { recursive: true });
+    await sharp(req.file.buffer)
+      .rotate()
+      .resize(800, 1200, { fit: "contain", background: { r: 255, g: 255, b: 255 } })
+      .jpeg({ quality: 90, progressive: true })
+      .toFile(p.full);
+    await sharp(req.file.buffer)
+      .rotate()
+      .resize(400, 600, { fit: "contain", background: { r: 255, g: 255, b: 255 } })
+      .jpeg({ quality: 80, progressive: true })
+      .toFile(p.home);
+    res.json({ ok: true, id, locale, covers: localeCoversOf(id) });
+  } catch (err) {
+    console.error("POST /api/admin/books/:id/locale-cover/:locale error", err);
+    res.status(500).json({ error: "cover_upload_failed", detail: String(err?.message || err) });
+  }
+});
+
+// DELETE /api/admin/books/:id/locale-cover/:locale -> back to the book's own cover
+router.delete("/books/:id/locale-cover/:locale", async (req, res) => {
+  const id = String(req.params.id || "").trim().toLowerCase();
+  const locale = normalizeTitleLocale(req.params.locale);
+  const p = localeCoverPaths(id, locale);
+  if (!p) return res.status(400).json({ error: "invalid_id_or_locale" });
+  for (const f of [p.full, p.home]) {
+    try { await fs.unlink(f); } catch {}
+  }
+  res.json({ ok: true, id, locale, covers: localeCoversOf(id) });
 });
 
 module.exports = router;

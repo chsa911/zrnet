@@ -54,8 +54,9 @@ function toDraft(b) {
   };
 }
 
-// Only send what changed – mirrors Search & Update: a changed author/publisher
-// name is resolved by name (id cleared), not renamed in place.
+// Only send what changed. A changed author/publisher name re-assigns the book
+// to the author/publisher with that name (created if missing) – the existing
+// row, which other books share, is never renamed from here.
 function toPatch(orig, draft) {
   const patch = {};
   for (const { key, type } of FIELDS) {
@@ -68,8 +69,12 @@ function toPatch(orig, draft) {
     patch.author_lastname = draft.author_lastname.trim();
     patch.name_display = [patch.author_firstname, patch.author_lastname].filter(Boolean).join(" ");
     patch.author_id = "";
+    patch.reassign_author = true; // assign another author, never rename the shared one
   }
-  if ("publisher_name_display" in patch) patch.publisher_id = "";
+  if ("publisher_name_display" in patch) {
+    patch.publisher_id = "";
+    patch.reassign_publisher = true;
+  }
   if ("isbn13" in patch) {
     const digits = patch.isbn13.replace(/[^0-9Xx]/g, "");
     delete patch.isbn13;
@@ -215,8 +220,28 @@ function CoverCard({ book, onSaved }) {
     try {
       const res = await updateBook(book.id, patch);
       const updated = res && typeof res === "object" && res.id ? res : null;
+      // Compare what the server stored with what was typed – never claim
+      // "Gespeichert" when a field silently didn't stick.
+      const changed = FIELDS.filter(({ key }) => draft[key] !== orig[key]);
+      const lost = updated
+        ? changed.filter(({ key }) => {
+            const want = draft[key].trim();
+            const got = toDraft(updated)[key].trim();
+            if (key === "isbn13") return want.replace(/[^0-9Xx]/g, "") !== got.replace(/[^0-9Xx]/g, "");
+            return want !== got;
+          })
+        : [];
       onSaved(book.id, updated, draft);
-      setState({ busy: false, msg: "Gespeichert", err: "" });
+      if (lost.length) {
+        setState({
+          busy: false,
+          msg: "",
+          err: `Nicht übernommen: ${lost.map((f) => `${f.label} („${draft[f.key].trim()}“ → „${toDraft(updated)[f.key] || "leer"}“)`).join(", ")}`,
+        });
+      } else {
+        const names = changed.map((f) => f.label).join(", ");
+        setState({ busy: false, msg: `Gespeichert: ${names}`, err: "" });
+      }
     } catch (e) {
       setState({ busy: false, msg: "", err: e?.message || "Speichern fehlgeschlagen" });
     }
@@ -264,8 +289,13 @@ function CoverCard({ book, onSaved }) {
         })}
 
         <div className="zr-cover-actions">
-          <button className="zr-btn2" onClick={save} disabled={!dirty || state.busy}>
-            {state.busy ? "Speichern…" : "Speichern"}
+          <button
+            className={`zr-btn2 ${dirty ? "zr-btn2--primary" : "zr-btn2--ghost"}`}
+            onClick={save}
+            disabled={!dirty || state.busy}
+            title={dirty ? "Änderungen speichern (⌘S / Strg+S)" : "Keine ungespeicherten Änderungen"}
+          >
+            {state.busy ? "Speichern…" : dirty ? "Speichern" : "Keine Änderungen"}
           </button>
           {dirty && !state.busy ? (
             <button className="zr-btn2 zr-btn2--ghost" onClick={() => setDraft(orig)}>

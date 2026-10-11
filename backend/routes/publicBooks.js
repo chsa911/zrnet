@@ -4,11 +4,13 @@
 const express = require("express");
 const router = express.Router();
 const crypto = require("crypto");
-const { resolveCoverUrl } = require("../utils/covers");
+const { resolveCoverUrl, resolveLocaleCover } = require("../utils/covers");
 const {
   normalizeTitleLocale,
   titleTranslationsReady,
   titleTranslationJoin,
+  titlePurchaseUrlReady,
+  ttPurchaseUrlExpr,
 } = require("../utils/titleLocale");
 
 function getPool(req) {
@@ -205,7 +207,13 @@ router.get("/home-titles", async (req, res) => {
         h.id DESC
     `, [lang]);
 
-    res.json({ books: rows || [] });
+    // Cover of the edition in the UI language, if one was uploaded.
+    const books = (rows || []).map((row) => {
+      const lc = lang ? resolveLocaleCover(row.id, lang) : null;
+      return lc ? { ...row, cover_url: lc.full, cover_home: lc.home } : row;
+    });
+
+    res.json({ books });
   } catch (err) {
     console.error("GET /api/public/books/home-titles error", err);
     res.status(500).json({ error: "internal_error" });
@@ -929,12 +937,14 @@ router.get("/:id", async (req, res) => {
     if (!id) return res.status(400).json({ error: "missing_id" });
     const lang = normalizeTitleLocale(req.query.lang);
     const ttReady = await titleTranslationsReady(pool);
+    const buyReady = ttReady && (await titlePurchaseUrlReady(pool));
 
     const { rows } = await pool.query(
       `
       SELECT
         b.id::text AS id,
         b.author_id::text AS author_id,
+        ${ttPurchaseUrlExpr(ttReady, buyReady)} AS purchase_url_locale,
         ${AUTHOR_EXPR} AS author_name_display,
         COALESCE(NULLIF(tt.title, ''), ${TITLE_EXPR}) AS book_title_display,
         ${TITLE_EXPR}  AS book_title_original,
@@ -992,7 +1002,9 @@ router.get("/:id", async (req, res) => {
       console.warn("purchase_providers not available or query failed:", e?.message || e);
     }
 
-    const manualUrl = normStr(r.purchase_url) || "";
+    // A purchase link for the edition in the UI language wins over the general one.
+    const localeUrl = normStr(r.purchase_url_locale) || "";
+    const manualUrl = localeUrl || normStr(r.purchase_url) || "";
     const bestUrl = normStr(purchase?.best?.url) || "";
     const finalUrl = manualUrl || bestUrl;
 
@@ -1001,7 +1013,7 @@ router.get("/:id", async (req, res) => {
     const finalVendor = manualUrl
       ? normStr(r.purchase_source) || "manual"
       : bestVendor;
-    const coverUrl = resolveCoverUrl(r.id);
+    const coverUrl = resolveCoverUrl(r.id, lang);
     return res.json({
       id: r.id,
       cover_url: coverUrl,
@@ -1032,7 +1044,9 @@ sub_genre_name: r.sub_genre_name || null,
 genre_id: r.genre_id || null,
 genre_abbr: r.genre_abbr || null,
       purchase_source: r.purchase_source || null,
-      purchase_url: r.purchase_url,
+      purchase_url: manualUrl || null,
+      purchase_url_general: r.purchase_url || null,
+      purchase_url_locale: localeUrl || null,
       purchase_url_best: bestUrl || null,
       purchase_vendor_best: bestVendor || null,
       purchase_url_final: finalUrl || null,

@@ -309,6 +309,29 @@ export async function saveTitleTranslations(bookId, payload, { signal } = {}) {
   });
 }
 
+/* ---------------- admin: cover per language (edition in that language) ---------------- */
+
+export async function uploadLocaleCover(bookId, locale, file, { signal } = {}) {
+  if (!bookId || !locale) throw new Error("Missing book id or locale");
+  if (!file) throw new Error("Missing cover file");
+  const fd = new FormData();
+  fd.append("cover", file);
+  return http(`/admin/books/${encodeURIComponent(bookId)}/locale-cover/${encodeURIComponent(locale)}`, {
+    method: "POST",
+    body: fd,
+    signal,
+    timeoutMs: UPLOAD_TIMEOUT_MS,
+  });
+}
+
+export async function deleteLocaleCover(bookId, locale, { signal } = {}) {
+  if (!bookId || !locale) throw new Error("Missing book id or locale");
+  return http(`/admin/books/${encodeURIComponent(bookId)}/locale-cover/${encodeURIComponent(locale)}`, {
+    method: "DELETE",
+    signal,
+  });
+}
+
 export async function listStockAuthors({ limit = 80, signal } = {}) {
   const qs = qsFromObject({ limit });
   const data = await http(`/public/books/stock-authors?${qs}`, { signal });

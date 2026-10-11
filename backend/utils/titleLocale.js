@@ -65,3 +65,37 @@ function titleTranslationJoin(ready, localeParam) {
 
 module.exports.titleTranslationsReady = titleTranslationsReady;
 module.exports.titleTranslationJoin = titleTranslationJoin;
+
+/* ---------------------------------------------------------------------------
+ * Feature check: per-language purchase links (book_title_translations.purchase_url,
+ * Flyway V20261011_02). Until the column exists, every language uses books.purchase_url.
+ * ------------------------------------------------------------------------- */
+let _buyReady = null;
+let _buyCheckedAt = 0;
+
+async function titlePurchaseUrlReady(pool) {
+  if (_buyReady === true) return true;
+  if (_buyReady === false && Date.now() - _buyCheckedAt < 60_000) return false;
+  try {
+    const { rows } = await pool.query(`
+      SELECT EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_schema = 'public' AND table_name = 'book_title_translations'
+          AND column_name = 'purchase_url'
+      ) AS ok
+    `);
+    _buyReady = Boolean(rows[0]?.ok);
+  } catch {
+    _buyReady = false;
+  }
+  _buyCheckedAt = Date.now();
+  return _buyReady;
+}
+
+/** SQL expression for the per-language purchase link of the "tt" join (NULL when not available). */
+function ttPurchaseUrlExpr(ttReady, buyReady) {
+  return ttReady && buyReady ? "NULLIF(btrim(tt.purchase_url), '')" : "NULL::text";
+}
+
+module.exports.titlePurchaseUrlReady = titlePurchaseUrlReady;
+module.exports.ttPurchaseUrlExpr = ttPurchaseUrlExpr;
