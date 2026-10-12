@@ -1,4 +1,9 @@
-pagesinline.com, www.pagesinline.com {
+# One canonical host for SEO: www permanently redirects to the bare domain.
+www.pagesinline.com {
+	redir https://pagesinline.com{uri} permanent
+}
+
+pagesinline.com {
 	# Site is public again. The admin area is gated by the backend's
 	# admin_auth cookie (see backend/app.js and /api/admin login), not
 	# by an edge-wide basic auth anymore.

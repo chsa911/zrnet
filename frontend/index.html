@@ -4,6 +4,13 @@
     <meta charset="UTF-8" />
     <meta name="google" content="notranslate" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!--
+      SEO tags: in production nginx replaces the include below (SSI) with
+      page-specific <title>, meta, canonical and JSON-LD from the API
+      (backend/routes/seo.js). The block is the fallback if the API is
+      unreachable; in `vite dev` it is simply rendered as is.
+    -->
+    <!--# block name="seo_default" -->
     <title>Christophers Pages – Turn waiting time into reading time</title>
     <meta name="description" content="PagesInLine: split paperbacks into pocket sections and turn every waiting minute into reading time. My books, authors, themes and recommendations." />
     <meta property="og:site_name" content="Christophers Pages" />
@@ -12,9 +19,17 @@
     <meta property="og:description" content="PagesInLine: split paperbacks into pocket sections and turn every waiting minute into reading time. My books, authors, themes and recommendations." />
     <meta property="og:image" content="https://pagesinline.com/assets/images/allgemein/hosentasche_link.jpeg" />
     <meta name="twitter:card" content="summary_large_image" />
+    <!--# endblock -->
+    <!--# block name="seo_empty" --><!--# endblock -->
+    <!--# include virtual="/__seo/head" stub="seo_default" -->
+    <style>
+      /* Server-rendered summary for crawlers; React replaces it on mount. */
+      .ssr-content { font: 16px/1.5 system-ui, sans-serif; max-width: 860px; margin: 0 auto; padding: 16px; color: #222; }
+      .ssr-content nav { font-size: 14px; margin-bottom: 16px; }
+    </style>
   </head>
   <body>
-    <div id="root"></div>
+    <div id="root"><!--# include virtual="/__seo/body" stub="seo_empty" --></div>
     <script type="module" src="/src/main.jsx"></script>
   </body>
 </html>

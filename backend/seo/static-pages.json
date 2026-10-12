@@ -1,0 +1,130 @@
+{
+  "/": {
+    "title": "Reading in every spare minute – 5,000+ paper books",
+    "description": "Christopher's collection of more than 5,000 paper books, the 3-R technique for reading on the go (Rip. Read. Remove.) and the books he recommends most.",
+    "h1": "Hi, I'm Christopher – and I read in every spare minute.",
+    "paragraphs": [
+      "Here you'll find my collection of more than 5,000 paper books, the 3-R technique that makes it possible, and the books I'd most like to put into your hands myself.",
+      "Turn waiting time in reading time.",
+      "PagesInLine is a paperbook-based method to support a relaxed readingexperience. Pocket sections, real-life minutes, visible progress. No smartphone reading. No e-reader. Just pages.",
+      "This saying best explains my time consuming book procurement, administration and reading process and my disruptive reading technique which enables me to read every free minute and to select only pageturners out of a big variety of books. A dream!!"
+    ],
+    "steps": [
+      "Pick a paperback you want to read.",
+      "Split it into pocket sections (20–40 pages).",
+      "Carry one section and read top-to-bottom.",
+      "Use micro-moments (waiting time becomes reading time).",
+      "Done pages → recycling (you always know where you stopped)."
+    ]
+  },
+  "/titles": {
+    "title": "Recent highlights",
+    "description": "The latest books Christopher has read and recommends.",
+    "h1": "Recent highlights"
+  },
+  "/collection": {
+    "title": "My whole collection",
+    "description": "Search Christopher's whole collection of more than 5,000 paper books by title or author.",
+    "h1": "My whole collection"
+  },
+  "/authors": {
+    "title": "Authors",
+    "description": "All authors in Christopher's paper-book collection, with the number of books read and in stock.",
+    "h1": "Authors"
+  },
+  "/top-authors": {
+    "title": "Most-read authors",
+    "description": "The authors Christopher has read most, with their best books.",
+    "h1": "Most-read authors"
+  },
+  "/bookthemes": {
+    "title": "Book themes",
+    "description": "Browse Christopher's paper-book collection by theme and find your next good read.",
+    "h1": "Book themes",
+    "paragraphs": [
+      "A curated gallery of subjects I love reading about—tap a card to see the books that represent the theme."
+    ]
+  },
+  "/news": {
+    "title": "News",
+    "description": "What's new at Christophers Pages? Here you'll find new features, new arrivals in the collection and everything that's going on.",
+    "h1": "News",
+    "paragraphs": [
+      "What's new at Christophers Pages? Here you'll find new features, new arrivals in the collection and everything that's going on."
+    ]
+  },
+  "/coaching": {
+    "title": "You already know how to read more. We make sure you actually do it.",
+    "description": "Reading-flow coaching for busy people who have wanted to read more for years - and keep failing to make it stick.",
+    "h1": "You already know how to read more. We make sure you actually do it.",
+    "paragraphs": [
+      "Reading-flow coaching for busy people who have wanted to read more for years - and keep failing to make it stick.",
+      "You already know the tricks: audiobooks on the go, e-readers during waits, short reading bursts instead of long blocks",
+      "The book still sits unread for months - like quitting smoking, everyone knows what to do but not everyone makes the jump to actually doing it",
+      "The real problem is inner resistance, not missing information"
+    ]
+  },
+  "/info/how-it-works": {
+    "title": "How I read: everywhere.",
+    "description": "That's what the 3-R technique gives me: being able to read anytime – at the supermarket checkout, on the train, while waiting for the train.",
+    "h1": "How I read: everywhere.",
+    "paragraphs": [
+      "That's what the 3-R technique gives me: being able to read anytime – at the supermarket checkout, on the train, while waiting for the train.",
+      "Swiping on a smartphone means changing content when you’ve seen enough or don’t like it.",
+      "With paper books that seemed impossible — until I had the idea to cut them into small pieces. A new world opened up for me.",
+      "This technique gave me a lot of advantages:",
+      "Advantage 1: The pages are always close to me when an occasion for reading comes up — supermarket line, check-in, train, plane, and so on. Advantage 2: I can carry several book parts with me and switch to another book if it doesn't grab me. I toss finished pages right away, so I always know where I left off. Advantage 3: Because I buy my books secondhand and in bulk at flea markets, a bad pick costs me nothing — in the end I only ever finish the books that actually excite me.",
+      "Rip",
+      "Rip sections out of the book.",
+      "Read",
+      "Read the pages you ripped out.",
+      "Remove",
+      "Get rid of each page once it's read if the book is good – or get rid of all of it if you don't like it.",
+      "Rip. Read. Remove."
+    ]
+  },
+  "/info/sourcing": {
+    "title": "How do I get pageturners?",
+    "description": "I usually buy my books at flea markets.",
+    "h1": "How do I get pageturners?",
+    "paragraphs": [
+      "I usually buy my books at flea markets.",
+      "If I look for new books in a shop, I usually go to Hugendubel in Munich at Karlsplatz. There I can test-read and decide if I buy. Also available online.",
+      "For used books in Munich I recommend Antiquariat Angelika Ziegler, Landsberger Str. 71, 80339 Munich. Big choice and nice personnel. Also online."
+    ]
+  },
+  "/info/faq": {
+    "title": "Questions you might have",
+    "description": "The most important questions about the 3R technique, answered briefly and clearly.",
+    "h1": "Questions you might have",
+    "paragraphs": [
+      "The most important questions about the 3R technique, answered briefly and clearly."
+    ],
+    "faq": [
+      {
+        "q": "Why not simply carry the whole book?",
+        "a": "Because that is often exactly where reading moments fail in daily life. The 3R technique makes paper books easier to use in short free time windows."
+      },
+      {
+        "q": "Why is an app needed for that?",
+        "a": "Once single pages are on the go, visible information such as title, author or status can disappear. The app therefore keeps track digitally of which book is being read and how far the progress has gone."
+      },
+      {
+        "q": "Why not just use e-books?",
+        "a": "Because many readers deliberately want to stay with paper books. The 3R technique is for people who want a physical reading experience."
+      },
+      {
+        "q": "Who is the 3R technique interesting for?",
+        "a": "Especially for people with many books at home, little free time, and the wish to truly use books in daily life instead of only collecting them."
+      }
+    ]
+  },
+  "/info/impressum": {
+    "title": "Imprint",
+    "h1": "Imprint"
+  },
+  "/info/datenschutz": {
+    "title": "Privacy",
+    "h1": "Privacy"
+  }
+}

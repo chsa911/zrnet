@@ -19,11 +19,10 @@ const STATIC_PATHS = [
   "/bookthemes",
   "/news",
   "/coaching",
-  "/info/so-funktionierts",
-  "/info/beschaffung",
+  "/info/how-it-works",
+  "/info/sourcing",
   "/info/faq",
-  "/info/impressum",
-  "/info/datenschutz",
+  // imprint / privacy are noindex, so they are not listed
 ];
 
 let cache = { xml: null, at: 0 };
@@ -62,13 +61,36 @@ async function buildSitemap(pool) {
     entries.push(urlEntry(`/bookthemes/${encodeURIComponent(r.abbr.trim())}`));
   }
 
+  // Author pages: the SPA links them as /author/<name_display>
+  const authors = await pool.query(`
+    SELECT trim(a.name_display) AS name, MAX(b.registered_at) AS lastmod
+    FROM public.authors a
+    JOIN public.books b ON b.author_id = a.id
+    WHERE a.name_display IS NOT NULL AND trim(a.name_display) <> ''
+    GROUP BY trim(a.name_display)
+    ORDER BY trim(a.name_display)
+  `);
+  for (const r of authors.rows) {
+    entries.push(urlEntry(`/author/${encodeURIComponent(r.name)}`, isoDate(r.lastmod)));
+  }
+
+  const subGenres = await pool.query(`
+    SELECT sg.id::text AS id
+    FROM public.sub_genres sg
+    WHERE EXISTS (SELECT 1 FROM public.books b WHERE b.sub_genre_id = sg.id)
+    ORDER BY sg.id
+  `);
+  for (const r of subGenres.rows) {
+    entries.push(urlEntry(`/sub-genre/${encodeURIComponent(r.id)}`));
+  }
+
   const books = await pool.query(`
     SELECT
       b.id::text AS id,
       GREATEST(b.reading_status_updated_at, b.registered_at) AS lastmod
     FROM public.books b
     ORDER BY b.registered_at DESC NULLS LAST, b.id
-    LIMIT 45000
+    LIMIT 40000
   `);
   for (const r of books.rows) {
     entries.push(urlEntry(`/book/${encodeURIComponent(r.id)}`, isoDate(r.lastmod)));

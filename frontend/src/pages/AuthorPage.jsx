@@ -1,13 +1,15 @@
 // frontend/src/pages/AuthorPage.jsx
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { Suspense, lazy, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useLocation, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { getBook, listPublicBooks } from "../api/books";
 import { getApiRoot } from "../api/apiRoot";
-import BookForm from "../components/BookForm";
 import "./AuthorPage.css";
 import { coverUrl } from "../utils/covers";
 import { useSeo } from "../utils/seo";
 import { useI18n } from "../context/I18nContext";
+
+// Admin-only edit form (OCR + barcode scanner); loaded on demand to keep the public bundle small.
+const BookForm = lazy(() => import("../components/BookForm"));
 
 function isAbortError(e) {
   return (
@@ -855,6 +857,7 @@ export default function AuthorPage() {
               {editBusy ? <div className="zr-alert">Loading…</div> : null}
 
               {editingBook ? (
+                <Suspense fallback={<div className="zr-alert">Loading…</div>}>
                 <BookForm
                   mode="edit"
                   bookId={editId}
@@ -872,6 +875,7 @@ export default function AuthorPage() {
                     setEditingBook((prev) => ({ ...(prev || {}), ...(patch || {}) }));
                   }}
                 />
+                </Suspense>
               ) : null}
             </div>
           </div>

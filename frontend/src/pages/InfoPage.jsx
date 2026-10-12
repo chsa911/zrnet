@@ -75,13 +75,17 @@ export default function InfoPage() {
   const { slug } = useParams();
   const { t } = useI18n();
 
-  const resolvedSlug = slug === "so-funktionierts" ? "technik" : slug;
-const page = INFO_PAGES[resolvedSlug];
+  // Public (English) slug -> internal page key. Old German slugs are
+  // redirected to the English ones in App.jsx and nginx.conf.
+  const SLUG_TO_KEY = { "how-it-works": "technik", sourcing: "beschaffung" };
+  const KEY_TO_SLUG = { technik: "how-it-works", beschaffung: "sourcing" };
+  const resolvedSlug = SLUG_TO_KEY[slug] || slug;
+  const page = INFO_PAGES[resolvedSlug];
   const firstParagraphKey = (page?.blocks || []).find((b) => b?.type === "p" && b?.key)?.key;
   useSeo({
     title: page ? t(page.titleKey) : undefined,
     description: firstParagraphKey ? t(firstParagraphKey) : undefined,
-    path: page ? `/info/${resolvedSlug === "technik" ? "so-funktionierts" : resolvedSlug}` : undefined,
+    path: page ? `/info/${KEY_TO_SLUG[resolvedSlug] || resolvedSlug}` : undefined,
     noindex: !page,
   });
 if (!page) return <Navigate to="/" replace />;

@@ -1,20 +1,12 @@
-import React, { useEffect, useState } from "react";
+import React, { Suspense, lazy, useEffect, useState } from "react";
 import { Routes, Route, Navigate, useLocation } from "react-router-dom";
 import Layout from "./components/Layout";
 import Home from "./pages/Home";
 import ComingSoonPage from "./pages/ComingSoonPage";
 import CollectionPage from "./pages/CollectionPage";
 import { findComingSoon } from "./utils/comingSoon";
-import AnalyticsPage from "./pages/AnalyticsPage";
 import LegacyHtmlPage from "./pages/LegacyHtmlPage";
 import InfoPage from "./pages/InfoPage";
-import AdminCommentsPage from "./pages/AdminCommentsPage";
-import AdminPage from "./pages/AdminPage";
-import AdminAuthorsOverviewPage from "./pages/AdminAuthorsOverviewPage";
-import RegisterPage from "./pages/RegisterPage";
-import SearchUpdatePage from "./pages/SearchUpdatePage";
-import SyncIssuePage from "./pages/SyncIssuePage";
-import BarcodeDashboardPage from "./pages/BarcodeDashboardPage";
 import BookThemesPage from "./pages/BookThemesPage";
 import ThemeBooksPage from "./pages/ThemeBooksPage";
 import StatsDetailPage from "./pages/StatsDetailPage";
@@ -23,25 +15,35 @@ import AuthorReadingStatsPage from "./pages/AuthorReadingStatsPage";
 import AuthorsOverviewPage from "./pages/AuthorsOverviewPage";
 import AuthorPage from "./pages/AuthorPage";
 import BookPage from "./pages/BookPage";
-import AbbreviationsAdminPage from "./pages/AbbreviationsAdminPage";
 /*import NewsletterPage from "./pages/NewsletterPage";
 */
 import ThemeSubthemesAuthorsPage from "./pages/ThemeSubthemesAuthorsPage";
 import { processUploadQueue } from "./utils/uploadQueue";
 import AuthorsIndexPage from "./pages/AuthorsIndexPage";
 import NewsPage from "./pages/NewsPage";
-import AdminAuthorTitlesPage from "./pages/AdminAuthorTitlesPage";
-import AdminAuthorPage from "./pages/AdminAuthorPage";
 import HomeTitlesPage from "./pages/HomeTitlesPage";
 import { API_BASE } from "./api/config";
-import HighlightReceivedPage from "./pages/HighlightReceivedPage";
-import AdminTitleTranslationsPage from "./pages/AdminTitleTranslationsPage";
-import AdminCoversPage from "./pages/AdminCoversPage";
-import KauflinkUpdatePage from "./pages/KauflinkUpdatePage";
 import SubGenrePage from "./pages/SubGenrePage";
 import CoachingPage from "./pages/CoachingPage";
-import AdminPhysCodeCheckPage from "./pages/AdminPhysCodeCheckPage";
-import AdminBarcodeCheckPage from "./pages/AdminBarcodeCheckPage";
+
+// Admin-only pages are loaded on demand so visitors don't download them.
+const AnalyticsPage = lazy(() => import("./pages/AnalyticsPage"));
+const AdminCommentsPage = lazy(() => import("./pages/AdminCommentsPage"));
+const AdminPage = lazy(() => import("./pages/AdminPage"));
+const AdminAuthorsOverviewPage = lazy(() => import("./pages/AdminAuthorsOverviewPage"));
+const RegisterPage = lazy(() => import("./pages/RegisterPage"));
+const SearchUpdatePage = lazy(() => import("./pages/SearchUpdatePage"));
+const SyncIssuePage = lazy(() => import("./pages/SyncIssuePage"));
+const BarcodeDashboardPage = lazy(() => import("./pages/BarcodeDashboardPage"));
+const AbbreviationsAdminPage = lazy(() => import("./pages/AbbreviationsAdminPage"));
+const AdminAuthorTitlesPage = lazy(() => import("./pages/AdminAuthorTitlesPage"));
+const AdminAuthorPage = lazy(() => import("./pages/AdminAuthorPage"));
+const HighlightReceivedPage = lazy(() => import("./pages/HighlightReceivedPage"));
+const AdminTitleTranslationsPage = lazy(() => import("./pages/AdminTitleTranslationsPage"));
+const AdminCoversPage = lazy(() => import("./pages/AdminCoversPage"));
+const KauflinkUpdatePage = lazy(() => import("./pages/KauflinkUpdatePage"));
+const AdminPhysCodeCheckPage = lazy(() => import("./pages/AdminPhysCodeCheckPage"));
+const AdminBarcodeCheckPage = lazy(() => import("./pages/AdminBarcodeCheckPage"));
 const ENV_BASE = (import.meta?.env?.VITE_API_BASE_URL || import.meta?.env?.VITE_API_BASE || "").trim();
 const BASE = String(ENV_BASE || API_BASE || "/api").replace(/\/$/, "");
 
@@ -129,6 +131,7 @@ export default function App() {
   }, []);
 
   return (
+    <Suspense fallback={null}>
     <Routes>
       {/* ✅ Make the layout route explicit */}
       <Route path="/" element={<Layout />}>
@@ -166,17 +169,19 @@ export default function App() {
 */}
         {/* static info pages (React + i18n) */}
         <Route path="info/:slug" element={<InfoPage />} />
+        <Route path="info/so-funktionierts" element={<Navigate to="/info/how-it-works" replace />} />
+        <Route path="info/beschaffung" element={<Navigate to="/info/sourcing" replace />} />
 
         {/* legacy static routes → info/:slug */}
-        <Route path="technik.html" element={<Navigate to="/info/so-funktionierts" replace />} />
-        <Route path="info/technik" element={<Navigate to="/info/so-funktionierts" replace />} />
-        <Route path="info/ausruestung" element={<Navigate to="/info/so-funktionierts" replace />} />
-        <Route path="ausruestung.html" element={<Navigate to="/info/so-funktionierts" replace />} />
-        <Route path="beschaffung.html" element={<Navigate to="/info/beschaffung" replace />} />
+        <Route path="technik.html" element={<Navigate to="/info/how-it-works" replace />} />
+        <Route path="info/technik" element={<Navigate to="/info/how-it-works" replace />} />
+        <Route path="info/ausruestung" element={<Navigate to="/info/how-it-works" replace />} />
+        <Route path="ausruestung.html" element={<Navigate to="/info/how-it-works" replace />} />
+        <Route path="beschaffung.html" element={<Navigate to="/info/sourcing" replace />} />
         <Route path="faq.html" element={<Navigate to="/info/faq" replace />} />
         <Route path="haeufige_fragen.html" element={<Navigate to="/info/faq" replace />} />
         <Route path="haeufige_fragen_d.html" element={<Navigate to="/info/faq" replace />} />
-       <Route path="/recent-highlights" element={<HomeTitlesPage />} />
+        <Route path="recent-highlights" element={<Navigate to="/titles" replace />} />
         <Route path="impressum.html" element={<Navigate to="/info/impressum" replace />} />
         <Route path="impressum_d.html" element={<Navigate to="/info/impressum" replace />} />
         <Route path="datenschutz.html" element={<Navigate to="/info/datenschutz" replace />} />
@@ -242,5 +247,6 @@ export default function App() {
         <Route path="*" element={<NotFound />} />
       </Route>
     </Routes>
+    </Suspense>
   );
 }

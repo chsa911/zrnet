@@ -62,7 +62,16 @@ function upsertCanonical(href) {
   el.setAttribute("href", href);
 }
 
+// nginx renders JSON-LD for the first page that is loaded (backend/routes/seo.js).
+// After client-side navigation to another page it no longer matches, so drop it.
+const SSR_PATH = typeof window !== "undefined" ? window.location.pathname : "";
+function dropStaleStructuredData() {
+  if (window.location.pathname === SSR_PATH) return;
+  document.head.querySelectorAll("script[data-seo-ssr]").forEach((el) => el.remove());
+}
+
 function apply({ title, description, canonical, image, type, noindex }) {
+  dropStaleStructuredData();
   document.title = title;
   upsertMeta("name", "description", description);
   upsertMeta("name", "robots", noindex ? "noindex, follow" : "");
