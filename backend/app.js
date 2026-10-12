@@ -205,6 +205,103 @@ app.post("/api/books/:bookId/cover", coverUpload.single("cover"), async (req, re
   }
 });
 
+/* ---------- copy a cover to another book ---------- */
+/**
+ * POST /api/books/:bookId/cover/copy  { target: "<bookcode or book uuid>" }
+ * Copies the cover of :bookId (normalized/ or old root covers/) to the target
+ * book, e.g. when a book turns out to be the same as one registered earlier.
+ * The source keeps its cover; an existing cover of the target is replaced.
+ */
+app.post("/api/books/:bookId/cover/copy", async (req, res) => {
+  try {
+    const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    const sourceId = String(req.params.bookId || "").trim();
+    const target = String(req.body?.target || "").trim();
+    if (!UUID_RE.test(sourceId)) return res.status(400).json({ error: "bad_source_id" });
+    if (!target) return res.status(400).json({ error: "target_missing" });
+
+    const pool = req.app.get("pgPool");
+    if (!pool) return res.status(500).json({ error: "pgPool missing" });
+
+    // Resolve target: book uuid, or barcode/bookcode (case-insensitive)
+    let targetId = null;
+    let targetBarcode = null;
+    if (UUID_RE.test(target)) {
+      const r = await pool.query(
+        `SELECT b.id::text AS id, bb.barcode
+           FROM public.books b
+           LEFT JOIN public.book_barcodes bb ON bb.book_id = b.id
+          WHERE b.id = $1::uuid`,
+        [target]
+      );
+      if (r.rows[0]) { targetId = r.rows[0].id; targetBarcode = r.rows[0].barcode; }
+    } else {
+      const r = await pool.query(
+        `SELECT book_id::text AS id, barcode
+           FROM public.book_barcodes
+          WHERE lower(barcode) = lower($1)
+          LIMIT 1`,
+        [target]
+      );
+      if (r.rows[0]) { targetId = r.rows[0].id; targetBarcode = r.rows[0].barcode; }
+    }
+    if (!targetId) return res.status(404).json({ error: "target_not_found", message: `Kein Buch mit „${target}“ gefunden` });
+    if (targetId.toLowerCase() === sourceId.toLowerCase()) {
+      return res.status(400).json({ error: "same_book", message: "Quelle und Ziel sind dasselbe Buch" });
+    }
+
+    // Find source cover files (new format first, then old root format)
+    const candidates = [
+      { dir: COVERS_NORMALIZED_DIR },
+      { dir: COVERS_DIR },
+    ];
+    let srcDir = null;
+    for (const c of candidates) {
+      if (fs.existsSync(path.join(c.dir, `${sourceId}.jpg`))) { srcDir = c.dir; break; }
+    }
+    if (!srcDir) return res.status(404).json({ error: "source_cover_missing", message: "Dieses Buch hat kein Cover" });
+
+    const srcFull = path.join(srcDir, `${sourceId}.jpg`);
+    const srcHome = path.join(srcDir, `${sourceId}-home.jpg`);
+    const dstFull = path.join(COVERS_NORMALIZED_DIR, `${targetId}.jpg`);
+    const dstHome = path.join(COVERS_NORMALIZED_DIR, `${targetId}-home.jpg`);
+    const replaced = fs.existsSync(dstFull);
+
+    await fs.promises.copyFile(srcFull, dstFull);
+    if (fs.existsSync(srcHome)) {
+      await fs.promises.copyFile(srcHome, dstHome);
+    } else {
+      await sharp(srcFull)
+        .resize(400, 600, { fit: "contain", background: { r: 255, g: 255, b: 255 } })
+        .jpeg({ quality: 80, progressive: true })
+        .toFile(dstHome);
+    }
+
+    // Also copy the original upload, if one exists
+    try {
+      const raws = (await fs.promises.readdir(COVERS_RAW_DIR)).filter((f) => f.startsWith(`${sourceId}.`));
+      for (const f of raws) {
+        await fs.promises.copyFile(path.join(COVERS_RAW_DIR, f), path.join(COVERS_RAW_DIR, `${targetId}${path.extname(f)}`));
+      }
+    } catch { /* raw copy is optional */ }
+
+    await pool.query(`UPDATE public.books SET updated_at = NOW() WHERE id = $1::uuid`, [targetId]);
+
+    res.json({
+      ok: true,
+      replaced,
+      source_id: sourceId,
+      target_id: targetId,
+      target_barcode: targetBarcode,
+      normalized: `/uploads/covers/normalized/${targetId}.jpg`,
+      home: `/uploads/covers/normalized/${targetId}-home.jpg`,
+    });
+  } catch (err) {
+    console.error("POST /api/books/:bookId/cover/copy error", err);
+    res.status(500).json({ error: "cover_copy_failed", detail: String(err?.message || err) });
+  }
+});
+
 /* ---------- public endpoints (must be after CORS) ---------- */
 const { normalizeTitleLocale, titleTranslationsReady, titleTranslationJoin, titlePurchaseUrlReady, ttPurchaseUrlExpr } = require("./utils/titleLocale");
 app.get("/api/public/home-highlights", async (req, res) => {

@@ -390,3 +390,13 @@ export async function uploadBookCover(bookId, file, { signal } = {}) {
     timeoutMs: UPLOAD_TIMEOUT_MS,
   });
 }
+
+export async function copyBookCover(sourceBookId, target, { signal } = {}) {
+  if (!sourceBookId) throw new Error("Missing book id");
+  if (!String(target || "").trim()) throw new Error("Missing target");
+  return http(`/books/${encodeURIComponent(sourceBookId)}/cover/copy`, {
+    method: "POST",
+    json: { target: String(target).trim() },
+    signal,
+  });
+}

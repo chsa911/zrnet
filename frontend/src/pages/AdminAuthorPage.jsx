@@ -94,7 +94,23 @@ useEffect(() => {
 
   function updateField(key, value) {
     setSaved(false);
-    setForm((current) => ({ ...current, [key]: value }));
+    setForm((current) => {
+      const next = { ...current, [key]: value };
+      // Keep name_display in sync with first/last name, unless the user
+      // has typed a custom display name. Otherwise the old display name
+      // (e.g. "Niklas Frank") survives a corrected last name ("Dollin").
+      if (key === "first_name" || key === "last_name") {
+        const prevAuto = [current.first_name, current.last_name]
+          .map((x) => String(x || "").trim()).filter(Boolean).join(" ");
+        const curDisp = String(current.name_display || "").trim();
+        const origDisp = String(author?.name_display || "").trim();
+        if (!curDisp || curDisp === prevAuto || curDisp === origDisp) {
+          next.name_display = [next.first_name, next.last_name]
+            .map((x) => String(x || "").trim()).filter(Boolean).join(" ");
+        }
+      }
+      return next;
+    });
   }
 const saveAsNew = async (e) => {
   e.preventDefault();
@@ -118,12 +134,15 @@ const saveAsNew = async (e) => {
     const newId = json?.author?.id || json?.id;
     if (newId) {
    if (sourceBookId) {
-    await fetch(`${getApiRoot()}/books/${sourceBookId}`, {
+    const linkRes = await fetch(`${getApiRoot()}/books/${sourceBookId}`, {
       method: "PATCH",
       credentials: "include",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ author_id: newId }),
     });
+    if (!linkRes.ok) {
+      throw new Error(`Author created, but linking it to the book failed (${linkRes.status})`);
+    }
   }
   navigate(`/admin/authors/${newId}`);
 }
@@ -138,6 +157,19 @@ const saveAsNew = async (e) => {
 };
   async function saveAuthor(e) {
     e.preventDefault();
+    const nameChanged =
+      ["first_name", "last_name", "name_display"].some(
+        (k) => String(form[k] || "").trim() !== String(author?.[k] ?? "").trim()
+      );
+    if (
+      nameChanged &&
+      !window.confirm(
+        `"Save author" renames ${author?.name_display || "this author"} for ALL of their books.\n\n` +
+        `If only this one book has the wrong author, cancel and use "Save as new author" instead.`
+      )
+    ) {
+      return;
+    }
     setSaving(true);
     setErr("");
     setSaved(false);

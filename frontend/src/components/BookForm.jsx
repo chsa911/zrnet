@@ -806,6 +806,13 @@ export default function BookForm({
     if (isbnN.isbn13) payload.isbn13 = isbnN.isbn13;
     if (isbnN.isbn10) payload.isbn10 = isbnN.isbn10;
     if (!isbnN.isbn13 && !isbnN.isbn10 && isbnN.raw) payload.isbn13_raw = isbnN.raw;
+    // In edit mode, an emptied ISBN field must clear the stored (wrong) ISBN;
+    // previously empty values were simply not sent, so the old ISBN stayed.
+    if (isEdit && !isbnN.isbn13 && !isbnN.isbn10 && !isbnN.raw &&
+        (String(initial.isbn13 || "").trim() || String(initial.isbn10 || "").trim())) {
+      payload.isbn13 = null;
+      payload.isbn10 = null;
+    }
 
     const pages = parseIntOrNull(v.pages);
     if (pages !== null) payload.pages = pages;

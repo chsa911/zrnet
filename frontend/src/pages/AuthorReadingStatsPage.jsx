@@ -52,11 +52,12 @@ export default function AuthorReadingStatsPage() {
   useSeo({ title: t("ars_title"), description: t("ars_lede"), path: "/author-stats" });
 
   const [sp, setSp] = useSearchParams();
-  const sortRaw = sp.get("sort") || "author_asc";
+  const DEFAULT_SORT = "read_total_desc";
+  const sortRaw = sp.get("sort") || DEFAULT_SORT;
   const [sortCol, sortDir] = (() => {
     const m = /^(.+)_(asc|desc)$/.exec(sortRaw);
     if (m && COLUMNS.some((c) => c.key === m[1])) return [m[1], m[2]];
-    return ["author", "asc"];
+    return ["read_total", "desc"];
   })();
 
   const [q, setQ] = useState("");
@@ -111,7 +112,7 @@ export default function AuthorReadingStatsPage() {
   const setSort = (col, dir) => {
     const p = new URLSearchParams(sp);
     const v = `${col}_${dir}`;
-    if (v === "author_asc") p.delete("sort");
+    if (v === DEFAULT_SORT) p.delete("sort");
     else p.set("sort", v);
     setSp(p, { replace: true });
   };

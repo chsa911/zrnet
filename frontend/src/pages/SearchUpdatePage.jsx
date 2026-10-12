@@ -5,6 +5,7 @@ import {
   updateBook,
   highlightBook,
   uploadBookCover,
+  copyBookCover,
 } from "../api/books";
 import BookForm from "../components/BookFormSwitcher";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
@@ -153,7 +154,7 @@ function InlineSelect({ value, options, disabled, onSave }) {
 }
 
 // ── Cover preview modal ────────────────────────────────────────────────────
-function CoverPreviewModal({ bookId, url, onReplace, onClose }) {
+function CoverPreviewModal({ bookId, url, onReplace, onCopy, onClose }) {
   useEffect(() => {
     const onKey = (e) => { if (e.key === "Escape") onClose(); };
     window.addEventListener("keydown", onKey);
@@ -196,6 +197,17 @@ function CoverPreviewModal({ bookId, url, onReplace, onClose }) {
           </button>
           <button
             type="button"
+            onClick={onCopy}
+            title="Dieses Cover einem anderen (früher registrierten) Buch zuordnen"
+            style={{
+              flex: 1, border: 0, borderRight: "4px solid #111", background: "#fff",
+              color: "#111", fontWeight: 900, fontSize: 15, padding: "12px 0", cursor: "pointer",
+            }}
+          >
+            Copy to book…
+          </button>
+          <button
+            type="button"
             onClick={onClose}
             style={{
               flex: 1, border: 0, background: "#111",
@@ -217,6 +229,25 @@ function CoverImageButton({ book, bookId, isBusy, onUploaded }) {
   const hasCover = !!book?.cover_available;
   const url = book?.cover_url || `/uploads/covers/normalized/${bookId}.jpg`;
 
+  async function handleCopy() {
+    const target = window.prompt(
+      "Cover auf welches Buch übertragen?\nBookcode (z. B. lik011) oder Buch-ID eingeben:"
+    );
+    if (!target || !target.trim()) return;
+    try {
+      const r = await copyBookCover(bookId, target.trim());
+      setPreviewOpen(false);
+      onUploaded?.();
+      alert(
+        `Cover übertragen auf ${r?.target_barcode || r?.target_id}` +
+        (r?.replaced ? " (vorhandenes Cover ersetzt)." : ".")
+      );
+    } catch (e) {
+      console.error(e);
+      alert(e?.message || "Cover konnte nicht übertragen werden");
+    }
+  }
+
   async function handleFile(file) {
     if (!file || !bookId) return;
     try {
@@ -237,6 +268,7 @@ function CoverImageButton({ book, bookId, isBusy, onUploaded }) {
           bookId={bookId}
           url={url}
           onReplace={() => { setPreviewOpen(false); inputRef.current?.click(); }}
+          onCopy={handleCopy}
           onClose={() => setPreviewOpen(false)}
         />
       )}
