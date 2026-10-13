@@ -48,7 +48,7 @@ function expandLang(v) {
   return LANG_SHORT[t] || t;
 }
 // Vorgaben, wenn noch nichts gespeichert ist
-const DEFAULTS = { page_num_pos: "ur", language: "de" };
+const DEFAULTS = { page_num_pos: "ur", chapters: "0", language: "de" };
 function draftWithDefaults(b) {
   const d = draftFromBook(b);
   for (const [k, v] of Object.entries(DEFAULTS)) if (!String(d[k] ?? "").trim()) d[k] = v;
@@ -683,7 +683,7 @@ export default function AdminBarcodeCheckPage() {
 
       <div className="pc-help">
         Enter = nächstes Feld · Enter im letzten Feld = speichern + nächste Zeile · Zeile verlassen = automatisch speichern · Strg/Cmd+Enter = speichern · Esc = Zeile zurücksetzen ·
-        Platzhalter: ob0x = alle ab ob0 · Gelb = geändert, Rot = fehlt · Pos: ol om or ml mr ul um ur, 00 = keine · Vorgabe Pos = ur, Spr. = de (nur Enter drücken) · Spr. kurz: d=de e=en f=fr s=es i=it n=nl p=pt
+        Platzhalter: ob0x = alle ab ob0 · Gelb = geändert, Rot = fehlt · Pos: ol om or ml mr ul um ur, 00 = keine · Vorgabe Pos = ur, Kap. = 0, Spr. = de (nur Enter drücken) · Spr. kurz: d=de e=en f=fr s=es i=it n=nl p=pt
       </div>
 
       {editLoading ? <div className="pc-modal"><div className="pc-modal-box">Lade…</div></div> : null}

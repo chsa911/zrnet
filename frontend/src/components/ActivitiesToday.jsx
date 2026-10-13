@@ -18,8 +18,9 @@ export function notifyActivityChanged() {
 const POLL_MS = 15000;
 const TILES = [
   ["uploaded", "Upload new books today"],
-  ["enriched", "Enriched today"],
+  ["enriched", "Data added today"],
   ["registered", "Registered today"],
+  ["abandoned", "Abandoned today"],
 ];
 
 export default function ActivitiesToday() {
@@ -72,10 +73,11 @@ export default function ActivitiesToday() {
       <style>{`
         .zr-act { text-align: center; margin: 4px auto 22px; padding: 0 12px; max-width: 1800px; box-sizing: border-box; font-weight: 900; }
         .zr-act-title { font-size: clamp(48px, 8vw, 110px); font-weight: 900; line-height: 1.05; margin: 0 0 16px; letter-spacing: -0.01em; }
-        .zr-act-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px; }
+        .zr-act-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
         .zr-act-tile { border: 5px solid rgba(0,0,0,.65); padding: 18px 12px; background: #fff; }
         .zr-act-num { font-size: clamp(80px, 12vw, 180px); font-weight: 900; line-height: 1; font-variant-numeric: tabular-nums; }
         .zr-act-label { font-size: clamp(22px, 2.6vw, 38px); font-weight: 900; margin-top: 8px; }
+        @media (max-width: 900px) { .zr-act-grid { grid-template-columns: repeat(2, 1fr); } }
         .zr-act-err { color: #b91c1c; font-size: 18px; margin-top: 8px; }
       `}</style>
       <h1 className="zr-act-title">Activities today</h1>

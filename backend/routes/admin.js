@@ -748,8 +748,10 @@ COUNT(b.id) FILTER (WHERE b.top_book = true)::int AS top_books
 
       // GET /api/admin/activity/today  – Tageszahlen (Europe/Berlin)
       //   uploaded:   neu angelegte Bücher (added_at heute)
+      //   enriched:   heute Daten hinzugefügt, z. B. neue Physical ID (enriched_at heute,
+      //               gesetzt per Trigger, siehe V20261013_02__books_enriched_at.sql)
       //   registered: heute registriert (registered_at heute)
-      //   enriched:   heute ergänzt/geändert, aber nicht heute neu angelegt/registriert
+      //   abandoned:  heute als abgebrochen markiert (reading_status_updated_at heute)
       router.get("/activity/today", async (req, res) => {
         const pool = req.app.get("pgPool");
         if (!pool) return res.status(500).json({ error: "pgPool missing" });
@@ -757,19 +759,21 @@ COUNT(b.id) FILTER (WHERE b.top_book = true)::int AS top_books
           const { rows } = await pool.query(`
             WITH d AS (SELECT (now() AT TIME ZONE 'Europe/Berlin')::date AS today)
             SELECT
-              count(*) FILTER (WHERE (b.added_at AT TIME ZONE 'Europe/Berlin')::date = d.today)::int AS uploaded,
-              count(*) FILTER (WHERE (b.registered_at AT TIME ZONE 'Europe/Berlin')::date = d.today)::int AS registered,
-              count(*) FILTER (
-                WHERE (b.updated_at AT TIME ZONE 'Europe/Berlin')::date = d.today
-                  AND (b.added_at AT TIME ZONE 'Europe/Berlin')::date IS DISTINCT FROM d.today
-                  AND (b.registered_at AT TIME ZONE 'Europe/Berlin')::date IS DISTINCT FROM d.today
-              )::int AS enriched
-            FROM public.books b, d
-            WHERE b.added_at >= now() - interval '2 days'
-               OR b.registered_at >= now() - interval '2 days'
-               OR b.updated_at >= now() - interval '2 days'
+              (SELECT count(*) FROM public.books b, d
+                WHERE b.added_at >= now() - interval '2 days'
+                  AND (b.added_at AT TIME ZONE 'Europe/Berlin')::date = d.today)::int AS uploaded,
+              (SELECT count(*) FROM public.books b, d
+                WHERE b.enriched_at >= now() - interval '2 days'
+                  AND (b.enriched_at AT TIME ZONE 'Europe/Berlin')::date = d.today)::int AS enriched,
+              (SELECT count(*) FROM public.books b, d
+                WHERE b.registered_at >= now() - interval '2 days'
+                  AND (b.registered_at AT TIME ZONE 'Europe/Berlin')::date = d.today)::int AS registered,
+              (SELECT count(*) FROM public.books b, d
+                WHERE b.reading_status::text = 'abandoned'
+                  AND b.reading_status_updated_at >= now() - interval '2 days'
+                  AND (b.reading_status_updated_at AT TIME ZONE 'Europe/Berlin')::date = d.today)::int AS abandoned
           `);
-          return res.json(rows[0] || { uploaded: 0, registered: 0, enriched: 0 });
+          return res.json(rows[0] || { uploaded: 0, enriched: 0, registered: 0, abandoned: 0 });
         } catch (e) {
           return res.status(500).json({ error: "activity_today_failed", detail: String(e?.message || e) });
         }

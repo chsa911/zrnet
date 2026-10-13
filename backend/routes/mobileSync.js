@@ -409,15 +409,139 @@
     // (set freed_at on the open ledger row, drop the live link, flip
     // inventory back to AVAILABLE only if no other in_progress book still
     // holds it). Only fires once, on the actual transition.
+    let releasedBarcodes = [];
     if (
       statusApplied &&
       prevStatus === "in_progress" &&
       (row.reading_status === "finished" || row.reading_status === "abandoned")
     ) {
-      await releaseBookBarcodes(client, bookId);
+      releasedBarcodes = await releaseBookBarcodes(client, bookId);
     }
 
-    return { statusApplied, current: row };
+    return { statusApplied, current: row, prevStatus, releasedBarcodes };
+  }
+
+  // ---- per-change feedback for the phone ----
+  //
+  // Every change in a /sync batch gets exactly one entry in `results`, so the
+  // app can tell the user whether a finished/abandoned scan went through
+  // cleanly (barcode resolved to exactly one book, page count matched, status
+  // written, barcode released) or why it did not.
+  //
+  // outcome:
+  //   "ok"           – applied to the book, every check passed
+  //   "warning"      – applied, but something could not be verified
+  //                    (no page count to compare, book was not in_progress …)
+  //   "needs_review" – NOT applied to the book; stored for an admin
+  //   "invalid"      – payload unusable; nothing written to the book
+  //
+  // `applied` / `failed` are unchanged so older app builds keep working.
+  const FINAL_STATUSES = ["finished", "abandoned"];
+
+  async function fetchBookInfo(client, bookId) {
+    if (!bookId) return null;
+    const r = await client.query(
+      `
+      SELECT
+        b.id,
+        b.pages,
+        b.reading_status,
+        COALESCE(
+          NULLIF(b.title_display,''),
+          NULLIF(b.title_en,''),
+          NULLIF(b.title_keyword,'')
+        ) AS title,
+        a.name_display AS author
+      FROM public.books b
+      LEFT JOIN public.authors a ON a.id = b.author_id
+      WHERE b.id = $1::uuid
+      LIMIT 1
+      `,
+      [bookId]
+    );
+    const row = r.rows[0];
+    if (!row) return null;
+    return {
+      id: row.id,
+      title: row.title || null,
+      author: row.author || null,
+      pages: row.pages === null || row.pages === undefined ? null : Number(row.pages),
+      readingStatus: row.reading_status || null,
+    };
+  }
+
+  function makeResult(parsed, outcome, code, extra = {}) {
+    return {
+      clientChangeId: parsed.clientChangeId || null,
+      barcode: parsed.barcode || null,
+      readingStatus: parsed.readingStatus || null,
+      pages: parsed.pages ?? null,
+      outcome,
+      code,
+      book: extra.book || null,
+      checks: extra.checks || null,
+      details: extra.details || null,
+    };
+  }
+
+  // Result for a change that was written to public.books.
+  async function appliedResult(client, parsed, bookId, applyRes, { candidateCount, expectedPages }) {
+    const book = await fetchBookInfo(client, bookId);
+    const pagesChecked = parsed.pages !== null && expectedPages !== null;
+    const released = applyRes.releasedBarcodes || [];
+    const prev = applyRes.prevStatus ?? null;
+    const checks = {
+      barcodeMatched: true,
+      candidateCount,
+      pagesChecked,
+      expectedPages,
+      incomingPages: parsed.pages,
+      pagesDiff: pagesChecked ? pagesDiff(parsed.pages, expectedPages) : null,
+      pageTolerance: PAGE_TOLERANCE,
+      statusApplied: !!applyRes.statusApplied,
+      previousStatus: prev,
+      barcodeReleased: released.length > 0,
+      releasedBarcodes: released,
+    };
+
+    if (!applyRes.statusApplied) {
+      return makeResult(parsed, "needs_review", "stale_reading_status", { book, checks });
+    }
+
+    let code = "ok";
+    if (FINAL_STATUSES.includes(parsed.readingStatus) && prev !== "in_progress") {
+      // Status was written, but there was no in_progress -> finished/abandoned
+      // transition, so no barcode was released by this scan.
+      code = prev === parsed.readingStatus ? "already_set" : "not_in_progress_before";
+    } else if (!pagesChecked) {
+      code = "pages_unchecked";
+    }
+    return makeResult(parsed, code === "ok" ? "ok" : "warning", code, { book, checks });
+  }
+
+  // Result for a change the server has already seen (re-sent by the phone).
+  async function resultFromReceipt(client, parsed) {
+    const r = await client.query(
+      `
+      SELECT r.status, r.book_id, i.reason, i.details, x.error_code
+      FROM mobile_sync.receipts r
+      LEFT JOIN mobile_sync.issues i ON i.id = r.issue_id
+      LEFT JOIN public.mobile_sync_inbox x ON x.client_change_id = r.client_change_id
+      WHERE r.client_change_id = $1
+      LIMIT 1
+      `,
+      [parsed.clientChangeId]
+    );
+    const row = r.rows[0];
+    if (!row) return makeResult(parsed, "ok", "already_processed");
+    const book = await fetchBookInfo(client, row.book_id);
+    if (row.status === "applied" && row.error_code !== "stale_reading_status") {
+      return makeResult(parsed, "ok", "already_processed", { book });
+    }
+    return makeResult(parsed, "needs_review", row.reason || row.error_code || "needs_review", {
+      book,
+      details: row.details || null,
+    });
   }
 
   /**
@@ -425,15 +549,17 @@
    *
    * POST /api/mobile-sync/sync
    * Body: { changes: [{ clientChangeId, barcode, pages?, readingStatus, reading_status_updated_at, topBook?, topbook_set_at? , ...}] }
+   * Response: { applied: [clientChangeId], failed: [{clientChangeId, error}], results: [see makeResult] }
    */
   router.post("/sync", async (req, res) => {
     const pool = getPool(req);
     const changes = Array.isArray(req.body?.changes) ? req.body.changes : [];
-    if (changes.length === 0) return res.json({ applied: [], failed: [] });
+    if (changes.length === 0) return res.json({ applied: [], failed: [], results: [] });
     if (changes.length > 50) return res.status(400).json({ error: "too_many_changes" });
 
     const applied = [];
     const failed = [];
+    const results = [];
 
     const client = await pool.connect();
     try {
@@ -464,13 +590,39 @@
         const note = c.note != null && String(c.note).trim() !== "" ? String(c.note).trim().slice(0, 15) : null;
         const storedClientChangeId = await inboxStoreReceived(client, c);
 
+        const parsed = {
+          clientChangeId,
+          barcode,
+          pages,
+          readingStatus,
+          rsUpdatedAt,
+          topBook,
+          topBookSetAt,
+          note,
+        };
+
+        // Records the issue + receipt + inbox status and the phone-facing result
+        // for a change that must NOT be applied to public.books.
+        const toReview = async (reason, details, candidateBookIds, book = null) => {
+          await writeIssueAndReceipt(client, c, parsed, reason, details, candidateBookIds);
+          await inboxSetStatus(client, clientChangeId, { status: "needs_review", errorCode: reason });
+          results.push(makeResult(parsed, "needs_review", reason, { book, details }));
+          applied.push(clientChangeId);
+        };
+
         if (!clientChangeId || !barcode || !readingStatus || !rsUpdatedAt) {
+          const missing = [];
+          if (!clientChangeId) missing.push("clientChangeId");
+          if (!barcode) missing.push("barcode");
+          if (!readingStatus) missing.push("readingStatus");
+          if (!rsUpdatedAt) missing.push("readingStatusChangedAt");
           if (storedClientChangeId) {
             await inboxSetStatus(client, storedClientChangeId, {
               status: "invalid_payload",
               errorCode: "INVALID_PAYLOAD",
             });
             applied.push(storedClientChangeId);
+            results.push(makeResult(parsed, "invalid", "invalid_payload", { details: { missing } }));
           } else {
             failed.push({ clientChangeId: clientChangeId || null, error: "INVALID_PAYLOAD" });
           }
@@ -483,38 +635,20 @@
         // it to public.books, where it would (via the close-barcode trigger)
         // also rip the open barcode assignment off a book that's still in hand.
         if (!MOBILE_ALLOWED_STATUSES.includes(readingStatus)) {
-          await writeIssueAndReceipt(
-            client,
-            c,
-            { clientChangeId, barcode, pages, readingStatus, rsUpdatedAt, topBook, topBookSetAt, note },
+          await toReview(
             "unsupported_reading_status",
             { reading_status: readingStatus, allowed: MOBILE_ALLOWED_STATUSES },
             null
           );
-          await inboxSetStatus(client, clientChangeId, {
-            status: "needs_review",
-            errorCode: "unsupported_reading_status",
-          });
-          applied.push(clientChangeId);
           continue;
         }
 
         // Idempotency
         if (await syncInboxStatusFromReceipt(client, clientChangeId)) {
+          results.push(await resultFromReceipt(client, parsed));
           applied.push(clientChangeId);
           continue;
         }
-
-        const parsed = {
-          clientChangeId,
-          barcode,
-          pages,
-          readingStatus,
-          rsUpdatedAt,
-          topBook,
-          topBookSetAt,
-          note,
-        };
 
         // ✅ Auto-resolve duplicates: if we already applied same barcode+timestamp before, reuse that book_id
         const dup = await client.query(
@@ -533,9 +667,10 @@
 
         if (dup.rowCount === 1) {
           const bookId = dup.rows[0].book_id;
-          const { statusApplied } = await updateBookFromMobile(client, bookId, parsed);
+          const before = await fetchBookInfo(client, bookId);
+          const applyRes = await updateBookFromMobile(client, bookId, parsed);
           await writeAppliedReceipt(client, c, parsed, bookId);
-          if (statusApplied) {
+          if (applyRes.statusApplied) {
             await inboxSetStatus(client, clientChangeId, { status: "applied", bookId });
           } else {
             // Payload was well-formed and the barcode resolved fine, but the
@@ -547,6 +682,12 @@
               bookId,
             });
           }
+          results.push(
+            await appliedResult(client, parsed, bookId, applyRes, {
+              candidateCount: null,
+              expectedPages: before ? before.pages : null,
+            })
+          );
           applied.push(clientChangeId);
           continue;
         }
@@ -567,19 +708,7 @@
         const candidates = cand.rows.map((r) => r.book_id).filter(Boolean);
 
         if (candidates.length === 0) {
-          await writeIssueAndReceipt(
-            client,
-            c,
-            parsed,
-            "barcode_not_found",
-            { note: "No active barcode_assignments for barcode" },
-            null
-          );
-          await inboxSetStatus(client, clientChangeId, {
-            status: "needs_review",
-            errorCode: "barcode_not_found",
-          });
-          applied.push(clientChangeId);
+          await toReview("barcode_not_found", { note: "No active barcode_assignments for barcode" }, null);
           continue;
         }
 
@@ -600,19 +729,11 @@
         } else {
           // multiple candidates: pages MUST be present
           if (pages === null) {
-            await writeIssueAndReceipt(
-              client,
-              c,
-              parsed,
+            await toReview(
               "barcode_ambiguous_missing_pages",
               { candidate_count: candidates.length },
               candidates
             );
-            await inboxSetStatus(client, clientChangeId, {
-              status: "needs_review",
-              errorCode: "barcode_ambiguous_missing_pages",
-            });
-            applied.push(clientChangeId);
             continue;
           }
 
@@ -622,10 +743,7 @@
           if (matches.length === 1) {
             chosenBookId = matches[0];
           } else {
-            await writeIssueAndReceipt(
-              client,
-              c,
-              parsed,
+            await toReview(
               "barcode_ambiguous_pages_no_unique_match",
               {
                 candidate_count: candidates.length,
@@ -634,11 +752,6 @@
               },
               candidates
             );
-            await inboxSetStatus(client, clientChangeId, {
-              status: "needs_review",
-              errorCode: "barcode_ambiguous_pages_no_unique_match",
-            });
-            applied.push(clientChangeId);
             continue;
           }
         }
@@ -650,19 +763,11 @@
         );
 
         if (book.rowCount !== 1) {
-          await writeIssueAndReceipt(
-            client,
-            c,
-            parsed,
+          await toReview(
             "book_not_found",
             { chosen_book_id: chosenBookId },
             candidates.length > 1 ? candidates : [chosenBookId]
           );
-          await inboxSetStatus(client, clientChangeId, {
-            status: "needs_review",
-            errorCode: "book_not_found",
-          });
-          applied.push(clientChangeId);
           continue;
         }
 
@@ -671,10 +776,7 @@
         // 3) pages mismatch check
         if (pages !== null && existingPages !== null && !pagesWithinTolerance(pages, existingPages)) {
           const diff = pagesDiff(pages, existingPages);
-          await writeIssueAndReceipt(
-            client,
-            c,
-            parsed,
+          await toReview(
             "pages_mismatch",
             {
               chosen_book_id: chosenBookId,
@@ -683,39 +785,28 @@
               diff,
               tolerance: PAGE_TOLERANCE,
             },
-            candidates.length > 1 ? candidates : [chosenBookId]
+            candidates.length > 1 ? candidates : [chosenBookId],
+            await fetchBookInfo(client, chosenBookId)
           );
-          await inboxSetStatus(client, clientChangeId, {
-            status: "needs_review",
-            errorCode: "pages_mismatch",
-          });
-          applied.push(clientChangeId);
           continue;
         }
 
         // 4) topbook timestamp requirement when setting to true on a book that is not already true
         const alreadyTop = book.rows[0].top_book === true;
         if (topBook === true && !alreadyTop && !topBookSetAt) {
-          await writeIssueAndReceipt(
-            client,
-            c,
-            parsed,
+          await toReview(
             "topbook_missing_timestamp",
             { chosen_book_id: chosenBookId },
-            candidates.length > 1 ? candidates : [chosenBookId]
+            candidates.length > 1 ? candidates : [chosenBookId],
+            await fetchBookInfo(client, chosenBookId)
           );
-          await inboxSetStatus(client, clientChangeId, {
-            status: "needs_review",
-            errorCode: "topbook_missing_timestamp",
-          });
-          applied.push(clientChangeId);
           continue;
         }
 
         // 5) Apply update immediately
-        const { statusApplied } = await updateBookFromMobile(client, chosenBookId, parsed);
+        const applyRes = await updateBookFromMobile(client, chosenBookId, parsed);
         await writeAppliedReceipt(client, c, parsed, chosenBookId);
-        if (statusApplied) {
+        if (applyRes.statusApplied) {
           await inboxSetStatus(client, clientChangeId, { status: "applied", bookId: chosenBookId });
         } else {
           // Same as the duplicate-resolution path above: don't claim "applied"
@@ -726,12 +817,18 @@
             bookId: chosenBookId,
           });
         }
+        results.push(
+          await appliedResult(client, parsed, chosenBookId, applyRes, {
+            candidateCount: candidates.length,
+            expectedPages: existingPages,
+          })
+        );
 
         applied.push(clientChangeId);
       }
 
       await client.query("COMMIT");
-      res.json({ applied, failed });
+      res.json({ applied, failed, results });
     } catch (e) {
       try {
         await client.query("ROLLBACK");
