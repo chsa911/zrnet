@@ -1,6 +1,8 @@
 import React, { Suspense, lazy, useEffect, useState } from "react";
 import { Routes, Route, Navigate, useLocation } from "react-router-dom";
 import Layout from "./components/Layout";
+import ActivitiesToday from "./components/ActivitiesToday";
+import "./styles/css/zr-admin.css";
 import Home from "./pages/Home";
 import ComingSoonPage from "./pages/ComingSoonPage";
 import CollectionPage from "./pages/CollectionPage";
@@ -87,8 +89,17 @@ function RequireAdmin({ children }) {
   return children;
 }
 
-function AdminOnly({ children }) {
-  return <RequireAdmin>{children}</RequireAdmin>;
+// Alle Admin-Seiten: Dashboard "Activities today" + einheitliche Schrift (zr-admin.css).
+// plain = eigene große Schrift behalten (Register, Search & Update).
+function AdminOnly({ children, plain = false }) {
+  return (
+    <RequireAdmin>
+      <div className={plain ? undefined : "zr-admin"}>
+        <ActivitiesToday />
+        {children}
+      </div>
+    </RequireAdmin>
+  );
 }
 
 // Unknown path: show "coming soon" for pages listed in utils/comingSoon.js,
@@ -199,9 +210,9 @@ export default function App() {
         {/* admin */}
         <Route path="admin/abbreviations" element={<AdminOnly><AbbreviationsAdminPage /></AdminOnly>} />
         <Route path="admin" element={<AdminPage />} />
-        <Route path="admin/register" element={<AdminOnly><RegisterPage createReadingStatus="in_progress" /></AdminOnly>} />
+        <Route path="admin/register" element={<AdminOnly plain><RegisterPage createReadingStatus="in_progress" /></AdminOnly>} />
         <Route path="admin/authors" element={<AdminOnly><AdminAuthorsOverviewPage /></AdminOnly>} />
-        <Route path="admin/search-update" element={<AdminOnly><SearchUpdatePage /></AdminOnly>} />
+        <Route path="admin/search-update" element={<AdminOnly plain><SearchUpdatePage /></AdminOnly>} />
         <Route path="admin/check-book" element={<AdminOnly><AdminPhysCodeCheckPage /></AdminOnly>} />
         <Route path="admin/barcode-check" element={<AdminOnly><AdminBarcodeCheckPage /></AdminOnly>} />
         <Route path="admin/sync-issues" element={<AdminOnly><SyncIssuePage /></AdminOnly>} />
@@ -220,9 +231,9 @@ export default function App() {
 <Route
   path="admin/highlights/received"
   element={
-    <RequireAdmin>
+    <AdminOnly>
       <HighlightReceivedPage />
-    </RequireAdmin>
+    </AdminOnly>
   }
 />
 <Route path="admin/title-translations" element={<AdminOnly><AdminTitleTranslationsPage /></AdminOnly>} />

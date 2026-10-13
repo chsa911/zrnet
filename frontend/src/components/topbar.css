@@ -225,3 +225,14 @@
 
   .zr-brand{ font-size: 14px; }
 }
+/* Funktionstaste neben Admin-Links im Menü "More" (siehe AdminHotkeys.jsx) */
+.zr-more__key{
+  float: right;
+  margin-left: 14px;
+  padding: 0 6px;
+  border: 1px solid rgba(0,0,0,.25);
+  border-radius: 4px;
+  font-size: .8em;
+  font-weight: 700;
+  opacity: .6;
+}

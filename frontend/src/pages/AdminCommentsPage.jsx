@@ -118,7 +118,7 @@ function Inner() {
             >
               ← Prev
             </button>
-            <div style={{ fontSize: 12, opacity: 0.8 }}>
+            <div style={{ fontSize: "var(--zr-fs, 12px)", opacity: 0.8 }}>
               Page <b>{filters.page}</b> / {data.pages || 1} ({data.totalItems || 0} total)
             </div>
             <button
@@ -143,11 +143,11 @@ function Inner() {
           <table style={{ width: "100%", borderCollapse: "collapse" }}>
             <thead>
               <tr style={{ background: "rgba(0,0,0,0.04)" }}>
-                <th style={{ textAlign: "left", padding: 10, fontSize: 12, opacity: 0.8 }}>Book</th>
-                <th style={{ textAlign: "left", padding: 10, fontSize: 12, opacity: 0.8 }}>Author</th>
-                <th style={{ textAlign: "left", padding: 10, fontSize: 12, opacity: 0.8 }}>Comment</th>
-                <th style={{ textAlign: "left", padding: 10, fontSize: 12, opacity: 0.8 }}>Created</th>
-                <th style={{ textAlign: "right", padding: 10, fontSize: 12, opacity: 0.8 }}>Actions</th>
+                <th style={{ textAlign: "left", padding: 10, fontSize: "var(--zr-fs, 12px)", opacity: 0.8 }}>Book</th>
+                <th style={{ textAlign: "left", padding: 10, fontSize: "var(--zr-fs, 12px)", opacity: 0.8 }}>Author</th>
+                <th style={{ textAlign: "left", padding: 10, fontSize: "var(--zr-fs, 12px)", opacity: 0.8 }}>Comment</th>
+                <th style={{ textAlign: "left", padding: 10, fontSize: "var(--zr-fs, 12px)", opacity: 0.8 }}>Created</th>
+                <th style={{ textAlign: "right", padding: 10, fontSize: "var(--zr-fs, 12px)", opacity: 0.8 }}>Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -161,18 +161,18 @@ function Inner() {
                     <td style={{ padding: 10, verticalAlign: "top" }}>
                       <div style={{ fontWeight: 900 }}>{c.book_title || "(unknown)"}</div>
                       {c.book_id ? (
-                        <Link to={`/book/${c.book_id}`} target="_blank" rel="noreferrer" style={{ fontSize: 12, opacity: 0.8 }}>
+                        <Link to={`/book/${c.book_id}`} target="_blank" rel="noreferrer" style={{ fontSize: "var(--zr-fs, 12px)", opacity: 0.8 }}>
                           Open book ↗
                         </Link>
                       ) : null}
                     </td>
                     <td style={{ padding: 10, verticalAlign: "top" }}>
                       <div style={{ fontWeight: 800 }}>{c.author_name || "Guest"}</div>
-                      <div style={{ fontSize: 12, opacity: 0.75 }}>{c.book_author || ""}</div>
+                      <div style={{ fontSize: "var(--zr-fs, 12px)", opacity: 0.75 }}>{c.book_author || ""}</div>
                     </td>
                     <td style={{ padding: 10, verticalAlign: "top", maxWidth: 560 }}>
                       <div style={{ whiteSpace: "pre-wrap" }}>{c.body}</div>
-                      <div style={{ marginTop: 6, fontSize: 12, opacity: 0.65 }}>status: {c.status}</div>
+                      <div style={{ marginTop: 6, fontSize: "var(--zr-fs, 12px)", opacity: 0.65 }}>status: {c.status}</div>
                     </td>
                     <td style={{ padding: 10, verticalAlign: "top", whiteSpace: "nowrap" }}>{fmtTs(c.created_at)}</td>
                     <td style={{ padding: 10, verticalAlign: "top", textAlign: "right", whiteSpace: "nowrap" }}>

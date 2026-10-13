@@ -13,8 +13,8 @@ import {
 
 // Buch prüfen: letzte Seite vermessen -> Nummer -> welches Buch ist das?
 const box = { border: "1px solid #d1d5db", borderRadius: 10, padding: 14, background: "#fff" };
-const lbl = { display: "grid", gap: 4, fontSize: 13 };
-const inp = { fontSize: 18, padding: "6px 8px", width: "100%", boxSizing: "border-box" };
+const lbl = { display: "grid", gap: 4, fontSize: "var(--zr-fs, 13px)" };
+const inp = { fontSize: "var(--zr-fs, 18px)", padding: "6px 8px", width: "100%", boxSizing: "border-box" };
 
 function BookCard({ book, diff, tone }) {
   const color = tone === "exact" ? "#15803d" : "#b45309";
@@ -23,10 +23,10 @@ function BookCard({ book, diff, tone }) {
   if (diff?.height_mm) d.push(`Höhe ${diff.height_mm > 0 ? "+" : ""}${diff.height_mm} mm`);
   return (
     <div style={{ ...box, borderColor: color, borderWidth: 2 }}>
-      <div style={{ fontWeight: 900, fontSize: 18 }}>{book.title_display || "(ohne Titel)"}</div>
+      <div style={{ fontWeight: 900, fontSize: "var(--zr-fs, 18px)" }}>{book.title_display || "(ohne Titel)"}</div>
       <div>{book.author_name_display || "—"}{book.publisher_name_display ? ` · ${book.publisher_name_display}` : ""}</div>
       <div style={{ fontFamily: "monospace", marginTop: 6 }}>Nr {formatPhysCode(book.phys_code)}</div>
-      <div style={{ fontSize: 13, opacity: 0.8, marginTop: 4 }}>
+      <div style={{ fontSize: "var(--zr-fs, 13px)", opacity: 0.8, marginTop: 4 }}>
         {book.width_cm ?? "?"} × {book.height_cm ?? "?"} cm · {book.pages ?? "?"} Seiten ·{" "}
         {pageNumPosLabel(book.page_num_pos) || "?"} · {book.chapters ?? "?"} Kapitel · Wort „{book.last_word ?? "?"}“
         {book.barcode ? ` · Barcode ${book.barcode}` : ""}
@@ -115,8 +115,8 @@ export default function AdminPhysCodeCheckPage() {
 
       {decoded ? (
         <div style={{ ...box, background: "#f9fafb" }}>
-          <div style={{ fontFamily: "monospace", fontSize: 22, fontWeight: 900 }}>{formatPhysCode(code)}</div>
-          <div style={{ fontSize: 13, marginTop: 4 }}>
+          <div style={{ fontFamily: "monospace", fontSize: "var(--zr-fs-lg, 22px)", fontWeight: 900 }}>{formatPhysCode(code)}</div>
+          <div style={{ fontSize: "var(--zr-fs, 13px)", marginTop: 4 }}>
             Breite {decoded.width_mm / 10} cm · Höhe {decoded.height_mm / 10} cm · {decoded.pages} Seiten ·{" "}
             {pageNumPosLabel(decoded.page_num_pos)} · {decoded.chapters} Kapitel · letztes Wort „{decoded.last_word}…“
           </div>

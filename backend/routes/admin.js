@@ -744,6 +744,37 @@ COUNT(b.id) FILTER (WHERE b.top_book = true)::int AS top_books
         }
       });
 
+      /* -------------------- activities today -------------------- */
+
+      // GET /api/admin/activity/today  – Tageszahlen (Europe/Berlin)
+      //   uploaded:   neu angelegte Bücher (added_at heute)
+      //   registered: heute registriert (registered_at heute)
+      //   enriched:   heute ergänzt/geändert, aber nicht heute neu angelegt/registriert
+      router.get("/activity/today", async (req, res) => {
+        const pool = req.app.get("pgPool");
+        if (!pool) return res.status(500).json({ error: "pgPool missing" });
+        try {
+          const { rows } = await pool.query(`
+            WITH d AS (SELECT (now() AT TIME ZONE 'Europe/Berlin')::date AS today)
+            SELECT
+              count(*) FILTER (WHERE (b.added_at AT TIME ZONE 'Europe/Berlin')::date = d.today)::int AS uploaded,
+              count(*) FILTER (WHERE (b.registered_at AT TIME ZONE 'Europe/Berlin')::date = d.today)::int AS registered,
+              count(*) FILTER (
+                WHERE (b.updated_at AT TIME ZONE 'Europe/Berlin')::date = d.today
+                  AND (b.added_at AT TIME ZONE 'Europe/Berlin')::date IS DISTINCT FROM d.today
+                  AND (b.registered_at AT TIME ZONE 'Europe/Berlin')::date IS DISTINCT FROM d.today
+              )::int AS enriched
+            FROM public.books b, d
+            WHERE b.added_at >= now() - interval '2 days'
+               OR b.registered_at >= now() - interval '2 days'
+               OR b.updated_at >= now() - interval '2 days'
+          `);
+          return res.json(rows[0] || { uploaded: 0, registered: 0, enriched: 0 });
+        } catch (e) {
+          return res.status(500).json({ error: "activity_today_failed", detail: String(e?.message || e) });
+        }
+      });
+
       /* -------------------- barcode dashboard -------------------- */
 
       // GET /api/admin/barcodes/summary

@@ -98,7 +98,7 @@ function LocaleCovers({ item, locales, onCovers }) {
 
   return (
     <div>
-      <div style={{ fontSize: 12, fontWeight: 700, opacity: 0.6, marginBottom: 8 }}>
+      <div style={{ fontSize: "var(--zr-fs, 12px)", fontWeight: 700, opacity: 0.6, marginBottom: 8 }}>
         Cover pro Sprache (leer = Cover meines Exemplars)
       </div>
       <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
@@ -112,7 +112,7 @@ function LocaleCovers({ item, locales, onCovers }) {
                 display: "flex",
                 flexDirection: "column",
                 gap: 6,
-                fontSize: 13,
+                fontSize: "var(--zr-fs, 13px)",
               }}
             >
               <strong>{LOCALE_NAMES[l] || l}</strong>
@@ -210,7 +210,7 @@ function BookRow({ item, locales, onSaved, buyEnabled, onCovers }) {
     >
       <div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
         <div>
-          <Link to={`/book/${item.id}`} style={{ fontWeight: 800, fontSize: 18 }}>
+          <Link to={`/book/${item.id}`} style={{ fontWeight: 800, fontSize: "var(--zr-fs, 18px)" }}>
             {item.title || "—"}
           </Link>
           <div style={{ opacity: 0.75 }}>
@@ -218,7 +218,7 @@ function BookRow({ item, locales, onSaved, buyEnabled, onCovers }) {
           </div>
         </div>
         <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "flex-end" }}>
-          <label style={{ display: "flex", flexDirection: "column", fontSize: 13, gap: 4 }}>
+          <label style={{ display: "flex", flexDirection: "column", fontSize: "var(--zr-fs, 13px)", gap: 4 }}>
             Sprache meiner Ausgabe
             <input
               value={draft.edition_language}
@@ -228,7 +228,7 @@ function BookRow({ item, locales, onSaved, buyEnabled, onCovers }) {
               style={{ ...inputStyle, width: 90 }}
             />
           </label>
-          <label style={{ display: "flex", flexDirection: "column", fontSize: 13, gap: 4 }}>
+          <label style={{ display: "flex", flexDirection: "column", fontSize: "var(--zr-fs, 13px)", gap: 4 }}>
             Originalsprache
             <input
               value={draft.original_language}
@@ -238,7 +238,7 @@ function BookRow({ item, locales, onSaved, buyEnabled, onCovers }) {
               style={{ ...inputStyle, width: 90 }}
             />
           </label>
-          <label style={{ display: "flex", flexDirection: "column", fontSize: 13, gap: 4, minWidth: 240 }}>
+          <label style={{ display: "flex", flexDirection: "column", fontSize: "var(--zr-fs, 13px)", gap: 4, minWidth: 240 }}>
             Originaltitel
             <input
               value={draft.original_title}
@@ -260,11 +260,11 @@ function BookRow({ item, locales, onSaved, buyEnabled, onCovers }) {
             minWidth: 1000,
           }}
         >
-          <div style={{ fontSize: 12, fontWeight: 700, opacity: 0.6 }}>Sprache</div>
-          <div style={{ fontSize: 12, fontWeight: 700, opacity: 0.6 }}>Titel (leer = Originaltitel anzeigen)</div>
-          <div style={{ fontSize: 12, fontWeight: 700, opacity: 0.6 }}>Art des Titels</div>
-          <div style={{ fontSize: 12, fontWeight: 700, opacity: 0.6 }}>Notiz</div>
-          <div style={{ fontSize: 12, fontWeight: 700, opacity: 0.6 }}>
+          <div style={{ fontSize: "var(--zr-fs, 12px)", fontWeight: 700, opacity: 0.6 }}>Sprache</div>
+          <div style={{ fontSize: "var(--zr-fs, 12px)", fontWeight: 700, opacity: 0.6 }}>Titel (leer = Originaltitel anzeigen)</div>
+          <div style={{ fontSize: "var(--zr-fs, 12px)", fontWeight: 700, opacity: 0.6 }}>Art des Titels</div>
+          <div style={{ fontSize: "var(--zr-fs, 12px)", fontWeight: 700, opacity: 0.6 }}>Notiz</div>
+          <div style={{ fontSize: "var(--zr-fs, 12px)", fontWeight: 700, opacity: 0.6 }}>
             Kauflink dieser Ausgabe (leer = allgemeiner Kauflink)
           </div>
           {locales.map((l) => (

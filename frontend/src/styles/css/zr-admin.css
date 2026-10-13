@@ -1,0 +1,28 @@
+/* Einheitliche, gut lesbare Schrift im Admin-Bereich (Präsentationsgröße).
+   Gilt für alle Admin-Seiten innerhalb von <div class="zr-admin"> (siehe AdminOnly in App.jsx).
+   Register und Search & Update sind bewusst ausgenommen (eigene, große Schrift). */
+.zr-admin {
+  --zr-fs: clamp(20px, 0.9vw + 12px, 26px); /* Grundgröße: ~20 px Handy … 26 px großer Bildschirm */
+  --zr-fs-lg: calc(var(--zr-fs) * 1.25);
+  --zr-fs-xl: calc(var(--zr-fs) * 1.7);
+  font-size: var(--zr-fs);
+  line-height: 1.35;
+}
+
+/* Formularfelder, Tabellen & Co. erben die Grundgröße
+   (:where = keine Spezifität, seiteneigene Klassen gewinnen weiterhin) */
+:where(.zr-admin) :where(input, select, textarea, button, table, th, td, label, p, li, small, a) {
+  font-size: inherit;
+}
+
+/* globale Klassen aus zr-ui.css, die sonst klein wären */
+.zr-admin .zr-btn2,
+.zr-admin .zr-btn2--sm,
+.zr-admin .zr-table thead th,
+.zr-admin .zr-proof__row,
+.zr-admin .zr-proof__note {
+  font-size: var(--zr-fs);
+}
+.zr-admin .zr-section h2 {
+  font-size: var(--zr-fs-lg);
+}

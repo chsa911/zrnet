@@ -244,7 +244,7 @@ const saveAsNew = async (e) => {
                     onChange={(e) => updateField(key, e.target.value)}
                     style={{
                       width: "100%",
-                      fontSize: 24,
+                      fontSize: "var(--zr-fs-lg, 24px)",
                       fontWeight: 800,
                       padding: "12px 14px",
                       border: "3px solid #555",
@@ -264,7 +264,7 @@ const saveAsNew = async (e) => {
                     background: saving ? "#ddd" : "#111",
                     color: "#fff",
                     padding: "16px 24px",
-                    fontSize: 24,
+                    fontSize: "var(--zr-fs-lg, 24px)",
                     fontWeight: 900,
                     cursor: saving ? "not-allowed" : "pointer",
                   }}
@@ -280,7 +280,7 @@ const saveAsNew = async (e) => {
     background: savingNew ? "#ddd" : "#555",
     color: "#fff",
     padding: "16px 24px",
-    fontSize: 24,
+    fontSize: "var(--zr-fs-lg, 24px)",
     fontWeight: 900,
     cursor: savingNew ? "not-allowed" : "pointer",
   }}

@@ -107,8 +107,8 @@ export default function HighlightReceivedPage() {
               />
 
               <div>
-                <div style={{ fontWeight: 800, fontSize: 18 }}>{title}</div>
-                <div style={{ opacity: 0.7, fontSize: 13 }}>
+                <div style={{ fontWeight: 800, fontSize: "var(--zr-fs, 18px)" }}>{title}</div>
+                <div style={{ opacity: 0.7, fontSize: "var(--zr-fs, 13px)" }}>
                   {book.pages ? `${book.pages} pages · ` : ""}
                   {book.added_at ? new Date(book.added_at).toLocaleString() : ""}
                 </div>

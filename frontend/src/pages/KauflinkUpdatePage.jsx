@@ -49,7 +49,7 @@ export default function KauflinkUpdatePage() {
             width: "100%",
             marginTop: 8,
             padding: 12,
-            fontSize: 18,
+            fontSize: "var(--zr-fs, 18px)",
           }}
         />
       </label>

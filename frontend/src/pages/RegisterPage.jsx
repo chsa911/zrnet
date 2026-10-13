@@ -3,6 +3,7 @@ import BookForm from "../components/BookFormSwitcher";
 import BookFormStagingPwa from "../components/BookFormStagingPwa";
 import HomeLiveBlock from "../components/HomeLiveBlock";
 import LastRegisteredPanel from "../components/LastRegisteredPanel";
+import { notifyActivityChanged } from "../components/ActivitiesToday";
 
 function isStandalonePwa() {
   return (
@@ -20,6 +21,7 @@ export default function RegisterPage(props) {
 
   function handleSuccess(result) {
     props.onSuccess?.(result);
+    notifyActivityChanged();
     setLastRegisteredBook(result?.saved?.book || result?.saved || null);
     setWishlist(false);
   }

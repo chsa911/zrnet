@@ -83,7 +83,7 @@ export default function AdminAuthorTitlesPage() {
         <Link to="/admin/authors">← Back to authors</Link>
       </p>
 
-      <h1 style={{ margin: "0 0 24px", fontSize: 42, fontWeight: 900 }}>
+      <h1 style={{ margin: "0 0 24px", fontSize: "var(--zr-fs-xl, 42px)", fontWeight: 900 }}>
         {pageTitle}
       </h1>
 

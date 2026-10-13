@@ -329,7 +329,7 @@ export default function AbbreviationsAdminPage() {
           display: grid;
           gap: 6px;
           color: #555;
-          font-size: 13px;
+          font-size: var(--zr-fs, 13px);
           font-weight: 900;
           letter-spacing: 0.02em;
           text-transform: uppercase;
@@ -345,7 +345,7 @@ export default function AbbreviationsAdminPage() {
           outline: 0;
           background: #fff;
           color: #111;
-          font-size: 19px;
+          font-size: var(--zr-fs-lg, 19px);
           font-weight: 850;
           padding: 6px 9px;
         }
@@ -358,7 +358,7 @@ export default function AbbreviationsAdminPage() {
           color: #fff;
           min-height: 44px;
           padding: 0 14px;
-          font-size: 16px;
+          font-size: var(--zr-fs, 16px);
           font-weight: 950;
           cursor: pointer;
         }
@@ -378,7 +378,7 @@ export default function AbbreviationsAdminPage() {
           padding: 14px 18px;
           color: #555;
           background: #fff;
-          font-size: 20px;
+          font-size: var(--zr-fs-lg, 20px);
           font-weight: 850;
         }
 
@@ -389,7 +389,7 @@ export default function AbbreviationsAdminPage() {
 
         .ab-muted {
           color: #777;
-          font-size: 14px;
+          font-size: var(--zr-fs, 14px);
           font-weight: 750;
           text-transform: none;
           letter-spacing: 0;
@@ -408,7 +408,7 @@ export default function AbbreviationsAdminPage() {
           background: #fff;
           color: #111;
           padding: 5px 8px;
-          font-size: 13px;
+          font-size: var(--zr-fs, 13px);
           font-weight: 850;
           cursor: pointer;
         }

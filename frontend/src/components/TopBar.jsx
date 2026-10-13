@@ -1,4 +1,5 @@
 import { Link } from "react-router-dom";
+import { ADMIN_HOTKEYS, useAdminHotkeys } from "./AdminHotkeys";
 import { useEffect, useMemo, useRef, useState } from "react";
 import "./topbar.css";
 import { useI18n } from "../context/I18nContext";
@@ -36,6 +37,7 @@ export default function TopBar() {
 
   const activeLang = useMemo(() => metaForLocale(locale), [locale]);
   const [isAdmin, setIsAdmin] = useState(false);
+  useAdminHotkeys(isAdmin);
 
   useEffect(() => {
     let active = true;
@@ -138,16 +140,16 @@ export default function TopBar() {
               }}
               >
 {isAdmin ? (<>
-<Link to="/admin/register">Register</Link>
-<Link to="/admin/search-update">Search / Update</Link>
-<Link to="/admin/authors">Authors</Link>
-<Link to="/admin/abbreviations">Abbreviations</Link>
+<Link to="/admin/register">Register <span className="zr-more__key">{ADMIN_HOTKEYS["/admin/register"]}</span></Link>
+<Link to="/admin/search-update">Search / Update <span className="zr-more__key">{ADMIN_HOTKEYS["/admin/search-update"]}</span></Link>
+<Link to="/admin/authors">Authors <span className="zr-more__key">{ADMIN_HOTKEYS["/admin/authors"]}</span></Link>
+<Link to="/admin/abbreviations">Abbreviations <span className="zr-more__key">{ADMIN_HOTKEYS["/admin/abbreviations"]}</span></Link>
 <Link to="/admin/highlights/received">Highlights</Link>
-<Link to="/admin/sync-issues">Sync Issues</Link>
-<Link to="/admin/barcodes">Barcodes</Link>
-<Link to="/admin/check-book">Buch prüfen</Link>
-<Link to="/admin/barcode-check">Prüfen &amp; Ergänzen</Link>
-<Link to="/admin/covers">Cover</Link>
+<Link to="/admin/sync-issues">Sync Issues <span className="zr-more__key">{ADMIN_HOTKEYS["/admin/sync-issues"]}</span></Link>
+<Link to="/admin/barcodes">Barcodes <span className="zr-more__key">{ADMIN_HOTKEYS["/admin/barcodes"]}</span></Link>
+<Link to="/admin/check-book">Buch prüfen <span className="zr-more__key">{ADMIN_HOTKEYS["/admin/check-book"]}</span></Link>
+<Link to="/admin/barcode-check">Prüfen &amp; Ergänzen <span className="zr-more__key">{ADMIN_HOTKEYS["/admin/barcode-check"]}</span></Link>
+<Link to="/admin/covers">Cover <span className="zr-more__key">{ADMIN_HOTKEYS["/admin/covers"]}</span></Link>
 <hr/>
 </>) : null}
 <Link to="/recent-highlights">Recent Highlights</Link>
