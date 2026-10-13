@@ -755,28 +755,34 @@ COUNT(b.id) FILTER (WHERE b.top_book = true)::int AS top_books
       router.get("/activity/today", async (req, res) => {
         const pool = req.app.get("pgPool");
         if (!pool) return res.status(500).json({ error: "pgPool missing" });
-        try {
-          const { rows } = await pool.query(`
-            WITH d AS (SELECT (now() AT TIME ZONE 'Europe/Berlin')::date AS today)
-            SELECT
-              (SELECT count(*) FROM public.books b, d
-                WHERE b.added_at >= now() - interval '2 days'
-                  AND (b.added_at AT TIME ZONE 'Europe/Berlin')::date = d.today)::int AS uploaded,
-              (SELECT count(*) FROM public.books b, d
-                WHERE b.enriched_at >= now() - interval '2 days'
-                  AND (b.enriched_at AT TIME ZONE 'Europe/Berlin')::date = d.today)::int AS enriched,
-              (SELECT count(*) FROM public.books b, d
-                WHERE b.registered_at >= now() - interval '2 days'
-                  AND (b.registered_at AT TIME ZONE 'Europe/Berlin')::date = d.today)::int AS registered,
-              (SELECT count(*) FROM public.books b, d
-                WHERE b.reading_status::text = 'abandoned'
-                  AND b.reading_status_updated_at >= now() - interval '2 days'
-                  AND (b.reading_status_updated_at AT TIME ZONE 'Europe/Berlin')::date = d.today)::int AS abandoned
-          `);
-          return res.json(rows[0] || { uploaded: 0, enriched: 0, registered: 0, abandoned: 0 });
-        } catch (e) {
-          return res.status(500).json({ error: "activity_today_failed", detail: String(e?.message || e) });
+        const TODAY = `(now() AT TIME ZONE 'Europe/Berlin')::date`;
+        const countToday = (col, extra = "") => `
+          SELECT count(*)::int AS n FROM public.books b
+          WHERE b.${col} >= now() - interval '2 days'
+            AND (b.${col} AT TIME ZONE 'Europe/Berlin')::date = ${TODAY} ${extra}`;
+        // jede Zahl einzeln: fehlt z. B. die Spalte enriched_at (Migration
+        // V20261013_02 noch nicht eingespielt), kommen die anderen trotzdem
+        const one = async (key, sql) => {
+          try {
+            const { rows } = await pool.query(sql);
+            return [key, rows[0]?.n ?? 0];
+          } catch (e) {
+            console.error(`activity/today ${key}:`, e?.message || e);
+            return [key, null];
+          }
+        };
+        const result = Object.fromEntries(
+          await Promise.all([
+            one("uploaded", countToday("added_at")),
+            one("enriched", countToday("enriched_at")),
+            one("registered", countToday("registered_at")),
+            one("abandoned", countToday("reading_status_updated_at", "AND b.reading_status::text = 'abandoned'")),
+          ])
+        );
+        if (Object.values(result).every((v) => v === null)) {
+          return res.status(500).json({ error: "activity_today_failed" });
         }
+        return res.json(result);
       });
 
       /* -------------------- barcode dashboard -------------------- */

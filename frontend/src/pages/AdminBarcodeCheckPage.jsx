@@ -561,7 +561,9 @@ export default function AdminBarcodeCheckPage() {
         .pc-page { margin: 0 auto; padding: 12px; font-weight: 900; }
         .pc-bar { display: flex; align-items: stretch; margin: 10px 0; position: relative; }
         .pc-search { flex: 1 1 auto; width: 100%; box-sizing: border-box; font: inherit; font-size: clamp(76px, 12vw, 138px); font-weight: 900; line-height: .9; height: .95em; padding: 0 .05em; margin: 0; border: 3px solid rgba(0,0,0,.65); border-radius: 0; }
-        .pc-search::placeholder { font-size: .36em; font-weight: 900; color: rgba(0,0,0,.65); }
+        .pc-search { height: calc(clamp(76px, 12vw, 138px) * .95); }
+        .pc-search:placeholder-shown { font-size: clamp(28px, 4.3vw, 50px); line-height: normal; padding: 0 .3em; }
+        .pc-search::placeholder { font-size: 1em; font-weight: 900; color: rgba(0,0,0,.65); }
         .pc-clear { position: absolute; right: 8px; top: 50%; transform: translateY(-50%); font-size: clamp(24px, 4vw, 42px); font-weight: 900; border: 0; background: none; cursor: pointer; color: #666; }
         .pc-scroll { overflow-x: auto; border: 3px solid rgba(0,0,0,.65); font-size: clamp(24px, 3vw, 42px); }
         .pc-scroll:empty { display: none; }
