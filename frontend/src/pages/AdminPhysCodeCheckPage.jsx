@@ -1,6 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import AdminNavRow from "../components/AdminNavRow";
 import { checkPhysCode } from "../api/books";
 import {
   PAGE_NUM_POSITIONS,
@@ -77,7 +76,6 @@ export default function AdminPhysCodeCheckPage() {
 
   return (
     <div style={{ maxWidth: 760, margin: "0 auto", padding: 16, display: "grid", gap: 14 }}>
-      <AdminNavRow />
       <h1 style={{ margin: 0 }}>Buch prüfen</h1>
       <div style={{ opacity: 0.8 }}>
         Buch vermessen, letzte nummerierte Seite (Seitenzahl + Position) und letztes Wort im Buch ablesen – oder die Nummer direkt eintippen.

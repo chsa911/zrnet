@@ -66,7 +66,11 @@ export default function ActivitiesToday() {
     };
   }, []);
 
-  const v = (k) => (data && Number.isFinite(Number(data[k])) ? Number(data[k]) : "–");
+  // null/fehlend = Wert konnte nicht ermittelt werden -> "–" (nicht 0)
+  const v = (k) => {
+    const x = data?.[k];
+    return x === null || x === undefined || x === "" || !Number.isFinite(Number(x)) ? "–" : Number(x);
+  };
 
   return (
     <div className="zr-act">
