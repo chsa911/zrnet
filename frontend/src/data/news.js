@@ -9,6 +9,56 @@
 
 const NEWS = [
   {
+    id: "lesetagebuch",
+    date: "2026-10-14",
+    link: { to: "/reading-diary" },
+    de: {
+      tag: "Lesetagebuch",
+      title: "Neu: Mein Lesetagebuch",
+      text: [
+        "Unter „Lesetagebuch“ im Menü siehst du jetzt Woche für Woche, was ich zu Ende gelesen und was ich abgebrochen habe, welche Bücher neu dazugekommen sind, wo ich Daten ergänzt habe und welche Bücher ich registriert habe.",
+        "Die Zahlen kommen live aus meiner Sammlung. Mit den Pfeilen blätterst du durch die Wochen, darunter findest du die letzten zwölf Wochen im Überblick.",
+      ],
+      linkLabel: "Zum Lesetagebuch",
+    },
+    en: {
+      tag: "Reading diary",
+      title: "New: my reading diary",
+      text: [
+        "Under “Reading diary” in the menu you can now see week by week what I finished and what I put down, which new books arrived, where I added data and which books I registered.",
+        "The numbers come live from my collection. Use the arrows to move between weeks, and below you'll find an overview of the last twelve weeks.",
+      ],
+      linkLabel: "Go to the reading diary",
+    },
+    es: {
+      tag: "Diario de lectura",
+      title: "Nuevo: mi diario de lectura",
+      text: [
+        "En «Diario de lectura» del menú ves ahora semana a semana lo que terminé y lo que abandoné, qué libros nuevos llegaron, dónde añadí datos y qué libros registré.",
+        "Las cifras vienen en directo de mi colección. Con las flechas pasas de una semana a otra y debajo tienes un resumen de las últimas doce semanas.",
+      ],
+      linkLabel: "Ver el diario de lectura",
+    },
+    fr: {
+      tag: "Journal de lecture",
+      title: "Nouveau : mon journal de lecture",
+      text: [
+        "Sous « Journal de lecture » dans le menu, tu vois maintenant semaine après semaine ce que j’ai terminé et abandonné, les nouveaux livres arrivés, les données ajoutées et les livres enregistrés.",
+        "Les chiffres viennent en direct de ma collection. Avec les flèches, tu passes d’une semaine à l’autre, et en dessous tu trouves un aperçu des douze dernières semaines.",
+      ],
+      linkLabel: "Voir le journal de lecture",
+    },
+    "pt-BR": {
+      tag: "Diário de leitura",
+      title: "Novo: meu diário de leitura",
+      text: [
+        "Em “Diário de leitura” no menu você vê agora, semana a semana, o que terminei e o que abandonei, quais livros novos chegaram, onde acrescentei dados e quais livros registrei.",
+        "Os números vêm ao vivo da minha coleção. Com as setas você navega entre as semanas e, logo abaixo, encontra um resumo das últimas doze semanas.",
+      ],
+      linkLabel: "Ver o diário de leitura",
+    },
+  },
+  {
     id: "autoren-statistik",
     date: "2026-10-11",
     link: { to: "/author-stats" },
