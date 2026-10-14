@@ -17,6 +17,19 @@ function adminAuthRequired(req, res, next) {
   return res.status(401).send("Unauthorized");
 }
 
+/**
+ * The phone app (ZrNetMobile) has no admin cookie. It may only push changes
+ * to the sync endpoint, authenticated with `Authorization: Bearer <token>`
+ * where the token equals MOBILE_SYNC_TOKEN. Unset/empty token = disabled.
+ */
+function mobileSyncTokenOk(req) {
+  const expected = String(process.env.MOBILE_SYNC_TOKEN || "").trim();
+  if (!expected) return false;
+  const header = String(req.headers?.authorization || "");
+  const m = header.match(/^Bearer\s+(.+)$/i);
+  return !!m && safeEqual(m[1].trim(), expected);
+}
+
 function adminLogin(req, res) {
   const expected = process.env.ADMIN_PASSWORD;
   const { password } = req.body || {};
@@ -41,4 +54,4 @@ function adminLogout(req, res) {
   res.json({ ok: true });
 }
 
-module.exports = { adminAuthRequired, adminLogin, adminLogout };
+module.exports = { adminAuthRequired, adminLogin, adminLogout, mobileSyncTokenOk };

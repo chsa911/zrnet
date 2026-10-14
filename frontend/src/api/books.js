@@ -350,6 +350,12 @@ export async function listAuthorReadingStats({ signal } = {}) {
   return Array.isArray(data?.items) ? data.items : [];
 }
 
+export async function getReadingDiary({ weeks = 12, signal } = {}) {
+  const qs = qsFromObject({ weeks });
+  const data = await http(`/public/books/reading-diary?${qs}`, { signal });
+  return Array.isArray(data?.weeks) ? data.weeks : [];
+}
+
 export async function listMostReadAuthors({ limit = 50, signal } = {}) {
   const qs = qsFromObject({ limit });
   const data = await http(`/public/books/most-read-authors?${qs}`, { signal });

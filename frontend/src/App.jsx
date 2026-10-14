@@ -27,6 +27,7 @@ import HomeTitlesPage from "./pages/HomeTitlesPage";
 import { API_BASE } from "./api/config";
 import SubGenrePage from "./pages/SubGenrePage";
 import CoachingPage from "./pages/CoachingPage";
+import ReadingDiaryPage from "./pages/ReadingDiaryPage";
 
 // Admin-only pages are loaded on demand so visitors don't download them.
 const AnalyticsPage = lazy(() => import("./pages/AnalyticsPage"));
@@ -249,6 +250,9 @@ export default function App() {
         {/* Top authors */}
         <Route path="top-authors" element={<MostReadAuthorsPage />} />
         <Route path="author-stats" element={<AuthorReadingStatsPage />} />
+        {/* Lesetagebuch */}
+        <Route path="reading-diary" element={<ReadingDiaryPage />} />
+        <Route path="lesetagebuch" element={<Navigate to="/reading-diary" replace />} />
         <Route path="autoren_meistgelesen.html" element={<Navigate to="/top-authors" replace />} />
         <Route path="autoren_meist_gelesen.html" element={<Navigate to="/top-authors" replace />} />
 

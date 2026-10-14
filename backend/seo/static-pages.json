@@ -126,5 +126,13 @@
   "/info/datenschutz": {
     "title": "Privacy",
     "h1": "Privacy"
+  },
+  "/reading-diary": {
+    "title": "Reading diary – what I read this week",
+    "description": "Christopher's reading diary, week by week: books finished, books abandoned, new books received, data added and books registered.",
+    "h1": "Reading diary",
+    "paragraphs": [
+      "Week by week, live from my collection: what I finished, what I put down, which new books arrived, where I added data and which books I registered."
+    ]
   }
 }

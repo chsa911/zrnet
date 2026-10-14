@@ -515,6 +515,86 @@ router.get("/stats", async (req, res) => {
 });
 
 /**
+ * GET /api/public/books/reading-diary?weeks=12
+ * Lesetagebuch: Wochenzahlen (Mo–So, Europe/Berlin), neueste Woche zuerst.
+ *   finished:   diese Woche beendet       (reading_status = finished,  reading_status_updated_at)
+ *   abandoned:  diese Woche abgebrochen   (reading_status = abandoned, reading_status_updated_at)
+ *   enriched:   diese Woche Daten ergänzt (enriched_at)
+ *   uploaded:   diese Woche neu erhalten / hochgeladen (added_at)
+ *   registered: diese Woche registriert   (registered_at)
+ * Gleiche Definitionen wie GET /api/admin/activity/today, nur pro Woche.
+ * Jede Zahl wird einzeln abgefragt: fehlt z. B. enriched_at, kommt dort null.
+ */
+const RD_TZ = "Europe/Berlin";
+const RD_METRICS = [
+  ["finished", "reading_status_updated_at", "AND b.reading_status::text = 'finished'"],
+  ["abandoned", "reading_status_updated_at", "AND b.reading_status::text = 'abandoned'"],
+  ["enriched", "enriched_at", ""],
+  ["uploaded", "added_at", ""],
+  ["registered", "registered_at", ""],
+];
+
+router.get("/reading-diary", async (req, res) => {
+  try {
+    const pool = getPool(req);
+    const weeks = clampInt(req.query.weeks, 12, 1, 104);
+
+    // Liste der Wochen (Montag als Datum), aktuelle Woche zuletzt
+    const wk = await pool.query(
+      `
+      WITH cur AS (SELECT date_trunc('week', now() AT TIME ZONE '${RD_TZ}')::date AS d)
+      SELECT to_char(gs::date, 'YYYY-MM-DD') AS week_start,
+             to_char(gs::date + 6, 'YYYY-MM-DD') AS week_end,
+             extract(isoyear FROM gs)::int AS iso_year,
+             extract(week FROM gs)::int AS iso_week
+      FROM cur, generate_series(cur.d - ($1::int - 1) * 7, cur.d, interval '7 days') AS gs
+      ORDER BY gs DESC
+      `,
+      [weeks]
+    );
+    const list = wk.rows;
+    const since = list[list.length - 1]?.week_start;
+
+    const one = async ([key, col, extra]) => {
+      try {
+        const { rows } = await pool.query(
+          `
+          SELECT to_char(date_trunc('week', b.${col} AT TIME ZONE '${RD_TZ}')::date, 'YYYY-MM-DD') AS ws,
+                 count(*)::int AS n
+          FROM public.books b
+          WHERE b.${col} >= ($1::date::timestamp AT TIME ZONE '${RD_TZ}') ${extra}
+          GROUP BY 1
+          `,
+          [since]
+        );
+        return [key, Object.fromEntries(rows.map((r) => [r.ws, r.n]))];
+      } catch (e) {
+        console.error(`reading-diary ${key}:`, e?.message || e);
+        return [key, null];
+      }
+    };
+    const byMetric = Object.fromEntries(await Promise.all(RD_METRICS.map(one)));
+    if (Object.values(byMetric).every((v) => v === null)) {
+      return res.status(500).json({ error: "reading_diary_failed" });
+    }
+
+    const items = list.map((w) => {
+      const out = { ...w };
+      for (const [key] of RD_METRICS) {
+        out[key] = byMetric[key] === null ? null : byMetric[key][w.week_start] || 0;
+      }
+      return out;
+    });
+
+    res.set("Cache-Control", "public, max-age=60");
+    return res.json({ timezone: RD_TZ, weeks: items });
+  } catch (err) {
+    console.error("GET /api/public/books/reading-diary error", err);
+    return res.status(500).json({ error: "internal_error" });
+  }
+});
+
+/**
  * GET /api/public/books/author-suggest?q=kin&limit=6
  * Autocomplete for the public collection: authors whose name matches,
  * with the number of public books (owned or read, no wishlist).

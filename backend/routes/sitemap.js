@@ -19,6 +19,7 @@ const STATIC_PATHS = [
   "/bookthemes",
   "/news",
   "/coaching",
+  "/reading-diary",
   "/info/how-it-works",
   "/info/sourcing",
   "/info/faq",

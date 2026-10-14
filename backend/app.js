@@ -9,7 +9,7 @@ const multer = require("multer");
 const sharp = require("sharp");
 
 const { resolveCoverUrl, resolveLocaleCover } = require("./utils/covers");
-const { adminAuthRequired } = require("./middleware/adminAuth");
+const { adminAuthRequired, mobileSyncTokenOk } = require("./middleware/adminAuth");
 
 const app = express();
 
@@ -124,6 +124,14 @@ app.use((req, res, next) => {
   );
   if (!isAdminOnly) return next();
   if (req.path.startsWith("/api/admin")) return next(); // admin router self-manages auth
+  // Phone app: only POST .../sync, only with the mobile bearer token.
+  if (
+    req.method === "POST" &&
+    (req.path === "/api/mobile/sync" || req.path === "/api/mobile-sync/sync") &&
+    mobileSyncTokenOk(req)
+  ) {
+    return next();
+  }
   return adminAuthRequired(req, res, next);
 });
 
