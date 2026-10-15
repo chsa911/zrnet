@@ -30,7 +30,9 @@ const LANG_RE = /^[a-z]{2}(-[a-z]{2})?$/i;
 const LANG_SUGGEST = ["de", "en", "fr", "es", "it", "nl", "pt", "sv", "da", "no", "pl", "ru", "tr", "la"];
 const SIZE_TOL_MM = 2;
 const API_ROOT = import.meta.env.VITE_API_ROOT || "";
-const GRID = "4.6em 3.4em 3.2em 3.2em 2.1em 2.3em 6.5em 2.1em 3em 6.2em 1.8em 1.5em 1.5em minmax(7em, 1fr)";
+// Hinweise stehen in einer eigenen Zeile darunter, damit die Zeile in die Bildschirmbreite passt
+const GRID = "4.6em 3.4em 3.2em 3.2em 2.1em 2.3em minmax(6.5em, 1fr) 2.1em 3em 6.2em 1.8em 1.5em 1.5em";
+const GRID_EM = 42; // Summe der festen Spaltenbreiten (+ Rand)
 
 function str(v) {
   return v === null || v === undefined ? "" : String(v);
@@ -290,7 +292,7 @@ const CheckRow = React.memo(function CheckRow({ book, index, registerFirst, focu
         return;
       }
       const next = refs.current[EDIT_KEYS[EDIT_KEYS.indexOf(k) + 1]];
-      next?.focus();
+      next?.focus({ preventScroll: true });
       next?.select?.();
     };
   }
@@ -420,7 +422,7 @@ export default function AdminBarcodeCheckPage() {
   }, [q.limit, q.incomplete, q.barcoded, q.sortBy, q.order]);
 
   useEffect(() => {
-    searchRef.current?.focus();
+    searchRef.current?.focus({ preventScroll: true });
   }, []);
 
   useEffect(() => {
@@ -500,11 +502,11 @@ export default function AdminBarcodeCheckPage() {
   const focusRow = useCallback((i) => {
     const el = firstInputs.current[i];
     if (el) {
-      el.focus();
+      el.focus({ preventScroll: true });
       el.select?.();
     } else {
       // keine weitere Zeile -> zurück zur Suche (nächsten Barcode scannen)
-      searchRef.current?.focus();
+      searchRef.current?.focus({ preventScroll: true });
       searchRef.current?.select();
     }
   }, []);
@@ -558,14 +560,14 @@ export default function AdminBarcodeCheckPage() {
   return (
     <section className="pc-page">
       <style>{`
-        .pc-page { margin: 0 auto; padding: 12px; font-weight: 900; }
-        .pc-bar { display: flex; align-items: stretch; margin: 10px 0; position: relative; }
-        .pc-search { flex: 1 1 auto; width: 100%; box-sizing: border-box; font: inherit; font-size: clamp(76px, 12vw, 138px); font-weight: 900; line-height: .9; height: .95em; padding: 0 .05em; margin: 0; border: 3px solid rgba(0,0,0,.65); border-radius: 0; }
-        .pc-search { height: calc(clamp(76px, 12vw, 138px) * .95); }
-        .pc-search:placeholder-shown { font-size: clamp(28px, 4.3vw, 50px); line-height: normal; padding: 0 .3em; }
+        .pc-page { margin: 0 auto; padding: 0 12px 12px; font-weight: 900; }
+        .pc-bar { display: flex; align-items: stretch; margin: 0 0 8px; position: relative; }
+        .pc-search { flex: 1 1 auto; width: 100%; box-sizing: border-box; font: inherit; font-size: clamp(44px, 6.5vw, 88px); font-weight: 900; line-height: .9; height: .95em; padding: 0 .05em; margin: 0; border: 3px solid rgba(0,0,0,.65); border-radius: 0; }
+        .pc-search { height: calc(clamp(44px, 6.5vw, 88px) * .95); }
+        .pc-search:placeholder-shown { font-size: clamp(22px, 3vw, 38px); line-height: normal; padding: 0 .3em; }
         .pc-search::placeholder { font-size: 1em; font-weight: 900; color: rgba(0,0,0,.65); }
         .pc-clear { position: absolute; right: 8px; top: 50%; transform: translateY(-50%); font-size: clamp(24px, 4vw, 42px); font-weight: 900; border: 0; background: none; cursor: pointer; color: #666; }
-        .pc-scroll { overflow-x: auto; border: 3px solid rgba(0,0,0,.65); font-size: clamp(24px, 3vw, 42px); }
+        .pc-scroll { overflow-x: auto; border: 3px solid rgba(0,0,0,.65); font-size: clamp(14px, calc((100vw - 90px) / ${GRID_EM}), 42px); }
         .pc-scroll:empty { display: none; }
         .pc-table { min-width: max-content; }
         .pc-head, .pc-row { display: grid; grid-template-columns: ${GRID}; align-items: stretch; }
@@ -599,13 +601,14 @@ export default function AdminBarcodeCheckPage() {
         .pc-modal-x { position: absolute; top: 6px; right: 8px; border: 0; background: none; font-size: 22px; cursor: pointer; }
         .pc-code-cell a { color: inherit; font-weight: 700; text-decoration: none; }
         .pc-code-cell a:hover { text-decoration: underline; }
-        .pc-hint { gap: .3em; flex-wrap: wrap; font-size: .45em; line-height: 1.2; padding: .2em .4em; }
+        .pc-hint { grid-column: 1 / -1; gap: .3em .8em; flex-wrap: wrap; font-size: .55em; line-height: 1.2; padding: .2em .4em; border-top: 1px dashed #eee; }
+        .pc-hint:empty { display: none; }
         .pc-warn { color: #b45309; font-weight: 900; }
         .pc-err { color: #b91c1c; font-weight: 900; }
         .pc-alert { padding: .3em .4em; font-weight: 900; font-size: .8em; }
         .pc-pager { display: flex; gap: 8px; justify-content: center; align-items: center; margin-top: 10px; }
         .pc-pager button { padding: 8px 14px; font-weight: 700; }
-        .pc-help { font-size: var(--zr-fs, 14px); font-weight: 700; opacity: .7; margin-top: 10px; }
+        .pc-help { font-size: 12px; font-weight: 700; opacity: .7; margin-top: 6px; line-height: 1.3; }
       `}</style>
 
       <form className="pc-bar" onSubmit={submitSearch}>
@@ -643,7 +646,6 @@ export default function AdminBarcodeCheckPage() {
             <div></div>
             <div title="Alle Daten bearbeiten">✎</div>
             <div title="Abgebrochen">✗</div>
-            <div>Hinweis</div>
           </div>
           {err ? <div className="pc-alert" style={{ color: "#b91c1c" }}>{err}</div> : null}
           {loading ? <div className="pc-alert">Lade…</div> : null}

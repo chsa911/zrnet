@@ -4,6 +4,7 @@
 // Aktualisierung: alle 15 s, beim Zurückkehren in den Tab und sofort nach
 // window.dispatchEvent(new Event(ACTIVITY_CHANGED_EVENT)) (z. B. nach dem Speichern).
 import React, { useEffect, useState } from "react";
+import { useLocation } from "react-router-dom";
 import { getApiRoot } from "../api/apiRoot";
 
 export const ACTIVITY_CHANGED_EVENT = "zr:activity-changed";
@@ -16,6 +17,8 @@ export function notifyActivityChanged() {
 }
 
 const POLL_MS = 15000;
+// Seiten, auf denen das Dashboard kompakt angezeigt wird (alles auf einen Bildschirm)
+const COMPACT_PATHS = ["/admin/barcode-check"];
 const TILES = [
   ["uploaded", "Upload new books today"],
   ["enriched", "Data added today"],
@@ -26,6 +29,8 @@ const TILES = [
 export default function ActivitiesToday() {
   const [data, setData] = useState(null);
   const [failed, setFailed] = useState(false);
+  const { pathname } = useLocation();
+  const compact = COMPACT_PATHS.includes(pathname);
 
   useEffect(() => {
     let alive = true;
@@ -73,7 +78,7 @@ export default function ActivitiesToday() {
   };
 
   return (
-    <div className="zr-act">
+    <div className={`zr-act${compact ? " is-compact" : ""}`}>
       <style>{`
         .zr-act { text-align: center; margin: 4px auto 22px; padding: 0 12px; max-width: 1800px; box-sizing: border-box; font-weight: 900; }
         .zr-act-hint { font-size: clamp(22px, 3vw, 44px); font-weight: 900; margin: 0 0 6px; }
@@ -84,6 +89,14 @@ export default function ActivitiesToday() {
         .zr-act-num { font-size: clamp(80px, 12vw, 180px); font-weight: 900; line-height: 1; font-variant-numeric: tabular-nums; }
         .zr-act-label { font-size: clamp(22px, 2.6vw, 38px); font-weight: 900; margin-top: 8px; }
         @media (max-width: 900px) { .zr-act-grid { grid-template-columns: repeat(2, 1fr); } }
+        .zr-act.is-compact { margin: 0 auto 8px; }
+        .zr-act.is-compact .zr-act-hint { font-size: clamp(14px, 1.6vw, 22px); margin: 0 0 2px; }
+        .zr-act.is-compact .zr-act-hint a { text-decoration: underline; }
+        .zr-act.is-compact .zr-act-title { font-size: clamp(20px, 2.4vw, 32px); margin: 0 0 6px; }
+        .zr-act.is-compact .zr-act-grid { grid-template-columns: repeat(4, 1fr); gap: 8px; }
+        .zr-act.is-compact .zr-act-tile { border-width: 3px; padding: 4px 8px; display: flex; align-items: center; justify-content: center; gap: .35em; }
+        .zr-act.is-compact .zr-act-num { font-size: clamp(28px, 3.6vw, 52px); }
+        .zr-act.is-compact .zr-act-label { font-size: clamp(11px, 1.15vw, 17px); margin-top: 0; text-align: left; line-height: 1.1; }
         .zr-act-err { color: #b91c1c; font-size: 18px; margin-top: 8px; }
       `}</style>
       <p className="zr-act-hint">
