@@ -7,5 +7,5 @@ pagesinline.com {
 	# Site is public again. The admin area is gated by the backend's
 	# admin_auth cookie (see backend/app.js and /api/admin login), not
 	# by an edge-wide basic auth anymore.
-	reverse_proxy web:80
+	reverse_proxy zrnet-web-1:80
 }

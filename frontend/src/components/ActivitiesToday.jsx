@@ -76,6 +76,8 @@ export default function ActivitiesToday() {
     <div className="zr-act">
       <style>{`
         .zr-act { text-align: center; margin: 4px auto 22px; padding: 0 12px; max-width: 1800px; box-sizing: border-box; font-weight: 900; }
+        .zr-act-hint { font-size: clamp(22px, 3vw, 44px); font-weight: 900; margin: 0 0 6px; }
+        .zr-act-hint a { color: inherit; text-decoration: none; }
         .zr-act-title { font-size: clamp(48px, 8vw, 110px); font-weight: 900; line-height: 1.05; margin: 0 0 16px; letter-spacing: -0.01em; }
         .zr-act-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
         .zr-act-tile { border: 5px solid rgba(0,0,0,.65); padding: 18px 12px; background: #fff; }
@@ -84,6 +86,9 @@ export default function ActivitiesToday() {
         @media (max-width: 900px) { .zr-act-grid { grid-template-columns: repeat(2, 1fr); } }
         .zr-act-err { color: #b91c1c; font-size: 18px; margin-top: 8px; }
       `}</style>
+      <p className="zr-act-hint">
+        Stats available on <a href="https://christopherspages.com" target="_blank" rel="noopener noreferrer">christopherspages.com</a>
+      </p>
       <h1 className="zr-act-title">Activities today</h1>
       <div className="zr-act-grid">
         {TILES.map(([k, label]) => (
