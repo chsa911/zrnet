@@ -32,7 +32,7 @@ const SIZE_TOL_MM = 2;
 const API_ROOT = import.meta.env.VITE_API_ROOT || "";
 // Hinweise stehen in einer eigenen Zeile darunter, damit die Zeile in die Bildschirmbreite passt
 const GRID = "4.6em 3.4em 3.2em 3.2em 2.1em 2.3em minmax(6.5em, 1fr) 2.1em 3em 6.2em 1.8em 1.5em 1.5em";
-const GRID_EM = 42; // Summe der festen Spaltenbreiten (+ Rand)
+const GRID_EM = 43; // Summe der festen Spaltenbreiten (+ Rand)
 
 function str(v) {
   return v === null || v === undefined ? "" : String(v);
@@ -560,16 +560,17 @@ export default function AdminBarcodeCheckPage() {
   return (
     <section className="pc-page">
       <style>{`
-        .pc-page { margin: 0 auto; padding: 0 12px 12px; font-weight: 900; }
+        .pc-page { margin: 0 auto; padding: 0 12px 12px; font-weight: 900; container-type: inline-size; }
         .pc-bar { display: flex; align-items: stretch; margin: 0 0 8px; position: relative; }
         .pc-search { flex: 1 1 auto; width: 100%; box-sizing: border-box; font: inherit; font-size: clamp(44px, 6.5vw, 88px); font-weight: 900; line-height: .9; height: .95em; padding: 0 .05em; margin: 0; border: 3px solid rgba(0,0,0,.65); border-radius: 0; }
         .pc-search { height: calc(clamp(44px, 6.5vw, 88px) * .95); }
         .pc-search:placeholder-shown { font-size: clamp(22px, 3vw, 38px); line-height: normal; padding: 0 .3em; }
         .pc-search::placeholder { font-size: 1em; font-weight: 900; color: rgba(0,0,0,.65); }
         .pc-clear { position: absolute; right: 8px; top: 50%; transform: translateY(-50%); font-size: clamp(24px, 4vw, 42px); font-weight: 900; border: 0; background: none; cursor: pointer; color: #666; }
-        .pc-scroll { overflow-x: auto; border: 3px solid rgba(0,0,0,.65); font-size: clamp(14px, calc((100vw - 90px) / ${GRID_EM}), 42px); }
+        /* Schrift (und damit alle Spalten in em) richtet sich nach der Breite der Seite -> Zeile passt immer ohne Scrollen */
+        .pc-scroll { overflow-x: auto; border: 3px solid rgba(0,0,0,.65); font-size: clamp(12px, calc((100vw - 90px) / ${GRID_EM}), 42px); font-size: clamp(12px, calc((100cqw - 12px) / ${GRID_EM}), 42px); }
         .pc-scroll:empty { display: none; }
-        .pc-table { min-width: max-content; }
+        .pc-table { min-width: 0; }
         .pc-head, .pc-row { display: grid; grid-template-columns: ${GRID}; align-items: stretch; }
         .pc-head { background: #e5e7eb; font-weight: 900; position: sticky; top: 0; z-index: 1; }
         .pc-head > div { font-size: .45em; padding: .3em .4em; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; border-right: 1px solid #bbb; }
