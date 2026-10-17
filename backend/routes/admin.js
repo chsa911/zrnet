@@ -747,10 +747,10 @@ COUNT(b.id) FILTER (WHERE b.top_book = true)::int AS top_books
       /* -------------------- activities today -------------------- */
 
       // GET /api/admin/activity/today  – Tageszahlen (Europe/Berlin)
-      //   uploaded:   neu angelegte Bücher (added_at heute)
+      //   uploaded:   neu angelegte Bücher ohne Barcode (added_at heute, reading_status = in_stock)
       //   enriched:   heute Daten hinzugefügt, z. B. neue Physical ID (enriched_at heute,
       //               gesetzt per Trigger, siehe V20261013_02__books_enriched_at.sql)
-      //   registered: heute registriert (registered_at heute)
+      //   registered: heute registriert mit Barcode (registered_at heute + Barcode-Zuordnung)
       //   abandoned:  heute als abgebrochen markiert (reading_status_updated_at heute)
       router.get("/activity/today", async (req, res) => {
         const pool = req.app.get("pgPool");
@@ -773,9 +773,10 @@ COUNT(b.id) FILTER (WHERE b.top_book = true)::int AS top_books
         };
         const result = Object.fromEntries(
           await Promise.all([
-            one("uploaded", countToday("added_at")),
+            one("uploaded", countToday("added_at", "AND b.reading_status::text = 'in_stock'")),
             one("enriched", countToday("enriched_at")),
-            one("registered", countToday("registered_at")),
+            one("registered", countToday("registered_at",
+              "AND EXISTS (SELECT 1 FROM public.barcode_assignments ba WHERE ba.book_id = b.id)")),
             one("abandoned", countToday("reading_status_updated_at", "AND b.reading_status::text = 'abandoned'")),
           ])
         );
