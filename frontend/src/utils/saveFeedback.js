@@ -83,3 +83,37 @@ export function newRequestId() {
     return `req_${Date.now()}_${Math.random().toString(16).slice(2)}`;
   }
 }
+
+/* ---------------------------- offene Vorgänge ---------------------------- */
+// A registration the server REJECTED after logging it becomes an "offener
+// Vorgang" (see backend/utils/saveFailures.js). It stays in the red bar at
+// the top of every admin page until it is re-registered or dismissed.
+
+export const OPEN_ISSUES_CHANGED_EVENT = "zr:open-issues-changed";
+
+export function notifyOpenIssuesChanged() {
+  try {
+    window.dispatchEvent(new Event(OPEN_ISSUES_CHANGED_EVENT));
+  } catch {
+    /* ignore */
+  }
+}
+
+// Rejections that happen BEFORE the server logs the attempt (pure input
+// errors) are not Vorgänge – the user fixes them right in the form.
+const NOT_LOGGED_CODES = new Set([
+  "missing_required_fields",
+  "width_and_height_required",
+  "no_series_for_size",
+  "invalid_id",
+  "not_found",
+]);
+
+// Text to append to a save error when it was kept as an open Vorgang.
+export function openIssueHint(err) {
+  if (!err || isNoResponseError(err)) return "";
+  const code = String(err?.code || "").trim();
+  if (NOT_LOGGED_CODES.has(code)) return "";
+  if (!err.status && !code) return "";
+  return " 📌 Als offener Vorgang gemerkt – er bleibt oben im roten Balken, bis du ihn erledigt hast.";
+}

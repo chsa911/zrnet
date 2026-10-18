@@ -11,7 +11,7 @@ import { previewBarcode } from "../api/barcodes";
 import { startIsbnScanner } from "../utils/isbnScanner";
 import { PAGE_NUM_POSITIONS, buildPhysCode, formatPhysCode, normalizeLastWord } from "../utils/pageNumPos";
 import usePhysCodeCheck, { physCodeKnownText, similarText } from "../utils/usePhysCodeCheck";
-import { friendlySaveErrorMessage, isNoResponseError, newRequestId } from "../utils/saveFeedback";
+import { friendlySaveErrorMessage, isNoResponseError, newRequestId, notifyOpenIssuesChanged, openIssueHint } from "../utils/saveFeedback";
 
 const toStr = (v) => (v === undefined || v === null ? "" : String(v));
 
@@ -733,7 +733,9 @@ export default function BookFormStagingPwa({
       const hint = isNoResponseError(err)
         ? " Unklar, ob gespeichert wurde – einfach erneut auf Speichern tippen, es entsteht kein Duplikat."
         : "";
-      setMsg(`❌ Nicht gespeichert: ${base}${base.includes("Duplikat") ? "" : hint}`, "error");
+      const issueHint = isEdit ? "" : openIssueHint(err);
+      setMsg(`❌ Nicht gespeichert: ${base}${base.includes("Duplikat") ? "" : hint}${issueHint}`, "error");
+      if (issueHint) notifyOpenIssuesChanged();
       setBusy(false);
       explicitSubmitRef.current = false;
       return; // form values and cover photo stay in place for the retry

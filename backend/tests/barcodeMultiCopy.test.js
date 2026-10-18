@@ -46,7 +46,10 @@ d("barcode painted on several books", () => {
   }
 
   beforeAll(async () => {
-    db = new Client({ connectionString: URL, ssl: { rejectUnauthorized: false } });
+    db = new Client({
+      connectionString: URL,
+      ssl: /localhost|127\.0\.0\.1|\/tmp/.test(URL) ? false : { rejectUnauthorized: false },
+    });
     await db.connect();
     await db.query("BEGIN");
 
@@ -79,6 +82,10 @@ d("barcode painted on several books", () => {
       [books]
     );
     await db.query(`DELETE FROM public.book_barcodes WHERE book_id = ANY($1::uuid[]) OR lower(barcode) = lower($2)`, [books, code]);
+    // Legacy situation on purpose: since V20261018_01 the DB refuses NEW
+    // duplicate open assignments, so the fixture opts out for this
+    // (rolled-back) transaction only.
+    await db.query(`SET LOCAL zrnet.allow_legacy_multicopy = 'on'`);
     for (const id of books) {
       try {
         await db.query(
@@ -92,6 +99,7 @@ d("barcode painted on several books", () => {
         );
       }
     }
+    await db.query(`SET LOCAL zrnet.allow_legacy_multicopy = 'off'`);
     // only one copy can appear in book_barcodes (UNIQUE barcode)
     await db.query(`INSERT INTO public.book_barcodes (book_id, barcode) VALUES ($1::uuid, $2)`, [books[0], code]);
     await db.query(`UPDATE public.barcode_inventory SET status = 'ASSIGNED' WHERE lower(barcode) = lower($1)`, [code]);

@@ -2339,4 +2339,41 @@ router.delete("/books/:id/locale-cover/:locale", async (req, res) => {
   res.json({ ok: true, id, locale, covers: localeCoversOf(id) });
 });
 
+/* ------------------------- offene Vorgänge ------------------------- */
+// Rejected / unfinished registrations that still need attention.
+// GET  /api/admin/save-failures           -> { count, items: [...] }
+// POST /api/admin/save-failures/dismiss   { ids: [...], note } -> { closed }
+{
+  const { listOpenFailures, closeFailures } = require("../utils/saveFailures");
+
+  router.get("/save-failures", async (req, res) => {
+    try {
+      const pool = req.app.get("pgPool");
+      const items = await listOpenFailures(pool, { days: req.query.days });
+      res.set("Cache-Control", "no-store");
+      return res.json({ count: items.length, items });
+    } catch (e) {
+      // table/columns not migrated yet -> no banner rather than an error page
+      if (["42P01", "42703"].includes(String(e?.code))) return res.json({ count: 0, items: [], notMigrated: true });
+      console.error("save-failures list error", e);
+      return res.status(500).json({ error: "internal_error" });
+    }
+  });
+
+  router.post("/save-failures/dismiss", async (req, res) => {
+    try {
+      const pool = req.app.get("pgPool");
+      const ids = req.body?.ids;
+      const note = String(req.body?.note || "").trim();
+      if (!Array.isArray(ids) || !ids.length) return res.status(400).json({ error: "ids_required" });
+      if (!note) return res.status(400).json({ error: "note_required", message: "Bitte kurz notieren, warum der Vorgang erledigt ist." });
+      const closed = await closeFailures(pool, ids, { status: "dismissed", note });
+      return res.json({ closed });
+    } catch (e) {
+      console.error("save-failures dismiss error", e);
+      return res.status(500).json({ error: "internal_error" });
+    }
+  });
+}
+
 module.exports = router;

@@ -2,6 +2,7 @@ import React, { Suspense, lazy, useEffect, useState } from "react";
 import { Routes, Route, Navigate, useLocation } from "react-router-dom";
 import Layout from "./components/Layout";
 import ActivitiesToday from "./components/ActivitiesToday";
+import OpenIssuesBanner from "./components/OpenIssuesBanner";
 import "./styles/css/zr-admin.css";
 import Home from "./pages/Home";
 import ComingSoonPage from "./pages/ComingSoonPage";
@@ -41,6 +42,7 @@ const BarcodeDashboardPage = lazy(() => import("./pages/BarcodeDashboardPage"));
 const AbbreviationsAdminPage = lazy(() => import("./pages/AbbreviationsAdminPage"));
 const AdminAuthorTitlesPage = lazy(() => import("./pages/AdminAuthorTitlesPage"));
 const AdminAuthorPage = lazy(() => import("./pages/AdminAuthorPage"));
+const OpenIssuesPage = lazy(() => import("./pages/OpenIssuesPage"));
 const HighlightReceivedPage = lazy(() => import("./pages/HighlightReceivedPage"));
 const AdminTitleTranslationsPage = lazy(() => import("./pages/AdminTitleTranslationsPage"));
 const AdminCoversPage = lazy(() => import("./pages/AdminCoversPage"));
@@ -96,6 +98,7 @@ function AdminOnly({ children, plain = false }) {
   return (
     <RequireAdmin>
       <div className={plain ? undefined : "zr-admin"}>
+        <OpenIssuesBanner />
         <ActivitiesToday />
         {children}
       </div>
@@ -217,6 +220,7 @@ export default function App() {
         <Route path="admin/check-book" element={<AdminOnly><AdminPhysCodeCheckPage /></AdminOnly>} />
         <Route path="admin/barcode-check" element={<AdminOnly><AdminBarcodeCheckPage /></AdminOnly>} />
         <Route path="admin/sync-issues" element={<AdminOnly><SyncIssuePage /></AdminOnly>} />
+        <Route path="admin/open-issues" element={<AdminOnly><OpenIssuesPage /></AdminOnly>} />
         <Route path="admin/barcodes" element={<AdminOnly><BarcodeDashboardPage /></AdminOnly>} />
         <Route path="admin/comments" element={<AdminOnly><AdminCommentsPage /></AdminOnly>} />
         <Route path="login" element={<Navigate to="/admin" replace />} />

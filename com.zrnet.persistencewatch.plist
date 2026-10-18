@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.zrnet.persistencewatch</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>/bin/bash</string>
+        <string>-lc</string>
+        <string>/Users/chsa911/zrnet-clean/watch-persistence.sh</string>
+    </array>
+
+    <!-- Alle 15 Minuten. Ruhezeit (23–7 Uhr) und "nur bei Neuem melden"
+         regelt watch-persistence.sh selbst. -->
+    <key>StartInterval</key>
+    <integer>900</integer>
+
+    <key>RunAtLoad</key>
+    <false/>
+
+    <key>StandardOutPath</key>
+    <string>/Users/chsa911/p_backup/waechter/launchd.log</string>
+    <key>StandardErrorPath</key>
+    <string>/Users/chsa911/p_backup/waechter/launchd.log</string>
+</dict>
+</plist>

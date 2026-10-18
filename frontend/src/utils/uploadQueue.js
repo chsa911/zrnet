@@ -369,7 +369,10 @@ async function uploadFinalizeStep(job) {
     body: JSON.stringify(payload),
   });
 
-  const bookId = book?.id || book?._id || targetId;
+  // The server must confirm the registration with the book id; anything else
+  // (empty body, HTML page …) is treated as a failure so the job stays queued.
+  const bookId = book?.id || book?._id;
+  if (!bookId) throw new Error("finalize_missing_book_id");
   await updateJob(job.id, { savedId: bookId, step: "cover", lastError: null });
   return { bookId };
 }

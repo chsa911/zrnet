@@ -2,6 +2,7 @@
   const path = require("path");
   const { barcodeWildcardPattern } = require("../utils/barcodeWildcard");
   const { pickFreeBarcode, heldByActiveBookSql, releaseBookBarcodes } = require("../utils/barcodeHolders");
+  const { closeFailures } = require("../utils/saveFailures");
   // Add this near your other variable definitions
   // backend/controllers/booksPgController.js
   // Postgres implementation for /api/books endpoints.
@@ -11,7 +12,9 @@ function toNum(v) {
 }
 
 function cmToMm(v) {
-  const n = Number(String(v || "").replace(",", "."));
+  // empty input means "unknown", not 0 mm (0 violates books_*_mm_check)
+  if (v === null || v === undefined || String(v).trim() === "") return null;
+  const n = Number(String(v).replace(",", "."));
   return Number.isFinite(n) ? Math.round(n * 10) : null;
 }
 function getPool(req) {
@@ -1806,30 +1809,78 @@ return res.json({
   // previously a failed save left zero trace anywhere in the DB. Both
   // helpers are no-ops (just console.error, never throw) if the
   // book_save_attempts table doesn't exist yet, so they can't break a save.
+  // Form input kept with the attempt so a rejected registration can be
+  // re-opened pre-filled from the "offene Vorgänge" list. Large/irrelevant
+  // keys are dropped.
+  function savePayloadOf(body) {
+    if (!body || typeof body !== "object") return null;
+    const out = {};
+    for (const [k, v] of Object.entries(body)) {
+      if (k === "followup_attempt_ids" || k === "raw") continue;
+      if (typeof v === "string" && v.length > 2000) continue;
+      out[k] = v;
+    }
+    try {
+      return JSON.stringify(out);
+    } catch {
+      return null;
+    }
+  }
+
   async function logSaveAttempt(pool, data) {
+    const params = [
+      data.titleDisplay ?? null,
+      data.authorInput ?? null,
+      data.pages ?? null,
+      data.requestedBarcode ?? null,
+      data.widthCm ?? null,
+      data.heightCm ?? null,
+      data.requestId ?? null,
+      data.bookId ?? null,
+    ];
     try {
       const r = await pool.query(
         `
         INSERT INTO public.book_save_attempts
-          (title_display, author_input, pages, requested_barcode, width_cm, height_cm, request_id, book_id)
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+          (title_display, author_input, pages, requested_barcode, width_cm, height_cm, request_id, book_id, payload)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9::jsonb)
         RETURNING id
         `,
-        [
-          data.titleDisplay ?? null,
-          data.authorInput ?? null,
-          data.pages ?? null,
-          data.requestedBarcode ?? null,
-          data.widthCm ?? null,
-          data.heightCm ?? null,
-          data.requestId ?? null,
-          data.bookId ?? null,
-        ]
+        [...params, savePayloadOf(data.payload)]
       );
       return r.rows[0]?.id ?? null;
     } catch (e) {
+      // payload column not migrated yet (V20261018_02) -> log without it
+      if (String(e?.code) === "42703") {
+        try {
+          const r = await pool.query(
+            `
+            INSERT INTO public.book_save_attempts
+              (title_display, author_input, pages, requested_barcode, width_cm, height_cm, request_id, book_id)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+            RETURNING id
+            `,
+            params
+          );
+          return r.rows[0]?.id ?? null;
+        } catch (e2) {
+          console.error("logSaveAttempt failed (non-fatal)", e2.message || e2);
+          return null;
+        }
+      }
       console.error("logSaveAttempt failed (non-fatal)", e.message || e);
       return null;
+    }
+  }
+
+  // Registration from the "offene Vorgänge" list succeeded -> close those.
+  async function closeFollowups(pool, body, bookId) {
+    const ids = body?.followup_attempt_ids;
+    if (!Array.isArray(ids) || !ids.length) return;
+    try {
+      await closeFailures(pool, ids, { status: "done", note: "erneut registriert", bookId });
+    } catch (e) {
+      console.error("closeFollowups failed (non-fatal)", e.message || e);
     }
   }
 
@@ -1850,6 +1901,57 @@ return res.json({
     } catch (e) {
       console.error("resolveSaveAttempt failed (non-fatal)", e.message || e);
     }
+  }
+
+  /* ---------------------- post-commit persistence check ---------------------- */
+  // After COMMIT we re-read the database and confirm the registration really
+  // landed: the book row exists, is registered and the barcode is linked
+  // (book_barcodes) with an open ledger row (barcode_assignments).
+  // If anything is missing, the request must NOT report success — this is
+  // the last line of defence against "registered but not persisted".
+  async function verifyRegistrationPersisted(pool, bookId, barcode, { expectBarcode = true } = {}) {
+    const problems = [];
+    const { rows } = await pool.query(
+      `
+      SELECT
+        b.id,
+        b.registered_at,
+        EXISTS (
+          SELECT 1 FROM public.book_barcodes bb
+          WHERE bb.book_id = b.id AND lower(bb.barcode) = lower($2)
+        ) AS linked,
+        EXISTS (
+          SELECT 1 FROM public.barcode_assignments ba
+          WHERE ba.book_id = b.id AND lower(ba.barcode) = lower($2) AND ba.freed_at IS NULL
+        ) AS ledger_open
+      FROM public.books b
+      WHERE b.id = $1::uuid
+      `,
+      [bookId, barcode || ""]
+    );
+    const r = rows[0];
+    if (!r) {
+      problems.push("book_missing");
+    } else if (expectBarcode) {
+      if (!r.registered_at) problems.push("registered_at_missing");
+      if (!r.linked) problems.push("barcode_not_linked");
+      if (!r.ledger_open) problems.push("barcode_assignment_missing");
+    }
+    return { ok: problems.length === 0, problems };
+  }
+
+  function sendNotPersisted(res, problems, { bookId, barcode } = {}) {
+    console.error("REGISTRATION NOT PERSISTED", { bookId, barcode, problems });
+    return res.status(500).json({
+      error: "registration_not_persisted",
+      problems,
+      book_id: bookId || null,
+      barcode: barcode || null,
+      message:
+        "Fehler: Die Registrierung wurde NICHT vollständig gespeichert (" +
+        problems.join(", ") +
+        "). Bitte das Buch NICHT ins Regal stellen, sondern erneut speichern bzw. prüfen.",
+    });
   }
 
   /* --------------------------------- create --------------------------------- */
@@ -1950,6 +2052,7 @@ return res.json({
       widthCm,
       heightCm,
       requestId,
+      payload: body,
     });
 
     try {
@@ -1959,6 +2062,7 @@ return res.json({
         const exists = await pool.query(`SELECT id FROM public.books WHERE request_id = $1 LIMIT 1`, [requestId]);
         const existingId = exists.rows[0]?.id;
         if (existingId) {
+          await resolveSaveAttempt(pool, attemptId, { status: "success", bookId: existingId });
           const existing = await fetchBookWithBarcode(pool, existingId);
           return res.status(200).json(rowToApi(existing));
         }
@@ -2030,8 +2134,9 @@ sub_genre_id: normalizeInt(body.sub_genre_id),
           year_first_published: normalizeInt(body.year_first_published ?? body.first_publish_year),
           action_continent: normalizeInt(body.action_continent),
           action_country: normalizeStr(body.action_country),
-          width: Number.isFinite(wMm) ? wMm : null,
-          height: Number.isFinite(hMm) ? hMm : null,
+          // no size entered -> NULL (toNum("") is 0, and 0 mm violates books_*_mm_check)
+          width: Number.isFinite(wMm) && wMm > 0 ? wMm : null,
+          height: Number.isFinite(hMm) && hMm > 0 ? hMm : null,
 
           top_book: topBook,
           top_book_set_at: topBook ? nowIso : null,
@@ -2086,8 +2191,16 @@ sub_genre_id: normalizeInt(body.sub_genre_id),
 
         if (!assignBarcodeNow) {
           await client.query("COMMIT");
-          await resolveSaveAttempt(pool, attemptId, { status: "success", bookId });
           const full = await fetchBookWithBarcode(pool, bookId);
+          if (!full) {
+            await resolveSaveAttempt(pool, attemptId, {
+              status: "failed",
+              errorMessage: "registration_not_persisted:book_missing",
+            });
+            return sendNotPersisted(res, ["book_missing"], { bookId });
+          }
+          await resolveSaveAttempt(pool, attemptId, { status: "success", bookId });
+          await closeFollowups(pool, body, bookId);
           return res.status(201).json(rowToApi(full));
         }
 
@@ -2112,7 +2225,18 @@ sub_genre_id: normalizeInt(body.sub_genre_id),
         });
 
         await client.query("COMMIT");
+
+        const check = await verifyRegistrationPersisted(pool, bookId, barcode);
+        if (!check.ok) {
+          await resolveSaveAttempt(pool, attemptId, {
+            status: "failed",
+            bookId,
+            errorMessage: "registration_not_persisted:" + check.problems.join(","),
+          });
+          return sendNotPersisted(res, check.problems, { bookId, barcode });
+        }
         await resolveSaveAttempt(pool, attemptId, { status: "success", bookId });
+        await closeFollowups(pool, body, bookId);
 
         const full = await fetchBookWithBarcode(pool, bookId);
         return res.status(201).json(rowToApi(full));
@@ -2484,6 +2608,7 @@ if (body.sub_genre_id !== undefined && cols.has("sub_genre_id")) {
       widthCm,
       heightCm,
       bookId: id,
+      payload: body,
     });
 
     const client = await pool.connect();
@@ -2756,7 +2881,18 @@ if (
       });
 
       await client.query("COMMIT");
+
+      const check = await verifyRegistrationPersisted(pool, id, barcode);
+      if (!check.ok) {
+        await resolveSaveAttempt(pool, attemptId, {
+          status: "failed",
+          bookId: id,
+          errorMessage: "registration_not_persisted:" + check.problems.join(","),
+        });
+        return sendNotPersisted(res, check.problems, { bookId: id, barcode });
+      }
       await resolveSaveAttempt(pool, attemptId, { status: "success", bookId: id });
+      await closeFollowups(pool, body, id);
       const full = await fetchBookWithBarcode(pool, id);
       return res.json(rowToApi(full));
     } catch (err) {
@@ -3584,4 +3720,6 @@ async function setHighlight(req, res) {
     recordBarcodeConflict,
     resolveBarcodeConflict,
     lookupPhysCode,
+    // exposed for tests / health checks
+    verifyRegistrationPersisted,
   };

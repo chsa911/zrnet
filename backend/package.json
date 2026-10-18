@@ -17,7 +17,9 @@
     "cleanup:test:dry": "node ./scripts/cleanupTestData.js",
     "cleanup:test:run": "DRY_RUN=false node ./scripts/cleanupTestData.js",
     "check:suggestions": "node scripts/checkBarcodeSuggestions.js",
-    "fix:barcode-status": "node scripts/fixBarcodeInventoryStatus.js"
+    "fix:barcode-status": "node scripts/fixBarcodeInventoryStatus.js",
+    "test:db": "jest tests/registration.test.js tests/barcodeSuggestion.test.js tests/barcodeMultiCopy.test.js tests/openIssues.test.js",
+    "check:persistence": "node scripts/checkPersistence.js"
   },
   "dependencies": {
     "cookie-parser": "^1.4.7",

@@ -12,7 +12,12 @@ import { previewBarcode } from "../api/barcodes";
 import { BookCodeVisual } from "../utils/bookCodeDisplay";
 import { PAGE_NUM_POS_HELP, buildPhysCode, formatPhysCode, isValidPageNumPos, normalizeLastWord, pageNumPosLabel } from "../utils/pageNumPos";
 import usePhysCodeCheck, { physCodeKnownText, similarText } from "../utils/usePhysCodeCheck";
-import { friendlySaveErrorMessage, newRequestId } from "../utils/saveFeedback";
+import {
+  friendlySaveErrorMessage,
+  newRequestId,
+  notifyOpenIssuesChanged,
+  openIssueHint,
+} from "../utils/saveFeedback";
 
 const API_ROOT = import.meta.env.VITE_API_ROOT || "";
 
@@ -423,6 +428,7 @@ export default function BookFormDesktop({
   onSuccess,
   showUnknownFields = false,
   excludeUnknownKeys = [],
+  extraPayload = null, // merged into the create payload (e.g. followup_attempt_ids)
 }) {
   const isEdit = mode === "edit";
   const msgRef = useRef(null);
@@ -1097,6 +1103,9 @@ if (!isEdit && (pages == null || pages < 0)) {
       showMsg("Keine Änderungen.", "info");
       return;
     }
+    if (!isEdit && extraPayload && typeof extraPayload === "object") {
+      Object.assign(payload, extraPayload);
+    }
 
     // Same id for every retry of this entry: if a previous attempt reached the
     // server but the answer got lost, the backend returns that book instead of
@@ -1140,7 +1149,9 @@ if (!isEdit && (pages == null || pages < 0)) {
       }
     } catch (err) {
       console.error("Buch konnte nicht gespeichert werden", err);
-      showMsg(friendlySaveErrorMessage(err), "error");
+      const hint = isEdit ? "" : openIssueHint(err);
+      showMsg(`❌ NICHT gespeichert: ${friendlySaveErrorMessage(err)}${hint}`, "error");
+      if (hint) notifyOpenIssuesChanged();
     } finally {
       setBusy(false);
     }

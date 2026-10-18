@@ -9,6 +9,12 @@ import {
   upsertUploadJob,
 } from "../utils/uploadQueue";
 import { startIsbnScanner } from "../utils/isbnScanner";
+import {
+  friendlySaveErrorMessage,
+  isNoResponseError,
+  notifyOpenIssuesChanged,
+  openIssueHint,
+} from "../utils/saveFeedback";
 import { PAGE_NUM_POSITIONS, buildPhysCode, formatPhysCode, normalizeLastWord } from "../utils/pageNumPos";
 import usePhysCodeCheck, { physCodeKnownText, similarText } from "../utils/usePhysCodeCheck";
 
@@ -895,6 +901,14 @@ export default function BookForm({
       } else {
         const p2 = jobId ? { ...payload, requestId: jobId } : payload;
         saved = await registerBook(p2);
+        // Only a response that carries the new book's id counts as "saved".
+        // Anything else (empty body, HTML page, …) must surface as an error
+        // and keep the local backup job.
+        if (!(saved?.id || saved?._id)) {
+          throw Object.assign(new Error("missing_book_id_in_response"), {
+            code: "missing_book_id_in_response",
+          });
+        }
       }
 
       const savedId = saved?.id || saved?._id || bookId || initialBook?._id || initialBook?.id;
@@ -952,14 +966,21 @@ export default function BookForm({
         });
       }
     } catch (err) {
-      setMsg(
-        `${err?.message || "Fehler beim Speichern"}. ` +
-          (localBackupOk
-            ? "Sicherheitsnetz aktiv: Daten wurden lokal gespeichert und können später erneut hochgeladen werden."
-            : !isEdit
-              ? "⚠ ACHTUNG: Daten wurden NICHT gespeichert (auch nicht lokal). Bitte Formular offen lassen und erneut speichern."
-              : "")
-      );
+      console.error("[BookForm] save failed", err);
+      const base = friendlySaveErrorMessage(err);
+      let tail = "";
+      if (!isEdit) {
+        if (!localBackupOk) {
+          tail = " ⚠ ACHTUNG: Daten wurden auch NICHT lokal gesichert. Bitte Formular offen lassen und erneut speichern.";
+        } else if (isNoResponseError(err)) {
+          tail = " Unklar, ob gespeichert wurde – die Eingaben sind lokal gesichert und werden automatisch erneut gesendet (es entsteht kein Duplikat).";
+        } else {
+          tail = " Der Server hat das Speichern ABGELEHNT. Die Eingaben bleiben im Formular und als lokale Kopie erhalten – bitte Ursache beheben und erneut speichern.";
+        }
+      }
+      const issueHint = isEdit ? "" : openIssueHint(err);
+      setMsg(`❌ Fehler – NICHT gespeichert: ${base}${tail}${issueHint}`);
+      if (issueHint) notifyOpenIssuesChanged();
     } finally {
       setBusy(false);
       try {
