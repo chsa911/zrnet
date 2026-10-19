@@ -29,10 +29,9 @@ function barcodeWildcardRegex(input) {
 // vermisst“: Kapitel/letztes Wort eines anderen Buchs gespeichert):
 //   * Titel + Autor stehen groß in jeder Zeile – man sieht, welches Buch die
 //     Datenbank zum Barcode meint.
-//   * Blinde Seitenprüfung: Hat ein Buch noch keine Nummer, ist das Seiten-Feld
-//     leer und muss aus dem Buch abgetippt werden. Weicht es von der
-//     gespeicherten Seitenzahl ab, wird nur nach ausdrücklicher Bestätigung
-//     (mit Titel) gespeichert.
+//   * Seitenzahl steht groß in der Titelzeile. Wird sie im Feld geändert
+//     (Buch hat andere Seitenzahl), wird nur nach ausdrücklicher Bestätigung
+//     mit Titel gespeichert.
 //   * Kein stilles Speichern beim Verlassen der Zeile; ein neuer Scan ist
 //     gesperrt, solange eine Zeile ungespeicherte Eingaben hat.
 //   * Enter im letzten Feld springt NICHT in die nächste Zeile.
@@ -78,6 +77,9 @@ function draftFromBook(b) {
 function isSame(k, a, b) {
   if (k === "language") return expandLang(a) === expandLang(b);
   if (k === "last_word" || k === "page_num_pos") return String(a ?? "").trim().toLowerCase() === String(b ?? "").trim().toLowerCase();
+  // ungültige Eingaben (z. B. ein hineingescannter Barcode) gelten als Änderung,
+  // damit die Prüfung beim Speichern sie meldet statt sie still zu ignorieren
+  if (num(a) === null || num(b) === null) return String(a ?? "").trim() === String(b ?? "").trim();
   return num(a) === num(b);
 }
 function errText(e) {
@@ -106,10 +108,6 @@ function writePref(key, v) {
 }
 
 // ── eine Zeile ──────────────────────────────────────────────────────────────
-// Blinde Seitenprüfung nötig? (Buch hat noch keine Nummer, aber eine gespeicherte Seitenzahl)
-function needsPageCheck(b) {
-  return !b?.phys_code && str(b?.pages).trim() !== "";
-}
 function bookLabel(b) {
   const t = String(b?.title_display || "").trim() || "(ohne Titel)";
   const a = String(b?.author_name_display || b?.author_display || "").trim();
@@ -117,13 +115,7 @@ function bookLabel(b) {
 }
 
 const CheckRow = React.memo(function CheckRow({ book, index, registerFirst, focusSearch, onSaved, onEdit, onAbandoned, onDirtyChange, genres = [], muted = false, extraHint = null }) {
-  const [pagesVerified, setPagesVerified] = useState(false);
-  const blind = !muted && !pagesVerified && needsPageCheck(book);
-  const [draft, setDraft] = useState(() => {
-    const d = draftWithDefaults(book);
-    if (!muted && needsPageCheck(book)) d.pages = "";
-    return d;
-  });
+  const [draft, setDraft] = useState(() => draftWithDefaults(book));
   const touchedRef = useRef(false); // Autosave nur, wenn in der Zeile wirklich gearbeitet wurde
   const [saving, setSaving] = useState(false);
   const [rowErr, setRowErr] = useState("");
@@ -150,7 +142,6 @@ const CheckRow = React.memo(function CheckRow({ book, index, registerFirst, focu
       }
     }
     prevOrigRef.current = draftFromBook(book);
-    if (blind && !keptEdits) fresh.pages = "";
     setDraft(fresh);
     touchedRef.current = keptEdits;
     lastSavedRef.current = null;
@@ -158,10 +149,7 @@ const CheckRow = React.memo(function CheckRow({ book, index, registerFirst, focu
   }, [book]);
 
   const orig = useMemo(() => draftFromBook(book), [book]);
-  // leeres Prüf-Feld (blinde Seitenprüfung) zählt nicht als Änderung
-  const pagesPending = blind && String(draft.pages ?? "").trim() === "";
-  const cmp = pagesPending ? { ...draft, pages: orig.pages } : draft;
-  const changed = EDIT_KEYS.filter((k) => !isSame(k, cmp[k], orig[k]));
+  const changed = EDIT_KEYS.filter((k) => !isSame(k, draft[k], orig[k]));
   const dirty = changed.length > 0;
   const bookId = book?.id || book?._id;
   useEffect(() => {
@@ -185,12 +173,10 @@ const CheckRow = React.memo(function CheckRow({ book, index, registerFirst, focu
     if (k === "page_num_pos" && posInvalid) return "pc-in is-bad";
     if (k === "language" && langInvalid) return "pc-in is-bad";
     if (changed.includes(k)) return "pc-in is-changed";
-    if (k === "pages" && pagesPending) return "pc-in is-check";
     if (empty && ["width_cm", "height_cm", "page_num_pos", "last_word"].includes(k)) return "pc-in is-missing";
     return "pc-in";
   }
   function tip(k) {
-    if (k === "pages" && blind) return "Prüfung: letzte nummerierte Seite aus dem Buch abtippen";
     if (k === "page_num_pos") return PAGE_NUM_POS_HELP;
     if (k === "language") return `Sprache dieses Exemplars (de, en, fr … · Kurz: d e f s i n p)${changed.includes(k) ? ` · gespeichert: ${orig[k] || "—"}` : ""}`;
     if (changed.includes(k)) return `gespeichert: ${orig[k] || "—"}`;
@@ -218,14 +204,30 @@ const CheckRow = React.memo(function CheckRow({ book, index, registerFirst, focu
       setTimeout(() => setFlash(false), 600);
       return true;
     }
-    // Blinde Seitenprüfung: erst speichern, wenn die Seitenzahl aus dem Buch
-    // eingetragen ist – und bei Abweichung nur nach Bestätigung mit Titel.
-    if (pagesPending) {
-      setRowErr("Erst Seitenzahl aus dem Buch eintragen (Prüfung, ob es das richtige Buch ist)");
-      refs.current.pages?.focus({ preventScroll: true });
+    // Zahlenfelder: nur echte Zahlen (ein hineingescannter Barcode o. Ä. wird abgelehnt)
+    for (const k of changed) {
+      const v = String(draft[k] ?? "").trim();
+      if (!v) continue;
+      if ((k === "pages" || k === "chapters") && !/^[0-9]+$/.test(v)) {
+        setRowErr(`${k === "pages" ? "Seiten" : "Kapitel"}: nur Ziffern – nicht gespeichert`);
+        refs.current[k]?.focus({ preventScroll: true });
+        return false;
+      }
+      if ((k === "width_cm" || k === "height_cm") && !/^[0-9]+([.,][0-9]+)?$/.test(v)) {
+        setRowErr(`${k === "width_cm" ? "Breite" : "Höhe"}: nur Zahl in cm – nicht gespeichert`);
+        refs.current[k]?.focus({ preventScroll: true });
+        return false;
+      }
+    }
+    // Barcode-Scanner tippt wie eine Tastatur: wurde der nächste Barcode ins
+    // Wort-Feld gescannt, darf das nicht als letztes Wort gespeichert werden.
+    if (changed.includes("last_word") && /^[a-z]{1,4}[0-9]{2,}$/i.test(String(draft.last_word || "").trim().split(/\s+/).pop())) {
+      setRowErr("Letztes Wort sieht aus wie ein Barcode – nicht gespeichert");
+      refs.current.last_word?.focus({ preventScroll: true });
       return false;
     }
-    if (blind && !isSame("pages", draft.pages, orig.pages)) {
+    // Seitenzahl geändert -> evtl. anderes Buch: nur nach Bestätigung mit Titel
+    if (orig.pages !== "" && !isSame("pages", draft.pages, orig.pages)) {
       const ok = window.confirm(
         `Seitenzahl weicht ab!\n\nGespeichert: ${orig.pages} Seiten · im Buch: ${String(draft.pages).trim()} Seiten\n\n` +
           `Ist das Buch in deiner Hand wirklich\n${bookLabel(book)}\n(Barcode ${book?.barcode || "—"})?\n\n` +
@@ -256,7 +258,6 @@ const CheckRow = React.memo(function CheckRow({ book, index, registerFirst, focu
     setRowErr("");
     try {
       const saved = Object.keys(payload).length ? await updateBook(book.id || book._id, payload) : null;
-      if (blind) setPagesVerified(true);
       touchedRef.current = false;
       lastSavedRef.current = draftKey;
       onSaved(book.id || book._id, saved);
@@ -346,11 +347,7 @@ const CheckRow = React.memo(function CheckRow({ book, index, registerFirst, focu
     return async (e) => {
       if (e.key === "Escape") {
         e.preventDefault();
-        setDraft(() => {
-          const d = draftWithDefaults(book);
-          if (blind) d.pages = "";
-          return d;
-        });
+        setDraft(draftWithDefaults(book));
         touchedRef.current = false;
         setRowErr("");
         lastSavedRef.current = null;
@@ -407,6 +404,7 @@ const CheckRow = React.memo(function CheckRow({ book, index, registerFirst, focu
       <div className="pc-title" title={`${book?.title_display || ""} ${book?.author_name_display || ""}`}>
         <span className="pc-title-t">{String(book?.title_display || "").trim() || "(ohne Titel)"}</span>
         {book?.author_name_display || book?.author_display ? <span className="pc-title-a"> – {book.author_name_display || book.author_display}</span> : null}
+        {orig.pages ? <span className="pc-title-p"> · {orig.pages} Seiten</span> : <span className="pc-err"> · Seiten unbekannt</span>}
         {book?.reading_status ? <span className="pc-title-s"> · {book.reading_status}</span> : null}
         {muted ? <span className="pc-err"> · Barcode gehört diesem Buch nicht (mehr) – nur Anzeige</span> : null}
       </div>
@@ -443,8 +441,7 @@ const CheckRow = React.memo(function CheckRow({ book, index, registerFirst, focu
       <div className="pc-cell pc-hint">
         {extraHint}
         {rowErr ? <span className="pc-err">{rowErr}</span> : null}
-        {pagesPending ? <span className="pc-warn">Prüfung: Seitenzahl aus dem Buch eintragen</span> : null}
-        {pagesChanged && !pagesPending ? <span className="pc-err">Seiten ≠ {orig.pages} – richtiges Buch?</span> : null}
+        {pagesChanged ? <span className="pc-err">Seiten ≠ {orig.pages} – richtiges Buch?</span> : null}
         {!pagesChanged && !orig.pages ? <span className="pc-warn">Seiten fehlen</span> : null}
         {wDiff !== null ? <span className="pc-warn">Breite {wDiff > 0 ? "+" : ""}{wDiff} mm</span> : null}
         {hDiff !== null ? <span className="pc-warn">Höhe {hDiff > 0 ? "+" : ""}{hDiff} mm</span> : null}
@@ -697,7 +694,7 @@ export default function AdminBarcodeCheckPage() {
         .pc-title-t { font-weight: 900; }
         .pc-title-a { font-weight: 700; color: #374151; }
         .pc-title-s { font-weight: 700; color: #6b7280; }
-        .pc-in.is-check { background: #dbeafe; box-shadow: inset 0 0 0 2px #2563eb; }
+        .pc-title-p { font-weight: 900; color: #1d4ed8; }
         .pc-alert-block { color: #fff; background: #b91c1c; }
         .pc-cell { padding: 0 .15em; font-size: 1em; border-right: 1px solid #eee; display: flex; align-items: center; min-width: 0; }
         .pc-ellip { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block; }
@@ -816,7 +813,7 @@ export default function AdminBarcodeCheckPage() {
       </datalist>
 
       <div className="pc-help">
-        Enter = nächstes Feld · Enter im letzten Feld = speichern + zurück zum Scan · Strg/Cmd+Enter = speichern · Esc = Zeile zurücksetzen · Ungespeichertes blockiert den nächsten Scan · Blaues Seiten-Feld = Seitenzahl aus dem Buch abtippen (Prüfung) ·
+        Enter = nächstes Feld · Enter im letzten Feld = speichern + zurück zum Scan · Strg/Cmd+Enter = speichern · Esc = Zeile zurücksetzen · Ungespeichertes blockiert den nächsten Scan · Titel + Seitenzahl in der grauen Zeile mit dem Buch vergleichen ·
         Platzhalter: ob0x = alle ab ob0 · Gelb = geändert, Rot = fehlt · Pos: ol om or ml mr ul um ur, 00 = keine · Vorgabe Pos = ur, Kap. = 0, Spr. = de (nur Enter drücken) · Spr. kurz: d=de e=en f=fr s=es i=it n=nl p=pt
       </div>
 
