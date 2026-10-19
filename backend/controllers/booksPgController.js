@@ -945,6 +945,19 @@ const k = normalizeKey(key || disp || ab);
 
     const baseCols = `id, name, name_display, abbr`;
 
+    // An abbreviation is only filled in when no OTHER publisher already owns
+    // it (publishers_abbr_norm_uq). Otherwise the whole book registration
+    // would fail just because of a cosmetic abbreviation (happened with
+    // duplicate publisher entries).
+    const ABBR_FREE_SQL = (idExpr, abbrExpr) => `
+      NOT EXISTS (
+        SELECT 1 FROM public.publishers p2
+        WHERE p2.id IS DISTINCT FROM ${idExpr}
+          AND p2.abbr IS NOT NULL
+          AND regexp_replace(lower(p2.abbr), '[^a-z0-9]+', '', 'g')
+            = regexp_replace(lower(${abbrExpr}), '[^a-z0-9]+', '', 'g')
+      )`;
+
     const mergePublisher = async (row) => {
       if (!row?.id) return null;
       const { rows } = await db.query(
@@ -952,7 +965,11 @@ const k = normalizeKey(key || disp || ab);
         UPDATE public.publishers
         SET
           name_display = COALESCE($2, name_display),
-          abbr = COALESCE(abbr, $3)
+          abbr = CASE
+                   WHEN abbr IS NULL AND $3::text IS NOT NULL AND ${ABBR_FREE_SQL("$1::uuid", "$3::text")}
+                   THEN $3
+                   ELSE abbr
+                 END
         WHERE id = $1::uuid
         RETURNING ${baseCols}
         `,
@@ -1022,7 +1039,10 @@ const k = normalizeKey(key || disp || ab);
     const { rows } = await db.query(
       `
       INSERT INTO public.publishers (name, name_display, abbr)
-      VALUES ($1, $2, $3)
+      VALUES (
+        $1, $2,
+        CASE WHEN $3::text IS NOT NULL AND ${ABBR_FREE_SQL("NULL::uuid", "$3::text")} THEN $3 ELSE NULL END
+      )
       ON CONFLICT (name) DO UPDATE SET
         name_display = COALESCE(EXCLUDED.name_display, public.publishers.name_display),
         abbr = COALESCE(public.publishers.abbr, EXCLUDED.abbr)

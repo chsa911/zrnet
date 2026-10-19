@@ -2351,7 +2351,7 @@ router.delete("/books/:id/locale-cover/:locale", async (req, res) => {
       const pool = req.app.get("pgPool");
       const items = await listOpenFailures(pool, { days: req.query.days });
       res.set("Cache-Control", "no-store");
-      return res.json({ count: items.length, items });
+      return res.json({ count: items.length, items, migrated: items.migrated !== false });
     } catch (e) {
       // table/columns not migrated yet -> no banner rather than an error page
       if (["42P01", "42703"].includes(String(e?.code))) return res.json({ count: 0, items: [], notMigrated: true });
@@ -2370,6 +2370,12 @@ router.delete("/books/:id/locale-cover/:locale", async (req, res) => {
       const closed = await closeFailures(pool, ids, { status: "dismissed", note });
       return res.json({ closed });
     } catch (e) {
+      if (String(e?.code) === "42703") {
+        return res.status(409).json({
+          error: "not_migrated",
+          message: "Verwerfen ist erst möglich, wenn die Datenbank-Migration V20261018_02 eingespielt ist.",
+        });
+      }
       console.error("save-failures dismiss error", e);
       return res.status(500).json({ error: "internal_error" });
     }

@@ -88,10 +88,30 @@ function friendlyReason(error) {
   return e ? `Serverfehler: ${e}` : "Unbekannter Fehler.";
 }
 
+// Same list for a database WITHOUT migration V20261018_02 (no followup_* /
+// payload columns yet): nothing can have been dismissed, no form data kept.
+const OPEN_FAILURES_SQL_PRE_MIGRATION = OPEN_FAILURES_SQL
+  .replace("AND a.followup_status IS NULL", "")
+  .replace(
+    `(array_agg(payload ORDER BY created_at DESC)
+       FILTER (WHERE payload IS NOT NULL))[1]                   AS payload,`,
+    "NULL::jsonb AS payload,"
+  );
+
 async function listOpenFailures(db, { days = null } = {}) {
   const d = Number.isFinite(Number(days)) && Number(days) > 0 ? Math.trunc(Number(days)) : null;
-  const { rows } = await db.query(OPEN_FAILURES_SQL, [d]);
-  return rows.map((r) => ({ ...r, reason: friendlyReason(r.error) }));
+  let rows;
+  let migrated = true;
+  try {
+    ({ rows } = await db.query(OPEN_FAILURES_SQL, [d]));
+  } catch (e) {
+    if (String(e?.code) !== "42703") throw e; // only "column does not exist"
+    migrated = false;
+    ({ rows } = await db.query(OPEN_FAILURES_SQL_PRE_MIGRATION, [d]));
+  }
+  const items = rows.map((r) => ({ ...r, reason: friendlyReason(r.error) }));
+  Object.defineProperty(items, "migrated", { value: migrated, enumerable: false });
+  return items;
 }
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -123,4 +143,4 @@ async function closeFailures(db, ids, { status = "dismissed", note = null, bookI
   return r.rowCount;
 }
 
-module.exports = { OPEN_FAILURES_SQL, listOpenFailures, closeFailures, friendlyReason, cleanIds };
+module.exports = { OPEN_FAILURES_SQL, OPEN_FAILURES_SQL_PRE_MIGRATION, listOpenFailures, closeFailures, friendlyReason, cleanIds };

@@ -46,3 +46,6 @@ backend/public/uploads/covers*
 # Titel-Anreicherung (Cache + Prüflisten)
 backend/scripts/.cache/
 titel_vorschlaege*.csv
+
+# Arbeitsdateien, nie committen
+_to_delete/

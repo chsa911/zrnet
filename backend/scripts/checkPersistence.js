@@ -21,7 +21,7 @@
 require("dotenv").config({ path: require("path").resolve(__dirname, "../../.env") });
 const fs = require("fs");
 const { Pool } = require("pg");
-const { OPEN_FAILURES_SQL, friendlyReason } = require("../utils/saveFailures");
+const { listOpenFailures, friendlyReason } = require("../utils/saveFailures");
 
 const URL = process.env.DATABASE_URL;
 const DAYS = Math.max(1, Number(process.env.DAYS) || 30);
@@ -40,8 +40,8 @@ const CHECKS = [
     title: "Offene Vorgänge – Registrierung abgelehnt, Buch fehlt in der DB",
     hint: "Im Admin-Bereich unter „Offene Vorgänge“ erneut registrieren oder mit Notiz verwerfen.",
     // same definition as the red bar in the app (utils/saveFailures.js)
-    sql: OPEN_FAILURES_SQL,
-    params: () => [null],
+    // falls back to the pre-migration query like the app does
+    run: (db) => listOpenFailures(db),
     fingerprint: (r) => r.key,
     label: (r) => `${r.title}${r.author ? ` (${r.author})` : ""}`,
     display: (r) => ({
@@ -143,7 +143,7 @@ async function run() {
   const results = [];
   for (const c of CHECKS) {
     try {
-      const { rows } = await pool.query(c.sql, c.params());
+      const rows = c.run ? await c.run(pool) : (await pool.query(c.sql, c.params())).rows;
       results.push({ ...c, rows });
     } catch (e) {
       results.push({ ...c, rows: [], error: e.message });
@@ -246,9 +246,16 @@ if (require.main === module) {
       const n = print(r);
       let code = n ? 1 : 0;
       if (process.env.ALERT_STATE) {
-        const { alert, text } = decideAlert(r.results, process.env.ALERT_STATE);
-        if (alert) console.log(`\nALERT: ${text}`);
-        code = alert ? 1 : 0;
+        const failed = r.results.filter((x) => x.error);
+        if (failed.length) {
+          // a check that cannot run must never look like "all good"
+          console.log(`\nPrüfung fehlgeschlagen: ${failed.map((x) => x.title).join(", ")}`);
+          code = 2;
+        } else {
+          const { alert, text } = decideAlert(r.results, process.env.ALERT_STATE);
+          if (alert) console.log(`\nALERT: ${text}`);
+          code = alert ? 1 : 0;
+        }
       }
       return pool.end().then(() => process.exit(code));
     })

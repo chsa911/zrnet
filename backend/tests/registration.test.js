@@ -200,6 +200,54 @@ d("registration is persisted or reported as error", () => {
     await db.query("ROLLBACK TO SAVEPOINT break_link");
   });
 
+  test("publisher abbreviation owned by another publisher never blocks the registration", async () => {
+    // two entries for the same publisher: one has the abbreviation, the other not
+    const owner = await db.query(
+      `INSERT INTO public.publishers (name, name_display, abbr) VALUES ($1, $2, 'ZQX.') RETURNING id`,
+      [`zrtest verlag a ${tag()}`, "ZRTEST Verlag"]
+    );
+    const dup = await db.query(
+      `INSERT INTO public.publishers (name, name_display, abbr) VALUES ($1, $2, NULL) RETURNING id`,
+      [`zrtest verlag b ${tag()}`, "ZRTEST Verlag (Duplikat)"]
+    );
+    const title = `ZRTEST Verlagskuerzel ${tag()}`;
+
+    // picked the duplicate in the form, abbreviation typed as display
+    const r = await call(registerBook, pool, {
+      body: {
+        ...base,
+        publisher_id: dup.rows[0].id,
+        publisher_name_display: "zqx.",
+        title_display: title,
+        pages: 0,
+        assign_barcode: false,
+      },
+    });
+    expect(r.status).toBe(201);
+
+    // brand-new publisher name with an abbreviation that already exists
+    const r2 = await call(registerBook, pool, {
+      body: {
+        ...base,
+        publisher_id: undefined,
+        publisher_name_display: `ZRTEST Neuer Verlag ${tag()}`,
+        publisher_abbr: "ZQX",
+        title_display: `${title} 2`,
+        pages: 0,
+        assign_barcode: false,
+      },
+    });
+    expect(r2.status).toBe(201);
+
+    const abbrs = await db.query(
+      `SELECT id, abbr FROM public.publishers WHERE id = ANY($1::uuid[])`,
+      [[owner.rows[0].id, dup.rows[0].id]]
+    );
+    const byId = Object.fromEntries(abbrs.rows.map((x) => [x.id, x.abbr]));
+    expect(byId[owner.rows[0].id]).toBe("ZQX."); // owner keeps it
+    expect(byId[dup.rows[0].id]).toBeNull(); // duplicate is not given a clashing one
+  });
+
   test("required fields missing: 400, nothing saved", async () => {
     const title = `ZRTEST missing ${tag()}`;
     const r = await call(registerBook, pool, {
