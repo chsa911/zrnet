@@ -786,6 +786,122 @@ COUNT(b.id) FILTER (WHERE b.top_book = true)::int AS top_books
         return res.json(result);
       });
 
+      /* -------------------- stock history (Bestandsverlauf) -------------------- */
+
+      // GET /api/admin/stock/history?bucket=day|week|month
+      //
+      // Bestand = Bücher, die physisch da sind: in_stock + in_progress.
+      //   Zugang: added_at (alles außer wishlist)
+      //   Abgang: Wechsel auf finished/abandoned (reading_status_updated_at);
+      //           fehlt der Zeitpunkt, zählt registered_at bzw. added_at, und ein
+      //           Abgang liegt nie vor dem Zugang. Dadurch endet die Kurve heute
+      //           exakt bei count(in_stock + in_progress).
+      // Pro Bucket: Summe der Zu-/Abgänge und Bestand am Ende des Buckets.
+      router.get("/stock/history", async (req, res) => {
+        const pool = req.app.get("pgPool");
+        if (!pool) return res.status(500).json({ error: "pgPool missing" });
+
+        const bucket = ["day", "week", "month"].includes(String(req.query.bucket))
+          ? String(req.query.bucket)
+          : "day";
+
+        try {
+          const { rows } = await pool.query(
+            `
+              WITH ev AS (
+                SELECT (b.added_at AT TIME ZONE 'Europe/Berlin')::date AS d, 1 AS zu, 0 AS ab
+                FROM public.books b
+                WHERE b.reading_status::text IS DISTINCT FROM 'wishlist'
+                  AND b.added_at IS NOT NULL
+                UNION ALL
+                SELECT (GREATEST(COALESCE(b.reading_status_updated_at, b.registered_at, b.added_at), b.added_at)
+                        AT TIME ZONE 'Europe/Berlin')::date, 0, 1
+                FROM public.books b
+                WHERE b.reading_status::text IN ('finished', 'abandoned')
+                  AND b.added_at IS NOT NULL
+              ),
+              daily AS (
+                SELECT d, sum(zu)::int AS zu, sum(ab)::int AS ab FROM ev GROUP BY d
+              ),
+              bounds AS (
+                SELECT min(d) AS lo,
+                       GREATEST(max(d), (now() AT TIME ZONE 'Europe/Berlin')::date) AS hi
+                FROM daily
+              ),
+              days AS (
+                SELECT gs::date AS d
+                FROM bounds, generate_series(bounds.lo, bounds.hi, interval '1 day') gs
+              ),
+              series AS (
+                SELECT days.d,
+                       COALESCE(daily.zu, 0) AS zu,
+                       COALESCE(daily.ab, 0) AS ab,
+                       sum(COALESCE(daily.zu, 0) - COALESCE(daily.ab, 0)) OVER (ORDER BY days.d) AS bestand
+                FROM days LEFT JOIN daily USING (d)
+              )
+              SELECT to_char(date_trunc($1::text, d::timestamp), 'YYYY-MM-DD') AS period,
+                     sum(zu)::int AS zugang,
+                     sum(ab)::int AS abgang,
+                     ((array_agg(bestand ORDER BY d DESC))[1])::int AS bestand
+              FROM series
+              GROUP BY 1
+              ORDER BY 1
+            `,
+            [bucket]
+          );
+
+          const now = await pool.query(
+            `
+              SELECT
+                count(*) FILTER (WHERE reading_status::text = 'in_stock')::int    AS in_stock,
+                count(*) FILTER (WHERE reading_status::text = 'in_progress')::int AS in_progress
+              FROM public.books
+            `
+          );
+
+          return res.json({ bucket, points: rows, current: now.rows[0] || {} });
+        } catch (e) {
+          console.error("stock/history:", e?.message || e);
+          return res.status(500).json({ error: "stock_history_failed" });
+        }
+      });
+
+      /* -------------------- genre share (Fiction / Non-Fiction) -------------------- */
+
+      // GET /api/admin/stats/genre-share
+      // Zählungen je Genre × reading_status × Barcode (ja/nein). Gefiltert und zur
+      // Tortengrafik zusammengefasst wird im Frontend (AdminGenreSharePage).
+      // has_barcode = dem Buch war jemals ein Barcode zugeordnet
+      // (barcode_assignments, auch freigegebene, oder book_barcodes).
+      router.get("/stats/genre-share", async (req, res) => {
+        const pool = req.app.get("pgPool");
+        if (!pool) return res.status(500).json({ error: "pgPool missing" });
+
+        try {
+          const r = await pool.query(`
+            SELECT
+              g.id::text                      AS genre_id,
+              NULLIF(btrim(g.name), '')       AS genre_name,
+              NULLIF(btrim(g.abbr), '')       AS genre_abbr,
+              b.reading_status::text          AS status,
+              (
+                EXISTS (SELECT 1 FROM public.barcode_assignments ba WHERE ba.book_id = b.id)
+                OR EXISTS (SELECT 1 FROM public.book_barcodes bb WHERE bb.book_id = b.id)
+              )                               AS has_barcode,
+              count(*)::int                   AS n
+            FROM public.books b
+            LEFT JOIN public.genres g ON g.id = b.genre_id
+            WHERE b.reading_status::text IN ('in_stock', 'in_progress', 'finished', 'abandoned')
+            GROUP BY 1, 2, 3, 4, 5
+            ORDER BY 1, 4, 5
+          `);
+          return res.json({ rows: r.rows || [] });
+        } catch (e) {
+          console.error("GET /api/admin/stats/genre-share failed", e);
+          return res.status(500).json({ error: "genre_share_failed", detail: String(e?.message || e) });
+        }
+      });
+
       /* -------------------- barcode dashboard -------------------- */
 
       // GET /api/admin/barcodes/summary

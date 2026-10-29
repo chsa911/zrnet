@@ -18,6 +18,14 @@ BEGIN
   SELECT count(*) INTO n_i FROM public.size_rules WHERE lower(trim(name)) = 'i';
   SELECT count(*) INTO n_p FROM public.size_rules WHERE lower(trim(name)) = 'p';
 
+  -- Idempotent: if the 125-129 mm group is already 'p', the swap was
+  -- applied before (e.g. run by hand in DBeaver) -> do nothing.
+  IF EXISTS (SELECT 1 FROM public.size_rules
+             WHERE min_width = 125 AND lower(trim(name)) = 'p') THEN
+    RAISE NOTICE 'purple/pink swap already applied, skipping';
+    RETURN;
+  END IF;
+
   IF n_i <> 1 OR n_p <> 1 THEN
     RAISE EXCEPTION 'expected exactly one size_rule named i and one named p, found i=% p=%', n_i, n_p;
   END IF;

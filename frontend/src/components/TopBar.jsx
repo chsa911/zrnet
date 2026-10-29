@@ -153,6 +153,8 @@ export default function TopBar() {
 <Link to="/admin/check-book">Buch prüfen <span className="zr-more__key">{ADMIN_HOTKEYS["/admin/check-book"]}</span></Link>
 <Link to="/admin/barcode-check">Prüfen &amp; Ergänzen <span className="zr-more__key">{ADMIN_HOTKEYS["/admin/barcode-check"]}</span></Link>
 <Link to="/admin/covers">Cover <span className="zr-more__key">{ADMIN_HOTKEYS["/admin/covers"]}</span></Link>
+<Link to="/admin/stock">Bestand</Link>
+<Link to="/admin/genre-share">Fiction / Non-Fiction</Link>
 <hr/>
 </>) : null}
 <Link to="/recent-highlights">Recent Highlights</Link>

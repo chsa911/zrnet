@@ -47,11 +47,6 @@ export default function HomeLiveBlock() {
   const proofStats = useMemo(
     () => [
       {
-        key: "total_books",
-        label: t("home_proof_in_stock_label"),
-        meta: t("home_proof_in_stock_meta"),
-      },
-      {
         key: "finished",
         label: t("home_proof_finished_label"),
         meta: t("home_proof_finished_meta"),

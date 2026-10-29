@@ -131,6 +131,22 @@ export default function AdminNavRow({ style }) {
       >
         🖼️ Cover
       </Link>
+
+      <Link
+        to="/admin/stock"
+        className="zr-btn2 zr-btn2--ghost"
+        style={baseBtn(pathname === "/admin/stock")}
+      >
+        📈 Bestand
+      </Link>
+
+      <Link
+        to="/admin/genre-share"
+        className="zr-btn2 zr-btn2--ghost"
+        style={baseBtn(pathname === "/admin/genre-share")}
+      >
+        🥧 Fiction / Non-Fiction
+      </Link>
     </div>
   );
 }
