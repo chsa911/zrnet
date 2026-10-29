@@ -88,22 +88,10 @@ export default function Home() {
   const proofStats = useMemo(
     () => [
       {
-        key: "total_books",
-        label: t("home_proof_in_stock_label"),
-        meta: t("home_proof_in_stock_meta"),
-        to: "/stats/stock",
-      },
-      {
         key: "finished",
         label: t("home_proof_finished_label"),
         meta: t("home_proof_finished_meta"),
         to: "/stats/finished",
-      },
-      {
-        key: "abandoned",
-        label: t("home_proof_abandoned_label"),
-        meta: t("home_proof_abandoned_meta"),
-        to: "/stats/abandoned",
       },
     ],
     [t]
