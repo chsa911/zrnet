@@ -13,10 +13,6 @@ const WEEKS = 12;
 // Reihenfolge der Kacheln und Tabellenspalten
 const METRICS = [
   ["finished", "rd_finished"],
-  ["abandoned", "rd_abandoned"],
-  ["uploaded", "rd_uploaded"],
-  ["enriched", "rd_enriched"],
-  ["registered", "rd_registered"],
 ];
 
 // "2026-10-12" als lokales Datum (ohne Zeitzonen-Verschiebung)

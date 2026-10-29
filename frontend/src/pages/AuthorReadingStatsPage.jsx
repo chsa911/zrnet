@@ -13,14 +13,12 @@ const COLUMNS = [
   { key: "author", label: "ars_th_author", first: "asc" },
   { key: "top_books", label: "ars_th_top", first: "desc" },
   { key: "finished", label: "ars_th_finished", first: "desc" },
-  { key: "abandoned", label: "ars_th_abandoned", first: "desc" },
-  { key: "read_total", label: "ars_th_read_total", first: "desc" },
   { key: "last_activity", label: "ars_th_activity", first: "desc" },
 ];
 
 const QUICK = [
   ["author", "asc", "ars_sort_name"],
-  ["read_total", "desc", "ars_sort_read"],
+  ["finished", "desc", "ars_sort_read"],
   ["last_activity", "desc", "ars_sort_activity"],
 ];
 
@@ -52,12 +50,12 @@ export default function AuthorReadingStatsPage() {
   useSeo({ title: t("ars_title"), description: t("ars_lede"), path: "/author-stats" });
 
   const [sp, setSp] = useSearchParams();
-  const DEFAULT_SORT = "read_total_desc";
+  const DEFAULT_SORT = "finished_desc";
   const sortRaw = sp.get("sort") || DEFAULT_SORT;
   const [sortCol, sortDir] = (() => {
     const m = /^(.+)_(asc|desc)$/.exec(sortRaw);
     if (m && COLUMNS.some((c) => c.key === m[1])) return [m[1], m[2]];
-    return ["read_total", "desc"];
+    return ["finished", "desc"];
   })();
 
   const [q, setQ] = useState("");
@@ -73,14 +71,15 @@ export default function AuthorReadingStatsPage() {
     listAuthorReadingStats({ signal: ac.signal })
       .then((items) => {
         if (ac.signal.aborted) return;
+        // nur Autoren mit beendeten Büchern
         setRows(
-          items.map((r) => ({
-            ...r,
-            top_books: r.top_books || 0,
-            finished: r.finished || 0,
-            abandoned: r.abandoned || 0,
-            read_total: (r.finished || 0) + (r.abandoned || 0),
-          }))
+          items
+            .map((r) => ({
+              ...r,
+              top_books: r.top_books || 0,
+              finished: r.finished || 0,
+            }))
+            .filter((r) => r.finished > 0)
         );
       })
       .catch((e) => {
@@ -206,7 +205,6 @@ export default function AuthorReadingStatsPage() {
 
           {!loading &&
             page.map((r, i) => {
-              const fPct = r.read_total ? (r.finished / r.read_total) * 100 : 0;
               const rel = relativeDate(r.last_activity, locale);
               return (
                 <div className="ars-row" role="row" key={r.id}>
@@ -216,15 +214,6 @@ export default function AuthorReadingStatsPage() {
                     <Link className="ars-name" to={authorHref(r.author)}>
                       {r.author}
                     </Link>
-                    {r.read_total ? (
-                      <div
-                        className="ars-bar"
-                        title={`${r.finished} ${t("ars_th_finished")} · ${r.abandoned} ${t("ars_th_abandoned")}`}
-                        aria-hidden="true"
-                      >
-                        <span className="ars-bar__fin" style={{ width: `${fPct}%` }} />
-                      </div>
-                    ) : null}
                   </div>
 
                   <div className="ars-col-top_books" role="cell" data-label={t("ars_th_top")}>
@@ -245,20 +234,6 @@ export default function AuthorReadingStatsPage() {
                     ) : (
                       <span className="ars-zero">0</span>
                     )}
-                  </div>
-
-                  <div className="ars-col-abandoned" role="cell" data-label={t("ars_th_abandoned")}>
-                    {r.abandoned ? (
-                      <Link className="ars-num ars-num--ab" to={authorHref(r.author, "abandoned")}>
-                        {r.abandoned}
-                      </Link>
-                    ) : (
-                      <span className="ars-zero">0</span>
-                    )}
-                  </div>
-
-                  <div className="ars-col-read_total" role="cell" data-label={t("ars_th_read_total")}>
-                    <strong className="ars-total">{r.read_total}</strong>
                   </div>
 
                   <div className="ars-col-last_activity" role="cell" data-label={t("ars_th_activity")}>

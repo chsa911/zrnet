@@ -454,14 +454,14 @@ router.get("/reading-stats", async (req, res) => {
           COUNT(DISTINCT x.book_id) FILTER (WHERE x.top_book)::int AS top_books,
           COUNT(DISTINCT x.book_id) FILTER (WHERE x.reading_status = 'finished')::int AS finished,
           COUNT(DISTINCT x.book_id) FILTER (WHERE x.reading_status = 'abandoned')::int AS abandoned,
-          MAX(x.reading_status_updated_at) FILTER (WHERE x.reading_status IN ('finished', 'abandoned')) AS last_activity
+          MAX(x.reading_status_updated_at) FILTER (WHERE x.reading_status = 'finished') AS last_activity
         FROM authored x
         JOIN public.authors a ON a.id = x.author_id
         WHERE ${AUTHOR_EXPR} IS NOT NULL
         GROUP BY a.id, a.name_display, a.last_name, a.first_name
       )
       SELECT * FROM agg
-      WHERE top_books + finished + abandoned > 0
+      WHERE finished > 0
       ORDER BY LOWER(COALESCE(last_name, author)) ASC, id ASC
       `
     );

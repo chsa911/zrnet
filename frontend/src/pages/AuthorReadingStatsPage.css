@@ -3,7 +3,7 @@
   --ars-fin: var(--accent, #00c27a);
   --ars-ab: #e8a33d;
   --ars-line: rgba(0, 0, 0, 0.08);
-  --ars-cols: 44px minmax(0, 2.4fr) 80px 100px 110px 110px 140px;
+  --ars-cols: 44px minmax(0, 2.4fr) 80px 110px 140px;
   color: var(--text, #111);
 }
 
@@ -252,11 +252,11 @@
     display: none;
   }
   .ars-row:not(.ars-row--head) {
-    grid-template-columns: 28px repeat(4, minmax(0, 1fr));
+    grid-template-columns: 28px repeat(2, minmax(0, 1fr));
     grid-template-areas:
-      "rank name name name name"
-      ". top fin ab total"
-      ". when when when when";
+      "rank name name"
+      ". top fin"
+      ". when when";
     gap: 8px 6px;
     padding: 14px 16px;
   }

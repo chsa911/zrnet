@@ -415,7 +415,7 @@ export default function AuthorPage() {
       if (st === "in_progress") inProgress.push(b);
       if (st === "in_stock") notStarted.push(b);
       if (st === "wishlist") wishlist.push(b);
-      if (isTop) top.push(b);
+      if (isTop && st === "finished") top.push(b);
     }
 
     return { all, onHand, finished, abandoned, inProgress, notStarted, wishlist, top };
@@ -436,38 +436,14 @@ export default function AuthorPage() {
 
   const tabSafe = !showWishlist && tab === "wishlist" ? "all" : tab;
 
+  // Öffentlich nur noch beendete Bücher anzeigen
   const activeList = useMemo(() => {
-    const base =
-      tabSafe === "on_hand"
-        ? groups.onHand
-        : tabSafe === "wishlist"
-          ? groups.wishlist
-          : tabSafe === "in_stock"
-            ? groups.notStarted
-            : tabSafe === "in_progress"
-              ? groups.inProgress
-              : tabSafe === "abandoned"
-                ? groups.abandoned
-                : tabSafe === "top"
-                  ? groups.top
-                  : tabSafe === "finished"
-                    ? groups.finished
-                    : groups.all;
+    const base = tabSafe === "top" ? groups.top : groups.finished;
 
     const needle = q.trim().toLowerCase();
     if (!needle) return base;
     return base.filter((b) => String(b.title || "").toLowerCase().includes(needle));
   }, [tabSafe, q, groups]);
-
-  const completedCount = counts.finished;
-  const notMatchCount = counts.abandoned;
-  const decisionTotal = completedCount + notMatchCount;
-  const completionPct = decisionTotal > 0 ? (completedCount / decisionTotal) * 100 : null;
-
-  const fmtPct = (x) => {
-    if (!Number.isFinite(x)) return "—";
-    return `${Math.round(x * 10) / 10}%`;
-  };
 
   const topBook = useMemo(() => {
     const topSorted = groups.top
@@ -479,17 +455,6 @@ export default function AuthorPage() {
       );
     return topSorted[0] || null;
   }, [groups.top]);
-
-  const jumpTo = (nextTab) => {
-    setQ("");
-    setTab(nextTab);
-    window.setTimeout(() => {
-      const el = listAnchorRef.current;
-      if (el && typeof el.scrollIntoView === "function") {
-        el.scrollIntoView({ behavior: "smooth", block: "start" });
-      }
-    }, 20);
-  };
 
   function closeEdit() {
     setEditOpen(false);
@@ -618,70 +583,19 @@ export default function AuthorPage() {
         <AuthorAvatar key={authorPhotoSrc} src={authorPhotoSrc} name={authorName} />
         <div>
           <h1 className="zr-author__title">{authorName}</h1>
-          <p className="zr-lede">All readings by this author (from your reading life).</p>
+          <p className="zr-lede">All books by this author I have finished.</p>
         </div>
       </div>
 
-      {/* Two big panels only (panel itself not clickable; only buttons inside) */}
+      {/* Nur noch beendete Bücher */}
       <div className="zr-author__heroRow">
         <div
           className="zr-card zr-author__panel zr-author__panel--readings"
-          aria-label="Readings summary"
+          aria-label="Completed"
           style={{ color: "#fff" }}
         >
-          <div className="zr-author__panelHead">
-            <div>
-              <div className="zr-author__panelTitle">Readings</div>
-              <div className="zr-author__panelBig">{loading ? "—" : decisionTotal}</div>
-            </div>
-
-            <div className="zr-author__rate" title="Completed / Readings">
-              <div className="zr-author__rateLabel">Completion rate</div>
-              <div className="zr-author__rateValue">
-                {loading ? "—" : completionPct == null ? "—" : fmtPct(completionPct)}
-              </div>
-              <div className="zr-author__progress" aria-hidden="true">
-                <div className="zr-author__progressBar" style={{ width: (completionPct || 0) + "%" }} />
-              </div>
-            </div>
-          </div>
-
-          <div className="zr-author__chipRow">
-            <button className="zr-author__chip" type="button" onClick={() => jumpTo("finished")} disabled={loading}>
-              <span>Completed</span>
-              <strong>{loading ? "—" : counts.finished}</strong>
-            </button>
-            <button className="zr-author__chip" type="button" onClick={() => jumpTo("abandoned")} disabled={loading}>
-              <span>Not a match</span>
-              <strong>{loading ? "—" : counts.abandoned}</strong>
-            </button>
-          </div>
-        </div>
-
-        <div
-          className="zr-card zr-author__panel zr-author__panel--onhand"
-          aria-label="On hand summary"
-          style={{ color: "#fff" }}
-        >
-          <div className="zr-author__panelTitle">On hand</div>
-          <div className="zr-author__panelBig">{loading ? "—" : counts.onHand}</div>
-
-          <div className="zr-author__chipRow">
-            <button className="zr-author__chip" type="button" onClick={() => jumpTo("in_stock")} disabled={loading}>
-              <span>To read</span>
-              <strong>{loading ? "—" : counts.notStarted}</strong>
-            </button>
-            <button className="zr-author__chip" type="button" onClick={() => jumpTo("in_progress")} disabled={loading}>
-              <span>Reading</span>
-              <strong>{loading ? "—" : counts.inProgress}</strong>
-            </button>
-            {showWishlist ? (
-              <button className="zr-author__chip" type="button" onClick={() => jumpTo("wishlist")} disabled={loading}>
-                <span>Wishlist</span>
-                <strong>{loading ? "—" : counts.wishlist}</strong>
-              </button>
-            ) : null}
-          </div>
+          <div className="zr-author__panelTitle">Completed</div>
+          <div className="zr-author__panelBig">{loading ? "—" : counts.finished}</div>
         </div>
       </div>
 

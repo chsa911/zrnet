@@ -57,7 +57,7 @@
 /* Kacheln */
 .rd-tiles {
   display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
+  grid-template-columns: minmax(0, 1fr);
   gap: 14px;
 }
 .rd-tile {
@@ -155,6 +155,5 @@
 }
 
 @media (max-width: 900px) {
-  .rd-tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .rd-tile--finished { grid-column: span 2; }
+  .rd-tiles { grid-template-columns: minmax(0, 1fr); }
 }
