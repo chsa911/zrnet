@@ -51,11 +51,6 @@ export default function HomeLiveBlock() {
         label: t("home_proof_finished_label"),
         meta: t("home_proof_finished_meta"),
       },
-      {
-        key: "abandoned",
-        label: t("home_proof_abandoned_label"),
-        meta: t("home_proof_abandoned_meta"),
-      },
     ],
     [t]
   );
