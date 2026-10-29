@@ -18,6 +18,79 @@ function getCount(row, keys) {
   return 0;
 }
 
+const FINISHED_KEYS = ["finished", "completed", "finished_books", "completed_books"];
+const ABANDONED_KEYS = ["abandoned", "abandoned_books", "not_match_books"];
+const IN_STOCK_KEYS = ["in_stock", "in_stock_books", "on_hand_books"];
+const IN_PROGRESS_KEYS = ["in_progress", "in_progress_books"];
+
+function counts(row) {
+  const finished = getCount(row, FINISHED_KEYS);
+  const abandoned = getCount(row, ABANDONED_KEYS);
+  const inStock = getCount(row, IN_STOCK_KEYS);
+  const inProgress = getCount(row, IN_PROGRESS_KEYS);
+  return {
+    finished,
+    abandoned,
+    in_stock: inStock,
+    in_progress: inProgress,
+    // Books in the library (wishlist excluded).
+    total: finished + abandoned + inStock + inProgress,
+  };
+}
+
+// Finished share of all books that reached an end state, in percent (0..100).
+// null when the author has neither finished nor abandoned books.
+function finishedRatio(row) {
+  const { finished, abandoned } = counts(row);
+  const decided = finished + abandoned;
+  return decided > 0 ? (finished / decided) * 100 : null;
+}
+
+function ratioColor(pct) {
+  if (pct >= 75) return "#2e7d32";
+  if (pct >= 50) return "#9e9d24";
+  if (pct >= 25) return "#ef6c00";
+  return "#c62828";
+}
+
+function RatioCell({ row, t }) {
+  const pct = finishedRatio(row);
+  if (pct === null) return <span style={{ opacity: 0.5 }}>—</span>;
+  const { finished, abandoned } = counts(row);
+  const label = `${finished} ${t("ao_finished_word")} : ${abandoned} ${t("ao_abandoned_word")}`;
+  return (
+    <span
+      title={label}
+      aria-label={`${Math.round(pct)} %, ${label}`}
+      style={{ display: "inline-flex", alignItems: "center", gap: 8, justifyContent: "flex-end" }}
+    >
+      <span
+        aria-hidden="true"
+        style={{
+          width: 56,
+          height: 6,
+          borderRadius: 999,
+          background: "rgba(0,0,0,0.12)",
+          overflow: "hidden",
+          display: "inline-block",
+        }}
+      >
+        <span
+          style={{
+            display: "block",
+            height: "100%",
+            width: `${pct}%`,
+            background: ratioColor(pct),
+          }}
+        />
+      </span>
+      <span style={{ minWidth: 40, textAlign: "right", fontVariantNumeric: "tabular-nums" }}>
+        {Math.round(pct)} %
+      </span>
+    </span>
+  );
+}
+
 function passesCountFilter(actualCount, filter) {
   if (!filter || filter.value === "") return true;
 
@@ -48,35 +121,18 @@ export default function AuthorsOverviewPage() {
   const [err, setErr] = useState("");
   const [q, setQ] = useState("");
   const [showFilters, setShowFilters] = useState(false);
+  // null = default alphabetical order from the API.
+  const [sort, setSort] = useState({ key: null, dir: "desc" });
   const acRef = useRef(null);
 
   const countFilterFields = useMemo(
     () => [
-      {
-        key: "finished",
-        label: t("ao_th_completed") || "Finished",
-        keys: ["finished_books", "completed_books"],
-      },
-      {
-        key: "abandoned",
-        label: "Abandoned",
-        keys: ["abandoned_books", "not_match_books"],
-      },
-      {
-        key: "in_stock",
-        label: t("ao_th_on_hand") || "In stock",
-        keys: ["in_stock_books", "on_hand_books"],
-      },
-      {
-        key: "in_progress",
-        label: "In progress",
-        keys: ["in_progress_books"],
-      },
-      {
-        key: "total",
-        label: t("ao_th_total") || "Total",
-        keys: ["total_books"],
-      },
+      { key: "finished", label: t("ao_th_completed"), get: (r) => counts(r).finished },
+      { key: "abandoned", label: t("ao_th_not_match"), get: (r) => counts(r).abandoned },
+      { key: "ratio", label: `${t("ao_th_ratio")} (%)`, get: finishedRatio },
+      { key: "in_stock", label: t("ao_th_on_hand"), get: (r) => counts(r).in_stock },
+      { key: "in_progress", label: t("ao_th_in_progress"), get: (r) => counts(r).in_progress },
+      { key: "total", label: t("ao_th_total"), get: (r) => counts(r).total },
     ],
     [t]
   );
@@ -90,6 +146,7 @@ export default function AuthorsOverviewPage() {
     makeEmptyCountFilters([
       { key: "finished" },
       { key: "abandoned" },
+      { key: "ratio" },
       { key: "in_stock" },
       { key: "in_progress" },
       { key: "total" },
@@ -149,13 +206,77 @@ export default function AuthorsOverviewPage() {
 
       const matchesSearch = !needle || hay.includes(needle);
 
-      const matchesCounts = countFilterFields.every((field) =>
-        passesCountFilter(getCount(r, field.keys), countFilters[field.key])
-      );
+      const matchesCounts = countFilterFields.every((field) => {
+        const filter = countFilters[field.key];
+        if (!filter || filter.value === "") return true;
+        const value = field.get(r);
+        // Authors without finished/abandoned books have no ratio: hide them
+        // as soon as a ratio filter is active.
+        if (value === null || value === undefined) return false;
+        return passesCountFilter(value, filter);
+      });
 
       return matchesSearch && matchesCounts;
     });
   }, [rows, q, countFilterFields, countFilters]);
+
+  const sorted = useMemo(() => {
+    if (!sort.key) return filtered;
+    const field = countFilterFields.find((f) => f.key === sort.key);
+    if (!field) return filtered;
+    const factor = sort.dir === "asc" ? 1 : -1;
+    return filtered
+      .map((r, i) => ({ r, i, v: field.get(r) }))
+      .sort((a, b) => {
+        // Rows without a value always go last.
+        if (a.v === null && b.v === null) return a.i - b.i;
+        if (a.v === null) return 1;
+        if (b.v === null) return -1;
+        if (a.v !== b.v) return (a.v - b.v) * factor;
+        // Tie-break on ratio: more decided books first.
+        if (sort.key === "ratio") {
+          const da = counts(a.r).finished + counts(a.r).abandoned;
+          const db = counts(b.r).finished + counts(b.r).abandoned;
+          if (da !== db) return db - da;
+        }
+        return a.i - b.i;
+      })
+      .map((x) => x.r);
+  }, [filtered, sort, countFilterFields]);
+
+  function toggleSort(key) {
+    setSort((prev) => {
+      if (prev.key !== key) return { key, dir: "desc" };
+      if (prev.dir === "desc") return { key, dir: "asc" };
+      return { key: null, dir: "desc" };
+    });
+  }
+
+  function sortTh(k, children) {
+    const active = sort.key === k;
+    const arrow = active ? (sort.dir === "desc" ? " ▼" : " ▲") : "";
+    return (
+      <th
+        key={k}
+        style={{ textAlign: "right", whiteSpace: "nowrap" }}
+        aria-sort={active ? (sort.dir === "desc" ? "descending" : "ascending") : "none"}
+      >
+        <button
+          type="button"
+          onClick={() => toggleSort(k)}
+          style={{
+            all: "unset",
+            cursor: "pointer",
+            fontWeight: "inherit",
+          }}
+          title={t("ao_sort_hint")}
+        >
+          {children}
+          {arrow}
+        </button>
+      </th>
+    );
+  }
 
   function updateCountFilter(key, patch) {
     setCountFilters((prev) => ({
@@ -284,6 +405,7 @@ export default function AuthorsOverviewPage() {
                   className="zr-input"
                   type="number"
                   min="0"
+                  max={field.key === "ratio" ? 100 : undefined}
                   step="1"
                   placeholder="0"
                   value={countFilters[field.key]?.value || ""}
@@ -310,35 +432,42 @@ export default function AuthorsOverviewPage() {
                 <th>{t("ao_th_last")}</th>
                 <th>{t("ao_th_first")}</th>
                 <th>{t("ao_th_author")}</th>
-                <th style={{ textAlign: "right" }}>{t("ao_th_completed")}</th>
-                <th style={{ textAlign: "right" }}>{t("ao_th_not_match")}</th>
-                <th style={{ textAlign: "right" }}>{t("ao_th_on_hand")}</th>
-                <th style={{ textAlign: "right" }}>{t("ao_th_total")}</th>
+                {sortTh("finished", t("ao_th_completed"))}
+                {sortTh("abandoned", t("ao_th_not_match"))}
+                {sortTh("ratio", t("ao_th_ratio"))}
+                {sortTh("in_stock", t("ao_th_on_hand"))}
+                {sortTh("in_progress", t("ao_th_in_progress"))}
+                {sortTh("total", t("ao_th_total"))}
               </tr>
             </thead>
             <tbody>
-              {filtered.map((r) => {
+              {sorted.map((r) => {
                 const id = String(r.id || "");
                 const last = r.last_name || "—";
                 const first = r.first_name || "—";
                 const name = r.name_display || `${first} ${last}`.trim() || "—";
+                const c = counts(r);
 
                 return (
                   <tr key={id || name}>
                     <td>{last}</td>
                     <td>{first}</td>
                     <td>{name}</td>
-                    <td style={{ textAlign: "right" }}>{r.completed_books ?? r.finished_books ?? 0}</td>
-                    <td style={{ textAlign: "right" }}>{r.not_match_books ?? r.abandoned_books ?? 0}</td>
-                    <td style={{ textAlign: "right" }}>{r.on_hand_books ?? r.in_stock_books ?? 0}</td>
-                    <td style={{ textAlign: "right" }}>{r.total_books ?? 0}</td>
+                    <td style={{ textAlign: "right" }}>{c.finished}</td>
+                    <td style={{ textAlign: "right" }}>{c.abandoned}</td>
+                    <td style={{ textAlign: "right" }}>
+                      <RatioCell row={r} t={t} />
+                    </td>
+                    <td style={{ textAlign: "right" }}>{c.in_stock}</td>
+                    <td style={{ textAlign: "right" }}>{c.in_progress}</td>
+                    <td style={{ textAlign: "right" }}>{c.total}</td>
                   </tr>
                 );
               })}
 
               {!loading && filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={7} style={{ opacity: 0.75 }}>
+                  <td colSpan={9} style={{ opacity: 0.75 }}>
                     {t("ao_empty")}
                   </td>
                 </tr>

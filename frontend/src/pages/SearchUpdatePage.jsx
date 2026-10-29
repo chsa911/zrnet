@@ -740,8 +740,9 @@ export default function SearchUpdatePage() {
         .su-kauflink.missing-link { background: rgba(255, 140, 0, 0.08); }
         .su-kauflink .su-text { width: 100%; display: block; }
         @media (max-width: 1180px) {
-          .su-search-row, .su-book-row, .su-header-row { grid-template-columns: 115px 100px minmax(0, 1fr) 80px 58px 64px 40px 40px 40px 40px 40px 40px 34px; }
-          .su-action { width: 40px; min-width: 40px; font-size: 22px; }
+          .su-search-row, .su-book-row, .su-header-row { grid-template-columns: 115px 100px minmax(0, 1fr) 70px 50px 40px 36px 36px 36px 36px 36px 36px 36px 36px 36px 36px 36px 34px; }
+          .su-action { width: 36px; min-width: 36px; font-size: 20px; }
+          .su-kauflink { min-width: 0; padding: 0; justify-content: center; font-size: 20px; }
           .su-action--edit { width: 34px; min-width: 34px; font-size: 16px; }
         }
         @media (max-width: 700px) {

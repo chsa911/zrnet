@@ -123,7 +123,12 @@ router.get("/overview", async (req, res) => {
 
           COUNT(DISTINCT ab.book_id) FILTER (WHERE ab.reading_status <> 'wishlist')::int AS on_hand,
           COUNT(DISTINCT ab.book_id) FILTER (WHERE ab.reading_status = 'finished')::int AS finished,
-          COUNT(DISTINCT ab.book_id) FILTER (WHERE ab.reading_status = 'wishlist')::int AS wishlist
+          COUNT(DISTINCT ab.book_id) FILTER (WHERE ab.reading_status = 'wishlist')::int AS wishlist,
+          COUNT(DISTINCT ab.book_id) FILTER (WHERE ab.reading_status = 'abandoned')::int AS abandoned,
+          COUNT(DISTINCT ab.book_id) FILTER (WHERE ab.reading_status = 'in_progress')::int AS in_progress,
+          COUNT(DISTINCT ab.book_id) FILTER (
+            WHERE ab.book_id IS NOT NULL AND COALESCE(ab.reading_status::text, 'in_stock') = 'in_stock'
+          )::int AS in_stock
         FROM base b
         LEFT JOIN authored ab ON ab.author_id = b.id
         WHERE 1=1
@@ -141,6 +146,9 @@ router.get("/overview", async (req, res) => {
         on_hand,
         finished,
         wishlist,
+        abandoned,
+        in_progress,
+        in_stock,
         total,
         GREATEST(total - on_hand - wishlist, 0)::int AS not_match,
         COUNT(*) OVER()::int AS total_authors
@@ -176,6 +184,16 @@ router.get("/overview", async (req, res) => {
         finished: r.finished ?? 0,
         completed: r.finished ?? 0,
         wishlist: r.wishlist ?? 0,
+        abandoned: r.abandoned ?? 0,
+        in_progress: r.in_progress ?? 0,
+        in_stock: r.in_stock ?? 0,
+
+        // Finished share of all books that reached an end state
+        // (finished / (finished + abandoned)), 0..1; null if none yet.
+        finished_ratio:
+          (r.finished ?? 0) + (r.abandoned ?? 0) > 0
+            ? (r.finished ?? 0) / ((r.finished ?? 0) + (r.abandoned ?? 0))
+            : null,
 
         total: r.total ?? 0,
         not_match: r.not_match ?? 0,
