@@ -10,6 +10,12 @@
 #   - wenn die Datenbank nicht erreichbar ist (höchstens alle 3 Stunden)
 # Nachts (23–7 Uhr) läuft er nicht.
 #
+# Spart Neon-Compute-Stunden: Automatische Läufe prüfen nur, wenn die
+# Datenbank ohnehin gerade wach ist (also jemand die Seite/DB benutzt).
+# Schläft sie, wird der Lauf übersprungen – sie wird nicht aufgeweckt.
+# Abfrage über die Neon-API (backend/scripts/neonComputeActive.js),
+# braucht NEON_API_KEY in .env. Ohne Key: Verhalten wie früher.
+#
 # Manuell:  ./watch-persistence.sh          (Ruhezeit wird dabei ignoriert)
 
 set -uo pipefail
@@ -31,6 +37,15 @@ if [ -z "${TERM:-}" ] && { [ "$HOUR" -lt 7 ] || [ "$HOUR" -ge 23 ]; }; then
 fi
 
 cd "$PROJECT/backend" || exit 2
+
+# Nur prüfen, wenn die Datenbank wach ist (manuelle Läufe prüfen immer)
+if [ -z "${TERM:-}" ]; then
+  NEON=$(node scripts/neonComputeActive.js 2>/dev/null)
+  case $? in
+    3) exit 0 ;;   # schläft → nicht aufwecken
+    2) echo "$(date '+%F %T') $NEON – prüfe trotzdem" >> "$REPORT_DIR/verlauf.log" ;;
+  esac
+fi
 
 OUT=$(ALERT_STATE="$STATE" node scripts/checkPersistence.js 2>&1)
 STATUS=$?
