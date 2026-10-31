@@ -310,19 +310,6 @@ const pickCover = useMemo(
 </div>
       </section>
 
-      <section className="zr-section" id="sammlung">
-        <div className="pil-visionBox">
-          <div className="pil-eyebrow pil-eyebrow--muted">{t("home_collection_eyebrow")}</div>
-          <h2>{t("home_collection_title")}</h2>
-          <p>{t("home_collection_text")}</p>
-          <div className="pil-actions">
-            <Link className="zr-btn2 zr-btn2--primary" to="/collection">
-              {t("home_collection_cta")}
-            </Link>
-          </div>
-        </div>
-      </section>
-
       <section className="zr-section" id="kontakt">
         <div className="pil-sectionHead">
           <h2>{t("home_contact_title")}</h2>
