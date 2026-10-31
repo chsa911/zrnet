@@ -510,18 +510,3 @@
     max-width:100%;
   }
 }
-
-/* collection search on the home page (directly below the hero) */
-.pil-collSearch .pil-visionBox h2 { margin: 0; }
-.pil-collSearch__form { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 16px; }
-.pil-collSearch__field { position: relative; flex: 1 1 320px; min-width: 0; }
-.pil-collSearch__icon { position: absolute; left: 18px; top: 50%; transform: translateY(-50%); color: rgba(0,0,0,0.45); pointer-events: none; }
-.pil-collSearch__input {
-  width: 100%; box-sizing: border-box; min-height: 56px; padding: 0 18px 0 50px;
-  border: 1px solid rgba(0,0,0,0.15); border-radius: 999px; background: #fff;
-  font: inherit; font-size: 16px; box-shadow: 0 4px 16px rgba(0,0,0,0.06);
-}
-.pil-collSearch__input:focus { outline: 2px solid #00c27a; outline-offset: 1px; }
-.pil-collSearch__btn { min-height: 56px; flex: 0 0 auto; }
-@media (max-width: 520px) { .pil-collSearch__btn { flex: 1 1 100%; } }
-.pil-srOnly { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }

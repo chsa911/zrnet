@@ -2,6 +2,7 @@ import { Link } from "react-router-dom";
 import { ADMIN_HOTKEYS, useAdminHotkeys } from "./AdminHotkeys";
 import { useEffect, useMemo, useRef, useState } from "react";
 import "./topbar.css";
+import NavSearch from "./NavSearch";
 import { useI18n } from "../context/I18nContext";
 import { API_BASE } from "../api/config";
 
@@ -162,6 +163,8 @@ export default function TopBar() {
               <Link to="/info/datenschutz">{t("nav_privacy")}</Link>
             </div>
           </details>
+
+          <NavSearch />
 
           <details ref={langRef} className="zr-langmenu">
             <summary

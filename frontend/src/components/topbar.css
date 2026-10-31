@@ -11,6 +11,8 @@
 
 .zr-topbar{
   background: var(--bg);
+  position: relative;
+  z-index: 50;
 }
 
 .zr-topbar__inner{

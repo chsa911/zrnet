@@ -12,6 +12,7 @@ const PAGE_SIZE = 48;
 // filter key -> bucket of the existing GET /api/public/books
 // ("Alle" without wishlist needs a backend change – see Claude outputs/feature-title-translations)
 const FILTERS = [
+  { key: "all", bucket: "all", labelKey: "collection.filter_all" },
   { key: "available", bucket: "stock", labelKey: "collection.filter_available" }, // same count as the home page
   { key: "finished", bucket: "finished", labelKey: "collection.filter_finished" },
   { key: "abandoned", bucket: "abandoned", labelKey: "collection.filter_abandoned" },

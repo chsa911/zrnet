@@ -1,0 +1,134 @@
+/* Author profile: name | finished | abandoned | favourite */
+.zr-ap__layout {
+  display: grid;
+  grid-template-columns: minmax(160px, 1fr) minmax(0, 1.4fr) minmax(0, 1.4fr) minmax(180px, 1fr);
+  gap: 28px;
+  align-items: start;
+  padding: 8px 0 32px;
+}
+
+.zr-ap__name {
+  position: sticky;
+  top: 16px;
+}
+.zr-ap__name h1 {
+  margin: 0;
+  font-size: clamp(28px, 3.2vw, 44px);
+  line-height: 1.05;
+  letter-spacing: -0.02em;
+  overflow-wrap: anywhere;
+}
+
+.zr-ap__col {
+  min-width: 0;
+}
+.zr-ap__colHead {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  padding-bottom: 8px;
+  margin-bottom: 10px;
+  border-bottom: 2px solid currentColor;
+}
+.zr-ap__col--finished .zr-ap__colHead { color: #06603d; }
+.zr-ap__col--abandoned .zr-ap__colHead { color: #8a4b12; }
+.zr-ap__col--fav .zr-ap__colHead { color: #17223a; }
+
+.zr-ap__colTitle {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 850;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.zr-ap__count {
+  font-size: 13px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+
+.zr-ap__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.zr-ap__list li {
+  padding: 7px 0;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+  line-height: 1.3;
+}
+.zr-ap__list a {
+  color: inherit;
+  text-decoration: none;
+}
+.zr-ap__list a:hover {
+  text-decoration: underline;
+}
+.zr-ap__col--abandoned .zr-ap__list a {
+  opacity: 0.75;
+}
+
+.zr-ap__empty {
+  margin: 0;
+  font-size: 14px;
+  opacity: 0.6;
+}
+
+.zr-ap__fav {
+  display: block;
+  color: inherit;
+  text-decoration: none;
+}
+.zr-ap__favCover {
+  aspect-ratio: 2 / 3;
+  width: 100%;
+  border-radius: 10px;
+  overflow: hidden;
+  background: rgba(0, 0, 0, 0.06);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  opacity: 1;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.14);
+}
+.zr-ap__favCover img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.zr-ap__favTitle {
+  display: block;
+  margin-top: 10px;
+  font-weight: 800;
+  line-height: 1.25;
+}
+.zr-ap__fav:hover .zr-ap__favTitle {
+  text-decoration: underline;
+}
+
+/* Tablet: name on top, three columns below */
+@media (max-width: 1000px) {
+  .zr-ap__layout {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+  .zr-ap__name {
+    grid-column: 1 / -1;
+    position: static;
+  }
+}
+
+/* Phone: single column, favourite first after the name */
+@media (max-width: 640px) {
+  .zr-ap__layout {
+    grid-template-columns: 1fr;
+    gap: 24px;
+  }
+  .zr-ap__col--fav { order: 1; }
+  .zr-ap__col--finished { order: 2; }
+  .zr-ap__col--abandoned { order: 3; }
+  .zr-ap__name { order: 0; }
+  .zr-ap__favCover { max-width: 220px; }
+}

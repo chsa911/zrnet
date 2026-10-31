@@ -17,6 +17,7 @@ import MostReadAuthorsPage from "./pages/MostReadAuthorsPage";
 import AuthorReadingStatsPage from "./pages/AuthorReadingStatsPage";
 import AuthorsOverviewPage from "./pages/AuthorsOverviewPage";
 import AuthorPage from "./pages/AuthorPage";
+import AuthorProfilePage from "./pages/AuthorProfilePage";
 import BookPage from "./pages/BookPage";
 /*import NewsletterPage from "./pages/NewsletterPage";
 */
@@ -209,6 +210,8 @@ export default function App() {
         <Route path="sub-genre/:id" element={<SubGenrePage />} />
         {/* author detail */}
         <Route path="author/:author" element={<AuthorPage />} />
+        {/* author profile: name | finished | abandoned | favourite */}
+        <Route path="autor/:author" element={<AuthorProfilePage />} />
         {/* alphabetical authors overview (public) */}
         
         <Route path="authors" element={<AuthorsOverviewPage />} />
