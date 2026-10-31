@@ -473,6 +473,7 @@
   "seo.subgenre.title": "{name} – ähnliche Bücher",
   "seo.subgenre.desc": "Bücher im Subgenre {name} aus Christophers Papierbuch-Sammlung.",
   "collection.suggest_label": "Autor:innen",
+  "collection.search_clear": "Suche löschen",
   "collection.author_link": "Alle Bücher von {author}",
   "ars_title": "Die Autoren, die ich gelesen habe",
   "ars_lede": "Wen ich bis zum Ende gelesen habe und wessen Bücher es zu meinen Top-Titeln geschafft haben – Autor für Autor.",

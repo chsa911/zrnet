@@ -514,6 +514,7 @@
   "seo.subgenre.title": "{name} – similar books",
   "seo.subgenre.desc": "Books in the sub-genre {name} from Christopher's paper-book collection.",
   "collection.suggest_label": "Authors",
+  "collection.search_clear": "Clear search",
   "collection.author_link": "All books by {author}",
   "ars_title": "The authors I've read",
   "ars_lede": "Who I read to the very end, and whose books made it into my top titles – author by author.",

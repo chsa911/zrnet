@@ -80,6 +80,7 @@ export default function CollectionPage() {
   const [err, setErr] = useState("");
   const [offset, setOffset] = useState(0);
   const acRef = useRef(null);
+  const searchRef = useRef(null);
   const navigate = useNavigate();
   const [suggest, setSuggest] = useState([]);
   const [suggestOpen, setSuggestOpen] = useState(false);
@@ -128,6 +129,23 @@ export default function CollectionPage() {
       setSuggestOpen(false);
     }
   }
+
+  // focus the search on desktop and with the "/" key (like GitHub/YouTube)
+  useEffect(() => {
+    try {
+      if (window.matchMedia("(hover: hover) and (pointer: fine)").matches && !urlQ) searchRef.current?.focus();
+    } catch { /* ignore */ }
+    function onKey(e) {
+      if (e.key !== "/" || e.metaKey || e.ctrlKey || e.altKey) return;
+      const tag = (e.target?.tagName || "").toLowerCase();
+      if (tag === "input" || tag === "textarea" || e.target?.isContentEditable) return;
+      e.preventDefault();
+      searchRef.current?.focus();
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const bucket = useMemo(() => FILTERS.find((f) => f.key === filterKey)?.bucket, [filterKey]);
 
@@ -187,18 +205,22 @@ export default function CollectionPage() {
 
   return (
     <section className="zr-section zr-coll">
-      <div className="pil-sectionHead">
-        <div className="pil-eyebrow pil-eyebrow--muted">{t("home_collection_eyebrow")}</div>
+      <div className="zr-coll-head">
+        <div className="pil-eyebrow pil-eyebrow--muted zr-coll-eyebrow">{t("home_collection_eyebrow")}</div>
         <h1 className="zr-coll-h1">{t("collection.title")}</h1>
-        <p className="pil-lede">{t("collection.lede")}</p>
       </div>
 
-      <div className="zr-coll-controls">
+      <div className="zr-coll-controls" role="search">
         <label htmlFor="coll-search" className="zr-coll-srOnly">
           {t("collection.search_label")}
         </label>
         <div className="zr-coll-searchWrap">
+          <svg className="zr-coll-searchIcon" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
+            <circle cx="11" cy="11" r="7" fill="none" stroke="currentColor" strokeWidth="2" />
+            <path d="M20 20l-4.2-4.2" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+          </svg>
           <input
+            ref={searchRef}
             id="coll-search"
             type="search"
             className="zr-coll-search"
@@ -217,6 +239,22 @@ export default function CollectionPage() {
             onBlur={() => setTimeout(() => setSuggestOpen(false), 150)}
             onKeyDown={onSearchKey}
           />
+          {input ? (
+            <button
+              type="button"
+              className="zr-coll-clear"
+              aria-label={t("collection.search_clear")}
+              title={t("collection.search_clear")}
+              onClick={() => {
+                setInput("");
+                searchRef.current?.focus();
+              }}
+            >
+              ×
+            </button>
+          ) : (
+            <kbd className="zr-coll-kbd" aria-hidden="true">/</kbd>
+          )}
           {suggestOpen && suggest.length > 0 ? (
             <ul id="coll-suggest" className="zr-coll-suggest" role="listbox" aria-label={t("collection.suggest_label")}>
               <li className="zr-coll-suggest__head" aria-hidden="true">{t("collection.suggest_label")}</li>
@@ -241,6 +279,7 @@ export default function CollectionPage() {
             </ul>
           ) : null}
         </div>
+        <div className="zr-coll-row">
         <div className="zr-coll-filters" role="group" aria-label={t("collection.filter_label")}>
           {FILTERS.map((f) => (
             <button
@@ -254,13 +293,15 @@ export default function CollectionPage() {
             </button>
           ))}
         </div>
+        <p className="zr-coll-count" aria-live="polite">
+          {loading && !items.length
+            ? t("collection.loading")
+            : t(total === 1 ? "collection.count_one" : "collection.count", { count: nf.format(total) })}
+        </p>
+        </div>
       </div>
 
-      <p className="zr-coll-count" aria-live="polite">
-        {loading && !items.length
-          ? t("collection.loading")
-          : t(total === 1 ? "collection.count_one" : "collection.count", { count: nf.format(total) })}
-      </p>
+      <p className="zr-coll-lede">{t("collection.lede")}</p>
 
       {err ? <p className="zr-coll-error">{err}</p> : null}
 

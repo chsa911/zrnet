@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { useI18n } from "../context/I18nContext";
 import { apiUrl } from "../api/apiRoot";
 import "./home_minimal.css";
@@ -33,6 +33,13 @@ function HighlightCard({ item, label, to, bgImage, left = false }) {
 }
 export default function Home() {
   const { t, locale } = useI18n();
+  const navigate = useNavigate();
+  const [collQ, setCollQ] = useState("");
+  function submitCollectionSearch(e) {
+    e.preventDefault();
+    const q = collQ.trim();
+    navigate(q ? `/collection?q=${encodeURIComponent(q)}` : "/collection");
+  }
   useSeo({
     title: t("seo.home.title"),
     description: t("seo.home.desc"),
@@ -221,6 +228,38 @@ const pickCover = useMemo(
         </div>
       </section>
 
+      <section className="zr-section pil-collSearch" id="sammlung">
+        <div className="pil-visionBox">
+          <div className="pil-eyebrow pil-eyebrow--muted">{t("home_collection_eyebrow")}</div>
+          <h2>{t("home_collection_title")}</h2>
+          <p>{t("home_collection_text")}</p>
+          <form className="pil-collSearch__form" role="search" onSubmit={submitCollectionSearch}>
+            <label htmlFor="home-coll-search" className="pil-srOnly">
+              {t("collection.search_label")}
+            </label>
+            <div className="pil-collSearch__field">
+              <svg className="pil-collSearch__icon" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
+                <circle cx="11" cy="11" r="7" fill="none" stroke="currentColor" strokeWidth="2" />
+                <path d="M20 20l-4.2-4.2" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+              </svg>
+              <input
+                id="home-coll-search"
+                type="search"
+                className="pil-collSearch__input"
+                placeholder={t("collection.search_placeholder")}
+                value={collQ}
+                autoComplete="off"
+                enterKeyHint="search"
+                onChange={(e) => setCollQ(e.target.value)}
+              />
+            </div>
+            <button type="submit" className="zr-btn2 zr-btn2--primary pil-collSearch__btn">
+              {t("home_collection_cta")}
+            </button>
+          </form>
+        </div>
+      </section>
+
       <section className="pil-proofStrip" aria-label={t("home_proof_title")}>
         <div className="pil-proofStrip__head">
           <div className="pil-eyebrow pil-eyebrow--muted">{t("home_proof_label")}</div>
@@ -308,19 +347,6 @@ const pickCover = useMemo(
     bgImage={pickCover(received)}
   />
 </div>
-      </section>
-
-      <section className="zr-section" id="sammlung">
-        <div className="pil-visionBox">
-          <div className="pil-eyebrow pil-eyebrow--muted">{t("home_collection_eyebrow")}</div>
-          <h2>{t("home_collection_title")}</h2>
-          <p>{t("home_collection_text")}</p>
-          <div className="pil-actions">
-            <Link className="zr-btn2 zr-btn2--primary" to="/collection">
-              {t("home_collection_cta")}
-            </Link>
-          </div>
-        </div>
       </section>
 
       <section className="zr-section" id="kontakt">
