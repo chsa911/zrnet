@@ -25,8 +25,11 @@ const DEFAULT_IMAGE = `${SITE}/assets/images/allgemein/hosentasche_link.jpeg`;
 const SAME_AS = ["https://www.youtube.com/@pagesinline", "https://www.tiktok.com/@christopherspages"];
 const API_SELF = `http://127.0.0.1:${Number(process.env.PORT || 4000)}`;
 
-const CACHE_MS = 10 * 60 * 1000;
-const CACHE_MAX = 3000;
+// Long cache: every crawler hit on an uncached page queries the database and
+// keeps the (Neon, pay-per-compute) database awake. Book/author pages rarely
+// change, so six hours of staleness is fine. ~2 KB per entry → ~20 MB max.
+const CACHE_MS = 6 * 60 * 60 * 1000;
+const CACHE_MAX = 10000;
 const cache = new Map(); // path -> { at, page }
 
 /* ---------- helpers ---------- */
@@ -419,8 +422,18 @@ async function buildPage(pool, path) {
   if (segs.length === 2 && segs[0] === "author") return authorPage(pool, segs[1]);
   if (segs.length === 2 && segs[0] === "bookthemes") return themePage(pool, segs[1]);
   if (segs.length === 2 && segs[0] === "sub-genre") return subGenrePage(pool, segs[1]);
-  return defaultPage(path);
+  // Real SPA routes without their own builder keep the default tags.
+  if (KNOWN_SPA_ROUTES.some((re) => re.test(path))) return defaultPage(path);
+  // Anything else is a 404 in the SPA: keep it out of the index
+  // (prevents "soft 404" duplicates of the home page).
+  return notFound(path);
 }
+
+// Public routes from frontend/src/App.jsx that have no page builder above.
+const KNOWN_SPA_ROUTES = [
+  /^\/author-stats$/,
+  /^\/bookthemes\/[^/]+\/subthemes$/,
+];
 
 /* ---------- renderers ---------- */
 

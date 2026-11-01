@@ -7,7 +7,7 @@ const express = require("express");
 const router = express.Router();
 
 const SITE = (process.env.PUBLIC_SITE_URL || "https://pagesinline.com").replace(/\/+$/, "");
-const CACHE_MS = 60 * 60 * 1000; // rebuild at most once per hour
+const CACHE_MS = 24 * 60 * 60 * 1000; // rebuild at most once per day (spares the database)
 
 // Public pages that exist independently of the database.
 const STATIC_PATHS = [
@@ -90,6 +90,9 @@ async function buildSitemap(pool) {
       b.id::text AS id,
       GREATEST(b.reading_status_updated_at, b.registered_at) AS lastmod
     FROM public.books b
+    -- Only books with a personal comment: pages without one are just title,
+    -- author and ISBN (thin content) and would cost crawl budget and DB time.
+    WHERE NULLIF(TRIM(b.comment), '') IS NOT NULL
     ORDER BY b.registered_at DESC NULLS LAST, b.id
     LIMIT 40000
   `);
