@@ -49,3 +49,4 @@ titel_vorschlaege*.csv
 
 # Arbeitsdateien, nie committen
 _to_delete/
+*.bak
