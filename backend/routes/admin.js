@@ -881,7 +881,7 @@ COUNT(b.id) FILTER (WHERE b.top_book = true)::int AS top_books
           const r = await pool.query(`
             SELECT
               g.id::text                      AS genre_id,
-              NULLIF(btrim(g.name), '')       AS genre_name,
+              NULLIF(btrim(g.genre_display), '') AS genre_name,
               NULLIF(btrim(g.abbr), '')       AS genre_abbr,
               b.reading_status::text          AS status,
               (
@@ -953,7 +953,7 @@ COUNT(b.id) FILTER (WHERE b.top_book = true)::int AS top_books
             `),
             one("genres", `
               SELECT
-                NULLIF(btrim(g.name), '')  AS genre,
+                NULLIF(btrim(g.genre_display), '') AS genre,
                 b.reading_status::text     AS status,
                 count(*)::int              AS n
               FROM public.books b
