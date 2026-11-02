@@ -20,10 +20,10 @@ export default function AdminPage() {
   const nextPath = useMemo(() => {
     const sp = new URLSearchParams(location.search || "");
     const next = sp.get("next");
-    // default landing: the NEW register page
-    const safe = next && next.startsWith("/") ? next : "/admin/register";
+    // default landing: the dashboard
+    const safe = next && next.startsWith("/") ? next : "/admin/dashboard";
     // prevent loops
-    if (safe === "/admin" || safe.startsWith("/admin?")) return "/admin/register";
+    if (safe === "/admin" || safe.startsWith("/admin?")) return "/admin/dashboard";
     return safe;
   }, [location.search]);
 
@@ -47,7 +47,7 @@ export default function AdminPage() {
     })();
   }, []);
 
-  // if already logged in -> go straight to the new register page
+  // if already logged in -> go straight to the dashboard
   useEffect(() => {
     if (!checking && loggedIn) nav(nextPath, { replace: true });
   }, [checking, loggedIn, nextPath, nav]);
