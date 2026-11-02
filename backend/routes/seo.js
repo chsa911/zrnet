@@ -26,11 +26,20 @@ const SAME_AS = ["https://www.youtube.com/@pagesinline", "https://www.tiktok.com
 const API_SELF = `http://127.0.0.1:${Number(process.env.PORT || 4000)}`;
 
 // Long cache: every crawler hit on an uncached page queries the database and
-// keeps the (Neon, pay-per-compute) database awake. Book/author pages rarely
-// change, so six hours of staleness is fine. ~2 KB per entry → ~20 MB max.
-const CACHE_MS = 6 * 60 * 60 * 1000;
-const CACHE_MAX = 10000;
+// keeps the (Neon, pay-per-compute) database awake. jobs/warmPublicCache.js
+// rebuilds all book, author, theme and sub-genre pages once a day, and an
+// admin change to a book drops its page (invalidateBook, called from app.js).
+// MAX_AGE is only a safety net in case the daily refresh fails.
+// ~3 KB per entry → ~150 MB at the very most, in practice far less.
+const CACHE_MS = 48 * 60 * 60 * 1000;
+const CACHE_MAX = 50000;
 const cache = new Map(); // path -> { at, page }
+
+function cacheSet(path, page) {
+  if (cache.has(path)) cache.delete(path);
+  else if (cache.size >= CACHE_MAX) cache.delete(cache.keys().next().value);
+  cache.set(path, { at: Date.now(), page });
+}
 
 /* ---------- helpers ---------- */
 
@@ -503,10 +512,42 @@ async function getPage(req) {
   const pool = req.app.get("pgPool");
   if (!pool) throw new Error("pgPool missing on app");
   const page = await buildPage(pool, path);
-
-  if (cache.size >= CACHE_MAX) cache.delete(cache.keys().next().value);
-  cache.set(path, { at: now, page });
+  cacheSet(path, page);
   return page;
+}
+
+/** Build a page now and store it (used by the daily refresh). */
+async function warmPage(pool, rawPath) {
+  const path = cleanPath(rawPath);
+  const page = await buildPage(pool, path);
+  cacheSet(path, page);
+  return page;
+}
+
+/** Drop the cached page of one book (after an admin change). */
+function invalidateBook(bookId) {
+  const id = String(bookId || "").toLowerCase();
+  if (!id) return 0;
+  let n = 0;
+  for (const key of cache.keys()) {
+    if (key.toLowerCase() === `/book/${id}`) {
+      cache.delete(key);
+      n++;
+    }
+  }
+  return n;
+}
+
+function dropOlderThan(ms) {
+  const limit = Date.now() - ms;
+  let n = 0;
+  for (const [key, v] of cache) {
+    if (v.at < limit) {
+      cache.delete(key);
+      n++;
+    }
+  }
+  return n;
 }
 
 router.get("/:part(head|body)", async (req, res) => {
@@ -524,4 +565,8 @@ router.get("/:part(head|body)", async (req, res) => {
 });
 
 module.exports = router;
+module.exports.warmPage = warmPage;
+module.exports.invalidateBook = invalidateBook;
+module.exports.dropOlderThan = dropOlderThan;
+module.exports.cacheSize = () => cache.size;
 module.exports._internal = { buildPage, renderHead, renderBody, cleanPath, cache };

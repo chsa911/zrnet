@@ -29,6 +29,14 @@ export default function AdminNavRow({ style }) {
       }}
     >
       <Link
+        to="/admin/dashboard"
+        className="zr-btn2 zr-btn2--ghost"
+        style={baseBtn(pathname === "/admin/dashboard")}
+      >
+        📊 Dashboard
+      </Link>
+
+      <Link
         to="/admin/register"
         className="zr-btn2 zr-btn2--ghost"
         style={baseBtn(pathname === "/admin/register")}

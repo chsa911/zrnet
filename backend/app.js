@@ -29,6 +29,35 @@ fs.mkdirSync(COVERS_NORMALIZED_DIR, { recursive: true });
 
 /* ---------- middleware (before routes) ---------- */
 app.use(morgan("dev"));
+
+/* ---------- public page cache: drop entries after admin changes ---------- */
+// Public book pages are served from memory (utils/publicCache.js, routes/seo.js)
+// so crawlers don't keep the Neon database awake. When a write request that
+// names a book id succeeds, that book's cached pages are dropped and rebuilt on
+// the next visit. Changes without a book id in the URL (e.g. bulk genre edits,
+// phone sync) show up after the nightly refresh (jobs/warmPublicCache.js).
+{
+  const publicCache = require("./utils/publicCache");
+  const seoPages = require("./routes/seo");
+  const UUID_RE = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/gi;
+
+  app.use((req, res, next) => {
+    if (req.method === "GET" || req.method === "HEAD" || req.method === "OPTIONS") return next();
+    if (!req.path.startsWith("/api/")) return next();
+    // routers rewrite req.url while they run, so remember the full path now
+    const fullPath = req.path;
+    res.on("finish", () => {
+      if (res.statusCode >= 400) return;
+      for (const id of fullPath.match(UUID_RE) || []) {
+        publicCache.invalidateBook(id);
+        seoPages.invalidateBook(id);
+      }
+      // approve / reject only carries the comment id, not the book id
+      if (fullPath.startsWith("/api/admin/comments")) publicCache.invalidatePrefix("comments:");
+    });
+    return next();
+  });
+}
 app.use(express.json());
 app.use(cookieParser());
 app.use(express.urlencoded({ extended: true }));

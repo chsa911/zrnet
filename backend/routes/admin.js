@@ -902,6 +902,83 @@ COUNT(b.id) FILTER (WHERE b.top_book = true)::int AS top_books
         }
       });
 
+      /* -------------------- Dashboard: Buchbestand-Übersicht -------------------- */
+
+      // GET /api/admin/stats/overview
+      // Kennzahlen für AdminDashboardPage:
+      //   status:  Anzahl je reading_status (in_stock, in_progress, finished, abandoned, wishlist)
+      //   periods: Zugänge / gelesen / abgebrochen in diesem Monat und Jahr (Europe/Berlin)
+      //   genres:  Anzahl je Genre × reading_status (ohne wishlist)
+      // Jede Abfrage einzeln: schlägt eine fehl, kommen die anderen trotzdem.
+      router.get("/stats/overview", async (req, res) => {
+        const pool = req.app.get("pgPool");
+        if (!pool) return res.status(500).json({ error: "pgPool missing" });
+
+        const one = async (key, sql) => {
+          try {
+            const { rows } = await pool.query(sql);
+            return [key, rows];
+          } catch (e) {
+            console.error(`stats/overview ${key}:`, e?.message || e);
+            return [key, null];
+          }
+        };
+
+        const NOW_B = `(now() AT TIME ZONE 'Europe/Berlin')`;
+        const inPeriod = (col, unit) =>
+          `date_trunc('${unit}', ${col} AT TIME ZONE 'Europe/Berlin') = date_trunc('${unit}', ${NOW_B})`;
+
+        const result = Object.fromEntries(
+          await Promise.all([
+            one("status", `
+              SELECT COALESCE(reading_status::text, 'unknown') AS status, count(*)::int AS n
+              FROM public.books
+              GROUP BY 1
+            `),
+            one("periods", `
+              SELECT
+                count(*) FILTER (WHERE reading_status::text IS DISTINCT FROM 'wishlist'
+                                   AND ${inPeriod("added_at", "month")})::int AS added_month,
+                count(*) FILTER (WHERE reading_status::text IS DISTINCT FROM 'wishlist'
+                                   AND ${inPeriod("added_at", "year")})::int  AS added_year,
+                count(*) FILTER (WHERE reading_status::text = 'finished'
+                                   AND ${inPeriod("reading_status_updated_at", "month")})::int AS finished_month,
+                count(*) FILTER (WHERE reading_status::text = 'finished'
+                                   AND ${inPeriod("reading_status_updated_at", "year")})::int  AS finished_year,
+                count(*) FILTER (WHERE reading_status::text = 'abandoned'
+                                   AND ${inPeriod("reading_status_updated_at", "month")})::int AS abandoned_month,
+                count(*) FILTER (WHERE reading_status::text = 'abandoned'
+                                   AND ${inPeriod("reading_status_updated_at", "year")})::int  AS abandoned_year
+              FROM public.books
+            `),
+            one("genres", `
+              SELECT
+                NULLIF(btrim(g.name), '')  AS genre,
+                b.reading_status::text     AS status,
+                count(*)::int              AS n
+              FROM public.books b
+              LEFT JOIN public.genres g ON g.id = b.genre_id
+              WHERE b.reading_status::text IN ('in_stock', 'in_progress', 'finished', 'abandoned')
+              GROUP BY 1, 2
+            `),
+          ])
+        );
+
+        if (Object.values(result).every((v) => v === null)) {
+          return res.status(500).json({ error: "stats_overview_failed" });
+        }
+
+        const status = {};
+        for (const r of result.status || []) status[r.status] = r.n;
+
+        return res.json({
+          status: result.status ? status : null,
+          periods: result.periods ? result.periods[0] || {} : null,
+          genres: result.genres,
+          generated_at: new Date().toISOString(),
+        });
+      });
+
       /* -------------------- barcode dashboard -------------------- */
 
       // GET /api/admin/barcodes/summary

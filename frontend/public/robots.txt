@@ -2,4 +2,25 @@ User-agent: *
 Allow: /
 Disallow: /admin
 
+# SEO tools, data scrapers and AI training crawlers: no benefit for the site,
+# but every page they fetch wakes the database. Search engines (Google, Bing,
+# DuckDuckGo, ...) and AI search assistants stay allowed.
+User-agent: AhrefsBot
+User-agent: SemrushBot
+User-agent: MJ12bot
+User-agent: DotBot
+User-agent: AwarioBot
+User-agent: DataForSeoBot
+User-agent: BLEXBot
+User-agent: PetalBot
+User-agent: Reflectionbot
+User-agent: Bytespider
+User-agent: CCBot
+User-agent: GPTBot
+User-agent: Google-Extended
+User-agent: meta-externalagent
+User-agent: Amazonbot
+User-agent: ImagesiftBot
+Disallow: /
+
 Sitemap: https://pagesinline.com/sitemap.xml

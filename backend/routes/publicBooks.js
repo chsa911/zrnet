@@ -5,6 +5,7 @@ const express = require("express");
 const router = express.Router();
 const crypto = require("crypto");
 const { resolveCoverUrl, resolveLocaleCover } = require("../utils/covers");
+const { cacheJson } = require("../utils/publicCache");
 const {
   normalizeTitleLocale,
   titleTranslationsReady,
@@ -887,7 +888,15 @@ router.get("/most-read-authors", async (req, res) => {
  * GET /api/public/books/:id/comments
  * Public: only approved comments.
  */
-router.get("/:id/comments", async (req, res) => {
+// Served from memory (utils/publicCache.js); approving/rejecting a comment
+// clears these entries (see app.js).
+const commentsCacheKey = (req) => {
+  const id = String(req.params.id || "").trim();
+  if (!isUuid(id)) return null;
+  return `comments:${id}|${clampInt(req.query.limit, 200, 1, 500)}`;
+};
+
+router.get("/:id/comments", cacheJson(commentsCacheKey), async (req, res) => {
   try {
     const pool = getPool(req);
     const bookId = String(req.params.id || "").trim();
@@ -1010,7 +1019,16 @@ router.post("/:id/comments", async (req, res) => {
 /**
  * GET /api/public/books/:id
  */
-router.get("/:id", async (req, res) => {
+// Served from memory (utils/publicCache.js): crawlers fetch these pages around
+// the clock and would otherwise keep the database awake. Refreshed daily by
+// jobs/warmPublicCache.js; an admin change to a book drops its entries.
+const bookCacheKey = (req) => {
+  const id = String(req.params.id || "").trim();
+  if (!id || id.length > 64) return null;
+  return `book:${id}|${normalizeTitleLocale(req.query.lang)}`;
+};
+
+router.get("/:id", cacheJson(bookCacheKey), async (req, res) => {
   try {
     const pool = getPool(req);
     const id = String(req.params.id || "").trim();

@@ -94,6 +94,12 @@ process.on("SIGTERM", () => shutdown("SIGTERM"));
 
     server = app.listen(PORT, "0.0.0.0", () => {
       console.log(`🚀 API listening on http://0.0.0.0:${PORT}`);
+      // Fill the public page caches so crawlers don't keep the database awake
+      try {
+        require("./jobs/warmPublicCache").start({ pool });
+      } catch (e) {
+        console.error("[server] warmPublicCache failed to start", e);
+      }
     });
   } catch (err) {
     console.error("❌ Postgres connection error:", err);
