@@ -3322,12 +3322,15 @@ if ((patch.sub_genre_abbr ?? patch.subgenre_abbr) !== undefined) {
         await setHomeFeaturedSlotTx(client, id, nextHomeFeaturedSlot);
       }
 
-      if (
-        cur.reading_status === "in_progress" &&
-        (updates.reading_status === "finished" || updates.reading_status === "abandoned")
-      ) {
-        // Only this book's rows are closed; the code goes back to AVAILABLE
-        // only when no other in_progress book still carries it.
+      // Hard rule: a finished/abandoned book NEVER keeps a barcode. Release on
+      // every save that leaves the book finished/abandoned — not only on the
+      // in_progress -> finished/abandoned transition — so stale links (e.g. a
+      // book that went in_stock -> abandoned, or legacy data) get cleaned up
+      // just by saving it again. releaseBookBarcodes is idempotent.
+      // Only this book's rows are closed; the code goes back to AVAILABLE
+      // only when no other in_progress book still carries it.
+      const finalStatus = updates.reading_status ?? cur.reading_status;
+      if (finalStatus === "finished" || finalStatus === "abandoned") {
         await releaseBookBarcodes(client, id);
       }
 

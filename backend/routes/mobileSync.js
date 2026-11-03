@@ -409,13 +409,14 @@
     // (set freed_at on the open ledger row, drop the live link, flip
     // inventory back to AVAILABLE only if no other in_progress book still
     // holds it). Only fires once, on the actual transition.
+    // releasedBarcodes (feedback to the phone) still only reports the real
+    // transition; but a finished/abandoned book must NEVER keep a barcode,
+    // so any stale link is dropped regardless of how the book got there.
     let releasedBarcodes = [];
-    if (
-      statusApplied &&
-      prevStatus === "in_progress" &&
-      (row.reading_status === "finished" || row.reading_status === "abandoned")
-    ) {
-      releasedBarcodes = await releaseBookBarcodes(client, bookId);
+    const isFinal = row && (row.reading_status === "finished" || row.reading_status === "abandoned");
+    if (isFinal) {
+      const codes = await releaseBookBarcodes(client, bookId);
+      if (statusApplied && prevStatus === "in_progress") releasedBarcodes = codes;
     }
 
     return { statusApplied, current: row, prevStatus, releasedBarcodes };
