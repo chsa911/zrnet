@@ -4,8 +4,18 @@ www.pagesinline.com {
 }
 
 pagesinline.com {
-	# Site is public again. The admin area is gated by the backend's
-	# admin_auth cookie (see backend/app.js and /api/admin login), not
-	# by an edge-wide basic auth anymore.
+	# Public site is switched OFF: every public page redirects to /admin.
+	# The admin SPA still needs /admin*, the API, its JS/CSS assets and the
+	# cover uploads; those stay reachable. The admin area itself is gated by
+	# the backend's admin_auth cookie (see backend/app.js and /api/admin login).
+	# To make the site public again, remove the @public matcher and the redir.
+	header X-Robots-Tag "noindex, nofollow"
+
+	@public {
+		not path /admin /admin/* /api/* /assets/* /uploads/* /favicon* /robots.txt
+		not path *.js *.css *.png *.jpg *.svg *.ico *.webp *.woff *.woff2 *.json *.webmanifest
+	}
+	redir @public /admin 302
+
 	reverse_proxy zrnet-web-1:80
 }
