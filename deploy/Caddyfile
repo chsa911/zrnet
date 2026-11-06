@@ -1,21 +1,97 @@
-# One canonical host for SEO: www permanently redirects to the bare domain.
-www.pagesinline.com {
+# Production Caddyfile. Live copy on the server: /srv/zrnet/Caddyfile
+# (mounted into zrnet-caddy-1 as /etc/caddy/Caddyfile).
+# Deploy: scp deploy/Caddyfile root@46.224.178.235:/srv/zrnet/Caddyfile
+#         ssh root@46.224.178.235 'docker exec zrnet-caddy-1 caddy validate --config /etc/caddy/Caddyfile && docker exec zrnet-caddy-1 caddy reload --config /etc/caddy/Caddyfile'
+
+bookswiper.com, www.bookswiper.com {
 	redir https://pagesinline.com{uri} permanent
 }
 
+zenreader.net, www.zenreader.net {
+	handle /api/* {
+		reverse_proxy zrnet-api-1:4000
+	}
+
+	handle /media/* {
+		reverse_proxy zrnet-api-1:4000
+	}
+
+	handle {
+		redir https://pagesinline.com{uri} permanent
+	}
+}
+
 pagesinline.com {
-	# Public site is switched OFF: every public page redirects to /admin.
-	# The admin SPA still needs /admin*, the API, its JS/CSS assets and the
-	# cover uploads; those stay reachable. The admin area itself is gated by
-	# the backend's admin_auth cookie (see backend/app.js and /api/admin login).
-	# To make the site public again, remove the @public matcher and the redir.
+	encode gzip zstd
+
+	# Public site OFF: every public page shows a "This website is for sale" page.
+	# /admin*, the API, media, uploads and the SPA's static files stay reachable;
+	# the admin area itself is gated by the backend's admin_auth cookie.
+	# To make the site public again, replace the whole last handle block with:
+	#   handle { reverse_proxy zrnet-web-1:80 }
 	header X-Robots-Tag "noindex, nofollow"
 
-	@public {
-		not path /admin /admin/* /api/* /assets/* /uploads/* /favicon* /robots.txt
-		not path *.js *.css *.png *.jpg *.svg *.ico *.webp *.woff *.woff2 *.json *.webmanifest
+	handle /api/* {
+		reverse_proxy zrnet-api-1:4000
 	}
-	redir @public /admin 302
 
-	reverse_proxy zrnet-web-1:80
+	handle /media/* {
+		reverse_proxy zrnet-api-1:4000
+	}
+
+	handle /uploads/* {
+		reverse_proxy zrnet-api-1:4000
+	}
+
+	handle {
+		@public {
+			not path /admin /admin/* /assets/* /icons/* /favicon* /robots.txt
+			not path *.js *.css *.png *.jpg *.jpeg *.svg *.ico *.webp *.woff *.woff2 *.json *.webmanifest
+		}
+
+		handle @public {
+			header Content-Type "text/html; charset=utf-8"
+			header Cache-Control "no-store"
+			respond <<HTML
+				<!doctype html>
+				<html lang="en">
+				<head>
+				<meta charset="utf-8">
+				<meta name="viewport" content="width=device-width, initial-scale=1">
+				<title>This website is for sale</title>
+				</head>
+				<body style="margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;background:#f6f7f5;color:#1a1a1a;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;padding:24px;box-sizing:border-box">
+				<main style="max-width:560px;width:100%;background:#fff;border:1px solid #e3e5e1;border-radius:18px;padding:40px 32px;text-align:center;box-shadow:0 10px 30px rgba(0,0,0,.06)">
+				<p style="display:inline-block;margin:0 0 18px;padding:5px 12px;border-radius:999px;background:#e8f5ec;color:#1f6b3a;font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase">For sale</p>
+				<h1 style="margin:0 0 12px;font-size:34px;line-height:1.15">This website is for sale</h1>
+				<p style="margin:0 0 6px;font-size:20px;font-weight:600">pagesinline.com</p>
+				<p style="margin:0 0 28px;color:#555;font-size:16px;line-height:1.5">The domain and the website behind it are available. Interested? Get in touch.</p>
+				<a href="mailto:KONTAKT_EMAIL?subject=pagesinline.com" style="display:inline-block;padding:13px 26px;border-radius:999px;background:#3fae5f;color:#fff;text-decoration:none;font-weight:700;font-size:16px">Contact the owner</a>
+				<p style="margin:18px 0 0;color:#777;font-size:14px">KONTAKT_EMAIL</p>
+				</main>
+				</body>
+				</html>
+				HTML 200
+		}
+
+		handle {
+			reverse_proxy zrnet-web-1:80
+		}
+	}
+}
+
+staging.pagesinline.com {
+	encode gzip zstd
+
+	handle /api/* {
+		reverse_proxy zrnet-staging-api-1:4000
+	}
+
+	handle /media/* {
+		reverse_proxy zrnet-staging-api-1:4000
+	}
+
+	handle {
+		reverse_proxy zrnet-staging-web-1:80
+	}
 }
