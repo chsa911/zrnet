@@ -213,12 +213,15 @@ export async function lookupIsbn(isbn, { signal } = {}) {
   }
 }
 
-export async function uploadCover(id, file, { signal } = {}) {
+// `original`: the photo exactly as taken/confirmed – stored unchanged on the server (raw)
+// and verified via the SHA-256 the server returns.
+export async function uploadCover(id, file, { signal, original } = {}) {
   if (!id) throw new Error("Missing book id");
-  if (!file) throw new Error("Missing cover file");
+  if (!file && !original) throw new Error("Missing cover file");
 
   const fd = new FormData();
-  fd.append("cover", file);
+  if (file) fd.append("cover", file, file.name || "cover.jpg");
+  if (original) fd.append("original", original, original.name || "original.jpg");
 
   return http(`/admin/books/${encodeURIComponent(id)}/cover`, {
     method: "POST",

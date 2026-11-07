@@ -231,8 +231,16 @@ COUNT(b.id) FILTER (WHERE b.top_book = true)::int AS top_books
 
       /* -------------------- cover upload -------------------- */
 
-      // POST /api/admin/books/:id/cover  (multipart field: cover)
-      router.post("/books/:id/cover", upload.single("cover"), async (req, res) => {
+      // POST /api/admin/books/:id/cover
+      //   multipart fields: original (photo exactly as taken, stored unchanged in covers/raw/)
+      //                     cover    (optional smaller copy made in the browser)
+      //   Old clients that send only "cover" keep working (that file becomes the raw copy).
+      //   Response contains sha256 of the stored bytes so the client can verify them.
+      const coverUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 30 * 1024 * 1024 } });
+      router.post(
+        "/books/:id/cover",
+        coverUpload.fields([{ name: "cover", maxCount: 1 }, { name: "original", maxCount: 1 }]),
+        async (req, res) => {
         const pool = req.app.get("pgPool");
         if (!pool) return res.status(500).json({ error: "pgPool missing" });
 
@@ -245,12 +253,18 @@ COUNT(b.id) FILTER (WHERE b.top_book = true)::int AS top_books
         ) {
           return res.status(400).json({ error: "invalid_id" });
         }
-        if (!req.file) return res.status(400).json({ error: "missing_file" });
+        const coverF = req.files?.cover?.[0] || null;
+        const origF = req.files?.original?.[0] || null;
+        const rawF = origF || coverF;
+        if (!rawF) return res.status(400).json({ error: "missing_file" });
 
-        const byteLen = req.file?.buffer?.length ?? 0;
+        const byteLen = rawF.buffer?.length ?? 0;
         if (byteLen < 1024) {
           return res.status(400).json({ error: "empty_file", bytes: byteLen });
         }
+
+        const crypto = require("crypto");
+        const sha = (buf) => (buf ? crypto.createHash("sha256").update(buf).digest("hex") : null);
 
         try {
           const uploadRoot =
@@ -261,44 +275,94 @@ COUNT(b.id) FILTER (WHERE b.top_book = true)::int AS top_books
           await fs.mkdir(normalizedDir, { recursive: true });
           await fs.mkdir(rawDir,        { recursive: true });
 
-          const originalExt = path.extname(req.file.originalname || "").toLowerCase() || ".jpg";
-          const rawPath        = path.join(rawDir,        `${id}${originalExt}`);
+          // Decode: prefer the untouched original; fall back to the browser copy.
+          let source = null;
+          for (const f of [origF, coverF]) {
+            if (!f) continue;
+            try {
+              await sharp(f.buffer).metadata();
+              source = f;
+              break;
+            } catch {}
+          }
+          if (!source) {
+            return res.status(422).json({
+              error: "cover_unreadable",
+              message: "Das Foto konnte nicht gelesen werden. Bitte neu aufnehmen.",
+            });
+          }
+
+          // Reject flat single-colour images (black/grey frames, failed conversions).
+          const st = await sharp(source.buffer).rotate().resize(64, 64, { fit: "fill" }).stats();
+          const avgStdev = st.channels.slice(0, 3).reduce((a, c) => a + c.stdev, 0) / 3;
+          if (avgStdev < 4) {
+            return res.status(422).json({
+              error: "cover_blank",
+              message: "Das Foto ist leer bzw. einfarbig. Bitte neu aufnehmen.",
+            });
+          }
+
+          const ext = (path.extname(rawF.originalname || "").toLowerCase() || ".jpg").replace(/[^.a-z0-9]/g, "");
+          const rawPath        = path.join(rawDir,        `${id}${ext}`);
           const normalizedPath = path.join(normalizedDir, `${id}.jpg`);
           const homePath       = path.join(normalizedDir, `${id}-home.jpg`);
-          // Keep legacy root file for backward-compatibility
+          // Keep legacy root file for backward-compatibility (always a JPEG)
           const legacyPath     = path.join(coversDir,    `${id}.jpg`);
 
-          await fs.writeFile(rawPath, req.file.buffer);
+          // Remove raw files of this book with another extension, so exactly one original exists.
+          try {
+            for (const f of await fs.readdir(rawDir)) {
+              if (f.startsWith(`${id}.`) && f !== `${id}${ext}`) await fs.unlink(path.join(rawDir, f));
+            }
+          } catch {}
 
-          await sharp(req.file.buffer)
+          await fs.writeFile(rawPath, rawF.buffer);
+
+          await sharp(source.buffer)
             .rotate()
             .resize(800, 1200, { fit: "contain", background: { r: 255, g: 255, b: 255 } })
             .jpeg({ quality: 90, progressive: true })
             .toFile(normalizedPath);
 
-          await sharp(req.file.buffer)
+          await sharp(source.buffer)
             .rotate()
             .resize(400, 600, { fit: "contain", background: { r: 255, g: 255, b: 255 } })
             .jpeg({ quality: 80, progressive: true })
             .toFile(homePath);
 
           // Write legacy root file so old code still works
-          await fs.writeFile(legacyPath, req.file.buffer);
+          const legacyBuf = await sharp(source.buffer).rotate().jpeg({ quality: 90 }).toBuffer();
+          await fs.writeFile(legacyPath, legacyBuf);
 
-          // Mark cover presence on the book row (and verify the book exists)
+          // Verify what is on disk is exactly what was received.
+          const rawOnDisk = await fs.readFile(rawPath);
+          const shaOriginal = sha(rawOnDisk);
+          if (shaOriginal !== sha(rawF.buffer)) {
+            return res.status(500).json({ error: "cover_write_mismatch" });
+          }
+
+          // Mark cover presence on the book row (and verify the book exists).
+          // jsonb_set does not create missing parents, so create raw.capture first.
+          const info = {
+            coverUploadedAt: new Date().toISOString(),
+            coverBytes: rawOnDisk.length,
+            coverSha256: shaOriginal,
+            coverOriginalName: rawF.originalname || null,
+            coverSource: origF ? "original" : "cover",
+          };
           const upd = await pool.query(
             `
               UPDATE public.books
               SET raw = jsonb_set(
                 coalesce(raw,'{}'::jsonb),
-                '{capture,coverUploadedAt}',
-                to_jsonb(now()),
+                '{capture}',
+                coalesce(raw->'capture','{}'::jsonb) || $2::jsonb,
                 true
               )
               WHERE id = $1::uuid
               RETURNING (raw->'capture'->>'coverUploadedAt') AS coveruploadedat
               `,
-            [id]
+            [id, JSON.stringify(info)]
           );
 
           if (!upd.rowCount) {
@@ -308,13 +372,16 @@ COUNT(b.id) FILTER (WHERE b.top_book = true)::int AS top_books
             return res.status(404).json({ error: "book_not_found_for_cover", id });
           }
 
+          const v = Date.now();
           return res.json({
             ok: true,
             id,
-            bytes: req.file.buffer.length,
-            cover:      `/uploads/covers/${id}.jpg`,
-            normalized: `/uploads/covers/normalized/${id}.jpg`,
-            home:       `/uploads/covers/normalized/${id}-home.jpg`,
+            bytes: rawOnDisk.length,
+            sha256: { original: shaOriginal, cover: sha(coverF?.buffer) },
+            raw:        `/uploads/covers/raw/${id}${ext}`,
+            cover:      `/uploads/covers/${id}.jpg?v=${v}`,
+            normalized: `/uploads/covers/normalized/${id}.jpg?v=${v}`,
+            home:       `/uploads/covers/normalized/${id}-home.jpg?v=${v}`,
             coverUploadedAt: upd.rows?.[0]?.coveruploadedat || null,
           });
         } catch (e) {

@@ -181,9 +181,40 @@ function rotateCanvas(src, degrees) {
   return canvas;
 }
 
+// True when the canvas is (almost) one flat colour – what iOS returns when it
+// silently fails to decode/draw a large camera photo.
+function isCanvasBlank(canvas) {
+  const s = document.createElement("canvas");
+  s.width = 48;
+  s.height = 48;
+  const ctx = s.getContext("2d", { willReadFrequently: true });
+  if (!ctx) return false;
+  ctx.drawImage(canvas, 0, 0, 48, 48);
+  const d = ctx.getImageData(0, 0, 48, 48).data;
+  let sum = 0, sum2 = 0, n = 0;
+  for (let i = 0; i < d.length; i += 4) {
+    const y = 0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2];
+    sum += y; sum2 += y * y; n++;
+  }
+  const mean = sum / n;
+  return Math.sqrt(Math.max(0, sum2 / n - mean * mean)) < 4;
+}
+
+async function sha256Hex(blob) {
+  try {
+    if (!globalThis.crypto?.subtle) return null;
+    const buf = await blob.arrayBuffer();
+    const h = await crypto.subtle.digest("SHA-256", buf);
+    return [...new Uint8Array(h)].map((b) => b.toString(16).padStart(2, "0")).join("");
+  } catch {
+    return null;
+  }
+}
+
 async function normalizeCoverFile(file, maxEdge = 1600, quality = 0.78) {
   const img = await loadImageFromFile(file);
   const canvas = imageToCanvas(img, maxEdge);
+  if (isCanvasBlank(canvas)) throw new Error("blank_canvas");
   const blob = await new Promise((resolve, reject) => {
     canvas.toBlob(
       (b) => (b ? resolve(b) : reject(new Error("Bild konnte nicht komprimiert werden."))),
@@ -346,7 +377,12 @@ export default function BookFormStagingPwa({
   const [pendingCover, setPendingCover] = useState(null); // { id, label }
   const requestIdRef = useRef(null);
   const [coverFile, setCoverFile] = useState(null);
+  // The photo exactly as confirmed with "Foto verwenden" – uploaded unchanged as the original.
+  const [coverOriginal, setCoverOriginal] = useState(null);
   const [coverPreviewUrl, setCoverPreviewUrl] = useState("");
+  // Server-side copy of the last uploaded cover, shown after saving as proof of what was stored.
+  const [savedCoverUrl, setSavedCoverUrl] = useState("");
+  const coverInputRef = useRef(null);
   const [isbnBusy, setIsbnBusy] = useState(false);
   const [scanBusy, setScanBusy] = useState(false);
   const [scannerOpen, setScannerOpen] = useState(false);
@@ -379,14 +415,15 @@ export default function BookFormStagingPwa({
   }, []);
 
   useEffect(() => {
-    if (!coverFile) {
+    const shown = coverOriginal || coverFile;
+    if (!shown) {
       setCoverPreviewUrl("");
       return;
     }
-    const u = URL.createObjectURL(coverFile);
+    const u = URL.createObjectURL(shown);
     setCoverPreviewUrl(u);
     return () => URL.revokeObjectURL(u);
-  }, [coverFile]);
+  }, [coverOriginal, coverFile]);
 
   useEffect(() => {
     if (isEdit || !assignBarcode) {
@@ -610,21 +647,45 @@ export default function BookFormStagingPwa({
     const raw = e.target.files?.[0] || null;
     if (!raw) return;
 
+    setSavedCoverUrl("");
+    if ((raw.size ?? 0) < 1024) {
+      setMsg("Cover-Foto ist leer. Bitte erneut aufnehmen.", "error");
+      setCoverOriginal(null);
+      setCoverFile(null);
+      return;
+    }
+    // The confirmed photo is kept unchanged and is what gets uploaded as the original.
+    setCoverOriginal(raw);
     setCoverPrepBusy(true);
     try {
+      // Smaller copy only as a fallback for the server; never replaces the original.
       const normalized = await normalizeCoverFile(raw, 1600, 0.78);
-      if ((normalized.size ?? 0) < 1024) {
-        setMsg("Cover-Foto ist leer oder zu klein. Bitte erneut aufnehmen.", "error");
-        setCoverFile(null);
-        return;
-      }
-      setCoverFile(normalized);
+      setCoverFile((normalized.size ?? 0) >= 1024 ? normalized : null);
     } catch (err) {
-      setMsg(err?.message || "Cover-Foto konnte nicht vorbereitet werden.", "error");
+      // Browser could not render the photo (iOS does this silently for some large images).
+      // The original is still uploaded; the server decodes and checks it.
+      console.warn("[BookFormStagingPwa] cover normalize failed – uploading original only", err);
       setCoverFile(null);
     } finally {
       setCoverPrepBusy(false);
     }
+  }
+
+  // Uploads the original as confirmed (+ the small copy) and verifies via SHA-256 that the
+  // server stored exactly these bytes. Throws on any mismatch so the retry flow takes over.
+  async function uploadAndVerifyCover(bookId) {
+    const original = coverOriginal || coverFile;
+    const res = await uploadCover(bookId, coverFile || original, { original: coverOriginal || null });
+    const want = await sha256Hex(original);
+    const got = res?.sha256?.original || null;
+    if (want && got && want !== got) {
+      const err = new Error("Cover kam auf dem Server verändert an (Prüfsumme stimmt nicht).");
+      err.code = "cover_checksum_mismatch";
+      throw err;
+    }
+    const url = res?.normalized || res?.cover || "";
+    if (url) setSavedCoverUrl(`${url}${url.includes("?") ? "&" : "?"}v=${Date.now()}`);
+    return res;
   }
 
   async function onSubmit(e) {
@@ -646,7 +707,7 @@ export default function BookFormStagingPwa({
       setMsg("Cover wird noch vorbereitet. Bitte kurz warten.", "error");
       return;
     }
-    if (!isEdit && !coverFile) {
+    if (!isEdit && !coverOriginal && !coverFile) {
       setMsg("Bitte zuerst ein Cover-Foto aufnehmen.", "error");
       return;
     }
@@ -705,7 +766,7 @@ export default function BookFormStagingPwa({
 
     if (!isEdit && createReadingStatus) payload.reading_status = createReadingStatus;
 
-    if (coverFile && (coverFile.size ?? 0) < 1024) {
+    if ((coverOriginal || coverFile) && ((coverOriginal || coverFile).size ?? 0) < 1024) {
       setMsg("Cover-Foto ist leer. Bitte Foto erneut aufnehmen.", "error");
       return;
     }
@@ -719,7 +780,7 @@ export default function BookFormStagingPwa({
     }
 
     setBusy(true);
-    setMsg(coverFile ? "Speichere Buch …" : "Speichere …", "info");
+    setMsg(coverOriginal || coverFile ? "Speichere Buch …" : "Speichere …", "info");
     let saved;
     try {
       if (isEdit) {
@@ -759,10 +820,10 @@ export default function BookFormStagingPwa({
     const savedText = (isEdit ? "Gespeichert." : "Gespeichert ✔") + (!isEdit && barcode ? ` · Barcode: ${barcode}` : "");
     const label = String(saved?.title_display || payload.title_display || "").trim();
 
-    if (coverFile) {
+    if (coverOriginal || coverFile) {
       setMsg(`${savedText} · Lade Cover hoch …`, "info");
       try {
-        await uploadCover(savedId, coverFile);
+        await uploadAndVerifyCover(savedId);
       } catch (e) {
         console.error("[BookFormStagingPwa] cover upload failed", e);
         setPendingCover({ id: savedId, label, savedText });
@@ -776,13 +837,15 @@ export default function BookFormStagingPwa({
       }
     }
 
-    finishSuccess(savedText);
+    finishSuccess(coverOriginal || coverFile ? `${savedText} · Cover gespeichert und geprüft ✔` : savedText);
     setBusy(false);
   }
 
   function finishSuccess(text) {
     setMsg(text, "success");
     setCoverFile(null);
+    setCoverOriginal(null);
+    if (coverInputRef.current) coverInputRef.current.value = "";
     setPendingCover(null);
     requestIdRef.current = null;
     if (!isEdit) {
@@ -798,15 +861,16 @@ export default function BookFormStagingPwa({
       setMsg("Cover wird noch vorbereitet. Bitte kurz warten.", "error");
       return;
     }
-    if (!coverFile || (coverFile.size ?? 0) < 1024) {
+    const retryFile = coverOriginal || coverFile;
+    if (!retryFile || (retryFile.size ?? 0) < 1024) {
       setMsg("Cover-Foto fehlt oder ist leer. Bitte neu aufnehmen und dann „Cover erneut hochladen“ tippen.", "error");
       return;
     }
     setBusy(true);
     setMsg("Lade Cover hoch …", "info");
     try {
-      await uploadCover(pendingCover.id, coverFile);
-      finishSuccess(`${pendingCover.savedText || "Gespeichert ✔"} · Cover hochgeladen ✔`);
+      await uploadAndVerifyCover(pendingCover.id);
+      finishSuccess(`${pendingCover.savedText || "Gespeichert ✔"} · Cover gespeichert und geprüft ✔`);
     } catch (e) {
       console.error("[BookFormStagingPwa] cover retry failed", e);
       setMsg(
@@ -847,6 +911,18 @@ export default function BookFormStagingPwa({
         </div>
       ) : null}
 
+      {savedCoverUrl ? (
+        <div className="zr-card" style={{ display: "grid", gap: 6 }}>
+          <div style={{ fontSize: 13, opacity: 0.8 }}>So ist das Cover auf dem Server gespeichert:</div>
+          <img
+            src={savedCoverUrl}
+            alt="Gespeichertes Cover"
+            style={{ width: "100%", maxWidth: 320, borderRadius: 12, border: "1px solid rgba(0,0,0,0.12)" }}
+            onError={() => setMsg("⚠ Gespeichertes Cover konnte nicht geladen werden – bitte prüfen.", "warning")}
+          />
+        </div>
+      ) : null}
+
       <div className="zr-card" style={{ display: "grid", gap: 10 }}>
         <div style={{ fontWeight: 900 }}>1. Cover Foto</div>
         <div style={{ opacity: 0.8, fontSize: 13 }}>
@@ -854,6 +930,7 @@ export default function BookFormStagingPwa({
         </div>
 
         <input
+          ref={coverInputRef}
           type="file"
           accept="image/*"
           capture="environment"

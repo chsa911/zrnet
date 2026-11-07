@@ -1,0 +1,48 @@
+=== 960106b 2026-10-18 16:02 update-cover-paths
+=== 746fd40 2026-10-09 22:58 update-cover-paths
+=== 3dbdefb 2026-10-09 17:48 update-cover-paths
+=== 45899bd 2026-10-09 13:57 update-cover-paths
+=== a82e1b2 2026-10-09 13:37 update-cover-paths
++  const [pendingCover, setPendingCover] = useState(null); // { id, label }
++    if (pendingCover) {
++    setMsg(coverFile ? "Speichere Buch …" : "Speichere …", "info");
+-      if (coverFile && savedId) {
+-          await uploadCover(savedId, coverFile);
+-          setCoverFile(null);
++    if (coverFile) {
++        await uploadCover(savedId, coverFile);
++    setCoverFile(null);
++    if (!pendingCover) return;
++    if (!coverFile || (coverFile.size ?? 0) < 1024) {
++      await uploadCover(pendingCover.id, coverFile);
++      finishSuccess(`${pendingCover.savedText || "Gespeichert ✔"} · Cover hochgeladen ✔`);
++    const t = pendingCover?.savedText || "Gespeichert ✔";
++          {busy ? "Speichere…" : coverPrepBusy ? "Vorbereiten…" : pendingCover ? "Cover erneut hochladen" : submitLabel}
++        {pendingCover ? (
+=== a496f91 2026-10-07 13:37 update-cover-paths
+=== 4f68578 2026-06-03 08:16 kauflink update
+=== f563a8e 2026-05-10 18:35 format how i like it
+=== e7a921f 2026-04-22 16:05 your message
++  uploadCover,
++  ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
++  ctx.drawImage(
++  ctx.drawImage(src, -src.width / 2, -src.height / 2);
++async function normalizeCoverFile(file, maxEdge = 1600, quality = 0.78) {
++    canvas.toBlob(
++  const [coverFile, setCoverFile] = useState(null);
++    if (!coverFile) {
++    const u = URL.createObjectURL(coverFile);
++  }, [coverFile]);
++  async function handleCoverChange(e) {
++      const normalized = await normalizeCoverFile(raw, 1600, 0.78);
++        setCoverFile(null);
++      setCoverFile(normalized);
++      setCoverFile(null);
++    if (!isEdit && !coverFile) {
++    if (coverFile && (coverFile.size ?? 0) < 1024) {
++      if (coverFile && savedId) {
++          await uploadCover(savedId, coverFile);
++          setCoverFile(null);
++          capture="environment"
++          onChange={handleCoverChange}
++          capture="environment"

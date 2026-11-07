@@ -1,0 +1,168 @@
+﻿uebernehmen;status;begruendung;nr_bild;titel_db;titel_neu;untertitel_neu;autor_db;autor_neu;verlag_db;verlag_neu;seiten_db;isbn;cover_datei;id
+nein;pruefen;nur Titel lesbar;1;;Das große Buch der Schönheit;;;;;;240;;~/p_backup/covers/09733b21-7d81-4a24-bc5f-b677eb2639c6.jpg;09733b21-7d81-4a24-bc5f-b677eb2639c6
+nein;pruefen;Titel angeschnitten ('…esire'), ergänzt;2;;Wesire und Konsuln;;;Ivo Andrić;;;407;;~/p_backup/covers/b4ea830b-e86b-4cd9-a61f-eb36748a509d.jpg;b4ea830b-e86b-4cd9-a61f-eb36748a509d
+ja;auto;englische Ausgabe;3;;Poland;;;James A. Michener;;Fawcett Crest;616;0277780049;~/p_backup/covers/c54a3179-ee17-4279-ad9b-a5c6f508e3f3.jpg;c54a3179-ee17-4279-ad9b-a5c6f508e3f3
+nein;kein_text;Ausschnitt ohne Text;4;;;;;;;;360;;~/p_backup/covers/784b07b2-fc3f-40c1-9220-f8c7bc8d5d07.jpg;784b07b2-fc3f-40c1-9220-f8c7bc8d5d07
+nein;kein_text;Ausschnitt ohne Text;5;;;;;;;;304;;~/p_backup/covers/ed0c3bdf-3418-4645-b949-1d3f3237b57e.jpg;ed0c3bdf-3418-4645-b949-1d3f3237b57e
+ja;auto;;6;;Unberührbar: Apartheid auf indisch;Zur Situation der Dalits und der Dalitbewegung in Indien;;Gebhard Schwägerl;;Horlemann;126;;~/p_backup/covers/ff1d16c9-4cb7-4d0f-ac47-83bc6ae82a57.jpg;ff1d16c9-4cb7-4d0f-ac47-83bc6ae82a57
+nein;kein_text;Bild leer/dunkel;7;;;;;;;;304;;~/p_backup/covers/a45fdaf8-7668-4a36-9b6a-dba7fd88e051.jpg;a45fdaf8-7668-4a36-9b6a-dba7fd88e051
+ja;auto;;8;;Gipfelbuch;;;Dominik Prantl;;Süddeutsche Zeitung Edition;319;;~/p_backup/covers/15aa4785-c260-476e-ad20-0e1a372bca47.jpg;15aa4785-c260-476e-ad20-0e1a372bca47
+ja;auto;;9;;Beric der Ausgestoßene;;;Rosemary Sutcliff;;;302;;~/p_backup/covers/6b709eb9-68a9-49e0-8f7d-73ec27a910a5.jpg;6b709eb9-68a9-49e0-8f7d-73ec27a910a5
+nein;kein_text;Ausschnitt, nur 'Weltbestseller';10;;;;;;;;190;;~/p_backup/covers/6e0eab6c-40b6-4ef8-bf1c-e009a30f0cbf.jpg;6e0eab6c-40b6-4ef8-bf1c-e009a30f0cbf
+ja;auto;Spiegel-Bestseller-Aufkleber;11;;Das glückliche Geheimnis;;;Arno Geiger;;dtv;236;;~/p_backup/covers/f8c7b45d-c3fe-444a-b3e8-4beb8d39fbe1.jpg;f8c7b45d-c3fe-444a-b3e8-4beb8d39fbe1
+nein;pruefen;Name angeschnitten ('Ella Mailla…'), ergänzt;12;;Turkestan Solo;;;Ella Maillart;;;376;;~/p_backup/covers/c71594c5-61ce-4398-8fdb-816aace103fd.jpg;c71594c5-61ce-4398-8fdb-816aace103fd
+nein;pruefen;angeschnitten, ergänzt;13;;Marco Polo – Der Besessene;;;Gary Jennings;;;611;;~/p_backup/covers/0157b740-17d4-4a92-ad1d-c253b76fc715.jpg;0157b740-17d4-4a92-ad1d-c253b76fc715
+nein;pruefen;nur Autorin lesbar, Titel fehlt;14;;;;;Danielle Steel;;;398;0506940079;~/p_backup/covers/1fdfc360-d212-410d-8811-e5a98db00c09.jpg;1fdfc360-d212-410d-8811-e5a98db00c09
+nein;pruefen;angeschnitten, ergänzt;15;;Die Tochter der Himmelsscheibe;;;Wolfgang Hohlbein;;;938;;~/p_backup/covers/bc6b337e-92ed-432b-8ad8-71ee7aaee320.jpg;bc6b337e-92ed-432b-8ad8-71ee7aaee320
+nein;pruefen;Autor nicht sichtbar, ergänzt (Bibliothek Suhrkamp);16;;Dshamilja;;;Tschingis Aitmatow;;Suhrkamp;122;;~/p_backup/covers/4fce283e-a39b-4d51-a396-20dec2b566b7.jpg;4fce283e-a39b-4d51-a396-20dec2b566b7
+nein;pruefen;"Untertitel angeschnitten ('Deutschlands prominenteste Wahrsager…'); oben 'Ritter' = Verlag?";17;;Langes Glück übern kurzen Weg;;;Gabriele Hoffmann;;;318;3920788156;~/p_backup/covers/1bbc1103-b467-4087-b468-108079a01c8d.jpg;1bbc1103-b467-4087-b468-108079a01c8d
+ja;auto;Heyne Biographien;18;;Caesar;Genie – Eroberer – Diktator;;Michael Grant;;Heyne;236;;~/p_backup/covers/e1f04c9c-52a8-4241-a491-f5795717085a.jpg;e1f04c9c-52a8-4241-a491-f5795717085a
+nein;pruefen;"angeschnitten, ergänzt; Heyne Biographien";19;;Die Medici;Eine Florentiner Familie;;Marcel Brion;;Heyne;192;;~/p_backup/covers/c46ad7a9-8769-4393-bae3-9898173a24b5.jpg;c46ad7a9-8769-4393-bae3-9898173a24b5
+nein;pruefen;kein Autor sichtbar;20;;Bite-Sized Indonesia;;;;;;187;;~/p_backup/covers/61c0f083-7ce1-4bc0-9482-033d08e722f0.jpg;61c0f083-7ce1-4bc0-9482-033d08e722f0
+ja;auto;englische Ausgabe;21;;Listening Woman;;;Tony Hillerman;;;327;0994550059;~/p_backup/covers/06b38b4e-47fe-425e-a06c-72bd8cc21500.jpg;06b38b4e-47fe-425e-a06c-72bd8cc21500
+nein;kein_text;nur Grafik;22;;;;;;;;190;;~/p_backup/covers/39d41ab9-46a3-4eac-af46-81e5cc3faa29.jpg;39d41ab9-46a3-4eac-af46-81e5cc3faa29
+nein;kein_text;nur Grafik;23;;;;;;;;534;;~/p_backup/covers/ac5eb872-a891-491d-8957-5d63a8d75af2.jpg;ac5eb872-a891-491d-8957-5d63a8d75af2
+ja;auto;;24;;Menschenkenntnis im Alltag;Charakterkunde, Körpersprache, Persönlichkeitstests;;Rudolf Spieth;;;414;9783572007950;~/p_backup/covers/963f2744-e619-4734-925d-c7c2f0b7f5c8.jpg;963f2744-e619-4734-925d-c7c2f0b7f5c8
+nein;kein_text;nur Grafik;25;;;;;;;;284;;~/p_backup/covers/92d90471-fbc9-4b60-a0a2-cfa23da058e0.jpg;92d90471-fbc9-4b60-a0a2-cfa23da058e0
+nein;kein_text;Titel abgeschnitten ('…liebe');26;;;;;;;;334;;~/p_backup/covers/6cdf5420-07b8-48f0-8226-d83d9ef50501.jpg;6cdf5420-07b8-48f0-8226-d83d9ef50501
+nein;pruefen;angeschnitten, ergänzt;27;;Und die Bibel hat doch recht in Bildern;;;Werner Keller;;Econ;360;;~/p_backup/covers/b718904b-f5d3-4356-99f8-ae76b0b83e74.jpg;b718904b-f5d3-4356-99f8-ae76b0b83e74
+nein;kein_text;nur Grafik;28;;;;;;;;316;;~/p_backup/covers/f0a8d1ec-723d-4904-89eb-0a2eb09f0ae4.jpg;f0a8d1ec-723d-4904-89eb-0a2eb09f0ae4
+nein;pruefen;"Band 1; kein Autor sichtbar";29;;Die Abenteuer der vielgeliebten Stadt München;;;;;;383;;~/p_backup/covers/61e8fff7-7bbd-4584-9d3f-886a4b2f7b9f.jpg;61e8fff7-7bbd-4584-9d3f-886a4b2f7b9f
+nein;pruefen;angeschnitten, ergänzt;30;;Die chinesische Geliebte;;;Hong Ying;;;270;;~/p_backup/covers/1bd0b3d5-da17-4f85-be3f-ddc443cc2895.jpg;1bd0b3d5-da17-4f85-be3f-ddc443cc2895
+nein;kein_text;nur Gemälde-Ausschnitt;31;;;;;;;;202;9783770121182;~/p_backup/covers/d7e15416-50db-4f16-bb4b-c3f272cd6345.jpg;d7e15416-50db-4f16-bb4b-c3f272cd6345
+ja;auto;englische Ausgabe;32;;Random Track to Peking;;;Austin Ferguson;;Bantam;209;0767830027;~/p_backup/covers/fc7a26f3-003d-4eeb-9b0c-317d467cd253.jpg;fc7a26f3-003d-4eeb-9b0c-317d467cd253
+nein;kein_text;Titel angeschnitten ('…the Greater Mekong'), vermutlich Reiseführer;33;;;;;;;;564;;~/p_backup/covers/dd099a0f-2197-44ab-9d76-ccdd3c7905ae.jpg;dd099a0f-2197-44ab-9d76-ccdd3c7905ae
+nein;pruefen;kein Autor sichtbar;34;;Ayurveda;Leben im Gleichklang der Kräfte;;;;;190;;~/p_backup/covers/f02f574a-6499-45a1-b32f-40cbcf11d4c8.jpg;f02f574a-6499-45a1-b32f-40cbcf11d4c8
+nein;pruefen;"Sammelband mit 'Das Teufelsweib'; kein Autor sichtbar";35;;Straße in die Hölle;;;;;Lingen;351;;~/p_backup/covers/47fea7ca-df54-4ccd-95af-a7b0e5564182.jpg;47fea7ca-df54-4ccd-95af-a7b0e5564182
+nein;pruefen;Haupttitel und Name nicht sichtbar, ergänzt (Foto des Autors);36;;Afrikanische Totenklage;Der Ausverkauf des Schwarzen Kontinents;;Peter Scholl-Latour;;;472;;~/p_backup/covers/64466171-74fd-4af1-9202-ea1ade09fee5.jpg;64466171-74fd-4af1-9202-ea1ade09fee5
+nein;pruefen;Kochbuchreihe, kein Autor sichtbar;37;;Vollwert-Backen;;;;;;142;9783811882379;~/p_backup/covers/26cf2b5c-fa03-4e54-a16c-a126432c03d0.jpg;26cf2b5c-fa03-4e54-a16c-a126432c03d0
+nein;pruefen;Kochbuchreihe, kein Autor sichtbar;38;;Gesunde Rohkost;;;;;;144;9783811882355;~/p_backup/covers/30d52dd0-d3d4-4f03-92ed-404126e6e5b4.jpg;30d52dd0-d3d4-4f03-92ed-404126e6e5b4
+nein;kein_text;Foto zeigt kein Cover;39;;;;;;;;391;;~/p_backup/covers/611aa50a-38ce-48b7-a6a1-4a207bee727c.jpg;611aa50a-38ce-48b7-a6a1-4a207bee727c
+nein;kein_text;nur Grafik;40;;;;;;;;389;;~/p_backup/covers/937febfe-2d50-4c65-8688-40b33adbb9c6.jpg;937febfe-2d50-4c65-8688-40b33adbb9c6
+nein;pruefen;"Biografie; Autor nicht sichtbar";41;;Christoph Waltz;;;;;Schwarzkopf & Schwarzkopf;169;4785861653003;~/p_backup/covers/5cfe1f75-1f1c-46ca-91b5-6ad733dbd8fe.jpg;5cfe1f75-1f1c-46ca-91b5-6ad733dbd8fe
+ja;auto;;42;;Chakka – Geliebter Wolf;;;Bevie J. Gravlin;;;287;9783795116422;~/p_backup/covers/43e0d6fc-fd80-4da3-8f13-573613934738.jpg;43e0d6fc-fd80-4da3-8f13-573613934738
+ja;auto;;43;;Die Zauberin von Märchenmond;;;"Wolfgang Hohlbein; Heike Hohlbein";;;863;;~/p_backup/covers/8de33e02-22d1-4927-8b1f-3d2663eddced.jpg;8de33e02-22d1-4927-8b1f-3d2663eddced
+ja;auto;;44;;Lulú;;;Almudena Grandes;;;255;;~/p_backup/covers/3feff853-1f5c-433a-9db5-eab88438c1d1.jpg;3feff853-1f5c-433a-9db5-eab88438c1d1
+nein;kein_text;zu stark angeschnitten;45;;;;;;;;287;;~/p_backup/covers/91924df8-13d5-4722-a380-1d372e9911ec.jpg;91924df8-13d5-4722-a380-1d372e9911ec
+ja;auto;;46;;Nordwest-Passage;;;Kenneth Roberts;;;635;;~/p_backup/covers/c55d09ef-5e6b-4812-8bff-7f18732707b0.jpg;c55d09ef-5e6b-4812-8bff-7f18732707b0
+ja;auto;vom Buchrücken;47;;Sohn ohne Heimat;;;Luis Trenker;;;319;;~/p_backup/covers/6991a47c-a07e-4cf9-a33e-2c30c4619c68.jpg;6991a47c-a07e-4cf9-a33e-2c30c4619c68
+nein;kein_text;angeschnitten ('John Coo…', 'Pforten der…', Vatikan-Thriller);48;;;;;;;;462;9783426670620;~/p_backup/covers/5ce785fc-8df1-4b02-bc5d-4b778162e59c.jpg;5ce785fc-8df1-4b02-bc5d-4b778162e59c
+nein;kein_text;Foto zeigt kein Cover;49;;;;;;;;285;;~/p_backup/covers/db9d10f6-f4d0-4cc5-ab7d-1304cc63d9df.jpg;db9d10f6-f4d0-4cc5-ab7d-1304cc63d9df
+ja;auto;;50;;Unser blauer Planet;;;Heinz Haber;;;135;;~/p_backup/covers/c0714c86-6790-427b-8b94-db59a5065629.jpg;c0714c86-6790-427b-8b94-db59a5065629
+nein;pruefen;nur Autor lesbar, Titel fehlt;51;;;;;Sebastian Faulks;;;326;6780269549246;~/p_backup/covers/0f4ff725-1934-4e58-8e5b-6b9437b1f5f0.jpg;0f4ff725-1934-4e58-8e5b-6b9437b1f5f0
+nein;pruefen;Name angeschnitten, ergänzt;52;;entgiften statt vergiften;;;Uwe Karstädt;;;302;;~/p_backup/covers/1659393e-2653-4a55-aad4-38aef5b23288.jpg;1659393e-2653-4a55-aad4-38aef5b23288
+ja;auto;;53;;Fliehe weit und schnell;Kommissar Adamsberg ermittelt;;Fred Vargas;;;447;9783734181030;~/p_backup/covers/8c71182b-a097-496f-8e0a-167f238a1dda.jpg;8c71182b-a097-496f-8e0a-167f238a1dda
+nein;kein_text;Foto zeigt kein Cover;54;;;;;;;;510;;~/p_backup/covers/41d39f93-c901-441d-8f0f-fd4545a81ec5.jpg;41d39f93-c901-441d-8f0f-fd4545a81ec5
+nein;pruefen;angeschnitten, ergänzt;55;;Mein Herr und Gebieter;Ich war die Begum des Löwen vom Pandschab;;Tehmina Durrani;;;421;9783898975841;~/p_backup/covers/86e60bdf-bfc7-4393-99dc-300f8562b249.jpg;86e60bdf-bfc7-4393-99dc-300f8562b249
+nein;kein_text;nur '…ärztliche Hausbuch' lesbar;56;;;;;;;;477;;~/p_backup/covers/8038b0ca-5eda-4e49-877c-b931ed6edc05.jpg;8038b0ca-5eda-4e49-877c-b931ed6edc05
+nein;kein_text;nur Verlag 'Ullstein Bücher' lesbar;57;;;;;;;Ullstein;476;;~/p_backup/covers/fc04ecee-b145-4516-9622-863611845630.jpg;fc04ecee-b145-4516-9622-863611845630
+nein;kein_text;Bild leer;58;;;;;;;;551;;~/p_backup/covers/15a7509d-e9b5-4dd9-b8de-4a486b61c3c3.jpg;15a7509d-e9b5-4dd9-b8de-4a486b61c3c3
+ja;auto;;59;;Harun und das Meer der Geschichten;;;Salman Rushdie;;Knaur;254;;~/p_backup/covers/f226a30b-2e57-433a-bde3-6f3987a645dc.jpg;f226a30b-2e57-433a-bde3-6f3987a645dc
+ja;auto;;60;;Peter der Erste;Band I;;Alexej Tolstoi;;;421;376095854X;~/p_backup/covers/f13d82b4-28f1-4c22-9686-d9c617a52f0e.jpg;f13d82b4-28f1-4c22-9686-d9c617a52f0e
+nein;pruefen;Autor angeschnitten;61;;Giulia;;;;;;438;;~/p_backup/covers/24717591-06cb-4bbc-946d-c0f20c0150da.jpg;24717591-06cb-4bbc-946d-c0f20c0150da
+ja;auto;gleiches Cover wie Nr. 60;62;;Peter der Erste;Band I;;Alexej Tolstoi;;;421;376095854X;~/p_backup/covers/1cf89a8d-7e29-4e66-8605-387997a7b768.jpg;1cf89a8d-7e29-4e66-8605-387997a7b768
+nein;kein_text;Titel und Autor nicht sichtbar;63;;;Börsenhandel einfach verstehen und ein konstantes Einkommen aufbauen;;;;;161;;~/p_backup/covers/e717eca2-8645-44f9-a3b8-d25535c3ef06.jpg;e717eca2-8645-44f9-a3b8-d25535c3ef06
+ja;auto;;64;;Ewigkeit will meine Liebe;;;Taylor Caldwell;;;254;9783861907589;~/p_backup/covers/887ec8cc-b5d6-44bd-a5a6-9450a4810285.jpg;887ec8cc-b5d6-44bd-a5a6-9450a4810285
+nein;pruefen;angeschnitten, ergänzt;65;;Jahrbuch der Karl-May-Gesellschaft 1970;;;;;;272;;~/p_backup/covers/0b1bf409-c229-47a8-9787-3e2f1056b129.jpg;0b1bf409-c229-47a8-9787-3e2f1056b129
+nein;pruefen;kein Autor sichtbar;66;;Die schönsten Berge;Von den Alpen bis zum Dach der Welt;;;;;256;9783625130185;~/p_backup/covers/92c30065-3e09-4598-9c83-7eed512743ff.jpg;92c30065-3e09-4598-9c83-7eed512743ff
+nein;pruefen;angeschnitten, ergänzt;67;;DogDogs;;;Elliott Erwitt;;Phaidon;;;~/p_backup/covers/9d051a5e-2494-4334-ab2a-68b412925e1b.jpg;9d051a5e-2494-4334-ab2a-68b412925e1b
+nein;kein_text;Foto zeigt kein Cover;68;;;;;;;;200;;~/p_backup/covers/952d157e-fd0c-48ca-9702-b7c226b24772.jpg;952d157e-fd0c-48ca-9702-b7c226b24772
+nein;kein_text;Foto zeigt Laptop-Tastatur;69;;;;;;;;200;;~/p_backup/covers/ba03d633-c0e2-42e4-9cc5-c38c529872e6.jpg;ba03d633-c0e2-42e4-9cc5-c38c529872e6
+nein;kein_text;Foto zeigt Laptop-Tastatur;70;;;;;;;;200;;~/p_backup/covers/a3ab16f5-ba53-49d0-b997-b99b74cef986.jpg;a3ab16f5-ba53-49d0-b997-b99b74cef986
+nein;kein_text;Foto zeigt kein Cover;71;;;;;;;;200;;~/p_backup/covers/1b01761d-0128-463a-ac97-af63fb360e0a.jpg;1b01761d-0128-463a-ac97-af63fb360e0a
+ja;auto;vom Buchrücken (r&b);72;;Ohne Leit kein Freud;;;Woody Allen;;Rogner & Bernhard;215;3807701373;~/p_backup/covers/5d7f4137-40a3-4d30-a17d-417695a66f61.jpg;5d7f4137-40a3-4d30-a17d-417695a66f61
+nein;pruefen;Autor nicht sichtbar, ergänzt;73;;Ich war Kaiser von China;;;Pu Yi;;;516;;~/p_backup/covers/c3b29a83-8abb-4025-a48d-2f4ebeaf2202.jpg;c3b29a83-8abb-4025-a48d-2f4ebeaf2202
+nein;pruefen;angeschnitten, ergänzt;74;;Unaufhaltsam;;;Christian Bischoff;;;147;;~/p_backup/covers/77113476-c181-48cc-acbe-2f8dc4f8efe1.jpg;77113476-c181-48cc-acbe-2f8dc4f8efe1
+nein;pruefen;nur Buchrücken, Titel fehlt;75;;;;;Roland Lazenby;;Little, Brown;708;;~/p_backup/covers/837114bf-2042-4641-9bc7-a836c5c28a14.jpg;837114bf-2042-4641-9bc7-a836c5c28a14
+ja;auto;Beck-Wirtschaftsberater im dtv;76;;Work-Life-Balance;Wie Sie Berufs- und Privatleben in Einklang bringen;;Manfred Cassens;;dtv;200;6783303508728;~/p_backup/covers/24c79c10-7f6a-400d-98be-f5e5b5da6eca.jpg;24c79c10-7f6a-400d-98be-f5e5b5da6eca
+nein;kein_text;nur Grafik;77;;;;;;;;826;378572749;~/p_backup/covers/7dd2e512-957b-4afd-ab07-b9704086b832.jpg;7dd2e512-957b-4afd-ab07-b9704086b832
+ja;auto;;78;;Die Tatarin;;;Iny Lorentz;;;590;;~/p_backup/covers/f3157feb-99b4-4717-a177-64e673ec9a66.jpg;f3157feb-99b4-4717-a177-64e673ec9a66
+nein;kein_text;nur Grafik;79;;;;;;;;393;;~/p_backup/covers/c5dbc7f4-29b8-4160-8b0e-985fad9c9cc3.jpg;c5dbc7f4-29b8-4160-8b0e-985fad9c9cc3
+nein;kein_text;Foto zeigt Landkarte;80;;;;;;;;141;9783828935716;~/p_backup/covers/37858ad2-5f4b-47c1-8562-2d73f0fb7975.jpg;37858ad2-5f4b-47c1-8562-2d73f0fb7975
+nein;kein_text;nur Grafik;81;;;;;;;;104;;~/p_backup/covers/579842e0-1102-45dc-81c4-2e5a7cc1beb4.jpg;579842e0-1102-45dc-81c4-2e5a7cc1beb4
+nein;pruefen;Buchrücken 'London – In den Wäldern', Vorname ergänzt;82;;In den Wäldern;;;Jack London;;;316;;~/p_backup/covers/3490552f-efcb-4467-be49-9f71a085aee7.jpg;3490552f-efcb-4467-be49-9f71a085aee7
+nein;kein_text;Foto zeigt Bildschirm;83;;;;;;;;118;;~/p_backup/covers/c35a65a7-1e22-41a4-a1dc-20cd1cc8d7e4.jpg;c35a65a7-1e22-41a4-a1dc-20cd1cc8d7e4
+ja;auto;;84;;Im Zeichen der roten Rose;;;Sharon Sala;;;348;9783899418385;~/p_backup/covers/2bcbd24f-5e31-4846-b1c4-3b067789c638.jpg;2bcbd24f-5e31-4846-b1c4-3b067789c638
+ja;auto;;85;;Liebe ist die Lösung;;;Werner Ablass;;Omega;225;;~/p_backup/covers/7becb06b-e774-4a54-9eb4-868bf0017e48.jpg;7becb06b-e774-4a54-9eb4-868bf0017e48
+ja;auto;;86;;Der Mond am anderen Ende der Welt;;;Barbara Bickmore;;Weltbild;654;4026411172804;~/p_backup/covers/7f495748-8139-4e32-93f0-595adc0d2d06.jpg;7f495748-8139-4e32-93f0-595adc0d2d06
+ja;auto;;87;;Der Teufel zu Pferde;;;Victoria Holt;;Knaur;319;;~/p_backup/covers/79d6ec66-537c-4cd6-8d5b-6d327132daf8.jpg;79d6ec66-537c-4cd6-8d5b-6d327132daf8
+ja;auto;;88;;Dunkelgrüner Tod;;;Michael Hastings;;;316;;~/p_backup/covers/27564a01-b5c1-4b05-9c6f-e3cda19e5dfe.jpg;27564a01-b5c1-4b05-9c6f-e3cda19e5dfe
+nein;kein_text;nur 'Drei Romane';89;;;;;;;;476;;~/p_backup/covers/955937cf-c20a-444f-b4ca-29065922d49e.jpg;955937cf-c20a-444f-b4ca-29065922d49e
+nein;kein_text;Foto zeigt kein Cover;90;;;;;;;;766;;~/p_backup/covers/add58c56-a0d3-4e5f-80f2-2674230856dc.jpg;add58c56-a0d3-4e5f-80f2-2674230856dc
+ja;auto;;91;;Kinderplanet;oder Das Elend der Kinder in der Großstadt;;"Karin Günther-Thoma; Regina Henze; Linette Schönegge";;rororo;189;;~/p_backup/covers/dc329fc6-5a4b-4e47-b227-a34e26e1dc8f.jpg;dc329fc6-5a4b-4e47-b227-a34e26e1dc8f
+nein;kein_text;Foto zeigt kein Cover;92;;;;;;;;383;;~/p_backup/covers/8b3ada62-0c59-4ae4-bebd-c0765170af36.jpg;8b3ada62-0c59-4ae4-bebd-c0765170af36
+ja;auto;;93;;Eine glückliche Ehe;;;Heinz G. Konsalik;;;254;;~/p_backup/covers/d42b370b-16d1-44d8-a793-6601dffe467f.jpg;d42b370b-16d1-44d8-a793-6601dffe467f
+ja;auto;;94;;Ich bewundere ...;Liebeserklärungen an das Theater;;Theo Lingen;;Piper;142;;~/p_backup/covers/b4f85a13-764e-4254-b544-fe1a47b5855c.jpg;b4f85a13-764e-4254-b544-fe1a47b5855c
+ja;auto;;95;;Die Abenteuer des Arthur Gordon Pym;;;Edgar Allan Poe;;;229;;~/p_backup/covers/fab37f51-8d36-4b75-a453-1caa1cbd564b.jpg;fab37f51-8d36-4b75-a453-1caa1cbd564b
+ja;auto;;96;;Nacht der Stachelschweine;Laura Gottbergs erster Fall;;Felicitas Mayall;;Kindler;381;0000000122104;~/p_backup/covers/7acec898-7654-46e6-91f9-739e1e949e51.jpg;7acec898-7654-46e6-91f9-739e1e949e51
+ja;auto;Vorwort Franz Josef Strauß;97;;Die amerikanische Herausforderung;;;Jean-Jacques Servan-Schreiber;;;382;;~/p_backup/covers/bc4e5235-de92-41a3-b89d-18314828ca5b.jpg;bc4e5235-de92-41a3-b89d-18314828ca5b
+ja;auto;;98;;Lena;;;Hanna Johansen;;;155;;~/p_backup/covers/791963f8-e0c7-4748-b2d3-e42ca66e7f46.jpg;791963f8-e0c7-4748-b2d3-e42ca66e7f46
+nein;kein_text;Foto zeigt kein Cover;99;;;;;;;;482;;~/p_backup/covers/7b34fbc3-a38d-4fe1-b98a-55c8607bea2e.jpg;7b34fbc3-a38d-4fe1-b98a-55c8607bea2e
+nein;pruefen;vom Buchrücken, Autor nicht lesbar;100;;Zum letzten Meer;;;;;;353;;~/p_backup/covers/af937bb6-a130-42ce-ae93-7180e0150cba.jpg;af937bb6-a130-42ce-ae93-7180e0150cba
+ja;auto;;101;;Flucht in die Sucht?;;;Evelyn Heilscher;;;127;7045851071;~/p_backup/covers/1bddfdea-9590-4147-9c88-d52becd4be58.jpg;1bddfdea-9590-4147-9c88-d52becd4be58
+nein;pruefen;Autor angeschnitten, ergänzt;102;;Die Iden des März;;;Thornton Wilder;;Fischer Bücherei;205;;~/p_backup/covers/b0aa5f83-a82d-4423-9a54-da6d137e2b80.jpg;b0aa5f83-a82d-4423-9a54-da6d137e2b80
+nein;kein_text;angeschnitten ('Nikos No…', 'Sam…', 'die Insel…');103;;;;;;;;124;;~/p_backup/covers/bbaf2357-5c62-4ab5-bf53-4ba6e69fe25a.jpg;bbaf2357-5c62-4ab5-bf53-4ba6e69fe25a
+ja;auto;vom Buchrücken;104;;Der Sizilianer;;;Mario Puzo;;;479;;~/p_backup/covers/f6303f11-b6eb-48f7-a9e3-b2ea61fde6cc.jpg;f6303f11-b6eb-48f7-a9e3-b2ea61fde6cc
+nein;kein_text;nur Grafik;105;;;;;;;;192;;~/p_backup/covers/ba10a23b-f8f1-4cab-ad22-6ec55b66741d.jpg;ba10a23b-f8f1-4cab-ad22-6ec55b66741d
+nein;pruefen;Anthologie, kein Autor;106;;30 neue Erzähler des neuen Russland;;;;;;618;;~/p_backup/covers/0fcb6ab1-270f-4b58-b4c4-919ed6c22527.jpg;0fcb6ab1-270f-4b58-b4c4-919ed6c22527
+ja;auto;;107;;Die geheime Welt der Frauen;;;Ilana Stanger-Ross;;;245;;~/p_backup/covers/6be420b5-a125-4fe5-ba98-d231a6918a27.jpg;6be420b5-a125-4fe5-ba98-d231a6918a27
+nein;kein_text;Foto zeigt eine Textseite;108;;;;;;;;310;;~/p_backup/covers/427f710c-cdd7-4b65-b57d-37f4402d1a6c.jpg;427f710c-cdd7-4b65-b57d-37f4402d1a6c
+nein;kein_text;Foto zeigt kein Cover;109;;;;;;;;111;;~/p_backup/covers/edb51fa1-92a4-4a1b-b5e0-84bc66b10ca3.jpg;edb51fa1-92a4-4a1b-b5e0-84bc66b10ca3
+nein;pruefen;Autorin nur klein im Bild;110;;Schön und selbstbewusst;Makeup-Tipps für einen fantastischen Look;;Bobbi Brown;;teNeues;;716170109626;~/p_backup/covers/ac7d9037-fdf6-4784-9b31-6b8723283a74.jpg;ac7d9037-fdf6-4784-9b31-6b8723283a74
+nein;kein_text;nur Grafik;111;;;;;;;;;9783870703387;~/p_backup/covers/63b2fe56-4860-4a6e-930a-316b1d63859a.jpg;63b2fe56-4860-4a6e-930a-316b1d63859a
+ja;auto;;112;;»Du bist nicht so wie andre Mütter«;Die Geschichte einer leidenschaftlichen Frau;;Angelika Schrobsdorff;;;510;;~/p_backup/covers/4a049fff-8154-4279-adb1-a1f00f8f1c46.jpg;4a049fff-8154-4279-adb1-a1f00f8f1c46
+ja;auto;;113;;Kamtschatka;Eine Reise ans Ende der Welt;;Eugene Kaspersky;;;68;;~/p_backup/covers/8f3965fb-8fe5-4b60-a740-bb42ab523aba.jpg;8f3965fb-8fe5-4b60-a740-bb42ab523aba
+ja;auto;englische Ausgabe;114;;The Temple of My Familiar;;;Alice Walker;;Pocket Books;417;0767140065;~/p_backup/covers/27da2e40-ad32-43e4-a44a-84068c361ae4.jpg;27da2e40-ad32-43e4-a44a-84068c361ae4
+nein;pruefen;Vorname angeschnitten, ergänzt;115;;Die Frauen Sigmund Freuds;;;"Lisa Appignanesi; John Forrester";;;773;;~/p_backup/covers/e31839f5-2581-4457-988e-cb86b19b97c0.jpg;e31839f5-2581-4457-988e-cb86b19b97c0
+nein;pruefen;Herausgeberin nur japanisch angegeben;116;;Japanese Fairy Tales;Wood-Block-Illustrated Crepe-Paper Books of the Meiji Period (1868–1912);;;;;249;1920071025001;~/p_backup/covers/3d5cfe2c-c076-4444-b2ec-ccdb87e0fd5d.jpg;3d5cfe2c-c076-4444-b2ec-ccdb87e0fd5d
+nein;pruefen;"vom Buchrücken; Herausgeberin (Hrsg.)";117;;Sommer am Meer und anderswo;;;Iris Grädler;;;350;;~/p_backup/covers/babf68fc-7061-460f-95da-4c6b6c055e94.jpg;babf68fc-7061-460f-95da-4c6b6c055e94
+ja;auto;;118;;Für immer die Alpen;;;Benjamin Quaderer;;Luchterhand;585;;~/p_backup/covers/c7d28ad4-d7ed-4bfc-ace8-0073d240917d.jpg;c7d28ad4-d7ed-4bfc-ace8-0073d240917d
+ja;auto;;119;;Aufstand der Soldaten;Roman des 20. Juli 1944;;Hans Hellmut Kirst;;;457;;~/p_backup/covers/c0eb9ed9-eacf-4b8f-8822-6bbebde11b83.jpg;c0eb9ed9-eacf-4b8f-8822-6bbebde11b83
+ja;auto;;120;;Expedition Ra;Mit dem Sonnenboot in die Vergangenheit;;Thor Heyerdahl;;rororo;;349916864;~/p_backup/covers/ed1d129e-3dfc-4bde-9786-c0654b66c1eb.jpg;ed1d129e-3dfc-4bde-9786-c0654b66c1eb
+nein;pruefen;Apa Guides, kein Autor;121;Apa Guides;;;Leonhard Lueras;;;Nelles;410;9783886189922;~/p_backup/covers/b804c2cc-1c4c-4891-bdfd-b464699ed7f0.jpg;b804c2cc-1c4c-4891-bdfd-b464699ed7f0
+ja;auto;Heyne Biographien;122;;Lenin;Geburt des Bolschewismus;;David Shub;;Heyne;492;;~/p_backup/covers/65b6e3df-204c-43b8-b81b-17fca4121782.jpg;65b6e3df-204c-43b8-b81b-17fca4121782
+ja;auto;;123;;Die geheimen Verführer;Der Griff nach dem Unbewußten in jedermann;;Vance Packard;;Ullstein;195;;~/p_backup/covers/960db4fa-7891-413f-bbd7-dc6885a2de4e.jpg;960db4fa-7891-413f-bbd7-dc6885a2de4e
+ja;auto;;124;Zeugen der Anklage;;;Günter Wallraff;;;Kiepenheuer & Witsch;;34620137;~/p_backup/covers/45be2c4b-d314-4b74-a40a-02ef5bb14d4b.jpg;45be2c4b-d314-4b74-a40a-02ef5bb14d4b
+ja;auto;;125;;Die Madonna von Saronno;;;Marina Fiorato;;Weltbild;351;4026411391359;~/p_backup/covers/7880b36b-bd3d-4529-bbdd-ba57b50ad73e.jpg;7880b36b-bd3d-4529-bbdd-ba57b50ad73e
+ja;auto;;126;;Ich vergaß, dass ich dich vergaß, ich, der ich nichts vergesse;;;Gabriel Mendoza;;Scherz;318;;~/p_backup/covers/5c670a6c-f1c8-46ee-afe5-afd4cb8871cc.jpg;5c670a6c-f1c8-46ee-afe5-afd4cb8871cc
+ja;auto;;127;;Désirée;;;Annemarie Selinko;;;623;;~/p_backup/covers/8e1ee030-8e59-4b36-ad44-0c2f78d0de6f.jpg;8e1ee030-8e59-4b36-ad44-0c2f78d0de6f
+ja;auto;;128;;Salz der Hoffnung;;;Patricia Shaw;;;510;;~/p_backup/covers/9d1b0288-e284-4a7e-b57b-f66293029ff6.jpg;9d1b0288-e284-4a7e-b57b-f66293029ff6
+nein;pruefen;vom Buchrücken ('Th. A. Dooley'), Vorname ergänzt;129;;Arzt am Bambusvorhang Indochinas;;;Thomas A. Dooley;;;479;;~/p_backup/covers/5cf52a88-afac-46db-a188-755b7e2b20de.jpg;5cf52a88-afac-46db-a188-755b7e2b20de
+ja;auto;;130;;Des Kaisers Kulis;;;Theodor Plievier;;;273;;~/p_backup/covers/fb015f6f-406e-4eb0-a636-385bdf1fab25.jpg;fb015f6f-406e-4eb0-a636-385bdf1fab25
+ja;auto;vom Buchrücken;131;;Burg vorhanden, Prinz gesucht;;;Susanna Kubelka;;;334;;~/p_backup/covers/01129a0b-7984-421a-8c12-7d860208246f.jpg;01129a0b-7984-421a-8c12-7d860208246f
+ja;auto;;132;;Eishölle;;;Jack Higgins;;Goldmann;181;2442065437;~/p_backup/covers/4d29059e-6586-41c0-ad59-aafb0727995f.jpg;4d29059e-6586-41c0-ad59-aafb0727995f
+ja;auto;;133;;Wer stirbt schon gerne unter Palmen;Der Sohn;;Heinz G. Konsalik;;;238;;~/p_backup/covers/42fb035d-0edc-40a0-ad08-90c902cee912.jpg;42fb035d-0edc-40a0-ad08-90c902cee912
+nein;pruefen;kein Autor sichtbar;134;;Naturmedizin heute;Gesund werden mit sanften Mitteln und Methoden;;;;;750;;~/p_backup/covers/fa9ac3e4-461b-4f9d-8d5d-c6e0fe22b4c5.jpg;fa9ac3e4-461b-4f9d-8d5d-c6e0fe22b4c5
+ja;auto;englische Ausgabe;135;;A Thief of Time;;;Tony Hillerman;;;334;9780994550040;~/p_backup/covers/6f267525-45e5-4a48-bec0-cf233446dec3.jpg;6f267525-45e5-4a48-bec0-cf233446dec3
+ja;auto;;136;;Das Yin und Yang der Ernährung;Das Handbuch der chinesischen Ernährungslehre;;"Bob Flaws; H. Lee Wolfe";;Heyne;287;9783453093645;~/p_backup/covers/73b33798-b343-4237-8008-1c51405a242b.jpg;73b33798-b343-4237-8008-1c51405a242b
+nein;kein_text;;137;Schon hegon! I Amerikas Allhacht und Ohr;;;Robert Jungk;;;;;;~/p_backup/covers/6021a81a-bd65-44d3-b796-c958bd99212b.jpg;6021a81a-bd65-44d3-b796-c958bd99212b
+nein;kein_text;gleiches Foto wie Nr. 137 – Doppeleintrag?;138;Schon hegon! I Amerikas Allhacht und Ohr;;;Robert Jungk;;;;;;~/p_backup/covers/e31d7af5-f20d-46d6-8a44-20a0cf18b1dd.jpg;e31d7af5-f20d-46d6-8a44-20a0cf18b1dd
+nein;kein_text;gleiches Foto wie Nr. 137 – Doppeleintrag?;139;Schon hegon! I Amerikas Allhacht und Ohr;;;Robert Jungk;;;;234;;~/p_backup/covers/e05e9668-e654-40e7-934e-f0cce9695a35.jpg;e05e9668-e654-40e7-934e-f0cce9695a35
+nein;kein_text;;140;Die grüssten spioninnen der welt;;;Kurt Singer;;;;301;;~/p_backup/covers/ad271b64-c8e1-4034-a199-56fdeec84642.jpg;ad271b64-c8e1-4034-a199-56fdeec84642
+ja;auto;;141;Die elfte Jungfrau;;;Schacht;;;Weltbild;;;~/p_backup/covers/0f11a033-d919-4296-ad07-9942ff70e4e4.jpg;0f11a033-d919-4296-ad07-9942ff70e4e4
+nein;pruefen;gleiches Cover wie Nr. 141 – Doppeleintrag?;142;;Die elfte Jungfrau;;;Andrea Schacht;;Weltbild;560;4026411409160;~/p_backup/covers/3dbd963f-b2c6-4fba-b31f-aa3ed7c180a8.jpg;3dbd963f-b2c6-4fba-b31f-aa3ed7c180a8
+nein;kein_text;;143;Love Story;;;Erich Segal;;;;155;;~/p_backup/covers/b6410de6-5e70-47ae-a774-c9ee71edf947.jpg;b6410de6-5e70-47ae-a774-c9ee71edf947
+ja;auto;Young Bond;144;;James Bond – Zurück kommt nur der Tod;;;Charlie Higson;;Arena;;;~/p_backup/covers/794d5d0c-788c-466b-ab51-f45d76455fbf.jpg;794d5d0c-788c-466b-ab51-f45d76455fbf
+ja;auto;Originaltitel Watership Down;145;;Unten am Fluß;;;Richard Adams;;Ullstein;438;3548045086;~/p_backup/covers/a11e0cc0-08cf-4a18-ab53-313c3cfeca37.jpg;a11e0cc0-08cf-4a18-ab53-313c3cfeca37
+ja;auto;;146;;Realitätsschock;Zehn Lehren aus der Gegenwart;;Sascha Lobo;;Kiepenheuer & Witsch;390;;~/p_backup/covers/f6a0f256-7510-43dc-bd55-28b2aa5f97ef.jpg;f6a0f256-7510-43dc-bd55-28b2aa5f97ef
+nein;pruefen;gleiches Buch wie Nr. 146 – Doppeleintrag?;147;;Realitätsschock;Zehn Lehren aus der Gegenwart;;Sascha Lobo;;Kiepenheuer & Witsch;390;;~/p_backup/covers/6006cd4a-d68a-46e7-9a7c-ad91774f249e.jpg;6006cd4a-d68a-46e7-9a7c-ad91774f249e
+nein;pruefen;"Zeichnungen von Paul Flora; kein Autor sichtbar";148;;Warum lesen? Warum nicht?;Gedanken und Sprüche;;;;Diogenes;;;~/p_backup/covers/4aa1686b-a7d3-4613-8bd3-625cc95bfa17.jpg;4aa1686b-a7d3-4613-8bd3-625cc95bfa17
+ja;auto;aus normalized/ gelesen;149;;Täglich OM;Inspirierende Gedanken für einen gesunden, glücklichen und erfüllenden Tag;;Madisyn Taylor;;Goldmann;336;;~/p_backup/covers/252f8767-18cb-496d-9ffc-51d3f24f12e9.jpg;252f8767-18cb-496d-9ffc-51d3f24f12e9
+nein;kein_cover;kein Cover im Backup;;;;;;;;;;3548045086;;6b05e3f1-5857-4b2b-abad-29e2e4606ce2
+nein;kein_cover;kein Cover im Backup;;;;;;;;;;3548045086;;d52bdb43-5ac9-46cb-9594-7526e174f240
+nein;kein_cover;kein Cover im Backup;;;;;;;;;390;;;3c8c10ea-4935-4bd3-aa8c-7eec8d7ace74
+nein;kein_cover;kein Cover im Backup;;;;;;;;;390;;;a1edfb18-81ba-4922-a911-b7cf191ead3f
+nein;kein_cover;kein Cover im Backup;;;;;;;;;;3548045086;;e09ab736-c607-4942-85a6-b636ed74651b
+nein;kein_cover;kein Cover im Backup;;;;;;;;;390;;;d3f597a8-4218-4e91-8c95-86ad3c2ee391
+nein;kein_cover;kein Cover im Backup;;;;;;;;;390;;;16fa7779-249a-4eb1-beab-697c757249e2
+nein;kein_cover;kein Cover im Backup;;;;;;;;;390;;;dfdc69ee-7426-4ad7-a706-2b576f684fc0
+nein;kein_cover;kein Cover im Backup;;;;;;;;;390;;;1c7424e4-846d-4a14-b1d8-f2b298e805db
+nein;kein_cover;kein Cover im Backup;;;;;;;;;390;;;45dd30f9-7b2a-4ff2-88af-9b9a0db40d51
+nein;kein_cover;kein Cover im Backup;;;;;;;;;390;;;c09f1873-bbf2-4d5a-b544-4283751a95ab
+nein;kein_cover;kein Cover im Backup;;Artcities: Griechische Inseln;;;;;P.A.R. Verlag;;;;;1deed4a6-e8ab-40a7-a9de-ae4f4d949c6e
+nein;kein_cover;kein Cover im Backup;;;;;;;;;;;;5ef12b27-38b3-4da7-a1e0-fe3481151539
+nein;kein_cover;kein Cover im Backup;;;;;;;;;;;;527cc060-9a33-4c35-abed-7457776f1e3a
+nein;kein_cover;kein Cover im Backup;;;;;;;;;;;;71c810af-406f-4160-863c-44f5dc04bd40
+nein;kein_cover;kein Cover im Backup;;;;;;;;;;;;0a947482-4359-46c3-9a1a-52b88c2ed375
+nein;kein_cover;kein Cover im Backup;;;;;;;;;;;;89028e4c-4061-4459-821a-fa7ad3a85935
+nein;kein_cover;kein Cover im Backup;;;;;;;;;;;;3414d9e6-cf82-46a6-b5ab-6ddc3959b636

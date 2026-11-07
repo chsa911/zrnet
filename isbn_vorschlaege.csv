@@ -1,0 +1,598 @@
+﻿uebernehmen;status;begruendung;reading_status;isbn;seiten_db;seiten_gefunden;titel_db;titel_neu;untertitel_neu;autor_db;autor_neu;autor_abgleich;verlag_db;verlag_neu;verlag_abgleich;jahr_ausgabe;quelle;id
+nein;pruefen;DNB (+OpenLibrary), Seiten passen, kein Autor gefunden;in_stock;9783442151882;222;222;Denn Du trägst meinen Namen. Das schwere Erbe der prominenten Nazi- Kinder.;;;;;;Goldmann;;;2002;DNB;38cf173a-80aa-4141-8219-8de445f9ee0b
+nein;pruefen;DNB, Seiten weichen ab (20 statt 320) – ISBN falsch?;in_stock;9783453360785;320;20;;Die Frauen von Salaga;Roman;;Ayesha Harruna Attah;neu;;Diana;vorhanden (gleich): Diana;2021;DNB;ec385a19-964a-4687-b327-8c7f7b267a97
+ja;auto;DNB, Seiten passen;in_stock;9783829727006;148;148;;Ägypten;;;"Jürgen Stryjak; Lamya Rauch-Rateb";neu;;Mairdumont GmbH & Co. KG;vorhanden (gleich): MairDumont;2019;DNB;830bf945-2115-4caf-9e8c-0eb3f97a7ab2
+nein;ohne_isbn;ISBN fehlt/ungültig – Cover nötig;in_stock;;240;;;;;;;;;;;;;09733b21-7d81-4a24-bc5f-b677eb2639c6
+ja;auto;DNB;in_stock;9783734570988;147;;;Das Leben könnte so schwer sein;Roman in dreizehneinhalb Geschichten;;"Irmgard Rosina Bauer; Irmgard Bauer";neu;;tredition;vorhanden (gleich): tredition;2016;DNB;dda4ebda-3d76-4d29-84ae-225e6fb84c3f
+nein;pruefen;DNB, Seiten weichen ab (163 statt 193) – ISBN falsch?;in_stock;9783407781529;193;163;;Wie Alfred berühmt wurde und andere Erzählungen für Kinder;;;Karin Bolte;neu;;Beltz und Gelberg;vorhanden (gleich): Beltz & Gelberg;1993;DNB;03ebac29-e999-4eb9-8b9c-452f0e952f0a
+nein;pruefen;DNB, Seiten passen, kein Autor gefunden;in_stock;9783453645295;287;287;;Lippenbekenntnisse;Frauen sprechen über Sex;;;;;Heyne;vorhanden (gleich): Heyne;2011;DNB;72542819-be0f-4505-ba44-030eee8d28e7
+ja;auto;DNB, Seiten passen;in_stock;9783453480292;511;511;;Deutsche Geschichte im letzten Jahrhundert;von 1848 - 1960;;Paul Sethe;neu;;Heyne;vorhanden (gleich): Heyne;1981;DNB;411e2f00-649b-43c6-ab24-b2fd7330732f
+ja;auto;DNB, Seiten passen;in_stock;9783485010764;316;316;;Die Macht des Geistes;nutzen Sie meine Geheimnisse für Wohlstand, Gesundheit und Glück;;Uri Geller;neu;;Nymphenburger;vorhanden (gleich): Nymphenburger;2006;DNB;290c35e0-4c3e-41a5-aea9-1c2ceb705a7a
+nein;ohne_isbn;ISBN fehlt/ungültig – Cover nötig;in_stock;;407;;;;;;;;;;;;;b4ea830b-e86b-4cd9-a61f-eb36748a509d
+ja;auto;DNB, Seiten passen;in_stock;9783492257473;317;317;;Niemand riecht so gut wie du;die geheimen Botschaften der Düfte;;"Hanns Hatt; Regine Dee";neu;;München;neu;2010;DNB;66c9007f-8de7-4221-bf54-dd557fdb53cc
+ja;auto;DNB (+OpenLibrary), Seiten passen;in_stock;9783768852128;317;317;;Sprinterjahre;Glanz und Schatten einer Radsportkarriere;;Marcel Wüst;neu;;Delius Klasing;vorhanden (gleich): Delius Klasing Verlag GmbH;2004;DNB;c149b58a-0ad3-4e14-92e6-6027bba9951f
+ja;auto;DNB, Seiten passen;in_stock;9783453354302;191;191;;Die Schachspielerin;Roman zum Film;;Bertina Henrichs;neu;;Diana-Verl.;neu;2010;DNB;3cbb88f3-bd07-43f2-aa60-b789c6363c9d
+ja;auto;DNB, Seiten passen;in_stock;9783038125099;175;175;;Wiedersehen mit Scheich Khalid;;;Verena Wermuth;vorhanden: Verena Wermuth;;Weltbild;vorhanden (gleich): Weltbild;2013;DNB;2c93c2cc-2cbe-4715-b3bc-783dd2bbee94
+nein;ohne_isbn;ISBN fehlt/ungültig – Cover nötig;in_stock;0277780049;616;;;;;;;;;;;;;c54a3179-ee17-4279-ad9b-a5c6f508e3f3
+ja;auto;DNB, Seiten passen;in_stock;9783453405721;189;189;;Der Fundamentalist, der keiner sein wollte;Roman;;Mohsin Hamid;neu;;Heyne;vorhanden (gleich): Heyne;2008;DNB;878c68c3-0227-4079-a00f-5069bf35b029
+ja;auto;DNB, Seiten passen;in_stock;9783451061301;224;224;;Das Geheimnis ist immer die Liebe;in den Slums von Chile;;Karoline Mayer;neu;;Freiburg, Br.;vorhanden (ähnlich): br.;2010;DNB;933c8bc0-e5bd-41fa-b208-8836cb8373b7
+ja;auto;DNB, Seiten passen;in_stock;9783471781432;397;397;;Desideria;Roman;;Alberto Moravia;vorhanden: Alberto Moravia;;List;vorhanden (gleich): List;1979;DNB;55ec2b1d-d128-482f-85a4-291497c55759
+nein;pruefen;DNB (+OpenLibrary), Seiten passen, kein Autor gefunden;in_stock;9783886740062;320;320;Traumland Amerika;;;;;;Arcade;;;1982;DNB;2e1cffd0-b93f-4e53-acb5-45ca3409b11f
+ja;auto;DNB;in_stock;9783453170759;366;;;Am Anfang war der Seitensprung;der Roman zum großen Fernsehfilm;;Amelie Fried;neu;;Heyne;vorhanden (gleich): Heyne;2000;DNB;5eeeafd5-b533-46ef-9e8f-cc67ec1b2f3b
+ja;auto;DNB (+OpenLibrary), Seiten passen;in_stock;9783612260628;287;287;;Edzard Reuter;;;Hans Otto Eglau;neu;;Düsseldorf;neu;1993;DNB;63de3109-a304-49aa-97c3-b1a7bb480b8f
+ja;auto;DNB, Seiten passen;in_stock;9783894168391;791;791;;China-Manual :;;;"Andrea Fülling; Oliver Fülling";neu;;Reise-Know-How-Verl. Rump;neu;2000;DNB;19df7190-f988-4de7-a9e3-50f4171f683e
+ja;auto;DNB, Seiten passen;in_stock;9783593381183;246;246;;Die 10 größten Führungsfehler - und wie Sie sie vermeiden;;;Maren Lehky;neu;;Frankfurt/Main;neu;2007;DNB;3e1bd6ba-bc8f-4f82-bb50-beb9f1a37a3d
+ja;auto;DNB, Seiten passen;in_stock;9783492070898;255;255;;Dreckiges Geld;wie Putins Oligarchen, die Mafia und Terroristen die westliche Demokratie angreifen;;"Andreas Frank; Markus Zydra";neu;;Piper;vorhanden (gleich): Piper;2022;DNB;12b9fde1-c3e1-47dd-bbd6-21737bfeb038
+nein;pruefen;OpenLibrary;in_stock;9783548023397;188;;;Der bunte Schleier;;;William Somerset Maugham;neu;;Ullstein Verlag;vorhanden (gleich): Verlag Ullstein;1972;OpenLibrary;7ae1cffc-e29f-4ed9-bb5c-229d780cabb6
+ja;auto;DNB (+OpenLibrary), Seiten passen;in_stock;9783785704462;288;288;;Die Seidenstrasse;antike Weltkultur zwischen China u. Rom;;Helmut Uhlig;vorhanden: Helmut Uhlig;;Lübbe;vorhanden (gleich): Lübbe;1988;DNB;6623f502-bdf2-4c9c-963a-3cfe2d99fe30
+nein;pruefen;DNB (+OpenLibrary), Seiten weichen ab (368 statt 307) – ISBN falsch?;in_stock;9783770136797;307;368;;Cuba;;;Ulli Langenbrinck;neu;;DuMont-Reiseverl.;vorhanden (ähnlich): DuMont;2005;DNB;1982e405-c570-4ecc-9352-23acb16d8767
+ja;auto;DNB (+OpenLibrary), Seiten passen;in_stock;9783785704134;280;280;;Tibet;e. verbotenes Land öffnet seine Tore;;Helmut Uhlig;vorhanden: Helmut Uhlig;;Lübbe;vorhanden (gleich): Lübbe;1986;DNB;5da666ac-43b1-48e5-a011-964e9d627293
+ja;auto;DNB (+OpenLibrary), Seiten passen;in_stock;9783421055064;272;272;;Der Angriff;Bill Gates und die Zerschlagung von Microsoft;;John Heilemann;neu;;Stuttgart;neu;2001;DNB;c36974ff-2a2f-44f0-b2ce-d3833361c47e
+ja;auto;DNB (+OpenLibrary), Seiten passen;in_stock;9783455018011;265;265;;Tee mit dem Teufel;als deutscher Militärarzt in Afghanistan;;Reinhard Erös;vorhanden: Reinhard Erös;;Hoffmann und Campe;vorhanden (gleich): Hoffmann und Campe;2002;DNB;77d41c1d-ac2c-4c2d-9234-caac208c1d0c
+ja;auto;DNB (+OpenLibrary), Seiten ~;in_stock;9783453211827;446;385;;Nein und Amen;mein Abschied vom traditionellen Christentum;;Uta Ranke-Heinemann;vorhanden: Uta Ranke Heinemann;;Heyne;vorhanden (gleich): Heyne;2002;DNB;734a7aa3-dae1-4194-8b63-206bb4e993f0
+ja;auto;DNB, Seiten passen;in_stock;9783453471146;319;319;;Die Mörder von Karthago;Roman;;Gisbert Haefs;vorhanden: Gisbert Haefs;;Heyne;vorhanden (gleich): Heyne;2012;DNB;147464b7-c1f3-4178-9564-910591fa1f9d
+ja;auto;DNB (+OpenLibrary), Seiten passen;in_stock;9783502105053;415;415;Der letzte Samurai;;;C W Nicol;;;;Bern;vorhanden (ähnlich): Huber, Bern;1988;DNB;2c6c1413-dc1c-4c51-a48f-36f9d13aff38
+nein;ohne_isbn;ISBN fehlt/ungültig – Cover nötig;in_stock;;360;;;;;;;;;;;;;784b07b2-fc3f-40c1-9220-f8c7bc8d5d07
+nein;ohne_isbn;ISBN fehlt/ungültig – Cover nötig;in_stock;;304;;;;;;;;;;;;;ed0c3bdf-3418-4645-b949-1d3f3237b57e
+nein;ohne_isbn;ISBN fehlt/ungültig – Cover nötig;in_stock;;126;;;;;;;;;;;;;ff1d16c9-4cb7-4d0f-ac47-83bc6ae82a57
+nein;ohne_isbn;ISBN fehlt/ungültig – Cover nötig;in_stock;;304;;;;;;;;;;;;;a45fdaf8-7668-4a36-9b6a-dba7fd88e051
+nein;ohne_isbn;ISBN fehlt/ungültig – Cover nötig;in_stock;;319;;;;;;;;;;;;;15aa4785-c260-476e-ad20-0e1a372bca47
+nein;ohne_isbn;ISBN fehlt/ungültig – Cover nötig;in_stock;;302;;;;;;;;;;;;;6b709eb9-68a9-49e0-8f7d-73ec27a910a5
+ja;auto;DNB, Seiten passen;in_stock;9783466344895;230;230;;Schicksal ist machbar;Erfolg und Erfüllung durch die 7 Bewusstseinsstufen;;Marianne Streuer;neu;;Kösel;vorhanden (gleich): koesel;2005;DNB;20153e84-a4fb-4bad-bdc7-af036a1e1e8b
+nein;ohne_isbn;ISBN fehlt/ungültig – Cover nötig;in_stock;;190;;;;;;;;;;;;;6e0eab6c-40b6-4ef8-bf1c-e009a30f0cbf
+ja;auto;DNB, Seiten passen;in_stock;9783453060340;252;252;;Aus eigener Kraft;mit dem Fahrrad nach Indien;;Dervla Murphy;vorhanden: Dervla Murphy;;Heyne;vorhanden (gleich): Heyne;1995;DNB;4f9a1cec-4e57-4fde-bde4-43d182eabba0
+ja;auto;DNB, Seiten passen;in_stock;9783453022423;495;495;;Frühlingsmond;eine Familiensaga aus China;;Bette Lord;neu;;Heyne;vorhanden (gleich): Heyne;1989;DNB;24df8bfe-f261-4574-b15d-c32a43123b81
+nein;ohne_isbn;ISBN fehlt/ungültig – Cover nötig;in_stock;;236;;;;;;;;;;;;;f8c7b45d-c3fe-444a-b3e8-4beb8d39fbe1
+ja;auto;DNB, Seiten passen;in_stock;9783589234288;134;134;;Selbstmanagement;Erfolgsfaktoren beachten und systematisch nutzen;;Susanne Watzke-Otte;neu;;Cornelsen;neu;2008;DNB;ab8b618e-65e1-4b91-b4e7-d85df47dfc19
+nein;ohne_isbn;ISBN fehlt/ungültig – Cover nötig;in_stock;;376;;;;;;;;;;;;;c71594c5-61ce-4398-8fdb-816aace103fd
+nein;ohne_isbn;ISBN fehlt/ungültig – Cover nötig;in_stock;;611;;;;;;;;;;;;;0157b740-17d4-4a92-ad1d-c253b76fc715
+ja;auto;DNB, Seiten passen;in_stock;9783492308892;330;330;;Mut für zwei;mit der Transsibirischen Eisenbahn in unsere neue Welt;;Julia Malchow;neu;;München;neu;2017;DNB;2fae2525-1369-43ed-94a1-dc6d738b8f80
+ja;auto;DNB, Seiten passen;in_stock;9783828969766;478;478;;Olympia;Roman;;Anita Shreve;vorhanden: Anita Shreve;;Weltbild;vorhanden (gleich): Weltbild;2001;DNB;e84e76c0-af5b-4bcf-a4dc-65bb57b6a7b6
+ja;auto;DNB, Seiten passen;in_stock;9783762131304;239;240;;Der Mann, der überlebte;George W. Carver und sein Werk;;Lawrence Elliott;neu;;Bahn;neu;1992;DNB;9a9cb2f1-82e2-403d-82ed-2941bf40a3e0
+nein;pruefen;DNB, Seiten passen, kein Autor gefunden;in_stock;9783829716789;916;916;;Griechenland;;;;;;MairDumont;vorhanden (gleich): MairDumont;2010;DNB;9e7392a2-8a2f-4e7c-8af0-c090713699cd
+ja;auto;DNB, Seiten passen;in_stock;9783589237951;167;167;;Die Anti-Burnout-Fibel;Selbsttraining zur Work-Life-Balance;;Jörg-Peter Schröder;neu;;Cornelsen;neu;2010;DNB;6322c69b-4105-4214-a28a-b8b6c69e2e52
+nein;pruefen;DNB, Seiten weichen ab (497 statt 318) – ISBN falsch?;in_stock;9783423305563;318;497;;Die missbrauchte Erinnerung;von einer Therapie, die Väter zu Tätern macht;;"Richard Ofshe; Ethan Watters";neu;;Dt. Taschenbuch-Verl.;vorhanden (gleich): Dt. Taschenbuch-Verl.;1996;DNB;994be0e2-4ce2-4bd5-8355-040ac1600f18
+ja;auto;DNB, Seiten passen;in_stock;9783570121726;313;313;;Die Töchter Allahs;;;Geraldine Brooks;vorhanden: Geraldine Brooks;;Bertelsmann;vorhanden (gleich): Bertelsmann Verlag;1994;DNB;f2d3086a-ff4a-4b87-8104-418021822bac
+nein;pruefen;DNB, Seiten weichen ab (284 statt 204) – ISBN falsch?;in_stock;9783548244082;204;284;;QXP;im U-Boot auf Feindfahrt;;Ernst Kaiser;neu;;Ullstein;vorhanden (gleich): Verlag Ullstein;1998;DNB;0a9a6a21-8df5-4cc1-aecc-783eebabe4cd
+ja;auto;DNB, Seiten passen;in_stock;9783518473405;394;394;;Die Erfindung des Jazz im Donbass;Roman;;Serhij Žadan;neu;;Suhrkamp;vorhanden (gleich): Suhrkamp;2022;DNB;cded0b90-9fe4-4718-abaf-dbe8f34b1676
+nein;ohne_isbn;ISBN fehlt/ungültig – Cover nötig;in_stock;0506940079;398;;;;;;;;;;;;;1fdfc360-d212-410d-8811-e5a98db00c09
+nein;ohne_isbn;ISBN fehlt/ungültig – Cover nötig;in_stock;;938;;;;;;;;;;;;;bc6b337e-92ed-432b-8ad8-71ee7aaee320
+ja;auto;DNB, Seiten passen;in_stock;9783894805135;525;525;;Indonesien;;;Holly Mitwirkender] Smith;neu;;GeoCenter-Verl.-Vertrieb;neu;1994;DNB;dec62034-90fc-4766-ac15-3252d3d2ddcc
+nein;ohne_isbn;ISBN fehlt/ungültig – Cover nötig;in_stock;;122;;;;;;;;;;;;;4fce283e-a39b-4d51-a396-20dec2b566b7
+ja;auto;DNB, Seiten passen;in_stock;9783828967083;361;361;;Enkop Ai;mein Leben mit den Massai;;Catherine Oddie;vorhanden: Catherine Oddie;;Bechtermünz-Verl.;vorhanden (ähnlich): Bechtermuenz;1999;DNB;510903df-fac9-406b-85bf-f67ec082fca6
+ja;auto;DNB (+OpenLibrary), Seiten passen;in_stock;9783458160694;196;196;Die Beschneidung;;;;György Dalos;vorhanden: György Dalos;;Insel-Verl.;neu;1990;DNB;044e815a-6388-48de-8a89-f56aa964c449
+ja;auto;DNB, Seiten passen;in_stock;9783895502651;367;375;;Namibia;Wissenswertes von Land und Leuten;;Heinrich Dannenberg;neu;;Goldstadtverl.;neu;1998;DNB;a7dc6c29-4096-4521-bb44-7617fe8a0faa
+nein;ohne_isbn;ISBN fehlt/ungültig – Cover nötig;in_stock;3920788156;318;;;;;;;;;;;;;1bbc1103-b467-4087-b468-108079a01c8d
+ja;auto;DNB, Seiten passen;in_stock;9783426760062;346;346;;Homöopathie für Frauen;;;"Marianne Meijer; Leo P. Huijsen";neu;;Droemer Knaur;vorhanden (gleich): Droemer Knaur;1995;DNB;94245f17-0dd3-4de0-a6e7-1be276569cd3
+ja;auto;DNB, Seiten passen;in_stock;9783423247924;178;178;;Die verborgene Ordnung der Dinge;Roman;;François Gantheret;neu;;Dt. Taschenbuch-Verl.;vorhanden (gleich): Dt. Taschenbuch-Verl.;2010;DNB;b797331b-078f-44c2-82a4-235eea7ecb52
+ja;auto;DNB, Seiten passen;in_stock;9783492318549;355;355;;Der Chauffeur;Roman;;Heinrich Steinfest;neu;;Piper;vorhanden (gleich): Piper;2021;DNB;69324210-292b-4f1b-b258-0e579370a36f
+ja;auto;DNB;in_stock;9783828988361;348;;;Ruf des Dschungels;;;Sabine Kuegler;vorhanden: Sabine Kuegler;;Weltbild;vorhanden (gleich): Weltbild;2007;DNB;997fa22f-dd2d-45bb-91ef-62dcff81fcba
+ja;auto;DNB, Seiten passen;in_stock;9783596162376;326;329;;"Die Fünf ""Tibeter""";das alte Geheimnis aus den Hochtälern des Himalaja lässt Sie Berge versetzen;;"Peter Kelder; Christian Salvesen";vorhanden: Peter Kelder;;Fischer;vorhanden (gleich): Fischer Taschenbuch Verlag;2004;DNB;085a0c3b-866b-475f-b88e-004ae43c831d
+ja;auto;DNB, Seiten passen;in_stock;9783572066865;188;188;;Nichts vergessen!;Kopftraining für ein Supergedächtnis;;Tony Buzan;vorhanden: Tony Buzan;;Orbis-Verl.;vorhanden (ähnlich): orbis;1991;DNB;8f365e17-6926-4341-b5ac-70179b71f213
+nein;pruefen;DNB, Seiten passen, kein Autor gefunden;in_stock;9783442096428;220;219;;Nichts geht mehr - aber spielt ruhig weiter! :;;;;;;Goldmann;vorhanden (gleich): Goldmann;1989;DNB;e4e7cddd-5813-4b6d-ac27-a96fec29c8d0
+ja;auto;DNB (+OpenLibrary), Seiten passen;in_stock;9783596113156;384;384;;Christabel;Roman;;Margaret Forster;neu;;Fischer-Taschenbuch-Verl.;vorhanden (gleich): Fischer-Taschenbuch-Verl.;1996;DNB;3b8f5768-fb01-4002-9900-9194dc487c6b
+ja;auto;DNB, Seiten passen;in_stock;9783453201569;367;364;;Der Tropfen weiß nichts vom Meer;eine Geschichte von Liebe, Kraft und Freiheit : mein afghanisches Herz;;"Mahbuba Maqsoodi; Hanna Diederichs";neu;;Heyne;vorhanden (gleich): Heyne;2017;DNB;0d9ea199-011c-4ecc-8af2-f6f176fca16e
+nein;ohne_isbn;ISBN fehlt/ungültig – Cover nötig;in_stock;;236;;;;;;;;;;;;;e1f04c9c-52a8-4241-a491-f5795717085a
+nein;ohne_isbn;ISBN fehlt/ungültig – Cover nötig;in_stock;;192;;;;;;;;;;;;;c46ad7a9-8769-4393-bae3-9898173a24b5
+ja;auto;DNB, Seiten passen;in_stock;9783866111882;233;233;;Die Mehr-Wert-Strategie;so setzen Sie höhere Preise beim Kunden durch;;Josua Fett;neu;;Pro-Literatur-Verl.;neu;2006;DNB;fea663b1-4f7f-4ff2-8206-0524ae1d5c24
+ja;auto;DNB, Seiten passen;in_stock;9783351030698;362;362;;Peking Girls;Roman;;Annie Wang;neu;;Aufbau-Verl.;vorhanden (gleich): Aufbau-Taschenbuch-Verl.;2006;DNB;8ab4d044-0124-4bb0-bb0f-61b11c2d6a62
+nein;ohne_isbn;ISBN fehlt/ungültig – Cover nötig;in_stock;;187;;;;;;;;;;;;;61c0f083-7ce1-4bc0-9482-033d08e722f0
+nein;ohne_isbn;ISBN fehlt/ungültig – Cover nötig;in_stock;0994550059;327;;;;;;;;;;;;;06b38b4e-47fe-425e-a06c-72bd8cc21500
+ja;auto;DNB (+OpenLibrary), Seiten passen;in_stock;9783502119241;349;349;Jenseits von Duala;;;;Calixthe Beyala;neu;;Bern;vorhanden (ähnlich): Huber, Bern;1998;DNB;f783e94d-5f5a-421c-8812-0416972e5ccc
+ja;auto;DNB, Seiten passen;in_stock;9783404150748;684;684;;Intruder;Roman;;Wolfgang Hohlbein;vorhanden: Wolfgang Hohlbein;;Bastei-Verl. Lübbe;neu;2004;DNB;fed90904-93c6-41f6-b5e7-d5b5ab1b8e53
+ja;auto;DNB, Seiten passen;in_stock;9783453606197;349;349;;Eine Liebe in Paris - Romy & Alain;;;Thilo Wydra;neu;;Wilhelm Heyne Verlag;vorhanden (gleich): Wilhelm Heyne Verlag GmbH & Co KG;2022;DNB;89237242-0ac2-4054-93a2-3c00019ced04
+ja;auto;DNB, Seiten passen;in_stock;9783426307717;413;413;;Die Königin von Berlin;sie war die Muse von Bertolt Brecht : Roman;;Charlotte Roth;neu;;Droemer;vorhanden (gleich): Droemer Taschenbuch;2021;DNB;bdbb8e24-a989-40c9-a293-4ffc52cc5784
+nein;ohne_isbn;ISBN fehlt/ungültig – Cover nötig;in_stock;;190;;;;;;;;;;;;;39d41ab9-46a3-4eac-af46-81e5cc3faa29
+nein;ohne_isbn;ISBN fehlt/ungültig – Cover nötig;in_stock;;534;;;;;;;;;;;;;ac5eb872-a891-491d-8957-5d63a8d75af2
+ja;auto;DNB, Seiten passen;in_stock;9783548063584;255;255;;Lassen Sie mich mal machen;fünf Jahrzehnte als Sekretärin berühmter Männer;;Heide Sommer;neu;;Ullstein;vorhanden (gleich): Verlag Ullstein;2021;DNB;572e9d28-fd8a-490d-96fd-5c4bbf97934a
+ja;auto;DNB (+OpenLibrary), Seiten passen;in_stock;9783478378109;303;303;Erfolgsfaktor Stakeholder.;;;;"Steven F. Walker; Jeffrey W. Marr";neu;moderne industrie;;;2002;DNB;18bb2ccb-56f5-40c6-a50b-ceab721425d9
+nein;kein_treffer;nirgends gefunden – Cover nötig;in_stock;9783572007950;414;;;;;;;;;;;;;963f2744-e619-4734-925d-c7c2f0b7f5c8
+ja;auto;DNB, Seiten passen;in_stock;9783921521267;189;189;;Huasipungo - unser kleines Stückchen Erde;Roman;;Jorge Icaza;neu;;Lamuv-Verl.;vorhanden (ähnlich): lamuv;1994;DNB;3ea4f921-43b4-428f-949b-b03dcac1d009
+ja;auto;DNB, Seiten passen;in_stock;9783593382678;249;249;;Winning - die Antworten ... auf die 74 brisantesten Managementfragen;;;"Jack Welch; Suzy Welch";vorhanden: Jack Welch;;Frankfurt, M.;vorhanden (ähnlich): m.;2007;DNB;2750c311-e397-4b30-825b-09cdcf70ec87
+ja;auto;DNB, Seiten passen;in_stock;9783453441170;319;319;;Nordseedunkel;Kriminalroman;;Christian Kuhn;neu;;Wilhelm Heyne Verlag;vorhanden (gleich): Wilhelm Heyne Verlag GmbH & Co KG;2021;DNB;0d93ca76-ad8f-403f-a8d8-b6b55443c2c2
+nein;ohne_isbn;ISBN fehlt/ungültig – Cover nötig;in_stock;;284;;;;;;;;;;;;;92d90471-fbc9-4b60-a0a2-cfa23da058e0
+nein;ohne_isbn;ISBN fehlt/ungültig – Cover nötig;in_stock;;334;;;;;;;;;;;;;6cdf5420-07b8-48f0-8226-d83d9ef50501
+ja;auto;DNB, Seiten passen;in_stock;9783442746866;378;378;;Denn die Gier wird euch verderben;Thriller;;Åsa Larsson;neu;;btb;vorhanden (gleich): btb;2014;DNB;c958a86f-24b7-4fb2-9cb1-f54eb1aca159
+nein;ohne_isbn;ISBN fehlt/ungültig – Cover nötig;in_stock;;360;;;;;;;;;;;;;b718904b-f5d3-4356-99f8-ae76b0b83e74
+ja;auto;DNB, Seiten passen;in_stock;9783453272095;367;367;;Vergeltung;Roman;;Robert Harris;vorhanden: Robert Harris;;Heyne;vorhanden (gleich): Heyne;2020;DNB;f3f52fe7-aedd-496b-a121-8c3290e3cc1c
+ja;auto;DNB, Seiten passen;in_stock;9783453268746;318;318;;Die Geschichte von Zoe und Will;Roman;;Kristin Verfasser] Halbrook;neu;;Heyne;vorhanden (gleich): Heyne;2013;DNB;557bed8c-bbb5-4e5d-95a0-ecbe5aa68316
+nein;ohne_isbn;ISBN fehlt/ungültig – Cover nötig;in_stock;;316;;;;;;;;;;;;;f0a8d1ec-723d-4904-89eb-0a2eb09f0ae4
+ja;auto;DNB, Seiten passen;in_stock;9783421047861;319;319;;Zwölf Wochen in Riad;Saudi-Arabien zwischen Diktatur und Aufbruch;;Susanne Koelbl;neu;;Deutsche Verlags-Anstalt;vorhanden (gleich): Deutsche Verlags-Anstalt;2019;DNB;4a237121-176a-44a7-b53d-1d80822b2ef7
+ja;auto;DNB, Seiten passen;in_stock;9783936384772;285;285;;Surf oder Bretter, die die Welt bedeuten;;;Daniel Duane;neu;;Marebuchverl.;neu;2003;DNB;d1a45b53-ae5d-45b3-8ada-e8e4f58c4a6f
+ja;auto;DNB, Seiten passen;in_stock;9783898974202;525;525;;Gemeinsam sind wir unausstehlich :;;;Beth Gutcheon;neu;;Weltbild;vorhanden (gleich): Weltbild;2007;DNB;d1e457fc-025c-4152-b209-47343f78e3f3
+nein;ohne_isbn;ISBN fehlt/ungültig – Cover nötig;in_stock;;383;;;;;;;;;;;;;61e8fff7-7bbd-4584-9d3f-886a4b2f7b9f
+nein;ohne_isbn;ISBN fehlt/ungültig – Cover nötig;in_stock;;270;;;;;;;;;;;;;1bd0b3d5-da17-4f85-be3f-ddc443cc2895
+ja;auto;DNB, Seiten passen;in_stock;9783852565927;244;244;;Zeit der Wut;Thriller;;"Giancarlo De Cataldo; Mimmo Verfasser] Rafele";neu;;Wien;neu;2012;DNB;d4386781-b2e2-4d31-b53b-a5026ce118fd
+ja;auto;DNB, Seiten passen;in_stock;9783426630266;573;573;;Tochter Ägyptens;Roman;;Gilbert Sinoué;vorhanden: Gilbert Sinoue;;Droemer Knaur;vorhanden (gleich): Droemer Knaur;1995;DNB;62b0832d-1c06-4508-b289-cf72c661ff83
+ja;auto;DNB, Seiten passen;in_stock;9783499105135;361;361;;Die Römerin;Roman;;Alberto Moravia;vorhanden: Alberto Moravia;;Rowohlt;vorhanden (gleich): Rowohlt;1992;DNB;647a303b-38b2-411d-9e37-38de3509f049
+ja;auto;DNB, Seiten passen;in_stock;9783423370158;239;239;;Bretagne :;;;"Thomas Schneider; Ulla Schneider";neu;;Dt. Taschenbuch-Verl.;vorhanden (gleich): Dt. Taschenbuch-Verl.;1996;DNB;8cb3dfb2-6154-4836-9f00-a24da5af4fcf
+ja;auto;DNB, Seiten passen;in_stock;9783404152742;637;637;;Die Früchte der Erde :;;;Jessica Stirling;vorhanden: Jessica Stirling;;Bastei Lübbe;vorhanden (gleich): Bastei Lübbe Verlag;2005;DNB;848feb15-4757-40c1-9184-44cc4ae4afcd
+nein;pruefen;DNB, Seiten passen, kein Autor gefunden;in_stock;9783765806285;240;240;;Südfrankreich;Provence - Côte d'Azur - Languedoc - Roussillon;;;;;München;neu;1989;DNB;205d1307-5496-40f9-8b50-26a567616367
+ja;auto;DNB, Seiten passen;in_stock;9783492305976;428;428;;Das Verstummen der Krähe;Kriminalroman;;Sabine Kornbichler;neu;;München;neu;2014;DNB;d8e30f5f-2e03-4169-8499-d9ea7104d5c5
+nein;kein_treffer;nirgends gefunden – Cover nötig;in_stock;9783770121182;202;;;;;;;;;;;;;d7e15416-50db-4f16-bb4b-c3f272cd6345
+ja;auto;DNB, Seiten passen;in_stock;9783548259574;671;671;;Das Vermächtnis des Adlers;Roman;;Federica De Cesco;vorhanden: Federica De Cesco;;Ullstein;vorhanden (gleich): Verlag Ullstein;2004;DNB;8f995456-8502-40a2-9277-1f8be83d529a
+ja;auto;DNB (+OpenLibrary), Seiten passen;in_stock;9783466304059;247;240;Montessori oder Waldorf? Ein Orientierungsbuch für Eltern und Pädagogen.;;;;"Marielle Seitz; Ursula Hallwachs";neu;Kösel;;;1996;DNB;d7c5c7fa-ec79-4112-9d06-4ea10552426a
+nein;ohne_isbn;ISBN fehlt/ungültig – Cover nötig;in_stock;0767830027;209;;;;;;;;;;;;;fc7a26f3-003d-4eeb-9b0c-317d467cd253
+ja;auto;DNB, Seiten passen;in_stock;9783834225580;128;128;;Lissabon;;;Harald Klöcker;neu;;Gräfe und Unzer Verlag;vorhanden (gleich): GRÄFE UND UNZER;2018;DNB;7d204405-bf9e-45a5-b6d3-74ad97deef3f
+nein;ohne_isbn;ISBN fehlt/ungültig – Cover nötig;in_stock;;564;;;;;;;;;;;;;dd099a0f-2197-44ab-9d76-ccdd3c7905ae
+nein;pruefen;DNB, Seiten passen, kein Autor gefunden;in_stock;9783596144846;124;124;;Wie werde ich Bill Gates?;Aufzucht und Lebensweise des gemeinen Nerd;;;;;Fischer-Taschenbuch-Verl.;vorhanden (gleich): Fischer-Taschenbuch-Verl.;2000;DNB;86b1a73f-7b8c-4907-b7aa-78b6999bf11f
+ja;auto;DNB, Seiten passen;in_stock;9783401011905;266;266;;Roter Mond und heisse Zeit;schicksalhafte Begegnung am Südrand d. Sahara;;Herbert Kaufmann;vorhanden: Herbert Kaufmann;;Arena;vorhanden (gleich): Arena;1985;DNB;34493f27-92b6-4c4f-a397-bdc11fcd9862
+ja;auto;DNB, Seiten passen;in_stock;9783442442683;222;222;;Liebe auf amerikanisch;Roman;;Rossana Campo;neu;;Goldmann;vorhanden (gleich): Goldmann;1998;DNB;1e9ca411-e746-408e-ac40-b186c9a8f966
+nein;ohne_isbn;ISBN fehlt/ungültig – Cover nötig;in_stock;;190;;;;;;;;;;;;;f02f574a-6499-45a1-b32f-40cbcf11d4c8
+ja;auto;DNB (+OpenLibrary), Seiten passen;in_stock;9783505073236;309;309;;Kolibris und Krokodile;mit d. Pferd durch d. Urwälder d. Amazonas;;Evelyne Coquet;vorhanden: Evelyne Coquet;;München;neu;1982;DNB;b9528f81-4835-4a91-aab5-9ef14405e789
+ja;auto;DNB, Seiten passen;in_stock;9783505096709;281;281;;Zu Pferd durch Chile;e. Jahr unterwegs bis zum Kap Horn;;Rosie Swale;vorhanden: Rosie Swale;;F. Schneider;vorhanden (gleich): F. Schneider;1987;DNB;756f0ce7-b864-4e0e-a12a-1ecbb4463e94
+ja;auto;DNB, Seiten passen;in_stock;9783499106736;312;312;;Die Mädchen vom Tiber;Geschichten aus Rom;;Alberto Moravia;vorhanden: Alberto Moravia;;Rowohlt;vorhanden (gleich): Rowohlt;1992;DNB;d2c701b7-cd0b-4fd5-855c-f8cd82423044
+ja;auto;DNB, Seiten passen;in_stock;9783426634301;590;590;;Der Geisterbaum;Roman;;Santa Montefiore;vorhanden: Santa Montefiore;;Knaur-Taschenbuch-Verl.;vorhanden (gleich): Knaur-Taschenbuch-Verl.;2006;DNB;a78de7c5-9424-4e2a-8c94-b34150d50a3b
+ja;auto;DNB, Seiten passen;in_stock;9783960382089;123;123;;Die Alt-ernative;Plädoyer für eine sonnige Zukunft;;Franz Alt;neu;;edition chrismon;neu;2019;DNB;3f015b39-4e7b-4011-ba55-d87c909b73e9
+ja;auto;DNB (+OpenLibrary), Seiten passen;in_stock;9783404632091;479;479;Die Löwin Elsa und ihre Jungen;;;;Joy Adamson;vorhanden: Joy Adamson;;Lübbe;vorhanden (gleich): Lübbe;1990;DNB;88d39603-2e7f-48ba-bde6-43a02c50675a
+ja;auto;DNB, Seiten passen;in_stock;9783596103393;226;226;;New York;Geschichten und Reportagen aus einer Metropole;;Djuna Barnes;vorhanden: Djuna Barnes;;Fischer-Taschenbuch-Verl.;vorhanden (gleich): Fischer-Taschenbuch-Verl.;1994;DNB;f05e3abc-dafd-49fa-9d85-de2ef2b5b173
+nein;ohne_isbn;ISBN fehlt/ungültig – Cover nötig;in_stock;;351;;;;;;;;;;;;;47fea7ca-df54-4ccd-95af-a7b0e5564182
+ja;auto;DNB (+OpenLibrary), Seiten passen;in_stock;9783100314024;488;488;Was geschah mit Slocum?;;;;Joseph Heller;vorhanden: Joseph Heller;;S. Fischer;vorhanden (gleich): S. Fischer;1975;DNB;5e2c43f0-e248-425d-8228-cd813f959526
+nein;ohne_isbn;ISBN fehlt/ungültig – Cover nötig;in_stock;;472;;;;;;;;;;;;;64466171-74fd-4af1-9202-ea1ade09fee5
+ja;auto;DNB (+OpenLibrary), Seiten passen;in_stock;9783426618547;507;507;;"""Neger, Neger, Schornsteinfeger!""";meine Kindheit in Deutschland;;Hans J. Massaquoi;vorhanden: Hans J. Massaquoi;;Droemer Knaur;vorhanden (gleich): Droemer Knaur;2001;DNB;514783f7-083b-413e-a452-f00973e214a2
+ja;auto;DNB, Seiten passen;in_stock;9783800222148;237;237;;Seefahrt;Technik u. Abenteuer;;Herbert Ruland;neu;;Union-Verlag;neu;1975;DNB;f4b4ae37-35e9-400c-96a7-eb7793c9d0f9
+ja;auto;DNB, Seiten passen;in_stock;9783453861046;335;335;;Der Western-Film;;;Thomas Jeier;vorhanden: Thomas Jeier;;Heyne;vorhanden (gleich): Heyne;1987;DNB;007ad947-976b-4722-a4ac-060cec77ac3f
+ja;auto;DNB (+OpenLibrary), Seiten passen;in_stock;9783426046197;245;245;;Abenteuerreisen - Trans-Canada-Highway :;;;Hans-Georg Fischer;neu;;Droemersche Verlagsanstalt Knaur;neu;1985;DNB;5c51e22b-5c4e-4279-86f3-7e7ce90ea773
+ja;auto;DNB (+OpenLibrary), Seiten passen;in_stock;9783505098246;220;220;;Dschunke, Jeep und Bambusfloss;durch Burma u. Thailand;;"Michael Möbius; Annette Ster";neu;;F. Schneider;vorhanden (gleich): F. Schneider;1988;DNB;16ff4e12-f841-4ec1-9700-bbd1df1ca40a
+ja;auto;DNB (+OpenLibrary), Seiten passen;in_stock;9783505094378;221;221;;Südsee;d. letzte Paradies auf Erden?;;Bernd Keiner;vorhanden: Bernd Keiner;;F. Schneider;vorhanden (gleich): F. Schneider;1986;DNB;67fb11bb-3354-48d5-8f1b-36f06bfcded7
+ja;auto;DNB, Seiten passen;in_stock;9783505085659;218;218;;Panamericana;2 Jahre auf d. Traumstrasse d. Welt;;"Hans-Joachim Aubert; Ulf-Eberhard Müller";neu;;München;neu;1983;DNB;058241ea-eb1f-411e-be18-d21b31ebcd55
+ja;auto;DNB (+OpenLibrary), Seiten passen;in_stock;9783505093531;221;221;;Brasilien;Samba - Urwald - Karneval;;Thomas Veszelits;neu;;F. Schneider;vorhanden (gleich): F. Schneider;1986;DNB;1f506520-ed6b-4127-b77a-4d2a97f187c8
+ja;auto;DNB, Seiten passen;in_stock;9783492252935;464;464;;28 Stories über Aids in Afrika;;;Stephanie Nolen;neu;;Piper;vorhanden (gleich): Piper;2008;DNB;e0702dca-1c86-4580-8758-677adaf50111
+ja;auto;DNB (+OpenLibrary), Seiten passen;in_stock;9783505095283;221;221;;Im Herzen des Regenwaldes;bei d. Indianern Ecuadors;;Wolf-Ulrich Cropp;vorhanden: Wolf-Ulrich Cropp;;F. Schneider;vorhanden (gleich): F. Schneider;1987;DNB;eb878b3a-ac45-435c-a573-3dbb33db32ab
+ja;auto;DNB (+OpenLibrary), Seiten passen;in_stock;9783505096679;317;317;;Chapati, Chai und Diesel;auf Tramptour bis Pakistan;;Ulrich Look;neu;;F. Schneider;vorhanden (gleich): F. Schneider;1987;DNB;00aead24-4903-4d62-b377-85f6507abf30
+ja;auto;DNB, Seiten passen;in_stock;9783426046081;247;247;;Abenteuerreisen in Arizona und New Mexico;Western-Reiten, Backpacking, Four wheeling, Kanufahren, Survival-Training;;Thomas Jeier;vorhanden: Thomas Jeier;;Droemer Knaur;vorhanden (gleich): Droemer Knaur;1984;DNB;4e57ac25-aaf3-4ac5-83fa-c91bb62e2647
+ja;auto;DNB, Seiten passen;in_stock;9783505092220;224;224;;Globetrotter-Handbuch;Überlebenstips für Abenteurer;;Christina Dodwell;neu;;F. Schneider;vorhanden (gleich): F. Schneider;1985;DNB;82cd605b-60cd-4c7c-a38e-276b2140cd88
+ja;auto;DNB (+OpenLibrary), Seiten passen;in_stock;9783894050078;287;282;;Alaska-Fieber;Wildnis, Abenteuer, Einsamkeit;;Wolf-Ulrich Cropp;vorhanden: Wolf-Ulrich Cropp;;Frederking und Thaler;vorhanden (gleich): Frederking & thaler;2001;DNB;74039c3f-5ea8-437d-9f3a-18bf418c39aa
+ja;auto;DNB (+OpenLibrary), Seiten passen;in_stock;9783596253319;243;243;;Ahasver;Roman;;Stefan Heym;vorhanden: Stefan Heym;;Fischer-Taschenbuch-Verl.;vorhanden (gleich): Fischer-Taschenbuch-Verl.;1995;DNB;e0b357f7-4605-4f8b-b602-168b9acad122
+nein;kein_treffer;nirgends gefunden – Cover nötig;in_stock;9783811882379;142;;;;;;;;;;;;;26cf2b5c-fa03-4e54-a16c-a126432c03d0
+nein;kein_treffer;nirgends gefunden – Cover nötig;in_stock;9783811882355;144;;;;;;;;;;;;;30d52dd0-d3d4-4f03-92ed-404126e6e5b4
+nein;pruefen;OpenLibrary, Seiten passen;in_stock;9780061231773;363;363;;Shadow of the Silk Road;;;Colin Thubron;neu;;Harpercollins;vorhanden (gleich): harpercollins;;OpenLibrary;2a1b81c8-7c19-49c7-8757-40f39bde80ed
+ja;auto;DNB (+OpenLibrary), Seiten passen;in_stock;9783406727917;267;267;;Armageddon im Orient;wie die Saudi-Connection den Iran ins Visier nimmt;;Michael Lüders;vorhanden: Michael Lüders;;C.H. Beck;vorhanden (gleich): C.H.Beck;2019;DNB;e6ccef78-1e7e-4def-8b59-dcdb3d2c57ce
+ja;auto;DNB, Seiten passen;in_stock;9783453000384;271;271;;Peter der Grosse;e. biograph. Roman;;Raymond Cartier;vorhanden: Raymond Cartier;;Heyne;vorhanden (gleich): Heyne;1987;DNB;91816c3e-02ef-4a0a-9fa1-e0d666a05e1e
+ja;auto;DNB (+OpenLibrary), Seiten passen;in_stock;9783442154241;382;382;;Bekenntnisse eines economic hit man;unterwegs im Dienst der Wirtschaftsmafia;;John Perkins;neu;;Goldmann;vorhanden (gleich): Goldmann;2007;DNB;3ed43e59-e06a-436c-9373-63630a1b1ece
+nein;pruefen;DNB (+OpenLibrary), Seiten passen, Sprache spa, kein Autor gefunden;in_stock;9783404641116;364;364;;Der Weg der Jakobspilger;Geschichte, Kunst und Kultur der Wallfahrt nach Santiago de Compostela;;;;;Lübbe;vorhanden (gleich): Lübbe;1992;DNB;3ba986ec-4d20-4869-8afb-0dcae1dd2683
+ja;auto;DNB (+OpenLibrary), Seiten passen;in_stock;9783833822865;335;335;;Peace food;wie der Verzicht auf Fleisch und Milch Körper und Seele heilt;;Ruediger Dahlke;vorhanden: Rüdiger Dahlke;;Gräfe und Unzer;vorhanden (gleich): GRÄFE UND UNZER;2011;DNB;4215cb2f-e285-478b-a43e-bbb1495e2421
+ja;auto;DNB, Seiten passen;in_stock;9783492242844;121;121;;Die Botschaft des Meeres;was dir die Wellen erzählen;;Sergio Bambaren;vorhanden: Sergio Bambaren;;München;neu;2004;DNB;e798d94e-ebfd-4870-b4f1-7222f81ee203
+ja;auto;DNB (+OpenLibrary), Seiten passen;in_stock;9783863342098;299;299;;Mit 50 Euro um die Welt;wie ich mit wenig in der Tasche loszog und als reicher Mensch zurückkam;;Christopher Schacht;neu;;adeo;neu;2018;DNB;310ad88e-2f75-4a8f-b6fb-617560ab0818
+nein;ohne_isbn;ISBN fehlt/ungültig – Cover nötig;in_stock;;391;;;;;;;;;;;;;611aa50a-38ce-48b7-a6a1-4a207bee727c
+ja;auto;DNB (+OpenLibrary), Seiten passen;in_stock;9783406621260;218;218;;Demokratie im Islam;der Kampf für Toleranz und Freiheit in der arabischen Welt;;Gudrun Krämer;neu;;Beck;vorhanden (gleich): Beck;2011;DNB;5526eed8-82f1-4244-95d4-7399eb2d543f
+ja;auto;DNB, Seiten passen;in_stock;9783700400356;222;222;;König Artus und die Ritter der Tafelrunde;;;Renate Wagner;neu;;Moderne-Jugend-Heute-Verl.-Ges.;neu;1978;DNB;bb88e275-1058-4101-8610-cf468b2200ef
+ja;auto;DNB (+OpenLibrary), Seiten passen;in_stock;9783440072158;316;316;;Nach dem grossen Feuer;;;Wolfgang Hohlbein;vorhanden: Wolfgang Hohlbein;;Franckh-Kosmos;neu;1996;DNB;f2054ba0-3e70-4de1-8207-338d1d686b74
+nein;ohne_isbn;ISBN fehlt/ungültig – Cover nötig;in_stock;;389;;;;;;;;;;;;;937febfe-2d50-4c65-8688-40b33adbb9c6
+ja;auto;DNB, Seiten passen;in_stock;9783782206235;216;216;;Flucht unter Segeln;Abenteuer im Mittelmeer;;Wolf Ernst;neu;;Koehler;neu;1995;DNB;f54d0913-54af-423e-b232-1b4371977315
+ja;auto;DNB (+OpenLibrary), Seiten passen;in_stock;9783426304921;300;300;;Trümmerkind;Roman;;Mechtild Borrmann;neu;;Droemer;vorhanden (gleich): Droemer Taschenbuch;2017;DNB;d0df54c9-ff58-44de-9fb1-7d7e8c12e0dc
+ja;auto;DNB, Seiten passen;in_stock;9783890292984;249;249;;Mondscheinmädchen;meine Zeit in Afrika;;Ôrî Šwarṣman;neu;;Malik;vorhanden (gleich): Malik;2005;DNB;a68caf6a-c93d-4625-8deb-8f4dcc6d5ae0
+ja;auto;DNB (+OpenLibrary), Seiten passen;in_stock;9783404616565;300;303;;Blutsbrüder;unsere Freundschaft in Liberia;;"Michael Jentzsch; Benjamin Kwato Zahn";neu;;Bastei Lübbe;vorhanden (gleich): Bastei Lübbe Verlag;2009;DNB;a68915c8-0aaa-4a1e-b6d3-1a03555943ac
+ja;auto;DNB (+OpenLibrary), Seiten passen;in_stock;9783813519204;814;814;;Ein Nashorn für den Papst;Roman;;Lawrence Norfolk;vorhanden: Lawrence Norfolk;;Knaus;vorhanden (gleich): Knaus;1996;DNB;65a66c70-6deb-4637-ad5c-54562d3362ce
+nein;kein_treffer;nirgends gefunden – Cover nötig;in_stock;4785861653003;169;;;;;;;;;;;;;5cfe1f75-1f1c-46ca-91b5-6ad733dbd8fe
+nein;kein_treffer;nirgends gefunden – Cover nötig;in_stock;9783795116422;287;;;;;;;;;;;;;43e0d6fc-fd80-4da3-8f13-573613934738
+ja;auto;DNB, Seiten passen;in_stock;9783512005237;436;436;;In geheimer Mission;als Sonderbeauftragter Roosevelts bei Churchill u. Stalin 1941 - 1946;;"William Averell Harriman; Elie Abel";neu;;Seewald;vorhanden (gleich): seewald;1979;DNB;8578ce9f-e98b-4c93-8e3f-bec430df8c0a
+ja;auto;DNB, Seiten passen;in_stock;9783548372099;203;203;;Freiheit;auf der Suche nach einem neuen Leben;;Malika Oufkir;vorhanden: Malika Oufkir;;Ullstein;vorhanden (gleich): Verlag Ullstein;2008;DNB;bc625c11-fc11-4d52-bb2a-c4cf1a0ee6c7
+ja;auto;DNB, Seiten passen;in_stock;9783805633017;339;339;;Kap Hoorn - Kordilleren - Kolonisten;Abenteuer dt. Auswanderer im Urwald von Chile;;Carlos Walz;neu;;Berg/Starnberger See;vorhanden (ähnlich): berg;1982;DNB;259ef3de-1f7e-41f8-a107-4841b68fd581
+nein;ohne_isbn;ISBN fehlt/ungültig – Cover nötig;in_stock;;863;;;;;;;;;;;;;8de33e02-22d1-4927-8b1f-3d2663eddced
+ja;auto;DNB (+OpenLibrary), Seiten passen;in_stock;9783453176720;380;380;;Der Transport;Roman;;Desmond Bagley;vorhanden: Desmond Bagley;;Pavillon-Verl.;vorhanden (ähnlich): Pavillon;2001;DNB;9b875f11-193e-49f6-aa56-cd88ce9242b2
+ja;auto;DNB (+OpenLibrary), Seiten passen;in_stock;9783442749836;343;343;;Pfaueninsel;Roman;;Thomas Hettche;neu;;btb;vorhanden (gleich): btb;2016;DNB;076c9b03-8630-4c48-ba56-57a1697451af
+ja;auto;DNB (+OpenLibrary), Seiten passen;in_stock;9783455036824;318;318;;Wie die Wilden;Roman;;Jan Jepsen;neu;;Hoffmann und Campe;vorhanden (gleich): Hoffmann und Campe;1994;DNB;dda372c4-326d-437c-88df-57b5967fc1e9
+ja;auto;DNB, Seiten ~;in_stock;9783499261558;348;330;;Aufstand der Nonnen;Roman;;Robert Gordian;vorhanden: Robert Gordian;;Rowohlt-Taschenbuch-Verl.;vorhanden (gleich): Rowohlt-Taschenbuch-Verl.;1999;DNB;f3173312-79d3-4e19-ae39-b630a283a78d
+ja;auto;DNB (+OpenLibrary), Seiten passen;in_stock;9783833804212;156;156;;Quickfinder Homöopathie für Kinder;der schnellste Weg zum richtigen Mittel;;Markus Wiesenauer;neu;;Gräfe und Unzer;vorhanden (gleich): GRÄFE UND UNZER;2007;DNB;7b46615d-4547-4c58-907f-6147c1aa355e
+nein;ohne_isbn;ISBN fehlt/ungültig – Cover nötig;in_stock;;255;;;;;;;;;;;;;3feff853-1f5c-433a-9db5-eab88438c1d1
+ja;auto;DNB (+OpenLibrary), Seiten passen;in_stock;9783746618326;495;495;;Der fremde Tibeter;Roman;;Eliot Pattison;vorhanden: Eliot Pattison;;Aufbau-Taschenbuch-Verl.;vorhanden (gleich): Aufbau-Taschenbuch-Verl.;2002;DNB;09c9305f-c7b5-4f73-89b9-235e16bc63f5
+ja;auto;DNB, Seiten passen;in_stock;9783937357546;210;211;;Kriegsgebiete;Thriller;;Roland Spranger;neu;;Ed. 211;neu;2012;DNB;cc8337ee-2bac-489a-a429-b4a3130fa582
+ja;auto;DNB (+OpenLibrary), Seiten passen;in_stock;9783426033517;447;447;;Begrabt mein Herz an der Biegung des Flusses;;;Dee Alexander Brown;neu;;Droemer Knaur;vorhanden (gleich): Droemer Knaur;1995;DNB;7ba672c8-2728-428f-9e37-6d3796c44b80
+nein;pruefen;OpenLibrary, Seiten passen;in_stock;9780755339761;263;272;;Reckless;;;Cecily von Ziegesar;neu;;Headline Publishing Group;vorhanden (gleich): Headline Publishing Group;2008;OpenLibrary;ff03aed3-f7be-416f-9db1-9707b9fc664b
+ja;auto;DNB, Seiten passen;in_stock;9783423284257;173;173;;Wild nach einem wilden Traum;Roman;;Julia Schoch;neu;;dtv;vorhanden (gleich): dtv.;2025;DNB;3069e24a-b524-4071-942a-abadd8efbbdb
+ja;auto;DNB (+OpenLibrary), Seiten passen;in_stock;9783548376912;266;266;;Ist das Liebe, oder kann das weg?;vom sonderbaren Verhalten der Generation Beziehungsunfähig;;Michael Nast;neu;;Ullstein;vorhanden (gleich): Verlag Ullstein;2016;DNB;fe02e807-752c-4ef6-af10-a798b6d222a1
+ja;auto;DNB, Seiten passen;in_stock;9783518471319;142;142;;Marzahn mon amour;Geschichten einer Fußpflegerin;;Katja Oskamp;neu;;Suhrkamp;vorhanden (gleich): Suhrkamp;2021;DNB;31a6f466-b6ba-4f9f-87f0-36c17b9ec752
+ja;auto;DNB, Seiten passen;in_stock;9783596232987;266;266;;Das Signal oder die Entfernung eines Knotens;;;Anemone Sandkorn;neu;;Fischer-Taschenbuch-Verl.;vorhanden (gleich): Fischer-Taschenbuch-Verl.;1990;DNB;efa4cb57-f0bd-45ab-a301-01b865ddb2d4
+ja;auto;DNB (+OpenLibrary), Seiten passen;in_stock;9783548248394;277;277;;Global players;Kriminalroman;;Horst Ehmke;neu;;Ullstein;vorhanden (gleich): Verlag Ullstein;2000;DNB;42cc1865-6bde-43d4-9f22-191e07b11cd2
+ja;auto;DNB, Seiten passen;in_stock;9783426080658;247;247;;Hungern, meine einzige Waffe;e. autobiogr. Bericht über d. Magersucht;;Sheila MacLeod;neu;;Droemersche Verlagsanstalt Knaur;neu;1987;DNB;13198b4b-1839-4863-a3ef-6a524ef95531
+ja;auto;DNB (+OpenLibrary), Seiten passen;in_stock;9783442727957;217;217;;Gefährliche Geliebte;Roman;;Haruki Murakami;vorhanden: Haruki Murakami;;Goldmann;vorhanden (gleich): Goldmann;2003;DNB;8afabcf4-4ac9-4ad8-84e1-07e0c590c34c
+ja;auto;DNB (+OpenLibrary), Seiten passen;in_stock;9783499623752;270;270;;Alles, was Sie schon immer über Könige wissen wollten, aber nie zu fragen wagten;;;Alexander von Schönburg;vorhanden: Alexander von Schönburg;;Rowohlt-Taschenbuch-Verl.;vorhanden (gleich): Rowohlt-Taschenbuch-Verl.;2010;DNB;d3a801a8-77ce-4a3e-bb43-295d1b712b47
+ja;auto;DNB, Seiten passen;in_stock;9783442120659;172;172;;Zen oder die Kunst des Autofahrens;;;K. T. Berger;neu;;Goldmann;vorhanden (gleich): Goldmann;1990;DNB;b9fa3fca-3e60-4ae9-9453-7fc843b3930c
+ja;auto;DNB (+OpenLibrary), Seiten passen;in_stock;9783570166000;428;428;;Don't leave me;;;Lena Kiefer;neu;;cbj;vorhanden (gleich): cbj;2021;DNB;b2516920-f0b8-4317-886b-e6581890d0d8
+ja;auto;DNB, Seiten passen;in_stock;9783442747702;765;765;;Die französische Kunst des Krieges;Roman;;Alexis Jenni;neu;;btb;vorhanden (gleich): btb;2014;DNB;202a21d4-67a0-4e66-8cbf-9936d4ca96cd
+ja;auto;DNB (+OpenLibrary), Seiten passen;in_stock;9783570009604;287;287;;Die Abgestellten;ein Nachruf auf den festen Arbeitsplatz;;Günter Ogger;vorhanden: Günter Ogger;;Bertelsmann;vorhanden (gleich): Bertelsmann Verlag;2007;DNB;1b0db58c-ad87-4844-84ad-6f0c7258d62b
+ja;auto;DNB (+OpenLibrary), Seiten passen;in_stock;9783499623042;266;266;;"""Versuche, dein Leben zu machen""";als Jüdin versteckt in Berlin;;Margot Friedländer;neu;;Rowohlt-Taschenbuch-Verl.;vorhanden (gleich): Rowohlt-Taschenbuch-Verl.;2010;DNB;dcce84d8-6267-49cf-8c89-b495dfdd19c5
+nein;ohne_isbn;ISBN fehlt/ungültig – Cover nötig;in_stock;;287;;;;;;;;;;;;;91924df8-13d5-4722-a380-1d372e9911ec
+nein;pruefen;DNB, Seiten passen, kein Autor gefunden;in_stock;9783473510122;207;207;;Goldrausch;;;;;;Maier;neu;1992;DNB;c79f1305-dc11-4459-861b-192ba1af493b
+nein;pruefen;OpenLibrary, Seiten ~;in_stock;9783548251288;304;272;;Das Mädchen. (Schwarzer Umschlag).;;;Stephen King;vorhanden: Stephen King;;Ullstein Tb;vorhanden (gleich): Verlag Ullstein;2001;OpenLibrary;dc076f5e-b302-4bab-b07c-1d34c610f2df
+ja;auto;DNB (+OpenLibrary), Seiten passen;in_stock;9783811831902;384;384;;Das Römerreich der Deutschen;;;Rudolf Pörtner;vorhanden: Rudolf Pörtner;;Moewig;vorhanden (gleich): Moewig;1985;DNB;0109b3e8-1c11-47c7-8177-3c38545533c5
+ja;auto;DNB (+OpenLibrary), Seiten passen;in_stock;9783406640261;175;175;;Iran: der falsche Krieg;wie der Westen seine Zukunft verspielt;;Michael Lüders;vorhanden: Michael Lüders;;Beck;vorhanden (gleich): Beck;2012;DNB;c984958b-176e-4a1b-a6ca-0bd01351744b
+ja;auto;DNB (+OpenLibrary), Seiten passen;in_stock;9783406494116;334;334;;Sternstunden der Geschichte;;;Alexander Demandt;neu;;Beck;vorhanden (gleich): Beck;2003;DNB;d29d1c31-2c4e-40bc-9710-a5f572d38bc0
+nein;pruefen;OpenLibrary, Seiten ~;in_stock;9783518399750;265;250;;Nichts wie hin. Reisen in Metropolen. Ein Lesebuch.;;;Julia Ketterer;neu;;Suhrkamp;vorhanden (gleich): Suhrkamp;2003;OpenLibrary;c043c67e-fd3d-47ce-84b9-e89c5525416a
+nein;pruefen;OpenLibrary, Seiten passen;in_stock;9780762760619;347;360;;Hiking Grand Staircase-Escalante and the Glen Canyon region;a guide to 59 of the best hiking adventures in southern Utah;;Ron Adkison;neu;;cFalcon;neu;2011;OpenLibrary;4eeaf80b-9b09-4ac9-868b-701d141fe44a
+ja;auto;DNB (+OpenLibrary), Seiten passen;in_stock;9783784112237;233;233;;Soziale Ungleichheit;eine Einführung für soziale Berufe;;"Angelika Diezinger; Verena Mayr-Kleffel";neu;;Lambertus;vorhanden (gleich): lambertus;1999;DNB;37e1c8bf-2916-44a7-8c0d-5b145c62566c
+nein;pruefen;OpenLibrary, Seiten passen;in_stock;9780762725397;358;368;;Hiking Yellowstone National Park, 2nd;;;Bill Schneider;neu;;Falcon;neu;2003;OpenLibrary;8d25ba79-2bb7-48be-a608-0a104514718d
+ja;auto;DNB, Seiten passen;in_stock;9783930378302;243;243;;Buch.;;;Maya Roy;neu;;Palmyra;neu;2000;DNB;a1e2d226-2eda-4370-bc9f-6f51cef56119
+nein;ohne_isbn;ISBN fehlt/ungültig – Cover nötig;in_stock;;635;;;;;;;;;;;;;c55d09ef-5e6b-4812-8bff-7f18732707b0
+ja;auto;DNB, Seiten passen;in_stock;9783776615661;263;263;;Das Runde ist der Ball;;;Max Merkel;neu;;München;neu;1989;DNB;740f9df1-2541-4af1-9b00-a8c4ec97296d
+ja;auto;DNB, Seiten passen;in_stock;9783960540106;188;191;;Kalkutta;Roman;;Shumona Sinha;vorhanden: Shumona Sinha;;Edition Nautilus;vorhanden (gleich): nautilus;2016;DNB;045d3195-bc54-4e88-b9db-007c7912c295
+ja;auto;DNB, Seiten passen;in_stock;9783407740120;328;328;;Lieber wütend als traurig;die Lebensgeschichte der Ulrike Marie Meinhof;;Alois Prinz;neu;;Weinheim;neu;2007;DNB;584fb384-c000-4415-bc47-c3341971c8c3
+ja;auto;DNB, Seiten passen;in_stock;9783800409945;287;287;;In der Brandung;;;Jack London;vorhanden: Jack London;;Universitas-Verlag;vorhanden (gleich): universitas;1973;DNB;79c6e2bf-ee5b-471f-987b-bb2983e18a6f
+ja;auto;DNB, Seiten passen;in_stock;9783401055633;302;302;;Die Schwingen des Falken :;;;Federica De Cesco;vorhanden: Federica De Cesco;;Arena;vorhanden (gleich): Arena;2003;DNB;56db607b-dd10-4644-94ed-bc8c4a8b86e3
+ja;auto;DNB, Seiten ~;in_stock;9783453414068;267;283;;Biologisch leben - biologisch heilen;e. umfassender Überblick über d. traditionellen u. modernen biolog. Heilmethoden u. ihre Erfolge;;Fritz Wiedemann;neu;;Heyne;vorhanden (gleich): Heyne;1985;DNB;f1f1d898-77e9-465a-ba6f-b2980b515b1a
+ja;auto;DNB (+OpenLibrary), Seiten passen;in_stock;9783829716352;464;464;;Paris;Cityguide;;Steve Verfasser] Fallon;neu;;MairDumont;vorhanden (gleich): MairDumont;2009;DNB;43187f55-c9e0-4edd-84ac-481426e9b338
+ja;auto;DNB, Seiten passen;in_stock;9783551352934;252;252;;Königin der roten Zelte;;;Federica de Cesco;vorhanden: Federica De Cesco;;Carlsen;vorhanden (gleich): Carlsen;2002;DNB;e04e79ae-4fc7-4f74-bad9-12bd621ae722
+ja;auto;DNB (+OpenLibrary), Seiten passen;in_stock;9783453025547;220;219;;Amok;Roman;;Stephen King;vorhanden: Stephen King;;Heyne;vorhanden (gleich): Heyne;1995;DNB;84404def-dc50-4542-9b54-a96c2f87ebcf
+ja;auto;DNB (+OpenLibrary), Seiten passen;in_stock;9783453002395;315;315;;Todesmarsch;Roman;;Stephen King;vorhanden: Stephen King;;Heyne;vorhanden (gleich): Heyne;1996;DNB;0d33cbea-4954-4bc8-be2a-25e1044f7ff6
+ja;auto;DNB (+OpenLibrary), Seiten passen;in_stock;9783453023758;343;343;;Sprengstoff;Roman;;Stephen King;vorhanden: Stephen King;;Heyne;vorhanden (gleich): Heyne;1996;DNB;a82dd8f6-73c0-49f1-8479-6becad700b8b
+ja;auto;DNB (+OpenLibrary), Seiten passen;in_stock;9783426620885;319;319;;Bevor das Eis bricht;Roman;;Margaret Lawrence;vorhanden: Margaret Lawrence;;Droemer Knaur;vorhanden (gleich): Droemer Knaur;2002;DNB;493f9d33-05ca-4c91-a867-a074c424e876
+nein;ohne_isbn;ISBN fehlt/ungültig – Cover nötig;in_stock;;319;;;;;;;;;;;;;6991a47c-a07e-4cf9-a33e-2c30c4619c68
+ja;auto;DNB (+OpenLibrary), Seiten passen;in_stock;9783353011299;172;172;;Die Wurzeln des Seins;Erzählungen;;Dmitrij Bakin;neu;;Verl, Volk und Welt;vorhanden (gleich): Verl. Volk & Welt;2000;DNB;e35f24be-b2f7-4d43-98fc-c11cdfb4d853
+ja;auto;DNB (+OpenLibrary), Seiten passen;in_stock;9783473369881;216;216;;Catweazle :;;;Richard Carpenter;vorhanden: Richard Carpenter;;Ravensburger Buchverl.;vorhanden (ähnlich): Ravensburger;2008;DNB;39295b83-234d-408f-a02b-c78829f1cc48
+ja;auto;DNB;in_stock;9782889218226;0;178;;An invisible scar;;;Tomo Kurahashi;neu;;KAZÉ Manga;neu;2020;DNB;bbed27a8-6faa-4305-b43b-1449e4a03eeb
+ja;auto;DNB (+OpenLibrary);in_stock;9783453063242;400;;;Marlene Dietrich;die grosse Biographie;;Donald Spoto;vorhanden: Donald Spoto;;Heyne;vorhanden (gleich): Heyne;1993;DNB;7dcef12e-1b53-40c9-a9f3-3c25ef29d203
+ja;auto;DNB, Seiten passen;in_stock;9783442239214;159;159;;3. Megidda;;;Wolfgang Hohlbein;vorhanden: Wolfgang Hohlbein;;Goldmann;vorhanden (gleich): Goldmann;1987;DNB;77a155c6-90b6-4e23-8312-5352105fe39e
+ja;auto;DNB, Seiten passen;in_stock;9783442238392;286;286;;3. Der Stein der Macht. - 2. Das tote Land;;;Wolfgang Hohlbein;vorhanden: Wolfgang Hohlbein;;Goldmann;vorhanden (gleich): Goldmann;1989;DNB;f6f7ddac-4f4a-4732-9140-b1cdfe0e7111
+ja;auto;DNB, Seiten passen;in_stock;9783404124152;425;425;;Mein Herr und Gebieter;ich war die Begum des Löwen vom Punjab;;Tahmīna Durrānī;neu;;Lübbe;vorhanden (gleich): Lübbe;1995;DNB;0cc30fe0-ce40-4e4b-8f91-f7db3c39f9b7
+ja;auto;DNB, Seiten passen;in_stock;9783442461660;319;319;;Total verschossen;Roman;;"Janet Evanovich; Charlotte Hughes";vorhanden: Janet Evanovich;;Goldmann;vorhanden (gleich): Goldmann;2006;DNB;1aa684f6-619b-49f7-87a9-8d05ab7124a8
+ja;auto;DNB (+OpenLibrary), Seiten passen;in_stock;9783404663675;223;223;;Begeisterung wirkt Wunder;wie Du mehr aus Deinem Leben machst;;Norman Vincent Peale;vorhanden: Norman Vincent Peale;;Bastei-Verl. Lübbe;neu;1999;DNB;10881594-0c95-4874-86fa-a4d343de3490
+ja;auto;DNB, Seiten passen;in_stock;9783898972116;414;414;;Rendezvous;;;Danielle Steel;vorhanden: Danielle Steel;;Weltbild;vorhanden (gleich): Weltbild;2007;DNB;769b58d1-9f74-4f6f-8b42-1a89d110987c
+ja;auto;DNB, Seiten passen;in_stock;9783764501716;413;413;;Die Rose von Salerno;historischer Roman;;Dagmar Trodler;neu;;Blanvalet;vorhanden (gleich): Blanvalet;2007;DNB;7460d040-db05-403f-abf6-2e195c99c2f6
+ja;auto;DNB, Seiten ~;in_stock;9783893506101;220;239;;Arme kleine Anni;Roman;;Hedwig Courths-Mahler;neu;;Weltbild;vorhanden (gleich): Weltbild;1994;DNB;31800f87-7bee-4ba5-bed4-3d2970a4c5b4
+ja;auto;DNB, Seiten passen;in_stock;9781502972064;231;231;;Flucht aus der Würfelwelt;ein Computerspiel-Roman;;Karl Olsberg;neu;;Briends GmbH;neu;2014;DNB;b0137ab7-d336-4bc0-9d81-bb9e327ce4fe
+ja;auto;DNB (+OpenLibrary), Seiten passen;in_stock;9783404124961;363;363;;Dangerous minds;das Buch zum Film mit Michelle Pfeiffer = Wilde Gedanken;;LouAnne Johnson;neu;;Lübbe;vorhanden (gleich): Lübbe;1996;DNB;8d189348-9b15-42d2-88bd-b2cd96f1aae6
+ja;auto;DNB, Seiten passen;in_stock;9783426651148;334;334;;Nieten in Boxershorts;Roman;;Karina Cory;neu;;Droemer Knaur;vorhanden (gleich): Droemer Knaur;1997;DNB;8a5893d5-7d02-4571-a301-e75ece7484e4
+nein;pruefen;DNB, Seiten passen, kein Autor gefunden, kein Verlag gefunden;in_stock;9783937501055;484;484;;Pendragon;Artus auf dem Weg zum heiligen Gral;;;;;;;2004;DNB;f41c56f5-4573-4a3b-af28-7cd842c2523f
+ja;auto;DNB, Seiten passen;in_stock;9783548282824;351;351;;Kuchen backen in Kigali;Roman;;Gaile Parkin;neu;;Ullstein;vorhanden (gleich): Verlag Ullstein;2010;DNB;82e4fdd8-d099-436d-8c99-634a6c76c3bb
+ja;auto;DNB (+OpenLibrary), Seiten passen;in_stock;9783404614028;221;221;;Die Mauern der Freiheit;;;Béatrice Saubin;neu;;Lübbe;vorhanden (gleich): Lübbe;1997;DNB;4b940224-d41e-4b23-a6e0-f54a1b322ddd
+ja;auto;DNB, Seiten passen;in_stock;9783492309592;366;366;;100 Jahre Leben;Hundertjährige geben Antworten auf die großen Fragen;;Kerstin Schweighöfer;neu;;Piper;vorhanden (gleich): Piper;2017;DNB;17c01d97-d506-4919-8af6-154adf4faeaf
+ja;auto;DNB (+OpenLibrary), Seiten passen;in_stock;9783426785997;254;254;;Heute bin ich blond;das Mädchen mit den neun Perücken;;Sophie van der Stap;neu;;Knaur-Taschenbuch-Verl.;vorhanden (gleich): Knaur-Taschenbuch-Verl.;2013;DNB;6e9b19ee-24a5-4965-a296-8143bbd3a523
+nein;pruefen;OpenLibrary, Seiten passen;in_stock;9780679735731;374;374;;The information;;;Martin Amis;neu;;Vintage International;vorhanden (ähnlich): vintage;1996;OpenLibrary;c490877b-ab09-4ea8-b9b7-786a50b8500a
+nein;pruefen;OpenLibrary;in_stock;9780552159012;461;;;Big Girl;;;"Danielle Steel; Laura Manero Jiménez";vorhanden: Danielle Steel;;Transworld Publishers Limited;neu;1911;OpenLibrary;078cb0ad-e8f8-4dd8-ad65-f8341cd0d405
+ja;auto;DNB, Seiten passen;in_stock;9783552044012;416;416;;Achill, Troja und ich;Roman;;Sophie Chauveau;neu;;Zsolnay;vorhanden (gleich): Zsolnay;1992;DNB;140c2649-34b0-488a-9f37-efc5eaed3421
+ja;auto;DNB, Seiten passen;in_stock;9783404152650;365;365;;Der Rattenzauber;historischer Roman;;Kai Meyer;vorhanden: Kai Meyer;;Bastei Lübbe;vorhanden (gleich): Bastei Lübbe Verlag;2005;DNB;3e2fac81-9a9b-403d-b90d-26782e084d7d
+ja;auto;DNB, Seiten passen;in_stock;9783492243018;90;90;;Stella;ein Weihnachtsmärchen;;Sergio Bambaren;vorhanden: Sergio Bambaren;;München;neu;2004;DNB;11f8f40d-6928-4b5f-80c4-78ebcf58cc43
+ja;auto;DNB (+OpenLibrary), Seiten passen;in_stock;9783453272378;767;767;;Das Institut;Roman;;Stephen King;vorhanden: Stephen King;;Heyne;vorhanden (gleich): Heyne;2019;DNB;f74102a0-1334-431e-ab1a-6f8855c79245
+ja;auto;DNB, Seiten passen;in_stock;9783446258266;349;349;;Saras Stunde;Roman;;Naǧm Wālī;neu;;Carl Hanser Verlag;vorhanden (gleich): Carl Hanser;2018;DNB;738c6790-cc49-4889-92a3-b8afff0f531f
+ja;auto;DNB, Seiten passen;in_stock;9783406547812;237;237;;Der Altersangst-Komplex;auf dem Weg zu einem neuen Selbstbewusstsein;;Herrad Schenk;neu;;Beck;vorhanden (gleich): Beck;2007;DNB;0120c922-33ec-49cd-a463-ee477eefc06d
+ja;auto;DNB (+OpenLibrary), Seiten passen;in_stock;9783832198664;223;223;;Wut ist ein Geschenk;das Vermächtnis meines Großvaters Mahatma Gandhi;;Arun Gandhi;neu;;DuMont;vorhanden (gleich): DuMont;2017;DNB;af5ecf75-51f9-40b3-ad21-8f8300d9f6a5
+nein;pruefen;DNB, Seiten passen, kein Autor gefunden;in_stock;9783426502327;394;394;;Kuss der Dunkelheit;Roman;;;;;Droemer Knaur;vorhanden (gleich): Droemer Knaur;2009;DNB;b34b2d72-7c87-4d0a-adc9-6f69d75c81fa
+ja;auto;DNB, Seiten passen;in_stock;9783453491168;703;703;;Bd. 1. Passion;;;Anna Todd;neu;;Wilhelm Heyne Verlag;vorhanden (gleich): Wilhelm Heyne Verlag GmbH & Co KG;2015;DNB;6e3ad01c-ebb2-47d9-989a-a0c702bd2cd6
+ja;auto;DNB, Seiten passen;in_stock;9783473522187;145;145;;Bd. 5. Rettung auf Jamaika;;;"Lucy Daniels; Ben M. Baglio";neu;;Ravensburger Buchverlag;vorhanden (gleich): Ravensburger Buchverlag;2002;DNB;2535a698-0b1f-4de6-b545-1b6d3a3ba6c5
+ja;auto;DNB (+OpenLibrary), Seiten passen;in_stock;9783548283883;301;301;;Headhunter;Thriller;;Jo Nesbø;neu;;Ullstein;vorhanden (gleich): Verlag Ullstein;2011;DNB;e5ff3fd0-cb00-4a6e-a8ef-053a94f495a0
+ja;auto;DNB, Seiten passen;in_stock;9783499004476;221;221;;Wenn ich nicht Urlaub mache, macht es jemand anderes;;;Giulia Becker;neu;;Rowohlt Taschenbuch Verlag;vorhanden (gleich): Rowohlt;2026;DNB;fbbbf95b-a9bb-45ef-8c8a-778dec2187fd
+ja;auto;DNB, Seiten passen;in_stock;9783547711257;395;395;;Das Kabinett der Wachsmalerin;der Madame-Tussaud-Roman;;Sabine Weiß;neu;;Marion von Schröder;vorhanden (ähnlich): schroeder;2009;DNB;7b5c37a6-8bd0-410b-a59e-e2f4f8d57a18
+nein;pruefen;DNB, Seiten passen, kein Autor gefunden;in_stock;9783293204744;221;221;;Reise in die Toskana;Kulturkompass fürs Handgepäck;;;;;Unionsverl.;neu;2010;DNB;626b1d64-4b1f-46a2-b2f8-3cb517e05876
+ja;auto;DNB, Seiten passen;in_stock;9783426760604;239;239;;Heilende Klänge;die Macht der Obertöne;;Jonathan Goldman;neu;;Droemer Knaur;vorhanden (gleich): Droemer Knaur;1994;DNB;be37b9d5-cf04-443e-b130-64c624781fa3
+ja;auto;DNB, Seiten passen;in_stock;9783874983457;144;144;;Madeira kennen und lieben;d. Insel d. 365 Frühlingstage;;Jürgen W. Scheutzow;neu;;LN-Verlag;vorhanden (gleich): LN;1985;DNB;5e54bf5e-d9fb-421b-a38f-998a67340ee3
+ja;auto;DNB, Seiten passen;in_stock;9783404664146;345;345;;Die Liebe und das Leben;Wege zur Selbstbestimmung;;Peter Lauster;vorhanden: Peter Lauster;;Bastei Lübbe;vorhanden (gleich): Bastei Lübbe Verlag;2007;DNB;317f6e37-43d9-4925-af32-02219298a4e2
+ja;auto;DNB, Seiten passen;in_stock;9783962892180;256;256;;China;Auswege aus einem Dilemma;;"Felix Lee; Finn Mayer-Kuckuk";neu;;Ch. Links Verlag;neu;2024;DNB;74dbd83c-990f-48b7-9366-5beba06bfc98
+ja;auto;DNB (+OpenLibrary), Seiten passen;in_stock;9783499616686;238;238;;Die Kunst des stilvollen Verarmens;wie man ohne Geld reich wird;;Alexander von Schönburg;vorhanden: Alexander von Schönburg;;Rowohlt-Taschenbuch-Verl.;vorhanden (gleich): Rowohlt-Taschenbuch-Verl.;2009;DNB;47d03c88-6cf5-4f75-a1e8-b87a11dc96ed
+nein;kein_treffer;nirgends gefunden – Cover nötig;in_stock;9783426670620;462;;;;;;;;;;;;;5ce785fc-8df1-4b02-bc5d-4b778162e59c
+ja;auto;DNB (+OpenLibrary), Seiten passen;in_stock;9783453285200;287;287;;Krebs. Und alles ist anders;;;Vera Sandberg;neu;;Diana-Verl.;neu;2009;DNB;958329b2-999b-4440-b122-a464b7afee7d
+ja;auto;DNB, Seiten passen;in_stock;9783404615674;317;317;;Flieh, bevor der Morgen graut;die Geschichte einer iranischen Frau;;Maryam Ansary;neu;;Bastei Lübbe;vorhanden (gleich): Bastei Lübbe Verlag;2005;DNB;f9136511-2946-4122-88e4-dcd2bb0c4f4f
+ja;auto;DNB (+OpenLibrary), Seiten passen;in_stock;9783570058848;190;190;;Der Mann, der Flick jagte;d. Geschichte d. Steuerfahnders Klaus Förster;;Hubert Seipel;vorhanden: Hubert Seipel;;Gruner und Jahr;vorhanden (ähnlich): jahr;1985;DNB;d9d0a699-bc31-452a-84ab-649948756d68
+nein;ohne_isbn;ISBN fehlt/ungültig – Cover nötig;in_stock;;285;;;;;;;;;;;;;db9d10f6-f4d0-4cc5-ab7d-1304cc63d9df
+ja;auto;DNB, Seiten passen;in_stock;9783827245779;387;387;;Java;;;Dirk Louis;neu;;Markt + Technik;neu;2011;DNB;88879332-12f7-4cf6-bf13-a61a39b99fc8
+nein;pruefen;OpenLibrary, Seiten passen;in_stock;9780099284826;217;219;;Disgrace;;;J. M. Coetzee;neu;;Vintage;vorhanden (gleich): vintage;2000;OpenLibrary;cc2f170a-a75d-4c9e-9952-303741b77a5c
+ja;auto;DNB, Seiten passen;in_stock;9783734104022;315;315;;Wer hat eigentlich die Ringe?;Tipps vom Profi für alle Trauzeugen;;Thomas Sünder;neu;;Blanvalet;vorhanden (gleich): Blanvalet;2017;DNB;a4c4dd47-ad48-4a62-b566-58fbfb113667
+ja;auto;DNB (+OpenLibrary), Seiten passen;in_stock;9783895020636;190;190;;Die Erben der Maya;indianischer Aufbruch in Guatemala;;Raimund Allebrand;vorhanden: Raimund Allebrand;;Unkel/Rhein;neu;1997;DNB;0bbe04f6-f0dc-4e09-b3fb-29912ff8797b
+ja;auto;DNB, Seiten passen;in_stock;9783785519196;345;345;;Der Sohn des Kolumbus;;;Hans Baumann;vorhanden: Hans Baumann;;Loewe;vorhanden (gleich): Loewe;1983;DNB;dbd2d7c8-fea2-4d1a-8597-4ff9ae74b37a
+ja;auto;DNB (+OpenLibrary), Seiten passen;in_stock;9783746624112;298;298;;Die Novizin;Mord im Jahr des Herrn 1431;;Margaret Frazer;neu;;Aufbau Taschenbuch;vorhanden (gleich): Aufbau;2008;DNB;4f7e7dd2-aa92-42c0-bede-4e8ed88591cf
+ja;auto;DNB, Seiten passen;in_stock;9783548246970;379;379;;Das Evangelium des Corax;Roman;;Paul Park;neu;;Ullstein;vorhanden (gleich): Verlag Ullstein;2000;DNB;f12b3554-e00b-4642-b722-7addd5eae6ac
+ja;auto;DNB (+OpenLibrary), Seiten passen;in_stock;9783548374185;206;206;;Mach mal Hals lang ... und andere Weisheiten aus dem Aschebeschär;;;Martin Schneider;neu;;Ullstein;vorhanden (gleich): Verlag Ullstein;2011;DNB;18405e1a-7b5a-42f2-80fa-eaacaeaceb8f
+ja;auto;DNB (+OpenLibrary), Seiten passen;in_stock;9783492056243;303;303;;Verdammtes Land;eine Reise durch Palästina;;Andreas Altmann;vorhanden: Andreas Altmann;;München;neu;2014;DNB;ef29c083-b448-4b6a-8223-6d8e3f77dff7
+ja;auto;DNB, Seiten passen;in_stock;9783406844003;315;315;;Yacht oder nicht Yacht;Nachrichten aus der Welt der Ultrareichen;;Evan Osnos;neu;;C.H. Beck;vorhanden (gleich): C.H.Beck;2026;DNB;a81a11dd-83ac-4cda-a64b-41836e61c164
+nein;ohne_isbn;ISBN fehlt/ungültig – Cover nötig;in_stock;;135;;;;;;;;;;;;;c0714c86-6790-427b-8b94-db59a5065629
+nein;kein_treffer;nirgends gefunden – Cover nötig;in_stock;6780269549246;326;;;;;;;;;;;;;0f4ff725-1934-4e58-8e5b-6b9437b1f5f0
+ja;auto;DNB (+OpenLibrary), Seiten passen;in_stock;9783800026166;563;563;;Krieg der Engel;eine fantastische Geschichte;;Wolfgang Hohlbein;vorhanden: Wolfgang Hohlbein;;Ueberreuter;vorhanden (gleich): Ueberreuter;1999;DNB;955a14dc-04f2-4bde-80c5-b8332b95d51a
+ja;auto;DNB (+OpenLibrary), Seiten passen;in_stock;9783786784821;116;116;;Ich bin zornig - und das ist gut so!;Wut verstehen und konstruktiv nutzen;;Manfred Hanglberger;vorhanden: Manfred Hanglberger;;Matthias-Grünewald-Verl.;neu;2003;DNB;517cb5dc-6da8-49ce-b7e2-2750a6cb5dc2
+ja;auto;DNB, Seiten passen;in_stock;9783786784814;123;124;;Bin ich denn nichts wert?;der Weg zu einem gesunden Selbstwertgefühl;;Manfred Hanglberger;vorhanden: Manfred Hanglberger;;Pustet;neu;2003;DNB;b9099198-98fa-489b-9ab3-c8bd38a67ae0
+ja;auto;DNB (+OpenLibrary), Seiten passen;in_stock;9783786783541;180;180;;Die Geburt des Ich;"wie die Seele ""zur Welt kommt""";;Manfred Hanglberger;vorhanden: Manfred Hanglberger;;Pustet;neu;2000;DNB;5d58df02-9154-4765-b5c3-8429b73196e4
+ja;auto;DNB, Seiten passen;in_stock;9783401046495;195;195;;Frei wie die Sonne;;;Federica De Cesco;vorhanden: Federica De Cesco;;Arena;vorhanden (gleich): Arena;1996;DNB;b1bc6717-35e4-4c10-8f3d-38154ab68ef8
+ja;auto;DNB, Seiten passen;in_stock;9783813800494;218;218;;Adeline und die vierte Dimension;;;Penny McLean;neu;;Erd;vorhanden (ähnlich): peter erd;1991;DNB;859a96d1-b24a-4e9a-afc6-5c6f857cc4bc
+nein;ohne_isbn;ISBN fehlt/ungültig – Cover nötig;in_stock;;302;;;;;;;;;;;;;1659393e-2653-4a55-aad4-38aef5b23288
+ja;auto;DNB (+OpenLibrary), Seiten passen;in_stock;9783404152490;668;668;;Die Bruderschaft der Runen;Roman;;Michael Peinkofer;vorhanden: Michael Peinkofer;;Bastei Lübbe;vorhanden (gleich): Bastei Lübbe Verlag;2005;DNB;9ece1103-5183-4fe3-bf8f-7406bb26e126
+ja;auto;DNB, Seiten passen;in_stock;9783453602328;383;383;;Familienkonferenz;die Lösung von Konflikten zwischen Eltern und Kind;;Thomas Gordon;neu;;Heyne;vorhanden (gleich): Heyne;2012;DNB;5ddbb1ab-7fdb-4ccd-a041-ba7de5005f36
+ja;auto;DNB, Seiten passen;in_stock;9783401046525;235;235;;Im Zeichen der roten Sonne;;;Federica De Cesco;vorhanden: Federica De Cesco;;Arena;vorhanden (gleich): Arena;1996;DNB;d2225127-121f-4ab7-af58-b99edec4ba40
+ja;auto;DNB (+OpenLibrary), Seiten passen;in_stock;9783832197070;223;223;;Südlich der Grenze, westlich der Sonne;Roman;;Haruki Murakami;vorhanden: Haruki Murakami;;DuMont;vorhanden (gleich): DuMont;2013;DNB;e905ebdc-5d17-43d9-b58e-4106534505ac
+nein;kein_treffer;nirgends gefunden – Cover nötig;in_stock;9783734181030;447;;;;;;;;;;;;;8c71182b-a097-496f-8e0a-167f238a1dda
+ja;auto;DNB, Seiten passen;in_stock;9783473350117;134;134;;Einmaleins des Träumens;;;Halina Snopkiewicz;neu;;Maier;neu;1975;DNB;e45cd61a-15c2-48fe-a57e-d7ddf0d6c726
+nein;ohne_isbn;ISBN fehlt/ungültig – Cover nötig;in_stock;;510;;;;;;;;;;;;;41d39f93-c901-441d-8f0f-fd4545a81ec5
+nein;pruefen;DNB, Seiten passen, kein Autor gefunden, kein Verlag gefunden;in_stock;9783828903753;666;647;;Bd. 1. Ursprung und Organisation der Inquisition;;;;;;;;2000;DNB;3e21ad54-a113-4c5d-a960-9e707943c6bd
+nein;pruefen;DNB, Seiten passen, kein Autor gefunden, kein Verlag gefunden;in_stock;9783828903753;647;647;;Bd. 1. Ursprung und Organisation der Inquisition;;;;;;;;2000;DNB;de24e891-0186-4c69-817d-81ddeee526f2
+nein;kein_treffer;nirgends gefunden – Cover nötig;in_stock;9783898975841;421;;;;;;;;;;;;;86e60bdf-bfc7-4393-99dc-300f8562b249
+ja;auto;DNB, Seiten passen;in_stock;9783257201840;316;316;;Der preussische Offizier;Erzählungen;;D. H. Lawrence;neu;;Diogenes;vorhanden (gleich): Diogenes;1995;DNB;2208c86b-2709-4844-81c4-302888d633a9
+ja;auto;DNB, Seiten passen;in_stock;9783954030255;205;205;;Die Kultur der Unhöflichkeit;;;Thomas Mießgang;vorhanden: Thomas Mießgang;;Rogner & Bernhard;vorhanden (gleich): Rogner & bernhard;2013;DNB;58dd3e52-dab1-49b9-a16e-0ffa21daeadf
+ja;auto;DNB, Seiten passen;in_stock;9783548245041;440;440;;Der schwarze Baron;Roman;;C. H. Guenter;neu;;Ullstein;vorhanden (gleich): Verlag Ullstein;1999;DNB;ac625c42-cc7c-463b-a67b-d5ff574e8e1c
+ja;auto;DNB, Seiten passen;in_stock;9783570403280;349;351;;Nebel im August;die Lebensgeschichte des Ernst Lossa : die Romanvorlage zum Film mit farbigem Bildteil;;Robert Domes;vorhanden: Robert Domes;;cbj;vorhanden (gleich): cbj;2016;DNB;75cdd656-e365-4b64-ba1a-970654f6e9e4
+ja;auto;DNB, Seiten passen;in_stock;9783451161674;221;221;;Rebellion der Rebellen;Roman e. histor. Texas-Cowboy-Fehde;;Christopher S. Hagen;vorhanden: Christopher S. Hagen;;Herder;vorhanden (gleich): Herder;1977;DNB;b98706a3-fbbd-4eaf-98bc-e7226c07a37e
+ja;auto;DNB, Seiten passen;in_stock;9783766724847;331;336;;Der ultimative Skiguide;;;"Max Scharnigg; Willy Bogner";neu;;Callwey;vorhanden (gleich): Callwey;2020;DNB;b179e9f2-eb5a-431d-b324-df4ed72c1900
+nein;ohne_isbn;ISBN fehlt/ungültig – Cover nötig;in_stock;;477;;;;;;;;;;;;;8038b0ca-5eda-4e49-877c-b931ed6edc05
+nein;pruefen;OpenLibrary;in_stock;9781569013083;438;;;Growing Up in Kuwait;;;Leena Ansari;vorhanden: Leena Ansari;;Northwest Pub;vorhanden (ähnlich): Northwest Publishing;1995;OpenLibrary;84131384-f380-4fb3-85ca-f07de2eb54af
+nein;ohne_isbn;ISBN fehlt/ungültig – Cover nötig;in_stock;;476;;;;;;;;;;;;;fc04ecee-b145-4516-9622-863611845630
+nein;pruefen;OpenLibrary, kein Autor gefunden;in_stock;9783934590014;0;;Mallorca! Schlemmen, Träumen, Classic-Cars;;;;;;SavoirVivre Verlag;;;2001;OpenLibrary;f922ef2f-59bc-4c6a-9906-6faca9450185
+ja;auto;DNB, Seiten passen;in_stock;9783404013357;383;383;;Gipfel und Gefährten;;;Kurt Diemberger;vorhanden: Kurt Diemberger;;Lübbe;vorhanden (gleich): Lübbe;1979;DNB;a402bca3-5900-4863-979b-0d61dff117d0
+ja;auto;DNB, Seiten passen;in_stock;9783444104268;192;192;;Kinder heilen - ohne Chemie;;;Bernd Jürgens;neu;;Bern;vorhanden (ähnlich): Huber, Bern;1994;DNB;bb340759-83f4-4a60-ab72-46cf1ad681a5
+nein;ohne_isbn;ISBN fehlt/ungültig – Cover nötig;in_stock;;551;;;;;;;;;;;;;15a7509d-e9b5-4dd9-b8de-4a486b61c3c3
+ja;auto;DNB, Seiten passen;in_stock;9783000181276;224;224;;Gegen den Strom;A. Schwartz - der widerspenstige Heilige;;Klaus Prochazka;vorhanden: Klaus Prochazka;;Klaus Prochazka;neu;2008;DNB;33d974a6-30a1-4754-9736-de21bc509206
+nein;ohne_isbn;ISBN fehlt/ungültig – Cover nötig;in_stock;;254;;;;;;;;;;;;;f226a30b-2e57-433a-bde3-6f3987a645dc
+ja;auto;DNB, Seiten passen;in_stock;9783442352777;246;246;;Spatz in der Hand;Roman;;Thommie Bayer;vorhanden: Thommie Bayer;;Goldmann;vorhanden (gleich): Goldmann;2000;DNB;9214ccd2-b1f0-46d1-bd39-d7d91f5e94b7
+nein;ohne_isbn;ISBN fehlt/ungültig – Cover nötig;in_stock;376095854X;421;;;;;;;;;;;;;f13d82b4-28f1-4c22-9686-d9c617a52f0e
+nein;ohne_isbn;ISBN fehlt/ungültig – Cover nötig;in_stock;;438;;;;;;;;;;;;;24717591-06cb-4bbc-946d-c0f20c0150da
+ja;auto;DNB, Seiten passen;in_stock;9783875315042;96;96;;Kenia;;;Heidegret Klöter;neu;;Pfützner;vorhanden (ähnlich): Robert Pfützner GmbH;1989;DNB;2c6054c0-2fee-4245-bccb-b224ee7dee0d
+ja;auto;DNB, Seiten passen;in_stock;9783453029538;446;446;;Der Zigeuner und das Mädchen;Roman;;Victoria Holt;vorhanden: Victoria Holt;;Heyne;vorhanden (gleich): Heyne;1994;DNB;33f2467c-bddf-48b9-a168-d1ce5f0e9962
+ja;auto;DNB (+OpenLibrary), Seiten passen;in_stock;9783784418087;304;304;;Volksaufstand;d. Geschichte d. Revolution von 1705 u.d. Sendlinger Mordweihnacht;;Henric L. Wuermeling;vorhanden: Henric L. Wuermeling;;Langen-Müller;vorhanden (gleich): Langen-Müller;1980;DNB;c98cea92-8d5d-4678-a214-d5c14165f9e6
+ja;auto;DNB, Seiten passen, kein Verlag gefunden;in_stock;9783442743636;570;570;IQ84 (Buch 3);;;村上春樹;;;;;;2013;DNB;397918ce-263f-49da-8ef2-06d768a1f943
+ja;auto;DNB, Seiten passen;in_stock;9783828973718;350;350;;Die Hitzkammer;;;Wolf Serno;vorhanden: Wolf Serno;;Weltbild;vorhanden (gleich): Weltbild;2004;DNB;7a084b80-4934-4319-a17e-5ad57f4e00b4
+nein;ohne_isbn;ISBN fehlt/ungültig – Cover nötig;in_stock;376095854X;421;;;;;;;;;;;;;1cf89a8d-7e29-4e66-8605-387997a7b768
+ja;auto;DNB (+OpenLibrary), Seiten passen;in_stock;9783453875043;575;575;;Schöne Rebellin;Roman;;Marsha Canham;vorhanden: Marsha Canham;;Pavillon-Verl.;vorhanden (ähnlich): Pavillon;2003;DNB;46a3181b-2ab2-4dbf-b415-f19f3c0e80c9
+ja;auto;DNB (+OpenLibrary), Seiten passen;in_stock;9783426600924;248;254;;Harun und das Meer der Geschichten;;;Salman Rushdie;vorhanden: Salman Rushdie;;Droemer Knaur;vorhanden (gleich): Droemer Knaur;1996;DNB;cd64447b-0bb8-4fb2-92cc-94e58a9c9e15
+ja;auto;DNB, Seiten passen;in_stock;9783404121915;391;391;;Ich, Tiberius;Erinnerungen eines Tyrannen;;Allan Massie;vorhanden: Allan Massie;;Lübbe;vorhanden (gleich): Lübbe;1994;DNB;83be842e-09aa-4e7b-b563-8ea1cee258ae
+nein;ohne_isbn;ISBN fehlt/ungültig – Cover nötig;in_stock;;161;;;;;;;;;;;;;e717eca2-8645-44f9-a3b8-d25535c3ef06
+nein;pruefen;OpenLibrary, Seiten passen;in_stock;9780870404894;238;247;;Acu-yoga;self help techniques to relieve tension;;"Michael Reed Gach; Carolyn Marco Matzkin";vorhanden: Michael Reed Gach;;Japan Publication;vorhanden (gleich): Japan Publication;1981;OpenLibrary;ef7ec053-bf58-4aa6-b7e2-ed28d9e7a63a
+ja;auto;DNB, Seiten passen;in_stock;9783453870116;208;208;;Der rubinrote Ring;Roman;;Danielle Steel;vorhanden: Danielle Steel;;Heyne;vorhanden (gleich): Heyne;2003;DNB;d20d5cd5-77d6-4157-87f8-e195603a7f11
+ja;auto;DNB, Seiten passen;in_stock;9783453124349;295;295;;Die Florentinerin;Roman;;Mariella Righini;vorhanden: Mariella Righini;;Heyne;vorhanden (gleich): Heyne;1997;DNB;6c15df9e-ff3f-472d-bea9-ef0d66456518
+ja;auto;DNB, Seiten passen;in_stock;9783453063235;430;430;;Es geschah nebenan;die unfassbare Geschichte einer Mutter;;Joyce Egginton;vorhanden: Joyce Egginton;;Heyne;vorhanden (gleich): Heyne;1993;DNB;3fa8a5ae-30af-4af4-b1da-d0cc7ecf5349
+ja;auto;DNB, Seiten passen;in_stock;9783453503748;234;234;;Das Lächeln der Sterne;Roman;;Nicholas Sparks;vorhanden: Nicholas Sparks;;Heyne;vorhanden (gleich): Heyne;2008;DNB;2f3f5bcc-4bf0-4666-8f14-79e663bcc400
+nein;kein_treffer;nirgends gefunden – Cover nötig;in_stock;9783861907589;254;;;;;;;;;;;;;887ec8cc-b5d6-44bd-a5a6-9450a4810285
+nein;ohne_isbn;ISBN fehlt/ungültig – Cover nötig;in_stock;;272;;;;;;;;;;;;;0b1bf409-c229-47a8-9787-3e2f1056b129
+ja;auto;DNB (+OpenLibrary), Seiten passen;in_stock;9783442741281;379;379;;Der einzige Mann auf dem Kontinent;Roman;;Terézia Mora;vorhanden: Terézia Mora;;btb;vorhanden (gleich): btb;2011;DNB;4667d503-7e1c-4149-8c1e-60516d94f45b
+ja;auto;DNB (+OpenLibrary);in_stock;9783548367484;387;;;Meines Vaters Land;Geschichte einer deutschen Familie;;Wibke Bruhns;vorhanden: Wibke Bruhns;;Ullstein;vorhanden (gleich): Verlag Ullstein;2005;DNB;c1675af5-0aa3-44a2-a590-5cc956d9abb0
+nein;pruefen;OpenLibrary, Seiten ~;in_stock;9780061472770;268;288;;Witch of Portobello;;;Paulo Coelho;vorhanden: Paulo Coelho;;Harper;vorhanden (gleich): Harper;2008;OpenLibrary;d42d1450-779d-4934-a3c1-d0928bdafd42
+nein;pruefen;DNB, Seiten passen, kein Autor gefunden, kein Verlag gefunden;in_stock;9783939238003;368;368;;Buch.;;;;;;;;2010;DNB;438bb47e-7085-4ac8-a516-e383dd7d3da3
+nein;kein_treffer;nirgends gefunden – Cover nötig;in_stock;9783625130185;256;;;;;;;;;;;;;92c30065-3e09-4598-9c83-7eed512743ff
+ja;auto;DNB, Seiten passen;in_stock;9783421043047;700;700;;Die Macht der Verdrängung;George W. Bush, das Weiße Haus und der Irak;;Bob Woodward;vorhanden: Bob Woodward;;Dt. Verl.-Anst.;neu;2007;DNB;d167f87a-328b-44b2-86b9-021cf85c252c
+ja;auto;DNB, Seiten passen;in_stock;9783442123216;377;383;;Richard von Weizsäcker;ein deutscher Präsident;;Ric Von Weizsaecker;vorhanden: Helmut R. Schulze;;Goldmann;vorhanden (gleich): Goldmann;1990;DNB;e9277b3e-04c0-4fa4-8499-5f899fb3f91f
+ja;auto;DNB, Seiten passen;in_stock;9783453045347;315;315;;Beruf: Killer;Roman;;Elmore Leonard;vorhanden: Elmore Leonard;;Heyne;vorhanden (gleich): Heyne;1991;DNB;2616dfd3-42b5-4c7f-b699-838f69e1a721
+nein;ohne_isbn;ISBN fehlt/ungültig – Cover nötig;in_stock;;;;;;;;;;;;;;;9d051a5e-2494-4334-ab2a-68b412925e1b
+ja;auto;DNB, Seiten passen;in_stock;9783867391146;232;232;;Musik mit Leib und Seele;was wir mit Musik machen und sie mit uns;;"Claudia Spahn; Bernhard Richter";vorhanden: Claudia Spahn;;Schattauer;vorhanden (gleich): Schattauer;2016;DNB;4e82916d-9627-4cc6-8a60-1c0ba98b8992
+ja;auto;DNB, Seiten passen;in_stock;9783404170685;682;682;;Sturmjahre :;;;Cameron Hawley;vorhanden: Cameron Hawley;;Lübbe;vorhanden (gleich): Lübbe;1982;DNB;95b65513-e28b-4f3c-847a-6cc42a4d6015
+nein;pruefen;DNB, Seiten passen, kein Autor gefunden, kein Verlag gefunden;in_stock;9783473582587;249;249;;Stilettopanik;;;;;;;;2007;DNB;a6d6f16d-d9f3-4b23-8f6c-a732c9e22f17
+ja;auto;DNB, Seiten passen;in_stock;9783832164201;270;270;;Reise durch einen einsamen Kontinent;unterwegs in Kolumbien, Ecuador, Peru, Bolivien und Chile;;Andreas Altmann;vorhanden: Andreas Altmann;;DuMont;vorhanden (gleich): DuMont;2017;DNB;f514d43f-53bf-411b-a0aa-8200dbb1ba54
+ja;auto;DNB, Seiten passen;in_stock;9783581667343;107;107;;Bewerbung für Selbstbewusste;etwas andere Bewerbungstips von A bis Z;;Christina Ewald;vorhanden: Christina Ewald;;Humboldt-Taschenbuchverl. Jacobi;vorhanden (gleich): Humboldt-Taschenbuchverl. Jacobi;1994;DNB;b0a4ba6d-fdc4-4d10-82ed-e9a01cab7266
+ja;auto;DNB, Seiten passen;in_stock;9783833300271;445;445;;Die weinende Susannah;Roman;;Alonah Ḳimḥi;vorhanden: Alonah Kimhi;;Berliner Taschenbuch-Verl.;vorhanden (ähnlich): berliner taschenbuch;2004;DNB;728045dd-a16a-4795-b082-ec0887e46064
+ja;auto;DNB, Seiten passen;in_stock;9783426260319;239;239;;Wir sind rund - na und?;e. Plädoyer für d. mollige Frau;;"Margit Schönberger; Anita Höhne";vorhanden: Margit Schönberger;;München;neu;1981;DNB;c5eb7bcc-3e0d-4be7-bbed-8a3fa64c4153
+ja;auto;DNB, Seiten passen;in_stock;9783453354258;567;567;;Die Hexengabe;Roman;;Beatrix Mannel;vorhanden: Beatrix Mannel;;Diana-Verl.;neu;2010;DNB;a7c3ec0a-5c74-49c7-9fcc-45e3af0a55e6
+nein;ohne_isbn;ISBN fehlt/ungültig – Cover nötig;in_stock;;200;;;;;;;;;;;;;952d157e-fd0c-48ca-9702-b7c226b24772
+nein;ohne_isbn;ISBN fehlt/ungültig – Cover nötig;in_stock;;200;;;;;;;;;;;;;ba03d633-c0e2-42e4-9cc5-c38c529872e6
+nein;ohne_isbn;ISBN fehlt/ungültig – Cover nötig;in_stock;;200;;;;;;;;;;;;;a3ab16f5-ba53-49d0-b997-b99b74cef986
+nein;ohne_isbn;ISBN fehlt/ungültig – Cover nötig;in_stock;;200;;;;;;;;;;;;;1b01761d-0128-463a-ac97-af63fb360e0a
+ja;auto;DNB, Seiten passen;in_stock;9783453014923;254;254;;Brigade der Verdammten;Dirlewanger z.b.V.;;Franz Taut;vorhanden: Franz Taut;;Heyne;vorhanden (gleich): Heyne;1982;DNB;a69ece9c-dbf2-4648-ae6a-fe0c9454b51d
+nein;ohne_isbn;ISBN fehlt/ungültig – Cover nötig;in_stock;3807701373;215;;;;;;;;;;;;;5d7f4137-40a3-4d30-a17d-417695a66f61
+ja;auto;DNB, Seiten passen;in_stock;9783426005644;160;160;;Und keiner wollte ihn haben;Geschichte e. Adoption;;Jutta Westphal;vorhanden: Jutta Westphal;;Droemer-Knaur;vorhanden (gleich): Droemer Knaur;1980;DNB;061d875f-d7b4-4a62-ba96-907ad0623f4e
+ja;auto;DNB, Seiten passen;in_stock;9783426618950;316;316;;Blutacker;Roman;;Paul Harding;neu;;Knaur-Taschenbuch-Verl.;vorhanden (gleich): Knaur-Taschenbuch-Verl.;2004;DNB;6cb366f3-90b3-4b54-8c39-5c8d2af386ce
+nein;ohne_isbn;ISBN fehlt/ungültig – Cover nötig;in_stock;;516;;;;;;;;;;;;;c3b29a83-8abb-4025-a48d-2f4ebeaf2202
+nein;ohne_isbn;ISBN fehlt/ungültig – Cover nötig;in_stock;;147;;;;;;;;;;;;;77113476-c181-48cc-acbe-2f8dc4f8efe1
+ja;auto;DNB, Seiten passen;in_stock;9783899011036;237;237;;Coaching für die Seele;101 Übungen für ein friedvolles, erfülltes Leben;;Bernie S. Siegel;neu;;Kamphausen;vorhanden (ähnlich): J. Kamphausen;2008;DNB;7ad093b9-890b-4329-bcba-d4faeb24b1de
+ja;auto;DNB, Seiten passen;in_stock;9783768803748;261;261;;Barawitzka segelt nach Malta;;;Karl Vettermann;vorhanden: Karl Vettermann;;Delius Klasing;vorhanden (gleich): Delius Klasing Verlag GmbH;1982;DNB;b6255b83-b914-40ed-ab19-f926356ac7f5
+nein;ohne_isbn;ISBN fehlt/ungültig – Cover nötig;in_stock;;708;;;;;;;;;;;;;837114bf-2042-4641-9bc7-a836c5c28a14
+nein;kein_treffer;nirgends gefunden – Cover nötig;in_stock;6783303508728;200;;;;;;;;;;;;;24c79c10-7f6a-400d-98be-f5e5b5da6eca
+ja;auto;DNB, Seiten passen;in_stock;9783940855633;243;245;;Gloria und eine ägyptische Affäre;ein viktorianischer Krimi;;Marlene Klaus;vorhanden: Marlene Klaus;;Dryas;vorhanden (gleich): Dryas;2016;DNB;f90e86ca-2dd5-4f70-892d-61c54286a69f
+ja;auto;DNB, Seiten passen;in_stock;9783761005774;207;209;;Die Hand des Herzens;Leben u. Kämpfe d. Spanierin Soledad Real;;Consuelo García;neu;;Verlag Autoren-Edition;neu;1981;DNB;838df1d1-7cd6-4f5d-a7a8-29137e2ca9e0
+ja;auto;DNB, Seiten passen;in_stock;9783355014038;385;385;;Flüstern im Wind;Roman;;Mary Ryan;vorhanden: Mary Ryan;;Verl. Neues Leben;neu;1993;DNB;6e14a9c7-052d-4f88-8070-1ade0f25992c
+ja;auto;DNB, Seiten passen;in_stock;9783499176609;285;285;;Der Verrat am Körper;d. bioenerget. Weg, d. verlorene Harmonie von Körper u. Psyche wiederzugewinnen;;Alexander Lowen;vorhanden: Alexander Lowen;;Rowohlt;vorhanden (gleich): Rowohlt;1988;DNB;b632fd6f-2058-4e27-98fd-e83fc4bbd470
+nein;ohne_isbn;ISBN fehlt/ungültig – Cover nötig;in_stock;378572749;826;;;;;;;;;;;;;7dd2e512-957b-4afd-ab07-b9704086b832
+nein;ohne_isbn;ISBN fehlt/ungültig – Cover nötig;in_stock;;590;;;;;;;;;;;;;f3157feb-99b4-4717-a177-64e673ec9a66
+ja;auto;DNB (+OpenLibrary), Seiten passen;in_stock;9783518384824;286;286;;Der Geschichtenerzähler;Roman;;Mario Vargas Llosa;vorhanden: Mario Vargas Llosa;;Suhrkamp;vorhanden (gleich): Suhrkamp;1995;DNB;4d5044c0-5ec7-4fde-afc6-7166cf1c64d5
+ja;auto;DNB, Seiten passen;in_stock;9783455088540;359;359;;Im Anfang war der Wasserstoff;;;Hoimar von Ditfurth;vorhanden: Hoimar von Ditfurth;;Hoffmann und Campe;vorhanden (gleich): Hoffmann und Campe;1984;DNB;da30366e-dd75-4a3a-a25d-375c54516f7d
+ja;auto;DNB, Seiten passen;in_stock;9783492304863;172;172;;Ein allzu braves Mädchen;Roman;;Andrea Sawatzki;vorhanden: Andrea Sawatzki;;München;neu;2014;DNB;50bf498b-b8a4-45a8-a049-944a7f773c0d
+nein;ohne_isbn;ISBN fehlt/ungültig – Cover nötig;in_stock;;393;;;;;;;;;;;;;c5dbc7f4-29b8-4160-8b0e-985fad9c9cc3
+nein;kein_treffer;nirgends gefunden – Cover nötig;in_stock;9783828935716;141;;;;;;;;;;;;;37858ad2-5f4b-47c1-8562-2d73f0fb7975
+ja;auto;DNB, Seiten passen;in_stock;9783593340869;210;210;;Reverse marketing;Wettbewerbsvorteile durch neue Strategien in der Beschaffung;;"Michiel R. Leenders; David L. Blenkhorn";neu;;Frankfurt/Main;neu;1989;DNB;ac83b6d2-83e6-4b50-a08b-9334236cdd12
+ja;auto;DNB, Seiten passen;in_stock;9783423253048;509;509;;Kurze Geschichte des Traktors auf Ukrainisch;Roman;;Marina Lewycka;vorhanden: Marina Lewycka;;Dt. Taschenbuch-Verl.;vorhanden (gleich): Dt. Taschenbuch-Verl.;2010;DNB;3118fa7c-09e8-4f26-bfe0-1558a1b6da33
+nein;ohne_isbn;ISBN fehlt/ungültig – Cover nötig;in_stock;;104;;;;;;;;;;;;;579842e0-1102-45dc-81c4-2e5a7cc1beb4
+nein;ohne_isbn;ISBN fehlt/ungültig – Cover nötig;in_stock;;316;;;;;;;;;;;;;3490552f-efcb-4467-be49-9f71a085aee7
+ja;auto;DNB, Seiten passen;in_stock;9783868000382;383;383;;Die Tochter des Buchdruckers;;;Ines Thorn;vorhanden: Ines Thorn;;Weltbild;vorhanden (gleich): Weltbild;2008;DNB;8e45536c-7f71-4929-b5ba-fe351ea952fe
+nein;ohne_isbn;ISBN fehlt/ungültig – Cover nötig;in_stock;;118;;;;;;;;;;;;;c35a65a7-1e22-41a4-a1dc-20cd1cc8d7e4
+ja;auto;DNB, Seiten passen;in_stock;9783453023925;347;347;;Das geheimnisvolle Mädchen;Roman;;Peter Straub;vorhanden: Peter Straub;;Heyne;vorhanden (gleich): Heyne;1992;DNB;0935d9ab-b4a4-4d6f-a3c7-d386ce0b12d4
+ja;auto;DNB, Seiten passen;in_stock;9783404126910;412;412;;Stirb nicht vor Mitternacht :;;;Robert O. Mendelsohn;neu;;Bastei-Verl. Lübbe;neu;1997;DNB;62800891-b8c0-4f02-990e-f7eca3649d09
+ja;auto;DNB, Seiten passen;in_stock;9783453307384;347;347;;An den Feuern der Leyermark;Science-fiction-Roman;;Carl Amery;vorhanden: Carl Amery;;Heyne;vorhanden (gleich): Heyne;1988;DNB;14100f16-c6cb-4def-b8b6-65900ca38339
+ja;auto;DNB, Seiten passen;in_stock;9783596237623;437;437;;Reise in die schwarze Haut;ein Tagebuch;;Gertraud Heise;vorhanden: Gertraud Heise;;Fischer-Taschenbuch-Verl.;vorhanden (gleich): Fischer-Taschenbuch-Verl.;1993;DNB;745a46c1-64d0-43cf-8e4f-4f531c429051
+nein;kein_treffer;nirgends gefunden – Cover nötig;in_stock;9783899418385;348;;;;;;;;;;;;;2bcbd24f-5e31-4846-b1c4-3b067789c638
+nein;ohne_isbn;ISBN fehlt/ungültig – Cover nötig;in_stock;;225;;;;;;;;;;;;;7becb06b-e774-4a54-9eb4-868bf0017e48
+ja;auto;DNB (+OpenLibrary), Seiten passen;in_stock;9783492030687;239;238;;Der Speerwerfer;Roman;;Paolo Volponi;neu;;München;neu;1988;DNB;5682b0dd-cf89-4c73-96c6-e1a1067a7c9a
+ja;auto;DNB, Seiten passen;in_stock;9783453441552;686;686;;Der Polizist;Roman;;John Grisham;vorhanden: John Grisham;;Wilhelm Heyne Verlag;vorhanden (gleich): Wilhelm Heyne Verlag GmbH & Co KG;2022;DNB;22f7367d-a8cb-456f-8552-c4a81783a72b
+nein;kein_treffer;nirgends gefunden – Cover nötig;in_stock;4026411172804;654;;;;;;;;;;;;;7f495748-8139-4e32-93f0-595adc0d2d06
+ja;auto;DNB (+OpenLibrary), Seiten passen;in_stock;9783404735006;320;320;;Hexenküsse;d. grosse Horror-Buch mit John Sinclair;;Jason Dark;vorhanden: Jason Dark;;Bastei-Verlag Lübbe;vorhanden (gleich): Bastei Lübbe Verlag;1984;DNB;b019368e-a526-4888-b31e-50b922c13a4e
+ja;auto;DNB, Seiten passen;in_stock;9783352009686;394;394;;Der Sturm;Thriller;;Jane Harper;vorhanden: Jane Harper;;Rütten & Loening;vorhanden (gleich): Rütten & Loening;2022;DNB;a1cd673c-ac19-4ab1-876d-5d33170041b5
+nein;ohne_isbn;ISBN fehlt/ungültig – Cover nötig;in_stock;;319;;;;;;;;;;;;;79d6ec66-537c-4cd6-8d5b-6d327132daf8
+ja;auto;DNB, Seiten passen;in_stock;9783492113403;298;298;;Ich hatte Angst;meine gefährlichsten Expeditionen;;Herbert Rittlinger;vorhanden: Herbert Rittlinger;;München;neu;1991;DNB;b975361e-6cf7-4875-94e3-c9a0351aaffa
+ja;auto;DNB, Seiten passen;in_stock;9783442170074;237;237;;Vergessen Sie alles über Rhetorik;mitreißend reden - ein sprachliches Feuerwerk in Bildern;;Matthias Pöhm;vorhanden: Matthias Pöhm;;Goldmann;vorhanden (gleich): Goldmann;2009;DNB;ec7e023c-ed05-45ab-a87a-3e5d504c2529
+ja;auto;DNB, Seiten passen;in_stock;9783401601670;352;352;;Evolution - die Stadt der Überlebenden;;;Thomas Thiemeyer;vorhanden: Thomas Thiemeyer;;Arena;vorhanden (gleich): Arena;2016;DNB;b479c9e7-5eea-470b-a566-62f7a3674410
+nein;ohne_isbn;ISBN fehlt/ungültig – Cover nötig;in_stock;;316;;;;;;;;;;;;;27564a01-b5c1-4b05-9c6f-e3cda19e5dfe
+ja;auto;DNB (+OpenLibrary), Seiten passen;in_stock;9783426632482;563;568;;Die Löwin;Roman;;Iny Lorentz;vorhanden: Iny Lorentz;;Knaur-Taschenbuch-Verl.;vorhanden (gleich): Knaur-Taschenbuch-Verl.;2006;DNB;9dacc307-7264-4f22-ba7e-c48b7079510a
+ja;auto;DNB;in_stock;9783867542241;227;;;Havarie;;;Merle Kröger;vorhanden: Merle Kröger;;Argument-Verl.;vorhanden (ähnlich): Argument;2015;DNB;4328fea0-9503-484e-90e1-5f24006d0017
+ja;auto;DNB, Seiten passen;in_stock;9783453428812;732;732;;Käpt'ns Dinner - Familienchaos ahoi;Roman;;Gisa Pauly;neu;;Wilhelm Heyne Verlag;vorhanden (gleich): Wilhelm Heyne Verlag GmbH & Co KG;2024;DNB;1a4bd455-2e88-4ed0-8ff8-ac8a804f2b3e
+nein;ohne_isbn;ISBN fehlt/ungültig – Cover nötig;in_stock;;476;;;;;;;;;;;;;955937cf-c20a-444f-b4ca-29065922d49e
+ja;auto;DNB, Seiten passen;in_stock;9783404143023;479;479;;Intime Lügen :;;;Maria Barrett;neu;;Bastei-Verl. Lübbe;neu;2000;DNB;524c082e-3f70-4117-a3e5-12f59449b5f9
+nein;pruefen;DNB, Seiten weichen ab (376 statt 1940) – ISBN falsch?, kein Autor gefunden, kein Verlag gefunden;in_stock;9783828905252;1940;376;Kriegstagebuch des Oberkommandos der Wehrmacht;;;;;;;;;2005;DNB;74859276-8a44-4a86-a629-da51bb766c70
+ja;auto;DNB, Seiten passen;in_stock;9783455401431;254;254;;Tochter des Meeres;Roman;;Metin Arditi;neu;;Hoffmann und Campe;vorhanden (gleich): Hoffmann und Campe;2009;DNB;546a0b00-2ea3-471c-b136-923d221c2577
+ja;auto;DNB, Seiten passen;in_stock;9783492227254;223;223;;Die große Stille unter dem Schnee;Roman;;Claude Ponti;neu;;München;neu;1998;DNB;1c8eee7d-8000-4975-8645-5e7cbfef67f4
+ja;auto;DNB, Seiten passen;in_stock;9783423017695;233;236;;Christus kam nur bis Eboli;;;Carlo Levi;vorhanden: Carlo Levi;;Deutscher Taschenbuch Verl.;neu;1999;DNB;727ed247-3d3a-4b7e-be93-262cec9aa3d0
+nein;ohne_isbn;ISBN fehlt/ungültig – Cover nötig;in_stock;;766;;;;;;;;;;;;;add58c56-a0d3-4e5f-80f2-2674230856dc
+nein;ohne_isbn;ISBN fehlt/ungültig – Cover nötig;in_stock;;189;;;;;;;;;;;;;dc329fc6-5a4b-4e47-b227-a34e26e1dc8f
+nein;ohne_isbn;ISBN fehlt/ungültig – Cover nötig;in_stock;;383;;;;;;;;;;;;;8b3ada62-0c59-4ae4-bebd-c0765170af36
+nein;ohne_isbn;ISBN fehlt/ungültig – Cover nötig;in_stock;;254;;;;;;;;;;;;;d42b370b-16d1-44d8-a793-6601dffe467f
+nein;ohne_isbn;ISBN fehlt/ungültig – Cover nötig;in_stock;;142;;;;;;;;;;;;;b4f85a13-764e-4254-b544-fe1a47b5855c
+ja;auto;DNB, Seiten passen;in_stock;9783492231022;199;199;;Der Palio der toten Reiter;Roman;;Carlo Fruttero;vorhanden: Carlo Fruttero;;München;neu;2000;DNB;e86c71ab-b89a-4313-9785-f33a68363970
+ja;auto;DNB, Seiten passen;in_stock;9783426629956;367;367;;Der König der Narren;Roman;;Tanja Kinkel;vorhanden: Tanja Kinkel;;Knaur-Taschenbuch-Verl.;vorhanden (gleich): Knaur-Taschenbuch-Verl.;2005;DNB;8755666c-6fbc-4faa-8095-0d875397a885
+nein;ohne_isbn;ISBN fehlt/ungültig – Cover nötig;in_stock;;229;;;;;;;;;;;;;fab37f51-8d36-4b75-a453-1caa1cbd564b
+ja;auto;DNB, Seiten passen;in_stock;9783522721509;237;237;;Der Strandläufer;Roman;;Alan Garner;neu;;Stuttgart;neu;1997;DNB;4f030b5d-0d2e-4b9e-8fc7-8524d639277a
+ja;auto;DNB, Seiten passen;in_stock;9783426028704;594;594;;... und baute ihr einen Tempel;Roman um Ramses II.;;Siegfried Obermeier;vorhanden: Siegfried Obermeier;;Droemer Knaur;vorhanden (gleich): Droemer Knaur;1995;DNB;5eb99249-cf6a-4c9d-b8e6-5b3763fd74f5
+ja;auto;DNB, Seiten passen;in_stock;9783455094145;304;304;;Grönemeyer;Biografie;;Ulrich Hoffmann;vorhanden: Ulrich Hoffmann;;Hoffmann und Campe;vorhanden (gleich): Hoffmann und Campe;2003;DNB;13e4c6f9-8477-4653-87c7-4b50d9afae27
+ja;auto;DNB, Seiten passen;in_stock;9783746623320;438;438;;Ein Gebet für die Verdammten;historischer Kriminalroman;;Peter Tremayne;vorhanden: Peter Tremayne;;Aufbau-Taschenbuch-Verl.;vorhanden (gleich): Aufbau-Taschenbuch-Verl.;2007;DNB;a398be0a-71c8-495e-a0b2-bc6b9b3ed884
+ja;auto;DNB (+OpenLibrary), Seiten passen;in_stock;9783328602163;255;255;Sex ist wie Mehl;;;;Jürgen von der Lippe;neu;;Penguin Verlag;vorhanden (gleich): Penguin Books;2022;DNB;2f8639e7-3ce0-48ff-99ff-a8a4c802524e
+nein;ohne_isbn;ISBN fehlt/ungültig – Cover nötig;in_stock;0000000122104;381;;;;;;;;;;;;;7acec898-7654-46e6-91f9-739e1e949e51
+nein;ohne_isbn;ISBN fehlt/ungültig – Cover nötig;in_stock;;382;;;;;;;;;;;;;bc4e5235-de92-41a3-b89d-18314828ca5b
+ja;auto;DNB, Seiten passen;in_stock;9783548374062;282;282;;Die mit dem Bauch tanzt;eine ostwestfälische Familiengeschichte;;Ella Carina Werner;vorhanden: Ella Carina Werner;;Ullstein;vorhanden (gleich): Verlag Ullstein;2012;DNB;bbcffb98-3461-472a-a441-3d3a41761a6b
+ja;auto;DNB, Seiten passen;in_stock;9783550069895;344;344;;Tochter der Königin von Saba;aus dem Schattenreich meiner Mutter;;Jacki Lyden;neu;;Ullstein;vorhanden (gleich): Verlag Ullstein;1999;DNB;29361be8-a493-471c-a862-ee7c5258fcf0
+ja;auto;DNB, Seiten passen;in_stock;9783257019568;471;472;;König Salomons Teppich;Roman;;Ruth Rendell;vorhanden: Ruth Rendell;;Diogenes;vorhanden (gleich): Diogenes;1993;DNB;1797c37b-794e-4fcc-817e-21bb4083480c
+nein;ohne_isbn;ISBN fehlt/ungültig – Cover nötig;in_stock;;155;;;;;;;;;;;;;791963f8-e0c7-4748-b2d3-e42ca66e7f46
+nein;pruefen;DNB, Seiten passen, kein Autor gefunden, kein Verlag gefunden;in_stock;9783943309256;172;165;;.;;;;;;;;2012;DNB;b2682403-3095-46f5-a2f2-a31c522a40c0
+nein;ohne_isbn;ISBN fehlt/ungültig – Cover nötig;in_stock;;482;;;;;;;;;;;;;7b34fbc3-a38d-4fe1-b98a-55c8607bea2e
+nein;ohne_isbn;ISBN fehlt/ungültig – Cover nötig;in_stock;;353;;;;;;;;;;;;;af937bb6-a130-42ce-ae93-7180e0150cba
+nein;ohne_isbn;ISBN fehlt/ungültig – Cover nötig;in_stock;7045851071;127;;;;;;;;;;;;;1bddfdea-9590-4147-9c88-d52becd4be58
+nein;ohne_isbn;ISBN fehlt/ungültig – Cover nötig;in_stock;;205;;;;;;;;;;;;;b0aa5f83-a82d-4423-9a54-da6d137e2b80
+nein;ohne_isbn;ISBN fehlt/ungültig – Cover nötig;in_stock;;124;;;;;;;;;;;;;bbaf2357-5c62-4ab5-bf53-4ba6e69fe25a
+nein;pruefen;DNB, Seiten passen, kein Autor gefunden;in_stock;9789602263327;320;320;;Die Wildblumen Zyperns;;;;;;Efstathiadis;neu;1992;DNB;07eb491d-4d68-42fa-9b52-fb8b9c56033e
+nein;ohne_isbn;ISBN fehlt/ungültig – Cover nötig;in_stock;;479;;;;;;;;;;;;;f6303f11-b6eb-48f7-a9e3-b2ea61fde6cc
+ja;auto;DNB, Seiten passen;in_stock;9783548267357;524;524;;Gone baby gone - kein Kinderspiel;Roman;;Dennis Lehane;vorhanden: Dennis Lehane;;Ullstein;vorhanden (gleich): Verlag Ullstein;2007;DNB;e7c623d6-2454-43a6-86cd-c12322dd5f6c
+ja;auto;DNB (+OpenLibrary), Seiten passen;in_stock;9783882436273;263;263;Der letzte Held von Dublin;;;;Hugo Hamilton;neu;;Steidl;vorhanden (gleich): Steidl;1999;DNB;3a818450-e210-4fcd-a3a9-40690623e722
+ja;auto;DNB, Seiten passen;in_stock;9783596851249;350;350;;Donata, Tochter Venedigs;;;Donna Jo Napoli;neu;;Fischer-Taschenbuch-Verl.;vorhanden (gleich): Fischer-Taschenbuch-Verl.;2003;DNB;8689e4a0-8bcd-4bc1-b213-06ce3fa11310
+ja;auto;DNB, Seiten passen;in_stock;9782919804658;319;319;;Hearts on fire - Jonah;;;Johanna Danninger;neu;;Montlake Romance;neu;2019;DNB;7a47c57a-6378-4a03-80bd-4c1ce09ad726
+nein;ohne_isbn;ISBN fehlt/ungültig – Cover nötig;in_stock;;192;;;;;;;;;;;;;ba10a23b-f8f1-4cab-ad22-6ec55b66741d
+ja;auto;DNB (+OpenLibrary), Seiten passen;in_stock;9783499135125;350;351;;Elizabeth Taylor;Hollywoods letzte Diva;;"Andrea Thain; Michael O. Huebner";neu;;Rowohlt;vorhanden (gleich): Rowohlt;1994;DNB;04fef32a-3038-4d61-aca3-beb257c8740a
+ja;auto;DNB;in_stock;9783940984135;384;;;Der verflixte Morgen danach;;;Jill Brady;neu;;Candide;neu;2008;DNB;6e816187-5623-4bb2-b26c-c7bcfa6b65c5
+nein;ohne_isbn;ISBN fehlt/ungültig – Cover nötig;in_stock;;618;;;;;;;;;;;;;0fcb6ab1-270f-4b58-b4c4-919ed6c22527
+ja;auto;DNB, Seiten passen;in_stock;9783499624919;190;190;;Der Moslem-TÜV;Deutschland, einig Fatihland;;"Fatih Çevikkollu; Sheila Mysorekar";neu;;Rowohlt-Taschenbuch-Verl.;vorhanden (gleich): Rowohlt-Taschenbuch-Verl.;2010;DNB;d93f3385-bb2c-4c75-bc1d-04cf14186884
+ja;auto;DNB, Seiten passen;in_stock;9783881402194;552;552;;Fauna Europas;e. Bestimmungslexikon d. Tiere Europas;;Harry Garms;neu;;Englisch;vorhanden (ähnlich): F. Englisch;1985;DNB;1761f873-790e-454c-94eb-2cdd604d1a50
+ja;auto;DNB (+OpenLibrary), Seiten passen;in_stock;9783442137886;222;222;Die richtige Schwingung heilt.;;;;"Ingrid Kraaz von Rohr; Wulfing von Rohr";neu;Goldmann;;;1994;DNB;a51065af-7952-445e-8f7b-e8ea279ef135
+ja;auto;DNB, Seiten passen;in_stock;9783865328816;383;383;;Roter Sommer;Comisaria Ruiz ermittelt in Madrid : Kriminalroman;;Berna González Harbour;vorhanden: Berna Gonzalez Harbour;;Pendragon;vorhanden (gleich): pendragon;2024;DNB;8890c0a2-9859-4d26-a940-deabe8b525cd
+ja;auto;DNB, Seiten passen;in_stock;9783499272707;224;224;;Morgen mehr;Roman;;Tilman Rammstedt;vorhanden: Tilman Rammstedt;;Rowohlt Taschenbuch Verlag;vorhanden (gleich): Rowohlt;2017;DNB;9dae65fa-d61b-4db4-96bd-440a560bf801
+ja;auto;DNB, Seiten passen;in_stock;9783499330537;253;253;;Fremder unter Chinesen;Reportagen aus China;;Tiziano Terzani;vorhanden: Tiziano Terzani;;Rowohlt-Taschenbuch-Verlag;vorhanden (gleich): Rowohlt;1984;DNB;e0d8aaec-65e5-4eb9-8b29-b5611513e8dd
+ja;auto;DNB, Seiten passen;in_stock;9783423280594;272;278;;Zwei Schwestern;Roman;;Dorothy Baker;neu;;dtv;vorhanden (gleich): dtv.;2015;DNB;77f6e7d3-045a-4c4e-97e4-b790abe6f78a
+nein;ohne_isbn;ISBN fehlt/ungültig – Cover nötig;in_stock;;245;;;;;;;;;;;;;6be420b5-a125-4fe5-ba98-d231a6918a27
+nein;pruefen;DNB, Seiten passen, kein Autor gefunden;in_stock;9783150202524;270;270;;Rom;die gelobte Stadt;;;;;Reclam;vorhanden (gleich): reclam;2012;DNB;3dd94eb6-4159-4edd-ba67-3c499adf3403
+nein;ohne_isbn;ISBN fehlt/ungültig – Cover nötig;in_stock;;310;;;;;;;;;;;;;427f710c-cdd7-4b65-b57d-37f4402d1a6c
+ja;auto;DNB (+OpenLibrary), Seiten passen;in_stock;9783499231681;318;318;;Bélas Sünden;Roman;;Petra Hammesfahr;vorhanden: Petra Hammesfahr;;Rowohlt-Taschenbuch-Verl.;vorhanden (gleich): Rowohlt-Taschenbuch-Verl.;2003;DNB;4ec0ff24-e951-4b21-9954-09b0d47d96df
+ja;auto;DNB, Seiten passen;in_stock;9783423211741;376;376;;Der Club der Weihnachtshasser;Roman;;Michael Curtin;vorhanden: Michael Curtin;;Dt. Taschenbuch-Verl.;vorhanden (gleich): Dt. Taschenbuch-Verl.;2009;DNB;b8803eb8-4b4d-4d9c-b47a-5370b03aa203
+nein;ohne_isbn;ISBN fehlt/ungültig – Cover nötig;in_stock;;111;;;;;;;;;;;;;edb51fa1-92a4-4a1b-b5e0-84bc66b10ca3
+nein;ohne_isbn;ISBN fehlt/ungültig – Cover nötig;in_stock;716170109626;;;;;;;;;;;;;;ac7d9037-fdf6-4784-9b31-6b8723283a74
+nein;kein_treffer;nirgends gefunden – Cover nötig;in_stock;9783870703387;;;;;;;;;;;;;;63b2fe56-4860-4a6e-930a-316b1d63859a
+ja;auto;DNB;in_stock;9783453006157;;684;;Doctor Ferrier;Roman;;Taylor Caldwell;vorhanden: Taylor Caldwell;;Heyne;vorhanden (gleich): Heyne;1986;DNB;d427a9d5-1356-4cfd-9539-122065e10cbc
+nein;ohne_isbn;ISBN fehlt/ungültig – Cover nötig;in_stock;;510;;;;;;;;;;;;;4a049fff-8154-4279-adb1-a1f00f8f1c46
+nein;pruefen;DNB, kein Autor gefunden, kein Verlag gefunden;in_stock;9783453308787;;316;;Bd. 3. Kutath - die sterbende Sonne;;;;;;;;1984;DNB;d49c5adb-66c8-4a8e-a52b-d2c9c200b299
+ja;auto;DNB;in_stock;9783770108367;;460;;Ägypten und Sinai;Geschichte, Kunst und Kultur im Niltal: vom Reich der Pharaonen bis zur Gegenwart;;Hans Strelocke;vorhanden: Hans Strelocke;;DuMont;vorhanden (gleich): DuMont;1992;DNB;5d8e6b12-d78f-464d-96cb-62c4682a1143
+nein;ohne_isbn;ISBN fehlt/ungültig – Cover nötig;in_stock;;68;;;;;;;;;;;;;8f3965fb-8fe5-4b60-a740-bb42ab523aba
+ja;auto;DNB, Seiten passen;in_stock;9783453195240;239;239;Verliebt, verlobt – verrückt?;;;Seth Fried;;;;Heyne;vorhanden (gleich): Heyne;2012;DNB;1b677a81-b087-4b12-b7f6-8ee86bb43283
+nein;ohne_isbn;ISBN fehlt/ungültig – Cover nötig;in_stock;0767140065;417;;;;;;;;;;;;;27da2e40-ad32-43e4-a44a-84068c361ae4
+nein;ohne_isbn;ISBN fehlt/ungültig – Cover nötig;in_stock;;773;;;;;;;;;;;;;e31839f5-2581-4457-988e-cb86b19b97c0
+nein;kein_treffer;nirgends gefunden – Cover nötig;in_stock;1920071025001;249;;;;;;;;;;;;;3d5cfe2c-c076-4444-b2ec-ccdb87e0fd5d
+nein;ohne_isbn;ISBN fehlt/ungültig – Cover nötig;in_stock;;350;;;;;;;;;;;;;babf68fc-7061-460f-95da-4c6b6c055e94
+nein;ohne_isbn;ISBN fehlt/ungültig – Cover nötig;in_stock;;585;;;;;;;;;;;;;c7d28ad4-d7ed-4bfc-ace8-0073d240917d
+ja;auto;DNB, Seiten passen;in_stock;9783453073869;173;173;Der Mann ohne Gesicht;;;Tom Holland;;;;Heyne;vorhanden (gleich): Heyne;1993;DNB;c71384ac-e031-4c58-b467-ba3254a4ea32
+nein;ohne_isbn;ISBN fehlt/ungültig – Cover nötig;in_stock;;457;;;;;;;;;;;;;c0eb9ed9-eacf-4b8f-8822-6bbebde11b83
+nein;ohne_isbn;ISBN fehlt/ungültig – Cover nötig;in_stock;349916864;;;;;;;;;;;;;;ed1d129e-3dfc-4bde-9786-c0654b66c1eb
+nein;pruefen;DNB (+OpenLibrary), Seiten passen, kein Autor gefunden;in_stock;9783293206793;254;254;Bali fürs Handgepäck;;;Lucien Leitess;;;;Unionsverl.;neu;2014;DNB;a6fbfb04-6c7d-4a8f-bfd3-6a27b36039b4
+ja;auto;DNB (+OpenLibrary), Seiten passen;in_stock;9783442068821;349;349;Palomino.;;;Danielle Steel;;;;Goldmann;vorhanden (gleich): Goldmann;1994;DNB;a2c672e6-6879-4f85-bee7-f9f49c60e980
+ja;auto;DNB, Seiten passen;in_stock;9783570133378;541;541;Nocturna;;;Jenny-Mai Nuyen;;;;cbj;vorhanden (gleich): cbj;2007;DNB;720e9060-f31e-40d0-b40b-d96d2732899e
+nein;kein_treffer;nirgends gefunden – Cover nötig;in_stock;9783886189922;410;;Apa Guides;;;Leonhard Lueras;;;;;;;;b804c2cc-1c4c-4891-bdfd-b464699ed7f0
+ja;auto;DNB (+OpenLibrary), Seiten passen;in_stock;9783442036417;223;223;Das Lied vom Wind;;;Heiner Geißler;;;;Goldmann;vorhanden (gleich): Goldmann;1978;DNB;bde15a13-feaa-4b97-9587-eb173d7a3cbb
+nein;ohne_isbn;ISBN fehlt/ungültig – Cover nötig;in_stock;;492;;;;;;;;;;;;;65b6e3df-204c-43b8-b81b-17fca4121782
+ja;auto;DNB (+OpenLibrary), Seiten passen;in_stock;9783499240874;541;541;Verschwörung gegen Amerika;;;;Philip Roth;neu;;Rowohlt-Taschenbuch-Verl.;vorhanden (gleich): Rowohlt-Taschenbuch-Verl.;2007;DNB;f8e8c585-21d3-408d-8255-86c3b1ac8a9f
+ja;auto;DNB, Seiten passen;in_stock;9783833853913;168;168;;So einfach geht Hundeerziehung;;;Katharina Schlegl-Kofler;vorhanden: Katharina Schlegl-Kofler;;Gräfe und Unzer Verlag GmbH;vorhanden (gleich): GRÄFE UND UNZER;2017;DNB;8fd55eeb-efef-4aeb-bb2e-95c0c7458ae6
+nein;ohne_isbn;ISBN fehlt/ungültig – Cover nötig;in_stock;;195;;;;;;;;;;;;;960db4fa-7891-413f-bbd7-dc6885a2de4e
+nein;ohne_isbn;ISBN fehlt/ungültig – Cover nötig;in_stock;34620137;;;Zeugen der Anklage;;;Günter Wallraff;;;;;;;;45be2c4b-d314-4b74-a40a-02ef5bb14d4b
+ja;auto;DNB, Seiten passen;in_stock;9783940487162;318;318;;Schakale Gottes;Roman;;C. C. Bergius;vorhanden: C.C. Bergius;;Editionnova;vorhanden (gleich): editionnova;2011;DNB;b6a0551a-086f-4651-bed5-3bf0c3fd42c8
+ja;auto;DNB, Seiten passen;in_stock;9783612275790;231;231;;Wohin mit meinem Latin Lover?;Roman;;Brigitte Gabler;vorhanden: Brigitte Gabler;;Econ-und-List-Taschenbuch-Verl.;neu;1998;DNB;82727940-0608-49bb-9e39-4ee7b71b5686
+ja;auto;DNB (+OpenLibrary), Seiten passen;in_stock;9783463008516;255;255;Und brennend stürzen Vögel vom Himmel;;;Robert Scheer;;;;Kindler;vorhanden (gleich): kindler;1983;DNB;f02a15e3-daf6-441d-9749-bd81d52ab920
+ja;auto;DNB, Seiten passen;in_stock;9783492028943;443;443;Tagebücher;;;Max Beckmann;;;;München;neu;1984;DNB;116404e3-8c0e-42a9-8080-96a9adc1f6f5
+ja;auto;DNB, Seiten passen;in_stock;9783612262394;378;378;Die neue Suche nach Spitzenleistungen;;;Robert H. Waterman;;;;ECON-Taschenbuch-Verl.;neu;1996;DNB;81d80c05-6cc5-4c23-be91-d8171be2857f
+nein;kein_treffer;nirgends gefunden – Cover nötig;in_stock;4026411391359;351;;;;;;;;;;;;;7880b36b-bd3d-4529-bbdd-ba57b50ad73e
+nein;ohne_isbn;ISBN fehlt/ungültig – Cover nötig;in_stock;;318;;;;;;;;;;;;;5c670a6c-f1c8-46ee-afe5-afd4cb8871cc
+nein;ohne_isbn;ISBN fehlt/ungültig – Cover nötig;in_stock;;623;;;;;;;;;;;;;8e1ee030-8e59-4b36-ad44-0c2f78d0de6f
+nein;ohne_isbn;ISBN fehlt/ungültig – Cover nötig;in_stock;;510;;;;;;;;;;;;;9d1b0288-e284-4a7e-b57b-f66293029ff6
+nein;ohne_isbn;ISBN fehlt/ungültig – Cover nötig;in_stock;;479;;;;;;;;;;;;;5cf52a88-afac-46db-a188-755b7e2b20de
+ja;auto;DNB, Seiten passen;in_stock;9783442157044;347;347;Mafia-Export;;;Francesco Forgione;;;;Goldmann;vorhanden (gleich): Goldmann;2011;DNB;18c877fe-c18e-414e-b160-855111f7d356
+ja;auto;DNB, Seiten passen;in_stock;9783878313120;287;292;Vierteljahresberichte;;;;Raymonda Hawa Tawil;neu;;Verlag Neue Gesellschaft;vorhanden (gleich): Neue Gesellschaft;1981;DNB;2bfadade-13ec-4699-ab75-b4221d1d9f04
+nein;ohne_isbn;ISBN fehlt/ungültig – Cover nötig;in_stock;;273;;;;;;;;;;;;;fb015f6f-406e-4eb0-a636-385bdf1fab25
+ja;auto;DNB, Seiten passen;in_stock;9783570010143;142;142;Alles ist Leben;;;Christiane Singer;;;;Bertelsmann;vorhanden (gleich): Bertelsmann Verlag;2008;DNB;a42bb2eb-778b-42e1-824e-5dd2a22a0aef
+ja;auto;DNB, Seiten passen;in_stock;9783404102587;397;397;Vogelfrei;;;Douglas Terman;;;;Lübbe;vorhanden (gleich): Lübbe;1983;DNB;545915a6-4137-476b-a0f4-9e65ac214cf0
+nein;ohne_isbn;ISBN fehlt/ungültig – Cover nötig;in_stock;;334;;;;;;;;;;;;;01129a0b-7984-421a-8c12-7d860208246f
+nein;ohne_isbn;ISBN fehlt/ungültig – Cover nötig;in_stock;2442065437;181;;;;;;;;;;;;;4d29059e-6586-41c0-ad59-aafb0727995f
+nein;ohne_isbn;ISBN fehlt/ungültig – Cover nötig;in_stock;;238;;;;;;;;;;;;;42fb035d-0edc-40a0-ad08-90c902cee912
+nein;ohne_isbn;ISBN fehlt/ungültig – Cover nötig;in_stock;;750;;;;;;;;;;;;;fa9ac3e4-461b-4f9d-8d5d-c6e0fe22b4c5
+ja;auto;DNB, Seiten passen;in_stock;9783939979326;318;318;;Die neue Welt in Gleichnissen;;;Ellen G. White;vorhanden: Ellen G. White;;Gihon Publ.;neu;2012;DNB;275a83b9-4358-45db-84ee-1e18c4695b86
+ja;auto;DNB, Seiten passen;in_stock;9783401012025;209;209;;Die schwarzen Wasser von Anahim;e. Pionierfamilie findet in d. endlosen Wäldern Nordkanadas e. neue Heimat;;Franz Braumann;vorhanden: Franz Braumann;;Arena-Verlag;vorhanden (gleich): Arena;1973;DNB;6171cc83-b958-48f0-8de4-4cb052f18a85
+nein;kein_treffer;nirgends gefunden – Cover nötig;in_stock;9780994550040;334;;;;;;;;;;;;;6f267525-45e5-4a48-bec0-cf233446dec3
+ja;auto;DNB, Seiten passen;in_stock;9783871440793;367;367;;Grundlagen der Statistik für Psychologen, Pädagogen und Soziologen;;;"Günter Clauß; Heinz Ebner";neu;;Frankfurt a. M.;neu;1972;DNB;aae04654-1408-4a60-84a0-55589e21aa3c
+nein;kein_treffer;nirgends gefunden – Cover nötig;in_stock;9783453093645;287;;;;;;;;;;;;;73b33798-b343-4237-8008-1c51405a242b
+nein;ohne_isbn;ISBN fehlt/ungültig – Cover nötig;in_stock;;;;Schon hegon! I Amerikas Allhacht und Ohr;;;Robert Jungk;;;;;;;;6021a81a-bd65-44d3-b796-c958bd99212b
+nein;ohne_isbn;ISBN fehlt/ungültig – Cover nötig;in_stock;;;;Schon hegon! I Amerikas Allhacht und Ohr;;;Robert Jungk;;;;;;;;e31d7af5-f20d-46d6-8a44-20a0cf18b1dd
+nein;ohne_isbn;ISBN fehlt/ungültig – Cover nötig;in_stock;;234;;Schon hegon! I Amerikas Allhacht und Ohr;;;Robert Jungk;;;;;;;;e05e9668-e654-40e7-934e-f0cce9695a35
+ja;auto;DNB, Seiten passen;in_stock;9783442065400;318;319;Heisses Geld;;;Willi Berthold;;;;Goldmann;vorhanden (gleich): Goldmann;1983;DNB;00b8067f-04c0-49a2-92a0-827247b9f4d6
+nein;ohne_isbn;ISBN fehlt/ungültig – Cover nötig;in_stock;;301;;Die grüssten spioninnen der welt;;;Kurt Singer;;;;;;;;ad271b64-c8e1-4034-a199-56fdeec84642
+ja;auto;DNB (+OpenLibrary), Seiten passen;in_stock;9783426048108;384;383;;Wenn Hitler den Krieg gewonnen hätte;die Pläne der Nazis nach dem Endsieg;;Ralph Giordano;vorhanden: Ralph Giordano;;Droemer Knaur;vorhanden (gleich): Droemer Knaur;1995;DNB;e38f6011-d287-4995-acd1-02dee6157af2
+nein;ohne_isbn;ISBN fehlt/ungültig – Cover nötig;in_stock;;;;Die elfte Jungfrau;;;Schacht;;;;;;;;0f11a033-d919-4296-ad07-9942ff70e4e4
+nein;kein_treffer;nirgends gefunden – Cover nötig;in_stock;4026411409160;560;;;;;;;;;;;;;3dbd963f-b2c6-4fba-b31f-aa3ed7c180a8
+ja;auto;DNB, Seiten passen;in_stock;9783442157525;352;351;5 Dinge die Sterbende am meisten bereuen;;;Bronnie Ware;;;;Goldmann;vorhanden (gleich): Goldmann;2015;DNB;ed84fa66-45b0-47b1-bac0-f0b9fbedfc6e
+ja;auto;DNB (+OpenLibrary), Seiten passen;in_stock;9783499176777;252;248;Die Liebe;;;Peter Lauster;;;;Rowohlt-Taschenbuch-Verl.;vorhanden (gleich): Rowohlt-Taschenbuch-Verl.;2009;DNB;8d60cb97-3abc-439f-a3f1-0c4e54887a7d
+nein;ohne_isbn;ISBN fehlt/ungültig – Cover nötig;in_stock;;155;;Love Story;;;Erich Segal;;;;;;;;b6410de6-5e70-47ae-a774-c9ee71edf947
+nein;ohne_isbn;ISBN fehlt/ungültig – Cover nötig;in_stock;;;;;;;;;;;;;;;794d5d0c-788c-466b-ab51-f45d76455fbf
+nein;pruefen;DNB, Seiten passen, kein Autor gefunden, kein Verlag gefunden;in_stock;9783401502076;364;364;;Zurück kommt nur der Tod;;;;;;;;2011;DNB;205bd71a-b354-42ba-b80f-b45b4d58108f
+ja;auto;DNB, Seiten passen;in_stock;9783492059268;336;334;;Welch schöne Tiere wir sind;Roman;;Lawrence Osborne;vorhanden: Lawrence Osborne;;Piper;vorhanden (gleich): Piper;2019;DNB;036edabe-68fd-4582-b27b-77faf70c5bf8
+nein;pruefen;OpenLibrary;in_stock;9780671623517;;504;;Mexico on $20 a Day;;;Tom Brosnahan;vorhanden: Tom Brosnahan;;Prentice Hall;vorhanden (gleich): prentice hall;1986;OpenLibrary;08dcbeab-16ab-49fb-b8b8-494729440ed1
+nein;pruefen;OpenLibrary;in_stock;9780671623517;;504;;Mexico on $20 a Day;;;Tom Brosnahan;vorhanden: Tom Brosnahan;;Prentice Hall;vorhanden (gleich): prentice hall;1986;OpenLibrary;f535bfda-fa67-4149-ad71-37407a5fa83d
+nein;pruefen;OpenLibrary;in_stock;9780671623517;;504;;Mexico on $20 a Day;;;Tom Brosnahan;vorhanden: Tom Brosnahan;;Prentice Hall;vorhanden (gleich): prentice hall;1986;OpenLibrary;301dffc9-8eb2-4dbe-8faf-25d3ca25f964
+nein;pruefen;OpenLibrary;in_stock;9780671623517;;504;;Mexico on $20 a Day;;;Tom Brosnahan;vorhanden: Tom Brosnahan;;Prentice Hall;vorhanden (gleich): prentice hall;1986;OpenLibrary;05ccafba-93f7-493a-bd2a-aa40b533de28
+nein;pruefen;OpenLibrary;in_stock;9780671623517;;504;;Mexico on $20 a Day;;;Tom Brosnahan;vorhanden: Tom Brosnahan;;Prentice Hall;vorhanden (gleich): prentice hall;1986;OpenLibrary;6711c069-4172-4829-8002-99a1d04c6ea4
+nein;pruefen;OpenLibrary;in_stock;9780671623517;;504;;Mexico on $20 a Day;;;Tom Brosnahan;vorhanden: Tom Brosnahan;;Prentice Hall;vorhanden (gleich): prentice hall;1986;OpenLibrary;24688c3d-fbe5-4ff4-9331-b8ecc72a8469
+nein;pruefen;OpenLibrary;in_stock;9780671623517;;504;;Mexico on $20 a Day;;;Tom Brosnahan;vorhanden: Tom Brosnahan;;Prentice Hall;vorhanden (gleich): prentice hall;1986;OpenLibrary;dacf92dc-8aa6-4b94-a136-bc219001a07f
+nein;pruefen;OpenLibrary;in_stock;9780671623517;;504;;Mexico on $20 a Day;;;Tom Brosnahan;vorhanden: Tom Brosnahan;;Prentice Hall;vorhanden (gleich): prentice hall;1986;OpenLibrary;c9afb723-f64a-40ae-985e-4d9f2905fcff
+nein;pruefen;OpenLibrary;in_stock;9780671623517;;504;;Mexico on $20 a Day;;;Tom Brosnahan;vorhanden: Tom Brosnahan;;Prentice Hall;vorhanden (gleich): prentice hall;1986;OpenLibrary;f5188d21-9e26-4d76-b045-85eb725ac771
+nein;pruefen;OpenLibrary;in_stock;9780671623517;;504;;Mexico on $20 a Day;;;Tom Brosnahan;vorhanden: Tom Brosnahan;;Prentice Hall;vorhanden (gleich): prentice hall;1986;OpenLibrary;1cab26cd-0561-4628-8ded-097265215824
+nein;pruefen;OpenLibrary;in_stock;9780671623517;;504;;Mexico on $20 a Day;;;Tom Brosnahan;vorhanden: Tom Brosnahan;;Prentice Hall;vorhanden (gleich): prentice hall;1986;OpenLibrary;6cb9b341-0297-4346-b38a-aef636145f90
+nein;pruefen;DNB, kein Autor gefunden, kein Verlag gefunden;in_stock;9783401502076;;364;;Zurück kommt nur der Tod;;;;;;;;2011;DNB;b7061675-92a2-46c3-9341-117c0885d767
+ja;auto;DNB (+OpenLibrary);in_stock;9783492316149;;334;;Welch schöne Tiere wir sind;Roman;;Lawrence Osborne;vorhanden: Lawrence Osborne;;Piper;vorhanden (gleich): Piper;2020;DNB;96453980-4dc7-4cbd-b61b-e869cc63bdf0
+ja;auto;DNB (+OpenLibrary);in_stock;9783492316149;;334;;Welch schöne Tiere wir sind;Roman;;Lawrence Osborne;vorhanden: Lawrence Osborne;;Piper;vorhanden (gleich): Piper;2020;DNB;07f2e3a5-5af3-4bed-9d06-de310d6557b8
+nein;pruefen;OpenLibrary;in_stock;9780671623517;;504;;Mexico on $20 a Day;;;Tom Brosnahan;vorhanden: Tom Brosnahan;;Prentice Hall;vorhanden (gleich): prentice hall;1986;OpenLibrary;623698d7-491f-4ad9-8173-32ef1ec41ac1
+nein;pruefen;DNB, kein Autor gefunden, kein Verlag gefunden;in_stock;9783401502076;;364;;Zurück kommt nur der Tod;;;;;;;;2011;DNB;74f4af2b-2c63-4b52-b4f0-03515ece26ca
+ja;auto;DNB (+OpenLibrary);in_stock;9783492316149;;334;;Welch schöne Tiere wir sind;Roman;;Lawrence Osborne;vorhanden: Lawrence Osborne;;Piper;vorhanden (gleich): Piper;2020;DNB;c80e8900-7ad6-44f9-9ddb-5a27fcd610b0
+nein;pruefen;OpenLibrary;in_stock;9780671623517;;504;;Mexico on $20 a Day;;;Tom Brosnahan;vorhanden: Tom Brosnahan;;Prentice Hall;vorhanden (gleich): prentice hall;1986;OpenLibrary;1be20cdd-61ec-4c10-99e6-b4c78c9589cc
+nein;pruefen;DNB, kein Autor gefunden, kein Verlag gefunden;in_stock;9783401502076;;364;;Zurück kommt nur der Tod;;;;;;;;2011;DNB;17a58cc4-d38d-4856-ba7c-b91871d130ab
+nein;pruefen;DNB, kein Autor gefunden, kein Verlag gefunden;in_stock;9783401502076;;364;;Zurück kommt nur der Tod;;;;;;;;2011;DNB;558fa43c-976d-452f-936b-f083b32c3062
+ja;auto;DNB (+OpenLibrary);in_stock;9783492316149;;334;;Welch schöne Tiere wir sind;Roman;;Lawrence Osborne;vorhanden: Lawrence Osborne;;Piper;vorhanden (gleich): Piper;2020;DNB;4c1e1956-ca1b-4531-a655-4283d209f76d
+nein;pruefen;OpenLibrary;in_stock;9780671623517;;504;;Mexico on $20 a Day;;;Tom Brosnahan;vorhanden: Tom Brosnahan;;Prentice Hall;vorhanden (gleich): prentice hall;1986;OpenLibrary;19c85e4b-7dbc-481c-afeb-882dfd8a099e
+ja;auto;DNB (+OpenLibrary);in_stock;9783492316149;;334;;Welch schöne Tiere wir sind;Roman;;Lawrence Osborne;vorhanden: Lawrence Osborne;;Piper;vorhanden (gleich): Piper;2020;DNB;0a641910-28bc-406b-bf50-68da1fe5d1af
+nein;pruefen;OpenLibrary;in_stock;9780671623517;;504;;Mexico on $20 a Day;;;Tom Brosnahan;vorhanden: Tom Brosnahan;;Prentice Hall;vorhanden (gleich): prentice hall;1986;OpenLibrary;9beb2637-6848-4a8d-a872-994eafa2dda2
+nein;pruefen;OpenLibrary;in_stock;9780671623517;;504;;Mexico on $20 a Day;;;Tom Brosnahan;vorhanden: Tom Brosnahan;;Prentice Hall;vorhanden (gleich): prentice hall;1986;OpenLibrary;800c4129-3b96-44fe-9c68-13bde5188f70
+nein;pruefen;OpenLibrary;in_stock;9780671623517;;504;;Mexico on $20 a Day;;;Tom Brosnahan;vorhanden: Tom Brosnahan;;Prentice Hall;vorhanden (gleich): prentice hall;1986;OpenLibrary;62186029-b108-4069-9b4e-882f166a8676
+nein;pruefen;OpenLibrary;in_stock;9780671623517;;504;;Mexico on $20 a Day;;;Tom Brosnahan;vorhanden: Tom Brosnahan;;Prentice Hall;vorhanden (gleich): prentice hall;1986;OpenLibrary;6b73abd0-e896-42ab-9f38-00d8f2055ea8
+nein;pruefen;OpenLibrary;in_stock;9780671623517;;504;;Mexico on $20 a Day;;;Tom Brosnahan;vorhanden: Tom Brosnahan;;Prentice Hall;vorhanden (gleich): prentice hall;1986;OpenLibrary;f2675a11-506a-4a91-a1fa-d0fb7c3cc572
+nein;pruefen;DNB, kein Autor gefunden, kein Verlag gefunden;in_stock;9783401502076;;364;;Zurück kommt nur der Tod;;;;;;;;2011;DNB;75a255fc-54cb-4ceb-8b58-943b8b90e8df
+ja;auto;DNB (+OpenLibrary);in_stock;9783492316149;;334;;Welch schöne Tiere wir sind;Roman;;Lawrence Osborne;vorhanden: Lawrence Osborne;;Piper;vorhanden (gleich): Piper;2020;DNB;683a3311-6991-46a8-9ef0-cf71adcfaa77
+nein;pruefen;OpenLibrary;in_stock;9780671623517;;504;;Mexico on $20 a Day;;;Tom Brosnahan;vorhanden: Tom Brosnahan;;Prentice Hall;vorhanden (gleich): prentice hall;1986;OpenLibrary;5458504f-3b98-4d1c-b37d-a821c99e5f0a
+nein;pruefen;DNB, kein Autor gefunden, kein Verlag gefunden;in_stock;9783401502076;;364;;Zurück kommt nur der Tod;;;;;;;;2011;DNB;7bdfc1ae-072b-4934-8793-490c02d4fb19
+ja;auto;DNB (+OpenLibrary);in_stock;9783492316149;;334;;Welch schöne Tiere wir sind;Roman;;Lawrence Osborne;vorhanden: Lawrence Osborne;;Piper;vorhanden (gleich): Piper;2020;DNB;c79797b6-3806-46c8-b70d-0039e65096e1
+nein;pruefen;OpenLibrary;in_stock;9780671623517;;504;;Mexico on $20 a Day;;;Tom Brosnahan;vorhanden: Tom Brosnahan;;Prentice Hall;vorhanden (gleich): prentice hall;1986;OpenLibrary;38a4af6b-20ef-4361-87be-7801fe6188cb
+nein;ohne_isbn;ISBN fehlt/ungültig – Cover nötig;in_stock;3548045086;438;;;;;;;;;;;;;a11e0cc0-08cf-4a18-ab53-313c3cfeca37
+ja;auto;DNB (+OpenLibrary);in_stock;9783492316149;;334;;Welch schöne Tiere wir sind;Roman;;Lawrence Osborne;vorhanden: Lawrence Osborne;;Piper;vorhanden (gleich): Piper;2020;DNB;343a39d2-8afb-40e9-97e9-fb5b45a85c08
+nein;pruefen;OpenLibrary;in_stock;9780671623517;;504;;Mexico on $20 a Day;;;Tom Brosnahan;vorhanden: Tom Brosnahan;;Prentice Hall;vorhanden (gleich): prentice hall;1986;OpenLibrary;14098015-328c-471c-abc7-52c102b862e1
+nein;ohne_isbn;ISBN fehlt/ungültig – Cover nötig;in_stock;3548045086;;;;;;;;;;;;;;6b05e3f1-5857-4b2b-abad-29e2e4606ce2
+nein;pruefen;DNB, kein Autor gefunden, kein Verlag gefunden;in_stock;9783401502076;;364;;Zurück kommt nur der Tod;;;;;;;;2011;DNB;0d5ce953-50f3-4b29-b05c-099fb66a5fd4
+ja;auto;DNB (+OpenLibrary);in_stock;9783492316149;;334;;Welch schöne Tiere wir sind;Roman;;Lawrence Osborne;vorhanden: Lawrence Osborne;;Piper;vorhanden (gleich): Piper;2020;DNB;362acc19-c957-4063-9d4d-ab201c05297d
+nein;pruefen;OpenLibrary;in_stock;9780671623517;;504;;Mexico on $20 a Day;;;Tom Brosnahan;vorhanden: Tom Brosnahan;;Prentice Hall;vorhanden (gleich): prentice hall;1986;OpenLibrary;6d3886c2-33b3-4b8e-b16f-eb09f539db49
+ja;auto;DNB (+OpenLibrary), Seiten passen;in_stock;9783548035086;438;438;;Unten am Fluss;Roman;;Richard Adams;vorhanden: Richard Adams;;Frankfurt/M;vorhanden (ähnlich): m.;1989;DNB;e7ef16f7-c10b-4a8b-a519-2665b21213da
+nein;ohne_isbn;ISBN fehlt/ungültig – Cover nötig;in_stock;3548045086;;;;;;;;;;;;;;d52bdb43-5ac9-46cb-9594-7526e174f240
+nein;pruefen;DNB, kein Autor gefunden, kein Verlag gefunden;in_stock;9783401502076;;364;;Zurück kommt nur der Tod;;;;;;;;2011;DNB;f0810325-1e9a-4f3b-bf7c-82a9e1501fab
+ja;auto;DNB (+OpenLibrary);in_stock;9783492316149;;334;;Welch schöne Tiere wir sind;Roman;;Lawrence Osborne;vorhanden: Lawrence Osborne;;Piper;vorhanden (gleich): Piper;2020;DNB;4139d458-9f36-4026-b902-4f3d91a67105
+nein;pruefen;OpenLibrary;in_stock;9780671623517;;504;;Mexico on $20 a Day;;;Tom Brosnahan;vorhanden: Tom Brosnahan;;Prentice Hall;vorhanden (gleich): prentice hall;1986;OpenLibrary;05510e9b-bbac-466e-bf6e-c7c24cb28af0
+ja;auto;DNB (+OpenLibrary);in_stock;9783492316149;;334;;Welch schöne Tiere wir sind;Roman;;Lawrence Osborne;vorhanden: Lawrence Osborne;;Piper;vorhanden (gleich): Piper;2020;DNB;9a02a374-8bec-46d2-8801-0f5773dbc397
+nein;pruefen;OpenLibrary;in_stock;9780671623517;;504;;Mexico on $20 a Day;;;Tom Brosnahan;vorhanden: Tom Brosnahan;;Prentice Hall;vorhanden (gleich): prentice hall;1986;OpenLibrary;0d58329f-2c17-4f3a-a992-348876552289
+nein;pruefen;OpenLibrary;in_stock;9780671623517;;504;;Mexico on $20 a Day;;;Tom Brosnahan;vorhanden: Tom Brosnahan;;Prentice Hall;vorhanden (gleich): prentice hall;1986;OpenLibrary;7b8f69e8-6c3b-4759-a109-bfe4b9e880d6
+nein;ohne_isbn;ISBN fehlt/ungültig – Cover nötig;in_stock;;390;;;;;;;;;;;;;f6a0f256-7510-43dc-bd55-28b2aa5f97ef
+nein;ohne_isbn;ISBN fehlt/ungültig – Cover nötig;in_stock;;390;;;;;;;;;;;;;3c8c10ea-4935-4bd3-aa8c-7eec8d7ace74
+nein;ohne_isbn;ISBN fehlt/ungültig – Cover nötig;in_stock;;390;;;;;;;;;;;;;a1edfb18-81ba-4922-a911-b7cf191ead3f
+nein;ohne_isbn;ISBN fehlt/ungültig – Cover nötig;in_stock;3548045086;;;;;;;;;;;;;;e09ab736-c607-4942-85a6-b636ed74651b
+nein;pruefen;DNB, kein Autor gefunden, kein Verlag gefunden;in_stock;9783401502076;;364;;Zurück kommt nur der Tod;;;;;;;;2011;DNB;2560300a-0ccf-438c-8151-e0f89878392e
+nein;pruefen;OpenLibrary;in_stock;9780671623517;;504;;Mexico on $20 a Day;;;Tom Brosnahan;vorhanden: Tom Brosnahan;;Prentice Hall;vorhanden (gleich): prentice hall;1986;OpenLibrary;9bbb244a-d24d-4e5f-8aed-edcb2f290b3c
+ja;auto;DNB (+OpenLibrary);in_stock;9783492316149;;334;;Welch schöne Tiere wir sind;Roman;;Lawrence Osborne;vorhanden: Lawrence Osborne;;Piper;vorhanden (gleich): Piper;2020;DNB;e366da19-9f54-4c21-a9f5-b55d02566447
+nein;pruefen;OpenLibrary;in_stock;9780671623517;;504;;Mexico on $20 a Day;;;Tom Brosnahan;vorhanden: Tom Brosnahan;;Prentice Hall;vorhanden (gleich): prentice hall;1986;OpenLibrary;dbde992b-9eb0-4839-9adc-6fbcc3c7f9c3
+nein;ohne_isbn;ISBN fehlt/ungültig – Cover nötig;in_stock;;390;;;;;;;;;;;;;d3f597a8-4218-4e91-8c95-86ad3c2ee391
+nein;ohne_isbn;ISBN fehlt/ungültig – Cover nötig;in_stock;;390;;;;;;;;;;;;;16fa7779-249a-4eb1-beab-697c757249e2
+nein;ohne_isbn;ISBN fehlt/ungültig – Cover nötig;in_stock;;390;;;;;;;;;;;;;dfdc69ee-7426-4ad7-a706-2b576f684fc0
+ja;auto;DNB (+OpenLibrary), Seiten passen;in_stock;9783442464074;542;542;Der Triumph der Heilerin;;;;Posie Graeme-Evans;vorhanden: Posie Graeme-Evans;;Goldmann;vorhanden (gleich): Goldmann;2007;DNB;dab3df68-94ba-4884-aa09-ed4f720eaa79
+nein;ohne_isbn;ISBN fehlt/ungültig – Cover nötig;in_stock;;390;;;;;;;;;;;;;1c7424e4-846d-4a14-b1d8-f2b298e805db
+ja;auto;DNB, Seiten passen;in_stock;9783442304219;283;283;Der Kojote wartet;;;Tony Hillerman;;;;Goldmann;vorhanden (gleich): Goldmann;1992;DNB;2247ec70-cf57-44cf-8be9-6c0d6f3ab90f
+ja;auto;DNB, Seiten passen;in_stock;9783831905706;176;176;Vom Jein zum Ja!;;;Stefanie Stahl;;;;Ellert & Richter;neu;2014;DNB;1fd2adda-32b8-487e-bf9c-a68ea24f2545
+nein;ohne_isbn;ISBN fehlt/ungültig – Cover nötig;in_stock;;390;;;;;;;;;;;;;45dd30f9-7b2a-4ff2-88af-9b9a0db40d51
+ja;auto;DNB (+OpenLibrary), Seiten passen;in_stock;9783570008546;414;414;Der Absturz;;;Günter Ogger;;;;Bertelsmann;vorhanden (gleich): Bertelsmann Verlag;2005;DNB;855d15f2-8cf1-4f05-bf10-84f6fb20da6b
+nein;ohne_isbn;ISBN fehlt/ungültig – Cover nötig;in_stock;;390;;;;;;;;;;;;;c09f1873-bbf2-4d5a-b544-4283751a95ab
+ja;auto;DNB, Seiten passen;in_stock;9783863340278;176;177;Endlich wieder am Meer;;;Udo Schroeter;;;;adeo;neu;2014;DNB;215f71d8-0856-4671-85ad-1cb278ee0e88
+nein;pruefen;DNB, Seiten weichen ab (287 statt 416) – ISBN falsch?;in_stock;9783100273062;416;287;Weltmedizin;;;Dietrich Grönemeyer;;;;S. Fischer;vorhanden (gleich): S. Fischer;2018;DNB;b3dfc532-0bdb-41b6-8a6e-35eab43b8e5a
+nein;ohne_isbn;ISBN fehlt/ungültig – Cover nötig;in_stock;;390;;;;;;;;;;;;;6006cd4a-d68a-46e7-9a7c-ad91774f249e
+nein;ohne_isbn;ISBN fehlt/ungültig – Cover nötig;in_stock;;;;;;;;;;;;;;;4aa1686b-a7d3-4613-8bd3-625cc95bfa17
+ja;auto;DNB, Seiten passen;in_stock;9783328101499;384;383;Der Kämpfer im Vatikan;;;Andreas Englisch;;;;Penguin Verlag;vorhanden (gleich): Penguin Books;2017;DNB;6839713f-3472-4671-902b-98d33dbb7ee1
+ja;auto;DNB, Seiten passen;in_stock;9783552058552;478;478;Die Klasse;;;;Dominik W. Rettinger;vorhanden: Dominik W. Rettinger;;Paul Zsolnay Verlag;vorhanden (gleich): Paul Zsolnay;2017;DNB;13e9367a-ff72-4ca1-8929-53cff1631828
+ja;auto;DNB, Seiten passen;in_stock;9783548269269;635;635;Die Au-pairs;;;Melissa De la Cruz;;;;Ullstein;vorhanden (gleich): Verlag Ullstein;2008;DNB;1be21e11-05bc-49ed-a30d-15096145b639
+nein;ohne_isbn;ISBN fehlt/ungültig – Cover nötig;in_stock;;336;;;;;;;;;;;;;252f8767-18cb-496d-9ffc-51d3f24f12e9
+nein;ohne_isbn;ISBN fehlt/ungültig – Cover nötig;in_stock;;;;Artcities: Griechische Inseln;;;;;;P.A.R. Verlag;;;;;1deed4a6-e8ab-40a7-a9de-ae4f4d949c6e
+nein;ohne_isbn;ISBN fehlt/ungültig – Cover nötig;in_stock;;;;;;;;;;;;;;;5ef12b27-38b3-4da7-a1e0-fe3481151539
+nein;ohne_isbn;ISBN fehlt/ungültig – Cover nötig;in_stock;;;;;;;;;;;;;;;527cc060-9a33-4c35-abed-7457776f1e3a
+nein;ohne_isbn;ISBN fehlt/ungültig – Cover nötig;in_stock;;;;;;;;;;;;;;;71c810af-406f-4160-863c-44f5dc04bd40
+nein;ohne_isbn;ISBN fehlt/ungültig – Cover nötig;in_stock;;;;;;;;;;;;;;;0a947482-4359-46c3-9a1a-52b88c2ed375
+nein;ohne_isbn;ISBN fehlt/ungültig – Cover nötig;in_stock;;;;;;;;;;;;;;;89028e4c-4061-4459-821a-fa7ad3a85935
+nein;ohne_isbn;ISBN fehlt/ungültig – Cover nötig;in_stock;;;;;;;;;;;;;;;3414d9e6-cf82-46a6-b5ab-6ddc3959b636
+ja;auto;DNB;in_stock;9783882200751;;423;Der Nazi & der Friseur;;;;Edgar Hilsenrath;vorhanden: Edgar Hilsenrath;;Guhl;neu;1978;DNB;da178e2e-a865-4212-9bde-7e066179faba
