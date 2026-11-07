@@ -358,6 +358,7 @@
         reading_status = CASE
             WHEN $3::text IS NOT NULL
              AND $3::text = ANY($7::text[])
+             AND COALESCE(reading_status, '') NOT IN ('finished', 'abandoned', 'lost')
              AND (
                reading_status_updated_at IS NULL
                OR $4::timestamptz IS NULL
@@ -369,6 +370,7 @@
         reading_status_updated_at = CASE
             WHEN $3::text IS NOT NULL
              AND $3::text = ANY($7::text[])
+             AND COALESCE(reading_status, '') NOT IN ('finished', 'abandoned', 'lost')
              AND (
                reading_status_updated_at IS NULL
                OR $4::timestamptz IS NULL
@@ -413,7 +415,7 @@
     // transition; but a finished/abandoned book must NEVER keep a barcode,
     // so any stale link is dropped regardless of how the book got there.
     let releasedBarcodes = [];
-    const isFinal = row && (row.reading_status === "finished" || row.reading_status === "abandoned");
+    const isFinal = row && ["finished", "abandoned", "lost"].includes(row.reading_status);
     if (isFinal) {
       const codes = await releaseBookBarcodes(client, bookId);
       if (statusApplied && prevStatus === "in_progress") releasedBarcodes = codes;

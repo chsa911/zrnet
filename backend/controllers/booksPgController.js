@@ -718,6 +718,14 @@ action_country: row.action_country ?? null,
       });
     }
 
+    if (code === "23514" && /final_status_is_terminal/i.test(msg)) {
+      return res.status(409).json({
+        error: "final_status_is_terminal",
+        message:
+          "Dieses Buch ist bereits finished/abandoned/lost. Der Status ist endgültig – zum erneuten Lesen bitte neu hochladen.",
+      });
+    }
+
     // CHECK constraint violation - e.g. width/height < 1, invalid format,
     // invalid reading_status, invalid language code, etc.
     if (code === "23514") {
@@ -2652,6 +2660,20 @@ if (body.sub_genre_id !== undefined && cols.has("sub_genre_id")) {
         return res.status(404).json({ error: "not_found" });
       }
 
+      // A finished/abandoned/lost reading attempt is final and never gets a
+      // barcode again (see V20261107_02). Re-reading = new upload.
+      if (FINAL_STATUSES.has(curRes.rows[0]?.reading_status)) {
+        await client.query("ROLLBACK");
+        await resolveSaveAttempt(pool, attemptId, {
+          status: "failed",
+          errorMessage: "final_status_is_terminal",
+        });
+        return res.status(409).json({
+          error: "final_status_is_terminal",
+          message: `Dieses Buch ist bereits "${curRes.rows[0].reading_status}" und kann nicht erneut registriert werden. Zum erneuten Lesen bitte neu hochladen.`,
+        });
+      }
+
       // Same required fields as registerBook: a book may only get a barcode
       // once it has title, author, publisher and pages (from the request or
       // already stored on the draft).
@@ -3256,6 +3278,17 @@ if ((patch.sub_genre_abbr ?? patch.subgenre_abbr) !== undefined) {
           // transition here with a clean error before it reaches the DB guard
           // trigger (trg_prevent_in_progress_status_change), which would
           // otherwise surface as a raw Postgres exception.
+          // finished/abandoned/lost is final: the reading attempt is over, the
+          // barcode is gone and the row stays only as a reading record.
+          // Mirrors trg_prevent_status_change_from_final (V20261107_02).
+          if (changed && FINAL_STATUSES.has(cur.reading_status)) {
+            await client.query("ROLLBACK");
+            return res.status(409).json({
+              error: "final_status_is_terminal",
+              message: `Dieses Buch ist bereits "${cur.reading_status}". Der Status ist endgültig – zum erneuten Lesen bitte neu hochladen.`,
+            });
+          }
+
           if (
             changed &&
             cur.reading_status === "in_progress" &&
