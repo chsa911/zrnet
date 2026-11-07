@@ -560,8 +560,8 @@ export default function SearchUpdatePage() {
   async function setStatus(b, nextStatus) {
     const id = idOf(b);
     if (!id) return alert("Kein Datensatz-ID gefunden.");
-    if (nextStatus === "finished" || nextStatus === "abandoned") {
-      const label = nextStatus === "finished" ? "finished" : "abandoned";
+    if (nextStatus === "finished" || nextStatus === "abandoned" || nextStatus === "lost") {
+      const label = nextStatus;
       const title = b?.title_display || "dieses Buch";
       const confirmed = window.confirm(`Wollen Sie "${title}" wirklich auf "${label}" setzen?`);
       if (!confirmed) return;
@@ -647,7 +647,7 @@ export default function SearchUpdatePage() {
         .su-grid { width: 100%; border: 4px solid #666; border-bottom: 0; border-radius: 0; overflow: hidden; background: #fff; }
         .su-search-row, .su-book-row, .su-header-row {
           display: grid;
-          grid-template-columns: 130px 100px minmax(220px, 1fr) 80px 58px 40px 40px 40px 40px 40px 40px 40px 40px 40px 40px 40px 40px 34px;
+          grid-template-columns: 130px 100px minmax(220px, 1fr) 80px 58px 40px 40px 40px 40px 40px 40px 40px 40px 40px 40px 40px 40px 40px 34px;
           align-items: stretch; width: 100%; min-width: 0;
         }
         .su-search-row { min-height: 86px; background: #f1f1f1; border-bottom: 4px solid #666; }
@@ -656,6 +656,7 @@ export default function SearchUpdatePage() {
         .su-book-row:nth-child(even) { background: #fafafa; }
         .su-book-row.is-finished { background: #f4f4f4; }
         .su-book-row.is-abandoned { background: #ededed; }
+        .su-book-row.is-lost { background: #ececf4; }
         .su-head { display: flex; align-items: center; justify-content: center; min-width: 0; padding: 0 6px; border-right: 4px solid #666; color: #fff; font-size: 13px; font-weight: 900; letter-spacing: 0; line-height: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
         .su-head:last-child { border-right: 0; }
         .su-cell { display: flex; align-items: center; min-width: 0; padding: 0 12px; border-right: 4px solid #666; color: #5f5f5f; font-size: clamp(24px, 3vw, 50px); font-weight: 800; letter-spacing: -0.04em; line-height: 1; overflow: hidden; }
@@ -710,6 +711,7 @@ export default function SearchUpdatePage() {
         .su-action--edit { width: 34px; min-width: 34px; max-width: 34px; font-size: 16px; }
         .su-action--abandoned { border-color: #111; background: #fff; color: #111; }
         .su-action--abandoned.is-active { background: #e53935; color: #fff; }
+        .su-action--lost.is-active { background: #5e35b1; color: #fff; }
         .su-action--finished.is-active { background: #2e7d32; color: #fff; }
         .su-action--top.is-active { background: #f9a825; color: #fff; }
         .su-action--highlight-finished.is-highlighted { background: #2e7d32; color: #fff; }
@@ -740,7 +742,7 @@ export default function SearchUpdatePage() {
         .su-kauflink.missing-link { background: rgba(255, 140, 0, 0.08); }
         .su-kauflink .su-text { width: 100%; display: block; }
         @media (max-width: 1180px) {
-          .su-search-row, .su-book-row, .su-header-row { grid-template-columns: 115px 100px minmax(0, 1fr) 70px 50px 40px 36px 36px 36px 36px 36px 36px 36px 36px 36px 36px 36px 34px; }
+          .su-search-row, .su-book-row, .su-header-row { grid-template-columns: 115px 100px minmax(0, 1fr) 70px 50px 40px 36px 36px 36px 36px 36px 36px 36px 36px 36px 36px 36px 36px 34px; }
           .su-action { width: 36px; min-width: 36px; font-size: 20px; }
           .su-kauflink { min-width: 0; padding: 0; justify-content: center; font-size: 20px; }
           .su-action--edit { width: 34px; min-width: 34px; font-size: 16px; }
@@ -790,7 +792,9 @@ export default function SearchUpdatePage() {
               <option value="">Alle</option>
               <option value="finished">Finished</option>
               <option value="abandoned">Abandoned</option>
+              <option value="lost">Lost</option>
               <option value="finished,abandoned">Finished + Abandoned</option>
+              <option value="finished,abandoned,lost">Finished + Abandoned + Lost</option>
             </select>
             <select className="su-filter" value={q.distinct || ""} onChange={(e) => setQuery({ distinct: e.target.value, page: 1 })} aria-label="Ansicht" title="Nur verschiedene Titel: jeder Titel (Autor + Titel) erscheint nur einmal">
               <option value="">Alle Exemplare</option>
@@ -820,6 +824,7 @@ export default function SearchUpdatePage() {
 <div className="su-head">Region</div>
 <div className="su-head">Land</div>
           <div className="su-head" title="Abandoned">✕</div>
+          <div className="su-head" title="Lost">?</div>
           <div className="su-head" title="Finished">✓</div>
           <div className="su-head" title="Top Book">★</div>
           <div className="su-head" title="Highlight Finished">HF</div>
@@ -840,6 +845,7 @@ export default function SearchUpdatePage() {
               const status = statusOf(b);
               const isAbandoned = status === "abandoned";
               const isFinished = status === "finished";
+              const isLost = status === "lost";
 
               const hfDate = b?.home_featured_finished_at ?? b?.highlight_finished_at ?? b?.hf_pushed_at ?? (b?.home_featured_slot === "finished" ? b?.updated_at : null);
               const hrDate = b?.home_featured_received_at ?? b?.highlight_received_at ?? b?.highlight_ready_at ?? b?.hr_pushed_at ?? (b?.home_featured_slot === "received" ? b?.updated_at : null);
@@ -852,7 +858,7 @@ export default function SearchUpdatePage() {
               );
 
               return (
-                <div className={`su-book-row ${isFinished ? "is-finished" : isAbandoned ? "is-abandoned" : ""}`} key={id}>
+                <div className={`su-book-row ${isFinished ? "is-finished" : isAbandoned ? "is-abandoned" : isLost ? "is-lost" : ""}`} key={id}>
                   <div className="su-cell su-code su-code--clickable" onClick={() => openBarcodeHistory(getBarcode(b))} title={b?.registered_at ? `Registered: ${fmtDateTitle(b.registered_at)}` : "Barcode-History anzeigen"} role="button" tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") openBarcodeHistory(getBarcode(b)); }}>
                     <span className="su-text">{getBarcode(b)}</span>
                   </div>
@@ -956,6 +962,7 @@ export default function SearchUpdatePage() {
   </span>
 </div>
                   <button disabled={isBusy} onClick={() => setStatus(b, "abandoned")} className={`su-action su-action--abandoned ${isAbandoned ? "is-active" : ""}`} title={isAbandoned ? `Abandoned: ${fmtDateTitle(b.reading_status_updated_at)}` : "Set abandoned"} type="button">✕</button>
+                  <button disabled={isBusy} onClick={() => setStatus(b, "lost")} className={`su-action su-action--lost ${isLost ? "is-active" : ""}`} title={isLost ? `Lost: ${fmtDateTitle(b.reading_status_updated_at)}` : "Set lost (Buch verloren)"} type="button">?</button>
                   <button disabled={isBusy} onClick={() => setStatus(b, "finished")} className={`su-action su-action--finished ${isFinished ? "is-active" : ""}`} title={isFinished ? `Finished: ${fmtDateTitle(b.reading_status_updated_at)}` : "Set finished"} type="button">✓</button>
                   <button disabled={isBusy} onClick={() => setTopBook(b)} className={`su-action su-action--top ${b?.top_book ? "is-active" : ""}`} title={b?.top_book ? `Top: ${fmtDateTitle(b.top_book_set_at)}` : "Set top book"} type="button">★</button>
 

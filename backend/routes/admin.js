@@ -906,7 +906,7 @@ COUNT(b.id) FILTER (WHERE b.top_book = true)::int AS top_books
 
       // GET /api/admin/stats/overview
       // Kennzahlen für AdminDashboardPage:
-      //   status:  Anzahl je reading_status (in_stock, in_progress, finished, abandoned, wishlist)
+      //   status:  Anzahl je reading_status (in_stock, in_progress, finished, abandoned, lost, wishlist)
       //   periods: Zugänge / gelesen / abgebrochen in diesem Monat und Jahr (Europe/Berlin)
       //   genres:  Anzahl je Genre × reading_status (ohne wishlist)
       // Jede Abfrage einzeln: schlägt eine fehl, kommen die anderen trotzdem.
@@ -958,7 +958,7 @@ COUNT(b.id) FILTER (WHERE b.top_book = true)::int AS top_books
                 count(*)::int              AS n
               FROM public.books b
               LEFT JOIN public.genres g ON g.id = b.genre_id
-              WHERE b.reading_status::text IN ('in_stock', 'in_progress', 'finished', 'abandoned')
+              WHERE b.reading_status::text IN ('in_stock', 'in_progress', 'finished', 'abandoned', 'lost')
               GROUP BY 1, 2
             `),
           ])

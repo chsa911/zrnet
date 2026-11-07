@@ -29,6 +29,9 @@ const UPLOAD_ROOT =
   path.resolve(__dirname, "../../uploads");
 
 const COVERS_DIR = path.join(UPLOAD_ROOT, "covers");
+
+// Endstatus: Buch ist weg (gelesen, abgebrochen, verloren) und hält nie einen Barcode.
+const FINAL_STATUSES = new Set(["finished", "abandoned", "lost"]);
 const COVERS_NORMALIZED_DIR = path.join(COVERS_DIR, "normalized");
 const UUID_COVER_RE = /^([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\.jpg$/i;
 
@@ -350,7 +353,7 @@ function clampInt(v, fallback, min, max) {
     if (!s) return null;
     const x = s.toLowerCase();
     if (x === "open" || x === "inprogress" || x === "in-progress") return "in_progress";
-    if (x === "in_progress" || x === "finished" || x === "abandoned") return x;
+    if (x === "in_progress" || x === "finished" || x === "abandoned" || x === "lost") return x;
     return s;
   }
 
@@ -2056,13 +2059,13 @@ return res.json({
     const wMm = cmToMm(widthCm);
     const hMm = cmToMm(heightCm);
 
-    const VALID_STATUSES = ["in_stock", "in_progress", "finished", "abandoned", "wishlist"];
+    const VALID_STATUSES = ["in_stock", "in_progress", "finished", "abandoned", "lost", "wishlist"];
     const requestedStatus = normalizeStr(body.reading_status);
     const status = (requestedStatus && VALID_STATUSES.includes(requestedStatus))
       ? requestedStatus
       : (assignBarcodeNow ? "in_progress" : "in_stock");
     const nowIso = new Date().toISOString();
-    const statusTs = status === "finished" || status === "abandoned" ? nowIso : null;
+    const statusTs = FINAL_STATUSES.has(status) ? nowIso : null;
 
     const attemptId = await logSaveAttempt(pool, {
       titleDisplay: normalizeStr(body.title_display),
@@ -3248,7 +3251,7 @@ if ((patch.sub_genre_abbr ?? patch.subgenre_abbr) !== undefined) {
           const changed = String(cur.reading_status || "") !== String(nextStatus || "");
 
           // A book that is in_progress is holding an open barcode. The barcode
-          // may only be released by finishing/abandoning the book — there is no
+          // may only be released by finishing/abandoning/losing the book — there is no
           // "back to stock" path for in_progress books anymore. Reject any other
           // transition here with a clean error before it reaches the DB guard
           // trigger (trg_prevent_in_progress_status_change), which would
@@ -3256,8 +3259,7 @@ if ((patch.sub_genre_abbr ?? patch.subgenre_abbr) !== undefined) {
           if (
             changed &&
             cur.reading_status === "in_progress" &&
-            nextStatus !== "finished" &&
-            nextStatus !== "abandoned"
+            !FINAL_STATUSES.has(nextStatus)
           ) {
             await client.query("ROLLBACK");
             return res.status(409).json({ error: "in_progress_requires_finish_or_abandon" });
@@ -3265,9 +3267,9 @@ if ((patch.sub_genre_abbr ?? patch.subgenre_abbr) !== undefined) {
 
           updates.reading_status = nextStatus;
           if (cols.has("reading_status_updated_at")) {
-            if (changed && (nextStatus === "finished" || nextStatus === "abandoned")) {
+            if (changed && FINAL_STATUSES.has(nextStatus)) {
               updates.reading_status_updated_at = new Date().toISOString();
-            } else if (changed && nextStatus !== "finished" && nextStatus !== "abandoned") {
+            } else if (changed && !FINAL_STATUSES.has(nextStatus)) {
               updates.reading_status_updated_at = null;
             }
           }
@@ -3322,7 +3324,7 @@ if ((patch.sub_genre_abbr ?? patch.subgenre_abbr) !== undefined) {
         await setHomeFeaturedSlotTx(client, id, nextHomeFeaturedSlot);
       }
 
-      // Hard rule: a finished/abandoned book NEVER keeps a barcode. Release on
+      // Hard rule: a finished/abandoned/lost book NEVER keeps a barcode. Release on
       // every save that leaves the book finished/abandoned — not only on the
       // in_progress -> finished/abandoned transition — so stale links (e.g. a
       // book that went in_stock -> abandoned, or legacy data) get cleaned up
@@ -3330,7 +3332,7 @@ if ((patch.sub_genre_abbr ?? patch.subgenre_abbr) !== undefined) {
       // Only this book's rows are closed; the code goes back to AVAILABLE
       // only when no other in_progress book still carries it.
       const finalStatus = updates.reading_status ?? cur.reading_status;
-      if (finalStatus === "finished" || finalStatus === "abandoned") {
+      if (FINAL_STATUSES.has(finalStatus)) {
         await releaseBookBarcodes(client, id);
       }
 

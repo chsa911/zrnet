@@ -25,6 +25,7 @@ const STATUSES = [
   { key: "in_progress", label: "In Lektüre", short: "In Lektüre", color: "#E0A100" },
   { key: "finished", label: "Gelesen", short: "Gelesen", color: "#008A55" },
   { key: "abandoned", label: "Abgebrochen", short: "Abgebrochen", color: "#C8473A" },
+  { key: "lost", label: "Verloren", short: "Verloren", color: "#5E35B1" },
 ];
 const WISHLIST = { key: "wishlist", label: "Wunschliste", color: "#8A8F98" };
 

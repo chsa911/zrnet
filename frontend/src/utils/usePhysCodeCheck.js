@@ -49,6 +49,7 @@ const STATUS_DE = {
   in_stock: "im Bestand",
   finished: "gelesen",
   abandoned: "abgebrochen",
+  lost: "verloren",
   wishlist: "Wunschliste",
 };
 
