@@ -300,7 +300,12 @@ function combine(cands, b) {
   const bookLang = String(b.language || "de").toLowerCase();
   const isDe = /^(de|ger|deu)$/.test(lang);
   if (lang && bookLang === "de" && !isDe) { why.push(`Sprache ${lang}`); ok = false; }
-  if (!authors.length) { why.push("kein Autor gefunden"); ok = false; }
+  // Ohne Autor nur übernehmen, wenn die DNB das Buch kennt und die Seitenzahl passt
+  // (z.B. Reiseführer, Sammelbände) – Titel und Verlag sind dann verlässlich, Autor bleibt leer.
+  if (!authors.length) {
+    why.push("kein Autor gefunden");
+    if (!(best.source === "DNB" && why.includes("Seiten passen"))) ok = false;
+  }
   if (!publisher) why.push("kein Verlag gefunden");
   const subtitle = isGenreLabel(best.subtitle) ? "" : best.subtitle;
   return { ...best, subtitle, authors, publisher, pages, status: ok ? "auto" : "pruefen", why: why.join(", ") };

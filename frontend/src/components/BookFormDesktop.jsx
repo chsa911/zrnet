@@ -433,6 +433,12 @@ export default function BookFormDesktop({
   const isEdit = mode === "edit";
   const msgRef = useRef(null);
   const matchJustSelectedRef = useRef(false);
+  // Lagereinträge mit gleicher ISBN, die der Benutzer bewusst abgewählt hat
+  // ("Neues Buch anlegen") – werden nicht erneut automatisch ausgewählt.
+  const dismissedIsbnMatchesRef = useRef(new Set());
+  // Buch ohne Lagereintrag (z.B. aus der Zeit vor den Cover-Fotos) trotz gleicher ISBN
+  // neu anlegen: Server-Schutz gegen Doppelanlage überspringen (force_new_entry)
+  const forceNewEntryRef = useRef(false);
 
   const initial = useMemo(() => {
     const b = initialBook || {};
@@ -557,16 +563,24 @@ export default function BookFormDesktop({
   const allMatches = useMemo(() => {
     const seen = new Set();
     const out = [];
+    // 1. gleiche ISBN (sicherster Treffer) zuerst
+    for (const m of existingMatches) {
+      if (!m?.id || seen.has(m.id) || m.match_reason !== "isbn") continue;
+      seen.add(m.id);
+      out.push({ ...m, _matchReason: "isbn" });
+    }
+    // 2. gleicher Titel + Autor
     for (const m of titleAuthorMatches) {
       if (!m?.id || seen.has(m.id)) continue;
       seen.add(m.id);
       out.push({ ...m, _matchReason: "title_author" });
     }
+    // 3. gleiche bzw. ähnliche Seitenzahl (vom Server schon nach Abstand sortiert)
     for (const m of existingMatches) {
       if (!m?.id) continue;
       if (seen.has(m.id)) continue;
       seen.add(m.id);
-      out.push({ ...m, _matchReason: "pages" });
+      out.push({ ...m, _matchReason: m.match_reason === "pages_exact" ? "pages_exact" : "pages" });
     }
     return out;
   }, [titleAuthorMatches, existingMatches]);
@@ -653,13 +667,17 @@ export default function BookFormDesktop({
     }
 
     const pages = parseIntOrNull(v.pages);
+    // Eine gültige ISBN reicht für die Suche – so erscheint der Lagereintrag schon
+    // direkt nach dem Scannen, noch bevor die Seitenzahl eingegeben ist.
+    const isbnN = normalizeIsbnInputs(v.isbn13, v.isbn10);
+    const hasIsbn = isbnN.lookupOk;
 
     // Search/selection are keyed on `pages` only. Filling in title/ISBN/author/
     // publisher must NOT clear an already-found draft match — that's the natural
     // next step after entering the page count, and clearing here caused the
     // match to "flash and disappear" before the user could pick it, leading the
     // form to fall through and create a duplicate book record.
-    if (pages == null) {
+    if (pages == null && !hasIsbn) {
       // If a match was just clicked, the fields were filled programmatically —
       // don't clear the selection. Only clear on manual user edits.
       if (matchJustSelectedRef.current) {
@@ -685,7 +703,7 @@ export default function BookFormDesktop({
         // it never narrows or removes a match that pages-only would have
         // found, so it can't reintroduce the "flash and disappear" issue.
         const r = await findDraft(
-          { pages, isbn13: v.isbn13, isbn10: v.isbn10 },
+          { pages: pages ?? undefined, isbn13: isbnN.isbn13 || v.isbn13, isbn10: isbnN.isbn10 || v.isbn10 },
           { signal: ctrl.signal }
         );
         const items = Array.isArray(r?.items) ? r.items : [];
@@ -753,6 +771,47 @@ export default function BookFormDesktop({
       ctrl.abort();
     };
   }, [isEdit, v.title_display, v.name_display, v.author_lastname]);
+
+  // Lagereintrag übernehmen: Auswahl merken und seine Daten ins Formular holen
+  function selectMatch(m) {
+    if (!m?.id) return;
+    matchJustSelectedRef.current = true;
+    forceNewEntryRef.current = false;
+    setExistingMatch(m);
+    setV((prev) => ({
+      ...prev,
+      pages: toStr(m.pages ?? prev.pages),
+      isbn13: toStr(m.isbn13 ?? prev.isbn13),
+      isbn10: toStr(m.isbn10 ?? prev.isbn10),
+      title_display: toStr(m.title_display ?? m.main_title_display ?? prev.title_display),
+      subtitle_display: toStr(m.subtitle_display ?? prev.subtitle_display),
+      number_titles: toStr(m.number_titles ?? prev.number_titles),
+      extra_titles: Array.isArray(m.extra_titles) ? m.extra_titles.map(toStr) : prev.extra_titles,
+      author_id: toStr(m.author_id ?? prev.author_id),
+      authors_number: toStr(m.authors_number ?? prev.authors_number),
+      name_display: toStr(m.name_display ?? m.author_name_display ?? m.author_display ?? prev.name_display),
+      author_lastname: toStr(m.author_lastname ?? prev.author_lastname),
+      author_firstname: toStr(m.author_firstname ?? prev.author_firstname),
+      publisher_id: toStr(m.publisher_id ?? prev.publisher_id),
+      publisher_name_display: toStr(m.publisher_name_display ?? m.publisher_name ?? prev.publisher_name_display),
+    }));
+  }
+
+  // Genau ein Lagereintrag mit gleicher ISBN -> automatisch auswählen.
+  // Bei mehreren (z.B. Platzhalter mit derselben ISBN) entscheidet der Benutzer.
+  useEffect(() => {
+    if (isEdit || existingMatch?.id) return;
+    const byIsbn = existingMatches.filter(
+      (m) => m?.match_reason === "isbn" && !dismissedIsbnMatchesRef.current.has(m.id)
+    );
+    if (byIsbn.length !== 1) return;
+    selectMatch(byIsbn[0]);
+    showMsg(
+      "Lagereintrag mit gleicher ISBN gefunden und ausgewählt ✔ – bitte am Cover-Foto prüfen. Ist es ein anderes Exemplar ohne Lagereintrag, „Neues Buch anlegen“ wählen.",
+      "info"
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isEdit, existingMatches]);
 
   // phys_code (Breite-Höhe-Seiten-Position-Autor) muss eindeutig sein
   const physCode = buildPhysCode(v);
@@ -1082,6 +1141,7 @@ if (!isEdit && (pages == null || pages < 0)) {
     }
 
     if (!isEdit && existingMatch?.id) payload.draft_id = existingMatch.id;
+    if (!isEdit && !existingMatch?.id && forceNewEntryRef.current) payload.force_new_entry = true;
 
     if (!isEdit && createReadingStatus) payload.reading_status = createReadingStatus;
     return payload;
@@ -1146,8 +1206,25 @@ if (!isEdit && (pages == null || pages < 0)) {
         setV({ ...emptyForm }); nationalityTouchedRef.current = false; origLangTouchedRef.current = false; genreTouchedRef.current = false;
         setExistingMatches([]);
         setExistingMatch(null);
+        dismissedIsbnMatchesRef.current = new Set();
+        forceNewEntryRef.current = false;
       }
     } catch (err) {
+      // Server-Schutz: Lagereintrag mit gleicher ISBN vorhanden -> anbieten statt doppelt anlegen
+      if (!isEdit && err?.code === "in_stock_isbn_match") {
+        const cands = Array.isArray(err?.data?.candidates) ? err.data.candidates : [];
+        setExistingMatches((prev) => {
+          const ids = new Set(cands.map((c) => c.id));
+          return [...cands, ...prev.filter((p) => !ids.has(p.id))];
+        });
+        if (cands.length === 1) selectMatch(cands[0]);
+        showMsg(
+          `⚠ NICHT gespeichert: ${err?.data?.message || "Zu dieser ISBN gibt es bereits einen Lagereintrag."}` +
+            (cands.length === 1 ? " Der Lagereintrag ist jetzt ausgewählt – bitte erneut speichern." : ""),
+          "error"
+        );
+        return;
+      }
       console.error("Buch konnte nicht gespeichert werden", err);
       const hint = isEdit ? "" : openIssueHint(err);
       showMsg(`❌ NICHT gespeichert: ${friendlySaveErrorMessage(err)}${hint}`, "error");
@@ -1479,6 +1556,8 @@ if (!isEdit && (pages == null || pages < 0)) {
               disabled={busy}
               onClick={() => {
                 requestIdRef.current = null;
+                dismissedIsbnMatchesRef.current = new Set();
+                forceNewEntryRef.current = false;
                 setV({ ...emptyForm }); nationalityTouchedRef.current = false; origLangTouchedRef.current = false; genreTouchedRef.current = false;
                 setExistingMatch(null);
                 setExistingMatches([]);
@@ -1492,12 +1571,19 @@ if (!isEdit && (pages == null || pages < 0)) {
               className="bfd-btn bfd-btn-muted"
               disabled={busy}
               onClick={() => {
+                // Anderes Exemplar ohne Lagereintrag: Lagereinträge mit gleicher ISBN nicht wieder
+                // automatisch auswählen und den Server-Schutz überspringen.
+                for (const m of allMatches) {
+                  if (m._matchReason === "isbn") dismissedIsbnMatchesRef.current.add(m.id);
+                }
+                forceNewEntryRef.current = true;
                 setExistingMatch(null);
                 setExistingMatches([]);
                 setTitleAuthorMatches([]);
+                showMsg("Es wird ein neues Buch ohne Lagereintrag angelegt (z. B. Buch aus der Zeit vor den Cover-Fotos).", "info");
               }}
             >
-              ➕ Neues Buch anlegen
+              ➕ Neues Buch anlegen{allMatches.some((m) => m._matchReason === "isbn") ? " (ohne Lagereintrag)" : ""}
             </button>
             {(() => {
               // Flag probable duplicates: same title, timestamps ≥1 day apart
@@ -1533,32 +1619,18 @@ if (!isEdit && (pages == null || pages < 0)) {
                   style={{ display: "flex", flexDirection: "column", alignItems: "stretch", padding: 0, overflow: "hidden", minWidth: 140 }}
                   onMouseEnter={() => setHoveredMatch(m)}
                   onFocus={() => setHoveredMatch(m)}
-                  onClick={() => {
-                    matchJustSelectedRef.current = true;
-                    setExistingMatch(m);
-                    setV((prev) => ({
-                      ...prev,
-                      pages: toStr(m.pages ?? prev.pages),
-                      isbn13: toStr(m.isbn13 ?? prev.isbn13),
-                      isbn10: toStr(m.isbn10 ?? prev.isbn10),
-                      title_display: toStr(m.title_display ?? m.main_title_display ?? prev.title_display),
-                      subtitle_display: toStr(m.subtitle_display ?? prev.subtitle_display),
-                      number_titles: toStr(m.number_titles ?? prev.number_titles),
-                      extra_titles: Array.isArray(m.extra_titles) ? m.extra_titles.map(toStr) : prev.extra_titles,
-                      author_id: toStr(m.author_id ?? prev.author_id),
-                      authors_number: toStr(m.authors_number ?? prev.authors_number),
-                      name_display: toStr(m.name_display ?? m.author_name_display ?? m.author_display ?? prev.name_display),
-                      author_lastname: toStr(m.author_lastname ?? prev.author_lastname),
-                      author_firstname: toStr(m.author_firstname ?? prev.author_firstname),
-                      publisher_id: toStr(m.publisher_id ?? prev.publisher_id),
-                      publisher_name_display: toStr(m.publisher_name_display ?? m.publisher_name ?? prev.publisher_name_display),
-                    }));
-                  }}
+                  onClick={() => selectMatch(m)}
                 >
                   <MatchCoverThumb src={m.coverUrl} id={m.id} />
                   <div style={{ padding: "8px 10px", textAlign: "left" }}>
-                    <div style={{ fontSize: 10, fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.04em", color: m._matchReason === "title_author" ? "#1b5e20" : "#888", marginBottom: 2 }}>
-                      {m._matchReason === "title_author" ? "Gleicher Titel + Autor · auf Lager" : "Ähnliche Seitenzahl"}
+                    <div style={{ fontSize: 10, fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.04em", color: m._matchReason === "isbn" || m._matchReason === "title_author" ? "#1b5e20" : m._matchReason === "pages_exact" ? "#1565c0" : "#888", marginBottom: 2 }}>
+                      {m._matchReason === "isbn"
+                        ? "✔ Gleiche ISBN · auf Lager"
+                        : m._matchReason === "title_author"
+                          ? "Gleicher Titel + Autor · auf Lager"
+                          : m._matchReason === "pages_exact"
+                            ? "Gleiche Seitenzahl"
+                            : "Ähnliche Seitenzahl"}
                     </div>
                     <div style={{ fontSize: 13, fontWeight: 900, lineHeight: 1.2 }}>
                       {m.title_display || m.main_title_display || (m.title_keyword ? `Stichwort: ${m.title_keyword}` : "ohne Titel")}

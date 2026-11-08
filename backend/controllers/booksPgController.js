@@ -3,6 +3,7 @@
   const { barcodeWildcardPattern } = require("../utils/barcodeWildcard");
   const { pickFreeBarcode, heldByActiveBookSql, releaseBookBarcodes } = require("../utils/barcodeHolders");
   const { closeFailures } = require("../utils/saveFailures");
+  const { isbnVariants } = require("../services/isbnSources");
   // Add this near your other variable definitions
   // backend/controllers/booksPgController.js
   // Postgres implementation for /api/books endpoints.
@@ -2074,6 +2075,64 @@ return res.json({
       : (assignBarcodeNow ? "in_progress" : "in_stock");
     const nowIso = new Date().toISOString();
     const statusTs = FINAL_STATUSES.has(status) ? nowIso : null;
+
+    // ---- Schutz vor Doppelanlage --------------------------------------------
+    // Wird ein Buch neu registriert, obwohl ein Lagereintrag (in_stock) mit
+    // derselben ISBN existiert, war das bisher fast immer derselbe Band, der
+    // als zweiter Datensatz angelegt wurde. Dann nicht speichern, sondern die
+    // Lagereinträge zurückgeben; das Formular bietet sie zur Übernahme an.
+    // Mit force_new_entry=true (anderes Exemplar ohne Lagereintrag, z.B. aus der Zeit
+    // vor den Cover-Fotos) wird trotzdem neu angelegt.
+    if (assignBarcodeNow && !forceNewEntry) {
+      const variants = isbnVariants(isbnInfo.isbn13, isbnInfo.isbn10, isbnInfo.isbn13_raw);
+      if (variants.length) {
+        let retryOfSaved = false;
+        if (requestId) {
+          const ex = await pool
+            .query(`SELECT 1 FROM public.books WHERE request_id = $1 LIMIT 1`, [requestId])
+            .catch(() => ({ rows: [] }));
+          retryOfSaved = ex.rows.length > 0;
+        }
+        if (!retryOfSaved) {
+          const { rows: stockMatches } = await pool.query(
+            `
+            SELECT b.id::text AS id, b.title_display, b.subtitle_display, b.pages,
+                   b.isbn13, b.isbn10, b.isbn13_raw, b.added_at,
+                   a.name_display AS author_name_display
+            FROM public.books b
+            LEFT JOIN public.authors a ON a.id = b.author_id
+            WHERE b.reading_status = 'in_stock'
+              AND (
+                regexp_replace(upper(coalesce(b.isbn13, '')), '[^0-9X]', '', 'g') = ANY($1::text[])
+                OR regexp_replace(upper(coalesce(b.isbn10, '')), '[^0-9X]', '', 'g') = ANY($1::text[])
+                OR regexp_replace(upper(coalesce(b.isbn13_raw, '')), '[^0-9X]', '', 'g') = ANY($1::text[])
+              )
+              AND NOT EXISTS (
+                SELECT 1 FROM public.barcode_assignments ba
+                WHERE ba.book_id = b.id AND ba.freed_at IS NULL
+              )
+            ORDER BY b.added_at DESC NULLS LAST
+            LIMIT 10
+            `,
+            [variants]
+          );
+          if (stockMatches.length) {
+            return res.status(409).json({
+              error: "in_stock_isbn_match",
+              message:
+                stockMatches.length === 1
+                  ? "Zu dieser ISBN gibt es bereits einen Lagereintrag (mit Cover-Foto). Bitte diesen übernehmen. „Neues Buch anlegen“ nur für ein anderes Exemplar ohne Lagereintrag, z. B. aus der Zeit vor den Cover-Fotos."
+                  : `Zu dieser ISBN gibt es ${stockMatches.length} Lagereinträge – jedes Exemplar hat sein eigenes Cover-Foto. Bitte anhand des Fotos den richtigen übernehmen. „Neues Buch anlegen“ nur für ein Exemplar ohne Lagereintrag.`,
+              candidates: stockMatches.map((r) => ({
+                ...r,
+                match_reason: "isbn",
+                coverUrl: `/uploads/covers/normalized/${r.id}.jpg`,
+              })),
+            });
+          }
+        }
+      }
+    }
 
     const attemptId = await logSaveAttempt(pool, {
       titleDisplay: normalizeStr(body.title_display),

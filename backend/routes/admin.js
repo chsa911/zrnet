@@ -11,6 +11,7 @@
         adminLogout,
       } = require("../middleware/adminAuth");
       const { registerBook, registerExistingBook } = require("../controllers/booksPgController");
+      const { isbnVariants } = require("../services/isbnSources");
 
       const upload = multer({ storage: multer.memoryStorage() });
       const sharp = require("sharp");
@@ -484,7 +485,10 @@ COUNT(b.id) FILTER (WHERE b.top_book = true)::int AS top_books
         const pool = req.app.get("pgPool");
         if (!pool) return res.status(500).json({ error: "pgPool missing" });
 
-        const isbn = String(req.query.isbn || "").trim().toUpperCase().replace(/[^0-9X]/g, "");
+        // Das Formular schickt isbn13/isbn10 – früher wurde nur "isbn" gelesen, die ISBN
+        // war für die Suche also wirkungslos. Alle Schreibweisen (13/10/roh) zählen.
+        const isbnList = isbnVariants(req.query.isbn, req.query.isbn13, req.query.isbn10);
+        const isbn = isbnList.length ? isbnList[0] : "";
         const codeRaw = String(req.query.pages || req.query.code || "").trim();
         const titleDisplay = String(req.query.title_display || "").trim();
         const subtitleDisplay = String(req.query.subtitle_display || "").trim();
@@ -515,18 +519,24 @@ COUNT(b.id) FILTER (WHERE b.top_book = true)::int AS top_books
           const params = [];
           const matches = [];
 
-          if (isbn) {
-            params.push(isbn);
-            const p = `$${params.length}`;
-            matches.push(`(
-              regexp_replace(upper(coalesce(b.isbn13, '')), '[^0-9X]', '', 'g') = ${p}
-              OR regexp_replace(upper(coalesce(b.isbn10, '')), '[^0-9X]', '', 'g') = ${p}
-              OR regexp_replace(upper(coalesce(b.isbn13_raw, '')), '[^0-9X]', '', 'g') = ${p}
-            )`);
+          // Genauigkeit für die Sortierung: gleiche ISBN > gleiche Seitenzahl > ±5 Seiten
+          let isbnMatchSql = "false";
+          let pageDiffSql = "NULL::int";
+          if (isbnList.length) {
+            params.push(isbnList);
+            const p = `$${params.length}::text[]`;
+            isbnMatchSql = `(
+              regexp_replace(upper(coalesce(b.isbn13, '')), '[^0-9X]', '', 'g') = ANY(${p})
+              OR regexp_replace(upper(coalesce(b.isbn10, '')), '[^0-9X]', '', 'g') = ANY(${p})
+              OR regexp_replace(upper(coalesce(b.isbn13_raw, '')), '[^0-9X]', '', 'g') = ANY(${p})
+            )`;
+            matches.push(isbnMatchSql);
           }
           if (code != null) {
             params.push(code - 5, code + 5);
             matches.push(`b.pages BETWEEN $${params.length - 1} AND $${params.length}`);
+            params.push(code);
+            pageDiffSql = `abs(b.pages - $${params.length}::int)`;
           }
 
           // title_and_author=1: one combined condition (title AND author),
@@ -630,7 +640,9 @@ COUNT(b.id) FILTER (WHERE b.top_book = true)::int AS top_books
               p.id::text AS publisher_id,
               p.name AS publisher_name,
               p.name_display AS publisher_name_display,
-              p.abbr AS publisher_abbr
+              p.abbr AS publisher_abbr,
+              ${isbnMatchSql} AS isbn_match,
+              ${pageDiffSql} AS page_diff
             FROM public.books b
             LEFT JOIN public.authors a ON a.id = b.author_id
             LEFT JOIN public.publishers p ON p.id = b.publisher_id
@@ -655,13 +667,17 @@ COUNT(b.id) FILTER (WHERE b.top_book = true)::int AS top_books
             -- exception -- any deduping/resurfacing decision belongs to the
             -- human reviewing the results, not a silent filter here.
             AND (${matches.join(" OR ")})
-            ORDER BY b.registered_at DESC NULLS LAST, b.added_at DESC NULLS LAST
-            LIMIT 20
+            -- genaueste Treffer zuerst, damit ein älterer Lagereintrag mit gleicher
+            -- ISBN/Seitenzahl nicht hinter neueren "ähnlichen" Büchern verschwindet
+            ORDER BY isbn_match DESC, page_diff ASC NULLS LAST,
+                     b.registered_at DESC NULLS LAST, b.added_at DESC NULLS LAST
+            LIMIT 30
           `;
 
           const r = await pool.query(q, params);
           const items = (r.rows || []).map((row) => ({
             ...row,
+            match_reason: row.isbn_match ? "isbn" : row.page_diff === 0 ? "pages_exact" : "pages",
             width_cm: row.width != null ? row.width / 10 : null,
             height_cm: row.height != null ? row.height / 10 : null,
             coverUrl: `/uploads/covers/normalized/${row.id}.jpg`,

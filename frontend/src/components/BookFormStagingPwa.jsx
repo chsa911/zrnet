@@ -547,7 +547,22 @@ export default function BookFormStagingPwa({
         author_lastname: prev.author_lastname || toStr(s.author_lastname || s.author_last_name),
       }));
 
-      setMsg("ISBN gefunden ✔ (Daten wurden ergänzt)" + (Array.isArray(r?.warnings) && r.warnings.length ? `\n⚠ ${r.warnings.join("\n⚠ ")}` : ""));
+      const warn = Array.isArray(r?.warnings) && r.warnings.length ? `\n⚠ ${r.warnings.join("\n⚠ ")}` : "";
+      const nothing = r?.found === false || !(s.title_display || s.title || s.name_display || s.author_name_display || s.publisher_name_display);
+      if (nothing) {
+        setMsg("ISBN nicht gefunden – Titel, Autor und Verlag bitte vom Cover übernehmen." + warn, "error");
+      } else {
+        const missing = [
+          !(s.title_display || s.title) && "Titel",
+          !(s.name_display || s.author_name_display) && "Autor",
+          !s.publisher_name_display && "Verlag",
+        ].filter(Boolean);
+        setMsg(
+          "ISBN gefunden ✔ (Daten wurden ergänzt)" +
+            (missing.length ? `\nFehlt noch: ${missing.join(", ")}` : "") +
+            warn
+        );
+      }
     } catch (e) {
       setMsg(e?.message || "ISBN Lookup fehlgeschlagen", "error");
     } finally {

@@ -1,5 +1,11 @@
 const express = require("express");
 const router = express.Router();
+const {
+  fromDNB,
+  cleanPublisher,
+  resolvePublisher,
+  guessPublisherByPrefix,
+} = require("../services/isbnSources");
 
 function getPool(req) {
   const pool = req.app.get("pgPool");
@@ -112,9 +118,9 @@ async function metaFromDb(pool, { isbn13, isbn10 }) {
     FROM public.books b
     LEFT JOIN public.authors a ON a.id = b.author_id
     LEFT JOIN public.publishers p ON p.id = b.publisher_id
-    WHERE ($1 IS NOT NULL AND b.isbn13 = $1)
-       OR ($2 IS NOT NULL AND b.isbn10 = $2)
-       OR ($1 IS NOT NULL AND b.isbn13_raw = $1)
+    WHERE ($1::text IS NOT NULL AND b.isbn13 = $1::text)
+       OR ($2::text IS NOT NULL AND b.isbn10 = $2::text)
+       OR ($1::text IS NOT NULL AND b.isbn13_raw = $1::text)
     ORDER BY b.registered_at DESC NULLS LAST, b.added_at DESC NULLS LAST
     LIMIT 1
     `,
@@ -169,7 +175,9 @@ async function fetchJson(url, ms = 3500) {
 async function fromGoogle(n) {
   const q = n.isbn13 || n.isbn10;
   if (!q) return null;
-  const url = `https://www.googleapis.com/books/v1/volumes?q=isbn:${encodeURIComponent(q)}`;
+  // Ohne API-Schlüssel lehnt Google bei mehreren Scans schnell ab (HTTP 429)
+  const key = process.env.GOOGLE_BOOKS_API_KEY ? `&key=${encodeURIComponent(process.env.GOOGLE_BOOKS_API_KEY)}` : "";
+  const url = `https://www.googleapis.com/books/v1/volumes?q=isbn:${encodeURIComponent(q)}${key}`;
   const j = await fetchJson(url, 3500);
   const it = j?.items?.[0]?.volumeInfo;
   if (!it) return null;
@@ -380,7 +388,13 @@ router.get("/lookup", async (req, res, next) => {
     const pool = getPool(req);
 
     const warnings = [];
-    const [g, ol, purchase, meta] = await Promise.all([
+    const [dnb, g, ol, purchase, meta] = await Promise.all([
+      // Deutsche Nationalbibliothek: kennt deutsche Ausgaben am vollständigsten
+      fromDNB(n).catch((e) => {
+        console.error("[enrich] DNB request failed:", e?.message || e);
+        warnings.push(`DNB nicht erreichbar: ${e?.message || e}`);
+        return null;
+      }),
       fromGoogle(n).catch((e) => {
         warnings.push(`Google Books nicht erreichbar: ${e.message}`);
         return null;
@@ -401,12 +415,55 @@ router.get("/lookup", async (req, res, next) => {
       }),
     ]);
 
-    const title = pickFirst(meta?.title, g?.title, ol?.title);
-    const subtitle = meta?.subtitle_display || null;
-    const authorDisplay = pickFirst(meta?.author_name_display, g?.authors?.[0], ol?.authors?.[0]);
-    const publisherDisplay = pickFirst(meta?.publisher_name_display, g?.publisher, ol?.publisher);
-    const pages = meta?.pages ?? g?.pages ?? ol?.pages ?? null;
+    // Reihenfolge: eigene Datenbank, DNB, Google Books, Open Library
+    const title = pickFirst(meta?.title, dnb?.title, g?.title, ol?.title);
+    const subtitle = meta?.subtitle_display || dnb?.subtitle || null;
+    const authorDisplay = pickFirst(meta?.author_name_display, dnb?.authors?.[0], g?.authors?.[0], ol?.authors?.[0]);
+    const pages = meta?.pages ?? dnb?.pages ?? g?.pages ?? ol?.pages ?? null;
     const lang = pickFirst(meta?.original_language, g?.language, ol?.language);
+
+    // Verlag: gefundenen Namen auf einen vorhandenen Verlag abbilden (Kürzel + Anzeigename),
+    // sonst aus der ISBN-Verlagsnummer ableiten.
+    let publisherId = meta?.publisher_id || null;
+    let publisherDisplay = meta?.publisher_name_display || null;
+    let publisherAbbr = meta?.publisher_abbr || null;
+    let publisherSource = publisherId ? "db" : null;
+    if (!publisherId) {
+      const found = pickFirst(dnb?.publisher, cleanPublisher(g?.publisher), cleanPublisher(ol?.publisher));
+      if (found) {
+        const row = await resolvePublisher(pool, found).catch((e) => {
+          console.error("[enrich] publisher match failed", e);
+          return null;
+        });
+        if (row) {
+          publisherId = row.id;
+          publisherDisplay = row.name_display || row.name;
+          publisherAbbr = row.abbr || null;
+        } else {
+          publisherDisplay = found; // neuer Verlag – wird beim Speichern angelegt
+        }
+        publisherSource = dnb?.publisher ? "dnb" : g?.publisher ? "google" : "openlibrary";
+      } else if (n.isbn13) {
+        const guess = await guessPublisherByPrefix(pool, n.isbn13).catch((e) => {
+          console.error("[enrich] publisher prefix guess failed", e);
+          return null;
+        });
+        if (guess) {
+          publisherId = guess.id;
+          publisherDisplay = guess.name_display || guess.name;
+          publisherAbbr = guess.abbr || null;
+          publisherSource = "isbn-prefix";
+          warnings.push(`Verlag aus der ISBN-Verlagsnummer abgeleitet (${guess.n} von ${guess.total} Büchern) – bitte prüfen.`);
+        }
+      }
+    }
+
+    // "gefunden" nur, wenn eine Quelle das Buch kennt – ein aus der Verlagsnummer
+    // abgeleiteter Verlag allein zählt nicht
+    const found = Boolean(title || authorDisplay || (publisherDisplay && publisherSource !== "isbn-prefix"));
+    if (!found) {
+      warnings.push("ISBN in keiner Quelle gefunden (DNB, Google Books, Open Library) – bitte prüfen, ob die ISBN stimmt, oder Daten vom Cover übernehmen.");
+    }
 
     const split = splitAuthorName(authorDisplay);
 
@@ -428,9 +485,10 @@ router.get("/lookup", async (req, res, next) => {
       published_titles: meta?.published_titles ?? null,
       number_of_millionsellers: meta?.number_of_millionsellers ?? null,
 
-      publisher_id: meta?.publisher_id || null,
+      publisher_id: publisherId,
       publisher_name_display: publisherDisplay || null,
-      publisher_abbr: meta?.publisher_abbr || null,
+      publisher_abbr: publisherAbbr,
+      publisher_source: publisherSource,
 
       pages,
       purchase_url: meta?.purchase_url || purchase?.best?.url || null,
@@ -440,8 +498,9 @@ router.get("/lookup", async (req, res, next) => {
     };
 
     res.json({
+      found,
       suggested,
-      sources: { google: g, openlibrary: ol, db: meta },
+      sources: { dnb, google: g, openlibrary: ol, db: meta },
       purchase,
       warnings,
     });
