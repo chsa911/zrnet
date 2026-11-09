@@ -1,11 +1,13 @@
 // frontend/src/components/ActivitiesToday.jsx
 // Dashboard "Activities today" – erscheint auf jeder Admin-Seite (über AdminOnly).
 // Werte kommen live aus der Datenbank: GET /api/admin/activity/today
-// Aktualisierung: alle 15 s, beim Zurückkehren in den Tab und sofort nach
+// Aktualisierung: alle 3 Min. (nur bei sichtbarem Tab und Aktivität, siehe
+// utils/politePoll.js – damit Neon schlafen kann), beim Zurückkehren in den Tab und sofort nach
 // window.dispatchEvent(new Event(ACTIVITY_CHANGED_EVENT)) (z. B. nach dem Speichern).
 import React, { useEffect, useState } from "react";
 import { useLocation } from "react-router-dom";
 import { getApiRoot } from "../api/apiRoot";
+import { startPolitePoll } from "../utils/politePoll";
 
 export const ACTIVITY_CHANGED_EVENT = "zr:activity-changed";
 export function notifyActivityChanged() {
@@ -16,7 +18,7 @@ export function notifyActivityChanged() {
   }
 }
 
-const POLL_MS = 15000;
+const POLL_MS = 3 * 60_000;
 // Seiten, auf denen das Dashboard kompakt angezeigt wird (alles auf einen Bildschirm)
 const COMPACT_PATHS = ["/admin/barcode-check"];
 const TILES = [
@@ -54,20 +56,12 @@ export default function ActivitiesToday() {
     };
     // kurz verzögert, damit der Server-Commit nach dem Speichern sicher durch ist
     const onChanged = () => setTimeout(load, 400);
-    const onVis = () => {
-      if (document.visibilityState === "visible") load();
-    };
-    load();
-    const t = setInterval(() => {
-      if (document.visibilityState === "visible") load();
-    }, POLL_MS);
+    const stopPoll = startPolitePoll(load, POLL_MS);
     window.addEventListener(ACTIVITY_CHANGED_EVENT, onChanged);
-    document.addEventListener("visibilitychange", onVis);
     return () => {
       alive = false;
-      clearInterval(t);
+      stopPoll();
       window.removeEventListener(ACTIVITY_CHANGED_EVENT, onChanged);
-      document.removeEventListener("visibilitychange", onVis);
     };
   }, []);
 

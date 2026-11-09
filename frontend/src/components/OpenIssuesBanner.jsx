@@ -1,15 +1,17 @@
 // frontend/src/components/OpenIssuesBanner.jsx
 // Roter Balken auf jeder Admin-Seite, solange es offene Vorgänge gibt
 // (abgelehnte Registrierungen, die noch nicht erledigt sind).
-// Aktualisierung: alle 30 s, beim Zurückkehren in den Tab und sofort nach
+// Aktualisierung: alle 3 Min. (nur bei sichtbarem Tab und Aktivität, siehe
+// utils/politePoll.js – damit Neon schlafen kann), beim Zurückkehren in den Tab und sofort nach
 // notifyOpenIssuesChanged() (z. B. wenn ein Speichern abgelehnt wurde).
 import React, { useEffect, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { getOpenSaveFailures } from "../api/saveFailures";
 import { OPEN_ISSUES_CHANGED_EVENT } from "../utils/saveFeedback";
 import { ACTIVITY_CHANGED_EVENT } from "./ActivitiesToday";
+import { startPolitePoll } from "../utils/politePoll";
 
-const POLL_MS = 30000;
+const POLL_MS = 3 * 60_000;
 
 function since(ts) {
   const d = new Date(ts);
@@ -42,18 +44,14 @@ export default function OpenIssuesBanner() {
       }
     };
     const onChanged = () => setTimeout(load, 400);
-    const onVis = () => document.visibilityState === "visible" && load();
-    load();
-    const t = setInterval(() => document.visibilityState === "visible" && load(), POLL_MS);
+    const stopPoll = startPolitePoll(load, POLL_MS);
     window.addEventListener(OPEN_ISSUES_CHANGED_EVENT, onChanged);
     window.addEventListener(ACTIVITY_CHANGED_EVENT, onChanged);
-    document.addEventListener("visibilitychange", onVis);
     return () => {
       alive = false;
-      clearInterval(t);
+      stopPoll();
       window.removeEventListener(OPEN_ISSUES_CHANGED_EVENT, onChanged);
       window.removeEventListener(ACTIVITY_CHANGED_EVENT, onChanged);
-      document.removeEventListener("visibilitychange", onVis);
     };
   }, []);
 

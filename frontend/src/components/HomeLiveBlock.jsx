@@ -2,6 +2,9 @@ import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { useI18n } from "../context/I18nContext";
 import { apiUrl } from "../api/apiRoot";
+import { startPolitePoll } from "../utils/politePoll";
+
+const STATS_POLL_MS = 10 * 60_000;
 import { coverHomeUrl } from "../utils/covers";
 
 function toIntOrNull(v) {
@@ -109,11 +112,12 @@ export default function HomeLiveBlock() {
       }
     }
 
-    load();
-    const id = setInterval(load, 60_000);
+    // Statistik ändert sich selten: höchstens alle 10 Min. und nur bei sichtbarem
+    // Tab und Aktivität nachladen, damit Neon schlafen kann (utils/politePoll.js).
+    const stopPoll = startPolitePoll(load, STATS_POLL_MS);
 
     return () => {
-      clearInterval(id);
+      stopPoll();
       ac.abort();
     };
   }, [year]);
