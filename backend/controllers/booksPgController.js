@@ -463,6 +463,10 @@ sub: row.subgenre_abbr ?? row.sub_genre ?? null,
 action_time_period_display: row.action_time_period_display ?? null,
 action_continent: row.action_continent ?? null,
 action_country: row.action_country ?? null,
+action_state: row.action_state ?? null,
+action_city: row.action_city ?? null,
+action_place_fictional: row.action_place_fictional ?? null,
+action_time_year: row.action_time_year ?? null,
     };
   }
 
@@ -619,6 +623,199 @@ action_country: row.action_country ?? null,
         WHERE id = (SELECT author_id FROM public.books WHERE id = $1::uuid)`,
       params
     );
+  }
+
+  /* ----------------------- Landschaften / Epochen am Buch ----------------------- */
+  // body.landscape_ids / body.time_era_ids: vollständige Liste (ersetzt die bisherige).
+  // Fehlt der Schlüssel im Body, bleibt die Zuordnung unverändert.
+  // Region/Land füllen die DB-Trigger (V20261109_03) automatisch, wenn dort leer.
+  const PLACE_TAGS = [
+    { key: "landscape_ids", table: "book_landscapes", col: "landscape_id", ref: "landscapes" },
+    { key: "time_era_ids", table: "book_time_eras", col: "time_era_id", ref: "time_eras" },
+  ];
+
+  function normalizeUuidList(v) {
+    const arr = Array.isArray(v) ? v : v == null || v === "" ? [] : [v];
+    const out = [];
+    for (const x of arr) {
+      const s = String(x ?? "").trim().toLowerCase();
+      if (UUID_RE.test(s) && !out.includes(s)) out.push(s);
+    }
+    return out;
+  }
+
+  function hasPlaceTags(src) {
+    return PLACE_TAGS.some((t) => hasOwn(src || {}, t.key));
+  }
+
+  async function placeTagTablesReady(db) {
+    const { rows } = await db.query(
+      `SELECT to_regclass('public.book_landscapes') IS NOT NULL AS book_landscapes,
+              to_regclass('public.book_time_eras')  IS NOT NULL AS book_time_eras`
+    );
+    return rows[0] || {};
+  }
+
+  // Einträge sind entweder IDs oder freier Text. Freier Text darf einen Pfad
+  // enthalten: "Anden › Cerro Torre" bzw. "Anden > Cerro Torre".
+  // Fehlende Einträge werden angelegt; ein neuer Eintrag übernimmt Region/Land/
+  // Bundesland des Buchs, damit er beim nächsten Buch selbst ausfüllen kann.
+  function slugify(name) {
+    const base = String(name || "")
+      .toLowerCase()
+      .replace(/ä/g, "ae").replace(/ö/g, "oe").replace(/ü/g, "ue").replace(/ß/g, "ss")
+      .normalize("NFKD").replace(/[\u0300-\u036f]/g, "")
+      .replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+    return base || "eintrag";
+  }
+
+  async function uniqueSlug(db, table, name) {
+    const base = slugify(name);
+    const { rows } = await db.query(
+      `SELECT slug FROM public.${table} WHERE slug = $1 OR slug LIKE $1 || '-%'`,
+      [base]
+    );
+    const used = new Set(rows.map((r) => r.slug));
+    if (!used.has(base)) return base;
+    for (let i = 2; ; i++) if (!used.has(`${base}-${i}`)) return `${base}-${i}`;
+  }
+
+  function splitPlacePath(text) {
+    return String(text || "")
+      .split(/\s*(?:›|>|»)\s*/)
+      .map((x) => x.replace(/\s+/g, " ").trim())
+      .filter(Boolean)
+      .slice(0, 6);
+  }
+
+  async function resolvePlaceTagText(db, t, text, book) {
+    const parts = splitPlacePath(text);
+    let parentId = null;
+    let parentKind = null;
+    let id = null;
+    for (let i = 0; i < parts.length; i++) {
+      const name = parts[i];
+      const isLeaf = i === parts.length - 1;
+      const found = await db.query(
+        `SELECT id, parent_id${t.ref === "landscapes" ? ", kind" : ", NULL::text AS kind"}
+           FROM public.${t.ref}
+          WHERE lower(name) = lower($1)
+          ORDER BY (parent_id IS NOT DISTINCT FROM $2::uuid) DESC, sort_order
+          LIMIT 1`,
+        [name, parentId]
+      );
+      if (found.rowCount) {
+        id = found.rows[0].id;
+        // Oberbegriff nachtragen, wenn der Eintrag noch keinen hat (ohne Ring zu bauen)
+        if (parentId && !found.rows[0].parent_id && parentId !== id) {
+          await db.query(
+            `UPDATE public.${t.ref} SET parent_id = $2::uuid, updated_at = now()
+              WHERE id = $1::uuid AND parent_id IS NULL
+                AND NOT EXISTS (
+                  WITH RECURSIVE up AS (
+                    SELECT id, parent_id FROM public.${t.ref} WHERE id = $2::uuid
+                    UNION SELECT x.id, x.parent_id FROM public.${t.ref} x JOIN up ON x.id = up.parent_id
+                  ) SELECT 1 FROM up WHERE id = $1::uuid)`,
+            [id, parentId]
+          );
+        }
+        parentKind = found.rows[0].kind;
+      } else {
+        const slug = await uniqueSlug(db, t.ref, name);
+        const cont = book?.action_continent ?? null;
+        const country = isLeaf ? normalizeStr(book?.action_country) : null;
+        const state = isLeaf ? normalizeStr(book?.action_state) : null;
+        if (t.ref === "landscapes") {
+          const kind = parentKind === "gebirge" ? "gipfel" : "landschaft";
+          const r = await db.query(
+            `INSERT INTO public.landscapes (slug, name, kind, parent_id, continent, countries, default_country, default_state, notes)
+             VALUES ($1, $2, $3, $4::uuid, $5::int2, CASE WHEN $6::text IS NULL THEN '{}'::text[] ELSE ARRAY[$6::text] END, $6, $7,
+                     'angelegt beim Speichern eines Buchs')
+             RETURNING id`,
+            [slug, name, kind, parentId, cont, country, state]
+          );
+          id = r.rows[0].id;
+          parentKind = kind;
+        } else {
+          const r = await db.query(
+            `INSERT INTO public.time_eras (slug, name, parent_id, continents, countries, default_country, notes)
+             VALUES ($1, $2, $3::uuid,
+                     CASE WHEN $4::int2 IS NULL THEN '{}'::int2[] ELSE ARRAY[$4::int2] END,
+                     CASE WHEN $5::text IS NULL THEN '{}'::text[] ELSE ARRAY[$5::text] END, $5,
+                     'angelegt beim Speichern eines Buchs')
+             RETURNING id`,
+            [slug, name, parentId, cont, country]
+          );
+          id = r.rows[0].id;
+        }
+      }
+      parentId = id;
+    }
+    return id;
+  }
+
+  async function applyPlaceTags(db, bookId, src) {
+    const b = src || {};
+    if (!bookId || !hasPlaceTags(b)) return;
+    const ready = await placeTagTablesReady(db);
+    let book = null;
+    for (const t of PLACE_TAGS) {
+      if (!hasOwn(b, t.key) || !ready[t.table]) continue;
+      const raw = Array.isArray(b[t.key]) ? b[t.key] : b[t.key] == null || b[t.key] === "" ? [] : [b[t.key]];
+      const ids = [];
+      for (const item of raw) {
+        const s = String(item ?? "").trim();
+        if (!s) continue;
+        let id = null;
+        if (UUID_RE.test(s)) {
+          id = s.toLowerCase();
+        } else {
+          if (!book) {
+            book = (await db.query(
+              `SELECT action_continent, action_country, action_state FROM public.books WHERE id = $1::uuid`,
+              [bookId]
+            )).rows[0] || {};
+          }
+          id = await resolvePlaceTagText(db, t, s, book);
+        }
+        if (id && !ids.includes(id)) ids.push(id);
+      }
+      await db.query(
+        `DELETE FROM public.${t.table}
+          WHERE book_id = $1::uuid AND NOT (${t.col} = ANY($2::uuid[]))`,
+        [bookId, ids]
+      );
+      if (!ids.length) continue;
+      // unbekannte IDs werden ignoriert statt den ganzen Speichervorgang abzubrechen
+      await db.query(
+        `INSERT INTO public.${t.table} (book_id, ${t.col}, sort_order, source)
+         SELECT $1::uuid, x.id, x.ord, 'manual'
+           FROM unnest($2::uuid[]) WITH ORDINALITY AS x(id, ord)
+           JOIN public.${t.ref} r ON r.id = x.id
+         ON CONFLICT (book_id, ${t.col}) DO UPDATE SET sort_order = EXCLUDED.sort_order`,
+        [bookId, ids]
+      );
+    }
+  }
+
+  async function loadPlaceTags(db, bookId) {
+    const out = { landscape_ids: [], time_era_ids: [] };
+    try {
+      const ready = await placeTagTablesReady(db);
+      for (const t of PLACE_TAGS) {
+        if (!ready[t.table]) continue;
+        const { rows } = await db.query(
+          `SELECT ${t.col} AS id FROM public.${t.table}
+            WHERE book_id = $1::uuid
+            ORDER BY sort_order NULLS LAST, created_at`,
+          [bookId]
+        );
+        out[t.key] = rows.map((r) => r.id);
+      }
+    } catch (e) {
+      console.error("loadPlaceTags failed", e);
+    }
+    return out;
   }
 
   /* ------------------------- author / publisher helpers ---------------------- */
@@ -1623,9 +1820,12 @@ LEFT JOIN public.sub_genres sg ON sg.id = b.sub_genre_id
 const coverMap = buildCoverMap();
 const cover = coverMap.get(String(book.id));
 
+const placeTags = await loadPlaceTags(pool, id);
+
 return res.json({
   ...row,
   ...book,
+  ...placeTags,
   cover_available: !!cover,
   cover_url:  cover?.full  || null,
   cover_home: cover?.home  || cover?.full || null,
@@ -2224,6 +2424,10 @@ sub_genre_id: normalizeInt(body.sub_genre_id),
           year_first_published: normalizeInt(body.year_first_published ?? body.first_publish_year),
           action_continent: normalizeInt(body.action_continent),
           action_country: normalizeStr(body.action_country),
+          action_state: normalizeStr(body.action_state),
+          action_city: normalizeStr(body.action_city),
+          action_place_fictional: normalizeStr(body.action_place_fictional),
+          action_time_year: normalizeInt(body.action_time_year),
           // no size entered -> NULL (toNum("") is 0, and 0 mm violates books_*_mm_check)
           width: Number.isFinite(wMm) && wMm > 0 ? wMm : null,
           height: Number.isFinite(hMm) && hMm > 0 ? hMm : null,
@@ -2274,6 +2478,7 @@ sub_genre_id: normalizeInt(body.sub_genre_id),
         if (!bookId) throw new Error("book_insert_failed");
 
         await applyAuthorLifeDates(client, bookId, req.body);
+        await applyPlaceTags(client, bookId, req.body);
 
         if (bookId && cols.has("home_featured_slot") && homeFeaturedSlot) {
           await setHomeFeaturedSlotTx(client, bookId, homeFeaturedSlot);
@@ -2581,6 +2786,10 @@ if (body.sub_genre_id !== undefined && cols.has("sub_genre_id")) {
       }
       if (body.action_continent !== undefined) updates.action_continent = normalizeInt(body.action_continent);
       if (body.action_country !== undefined) updates.action_country = normalizeStr(body.action_country);
+      if (body.action_state !== undefined) updates.action_state = normalizeStr(body.action_state);
+      if (body.action_city !== undefined) updates.action_city = normalizeStr(body.action_city);
+      if (body.action_place_fictional !== undefined) updates.action_place_fictional = normalizeStr(body.action_place_fictional);
+      if (body.action_time_year !== undefined) updates.action_time_year = normalizeInt(body.action_time_year);
 
       if (body.width_cm !== undefined) {
         const w = toNum(body.width_cm);
@@ -2623,6 +2832,7 @@ if (body.sub_genre_id !== undefined && cols.has("sub_genre_id")) {
       }
 
       await applyAuthorLifeDates(client, id, req.body);
+      await applyPlaceTags(client, id, req.body);
 
       if (hasHomeFeaturedSlot && cols.has("home_featured_slot")) {
         await setHomeFeaturedSlotTx(client, id, nextHomeFeaturedSlot);
@@ -2900,6 +3110,10 @@ if (
       }
       if (body.action_continent !== undefined) updates.action_continent = normalizeInt(body.action_continent);
       if (body.action_country !== undefined) updates.action_country = normalizeStr(body.action_country);
+      if (body.action_state !== undefined) updates.action_state = normalizeStr(body.action_state);
+      if (body.action_city !== undefined) updates.action_city = normalizeStr(body.action_city);
+      if (body.action_place_fictional !== undefined) updates.action_place_fictional = normalizeStr(body.action_place_fictional);
+      if (body.action_time_year !== undefined) updates.action_time_year = normalizeInt(body.action_time_year);
 
       if (body.width_cm !== undefined) {
         const w = toNum(body.width_cm);
@@ -2959,6 +3173,7 @@ if (
       }
 
       await applyAuthorLifeDates(client, id, req.body);
+      await applyPlaceTags(client, id, req.body);
 
       if (hasHomeFeaturedSlot && cols.has("home_featured_slot")) {
         await setHomeFeaturedSlotTx(client, id, nextHomeFeaturedSlot);
@@ -3291,6 +3506,10 @@ if ((patch.sub_genre_abbr ?? patch.subgenre_abbr) !== undefined) {
       }
       if (patch.action_continent !== undefined) updates.action_continent = normalizeInt(patch.action_continent);
       if (patch.action_country !== undefined) updates.action_country = normalizeStr(patch.action_country);
+      if (patch.action_state !== undefined) updates.action_state = normalizeStr(patch.action_state);
+      if (patch.action_city !== undefined) updates.action_city = normalizeStr(patch.action_city);
+      if (patch.action_place_fictional !== undefined) updates.action_place_fictional = normalizeStr(patch.action_place_fictional);
+      if (patch.action_time_year !== undefined) updates.action_time_year = normalizeInt(patch.action_time_year);
 
       if (patch.width_cm !== undefined) {
         const w = toNum(patch.width_cm);
@@ -3395,7 +3614,7 @@ if ((patch.sub_genre_abbr ?? patch.subgenre_abbr) !== undefined) {
 
       const setObj = pickKnownColumns(cols, updates);
       const keys = Object.keys(setObj).filter((k) => setObj[k] !== undefined);
-      if (!keys.length && !hasHomeFeaturedSlot) {
+      if (!keys.length && !hasHomeFeaturedSlot && !hasPlaceTags(patch)) {
         await client.query("ROLLBACK");
         return res.status(400).json({ error: "no_fields" });
       }
@@ -3411,6 +3630,7 @@ if ((patch.sub_genre_abbr ?? patch.subgenre_abbr) !== undefined) {
       }
 
       await applyAuthorLifeDates(client, id, req.body);
+      await applyPlaceTags(client, id, req.body);
 
       if (hasHomeFeaturedSlot && cols.has("home_featured_slot")) {
         await setHomeFeaturedSlotTx(client, id, nextHomeFeaturedSlot);

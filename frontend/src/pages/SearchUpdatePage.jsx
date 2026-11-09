@@ -44,15 +44,16 @@ const getSubgenreTitle = (b) =>
 
 const REGION_OPTIONS = [
   { value: "0", label: "Asien" },
-  { value: "1", label: "Südliches Afrika" },
+  { value: "1", label: "Afrika" },
   { value: "2", label: "Nordamerika" },
   { value: "3", label: "Südamerika" },
   { value: "4", label: "Mitteleuropa" },
   { value: "5", label: "Ostaustralien" },
-  { value: "6", label: "Nordafrika" },
+  { value: "6", label: "Weltweit" },
   { value: "7", label: "Westaustralien" },
   { value: "8", label: "Nordeuropa" },
   { value: "9", label: "Südeuropa" },
+  { value: "10", label: "Fiktiv" },
 ];
 
 const fmtDate = (v) => {

@@ -12,6 +12,8 @@ import { previewBarcode } from "../api/barcodes";
 import { BookCodeVisual } from "../utils/bookCodeDisplay";
 import { PAGE_NUM_POS_HELP, buildPhysCode, formatPhysCode, isValidPageNumPos, normalizeLastWord, pageNumPosLabel } from "../utils/pageNumPos";
 import usePhysCodeCheck, { physCodeKnownText, similarText } from "../utils/usePhysCodeCheck";
+import { countryEntry, countryName, countryOptions, normalizeCountryInput } from "../utils/countryCodes";
+import { cityOptions, cityPlace } from "../utils/cityDefaults";
 import {
   friendlySaveErrorMessage,
   newRequestId,
@@ -70,15 +72,23 @@ const DEFAULT_PAGE_NUM_POS = "ur";
 // Handlungs-Region (books.action_continent) – gleiche Codes wie auf der Suche/Update-Seite
 const REGION_OPTIONS = [
   { value: "0", label: "Asien" },
-  { value: "1", label: "Südliches Afrika" },
+  { value: "1", label: "Afrika" },
   { value: "2", label: "Nordamerika" },
   { value: "3", label: "Südamerika" },
   { value: "4", label: "Mitteleuropa" },
   { value: "5", label: "Ostaustralien" },
-  { value: "6", label: "Nordafrika" },
+  { value: "6", label: "Weltweit" },
   { value: "7", label: "Westaustralien" },
   { value: "8", label: "Nordeuropa" },
   { value: "9", label: "Südeuropa" },
+  { value: "10", label: "Fiktiv" },
+];
+
+// Vorschläge für das Feld Bundesland (freie Eingabe bleibt möglich, z. B. Tirol, Wallis)
+const GERMAN_STATES = [
+  "Baden-Württemberg", "Bayern", "Berlin", "Brandenburg", "Bremen", "Hamburg", "Hessen",
+  "Mecklenburg-Vorpommern", "Niedersachsen", "Nordrhein-Westfalen", "Rheinland-Pfalz",
+  "Saarland", "Sachsen", "Sachsen-Anhalt", "Schleswig-Holstein", "Thüringen",
 ];
 
 const norm = (s) => String(s || "").toLowerCase().replace(/[^a-z0-9]/g, "");
@@ -255,6 +265,12 @@ const emptyForm = {
   year_first_published: "",
   action_continent: "",
   action_country: "",
+  action_state: "",
+  action_city: "",
+  action_place_fictional: "",
+  action_time_year: "",
+  landscape_ids: [],
+  time_era_ids: [],
   language: "",
   author_death_date: "",
   author_birth_date: "",
@@ -483,6 +499,12 @@ export default function BookFormDesktop({
       year_first_published: toStr(pick(b, ["year_first_published", "first_publish_year"])),
       action_continent: toStr(pick(b, ["action_continent"])),
       action_country: toStr(pick(b, ["action_country"])),
+      action_state: toStr(pick(b, ["action_state"])),
+      action_city: toStr(pick(b, ["action_city"])),
+      action_place_fictional: toStr(pick(b, ["action_place_fictional"])),
+      action_time_year: toStr(pick(b, ["action_time_year"])),
+      landscape_ids: Array.isArray(b.landscape_ids) ? b.landscape_ids.map(toStr).filter(Boolean) : [],
+      time_era_ids: Array.isArray(b.time_era_ids) ? b.time_era_ids.map(toStr).filter(Boolean) : [],
       language: toStr(pick(b, ["language"])).toLowerCase(),
       author_birth_date: lifeDateForInput(toStr(pick(b, ["author_birth_date", "birth_date"])), toStr(pick(b, ["author_birth_date_precision"]))),
       author_death_date: lifeDateForInput(toStr(pick(b, ["author_death_date", "death_date"])), toStr(pick(b, ["author_death_date_precision"]))),
@@ -538,6 +560,99 @@ export default function BookFormDesktop({
       .catch((e) => console.error("[BookFormDesktop] sub-genres load failed", e));
     return () => { alive = false; };
   }, []);
+  // Landschaften (Himalaya › K2 ...) und Epochen (Mittelalter, Kulturrevolution ...) aus der DB.
+  // Jeder Eintrag bringt Region/Land mit, die beim Auswählen in leere Felder übernommen werden.
+  const [landscapes, setLandscapes] = useState([]); // { id, label, depth, continent, country }
+  const [timeEras, setTimeEras] = useState([]);     // { id, label, depth, start_year, end_year, continent, country }
+  const [dbCities, setDbCities] = useState([]); // schon verwendete Städte { name, continent, country, state }
+  const cityList = useMemo(() => cityOptions(dbCities), [dbCities]);
+  const [dbFictional, setDbFictional] = useState([]); // schon verwendete erfundene Orte (Atlantis …)
+  const [dbCountries, setDbCountries] = useState([]); // schon verwendete Länderwerte (eigene Kürzel)
+  const countryList = useMemo(() => countryOptions(dbCountries), [dbCountries]);
+  const [placeListsTick, setPlaceListsTick] = useState(0); // nach dem Speichern neu laden (neue Einträge)
+  useEffect(() => {
+    let alive = true;
+    const load = (path, set) =>
+      fetch(`${API_ROOT}/api/public/places/${path}`)
+        .then((r) => (r.ok ? r.json() : []))
+        .then((data) => {
+          if (!alive || !Array.isArray(data)) return;
+          set(data.map((x) => (x && typeof x === "object" ? { ...x, id: String(x.id ?? x.name ?? "") } : { id: String(x) })));
+        })
+        .catch((e) => console.error(`[BookFormDesktop] ${path} load failed`, e));
+    load("landscapes", setLandscapes);
+    load("time-eras", setTimeEras);
+    load("countries", (rows) => setDbCountries(rows.map((x) => x.id)));
+    load("fictional", (rows) => setDbFictional(rows.map((x) => x.id)));
+    load("cities", setDbCities);
+    return () => { alive = false; };
+  }, [placeListsTick]);
+
+  // Landschaft/Epoche: freie Texteingabe mit Vorschlägen.
+  //   - passt der Text zu einem vorhandenen Eintrag, wird dessen ID gespeichert
+  //     und leere Region/Land/Bundesland werden sofort ausgefüllt;
+  //   - sonst wird der Text gespeichert und beim Speichern angelegt,
+  //     auch als Pfad: "Anden › Cerro Torre" (oder "Anden > Cerro Torre").
+  // Das Feld bearbeitet den ersten Eintrag; weitere Zuordnungen (z. B. aus Skripten) bleiben erhalten.
+  const normTag = (t) => String(t || "").toLowerCase().replace(/\s*(›|>|»)\s*/g, " › ").replace(/\s+/g, " ").trim();
+  const isUuidLike = (t) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(t || ""));
+
+  function findPlaceTag(list, text) {
+    const n = normTag(text);
+    if (!n) return null;
+    const byLabel = list.find((x) => normTag(x.label) === n);
+    if (byLabel) return byLabel;
+    if (n.includes("›")) return null;
+    const byName = list.filter((x) => normTag(x.name) === n);
+    return byName.length === 1 ? byName[0] : null;
+  }
+
+  function placeTagText(ids, list) {
+    const first = (ids || [])[0];
+    if (!first) return "";
+    const item = list.find((x) => x.id === first);
+    if (item) return item.label;
+    return isUuidLike(first) ? "" : first;
+  }
+
+  // Leere Region/Land/Bundesland aus einer Vorgabe füllen (Landschaft, Epoche, Stadt).
+  // Nichts wird überschrieben; widerspricht die Region, wird gar nichts ergänzt.
+  function fillPlaceDefaults(prev, next, place) {
+    if (!place) return next;
+    const cont = place.continent == null ? "" : String(place.continent);
+    const curCont = String(prev.action_continent ?? "").trim();
+    if (cont && curCont && curCont !== cont) return next;
+    if (cont && !curCont) next.action_continent = cont;
+    if (place.country && !String(prev.action_country || "").trim()) next.action_country = place.country;
+    if (
+      place.state &&
+      !String(prev.action_state || "").trim() &&
+      String(next.action_country || "").trim().toUpperCase() === String(place.country || "").toUpperCase()
+    ) {
+      next.action_state = place.state;
+    }
+    return next;
+  }
+
+  function typePlaceTag(key, list, text) {
+    const item = findPlaceTag(list, text);
+    setV((prev) => {
+      const rest = (prev[key] || []).slice(1);
+      if (!item) {
+        return { ...prev, [key]: String(text || "").trim() ? [text, ...rest] : rest };
+      }
+      const next = { ...prev, [key]: [item.id, ...rest.filter((x) => x !== item.id)] };
+      return fillPlaceDefaults(prev, next, item);
+    });
+  }
+
+  const placeTagTitle = (ids, list, fallback) => {
+    const labels = (ids || []).map((id) => list.find((x) => x.id === id)?.label || (isUuidLike(id) ? "" : `${id} (neu)`)).filter(Boolean);
+    return labels.length ? `${fallback}\nAktuell: ${labels.join(", ")}` : fallback;
+  };
+  const eraLabel = (e) =>
+    e.start_year != null && e.end_year != null ? `${e.label} (${e.start_year}–${e.end_year})` : e.label;
+
   const visibleSubGenres = useMemo(
     () => (v.genre_id ? subGenres.filter((sg) => sg.genre_id === String(v.genre_id)) : subGenres),
     [subGenres, v.genre_id]
@@ -1030,11 +1145,16 @@ if (!isEdit && (pages == null || pages < 0)) {
       const bd = String(v.author_birth_date || "").trim();
       if (bd && !DEATH_DATE_RE.test(bd)) throw new Error("Geburtsdatum: z. B. 12.04.1947 oder nur 1947");
       const ol = String(v.original_language || "").trim();
+      const ty = String(v.action_time_year || "").trim();
+      if (ty && !(/^\d{1,4}$/.test(ty) && Number(ty) <= 3000)) throw new Error("Handlungsjahr: ganze Jahreszahl, z. B. 1968 (0–3000).");
       if (ol && !/^[a-z]{2}$/.test(ol)) throw new Error(`Originalsprache „${ol}“ ungültig – bitte aus der Liste wählen (2-Buchstaben-Code).`);
     }
 
     const strings = [
       "action_country",
+      "action_state",
+      "action_city",
+      "action_place_fictional",
       "language",
       "author_birth_date",
       "author_death_date",
@@ -1111,6 +1231,7 @@ if (!isEdit && (pages == null || pages < 0)) {
       "sub_genre_id",
       "year_first_published",
       "action_continent",
+      "action_time_year",
     ];
     for (const k of ints) {
       const raw = String(v[k] ?? "").trim();
@@ -1131,6 +1252,16 @@ if (!isEdit && (pages == null || pages < 0)) {
         if (next.length) payload.extra_titles = next;
       } else if (JSON.stringify(next) !== JSON.stringify(prev)) {
         payload.extra_titles = next;
+      }
+    }
+
+    for (const k of ["landscape_ids", "time_era_ids"]) {
+      const next = (v[k] || []).map((x) => String(x || "").trim()).filter(Boolean);
+      const prev = (initial[k] || []).map((x) => String(x || "").trim()).filter(Boolean);
+      if (!isEdit) {
+        if (next.length) payload[k] = next;
+      } else if (JSON.stringify(next) !== JSON.stringify(prev)) {
+        payload[k] = next;
       }
     }
 
@@ -1192,6 +1323,7 @@ if (!isEdit && (pages == null || pages < 0)) {
         throw Object.assign(new Error("missing_book_id_in_response"), { code: "missing_book_id_in_response" });
       }
       requestIdRef.current = null;
+      if (payload.landscape_ids || payload.time_era_ids || payload.action_place_fictional || payload.action_city) setPlaceListsTick((n) => n + 1);
       onSuccess?.({ payload, saved });
 
       let successMsg = payload.draft_id ? "Vorhandenes Buch aktualisiert ✔" : isEdit ? "Gespeichert." : "Gespeichert ✔";
@@ -1383,6 +1515,12 @@ if (!isEdit && (pages == null || pages < 0)) {
   cursor: pointer;
 }
 
+/* Ortsangaben: 5 Felder untereinander (Jahr, Region, Land, Bundesland, Stadt) */
+.bfd-stack--place .bfd-stack-field {
+  font-size: clamp(13px, 1.25vw, 19px);
+  line-height: 1.1;
+}
+
 .bfd-stack--compact .bfd-stack-field {
   font-size: clamp(12px, 1.15vw, 18px);
 }
@@ -1392,7 +1530,8 @@ if (!isEdit && (pages == null || pages < 0)) {
   font-weight: 900;
 }
 
-.bfd-stack-field + .bfd-stack-field {
+.bfd-stack-field + .bfd-stack-field,
+.bfd-stack datalist + .bfd-stack-field {
   border-top: 3px solid rgba(0,0,0,.65);
 }
 
@@ -1800,7 +1939,7 @@ if (!isEdit && (pages == null || pages < 0)) {
         {isbnBusy ? "…" : "🔍"}
       </button>
 
-      <div className="bfd-stack" style={{ flex: "1 1 0", minWidth: 0, width: "auto", borderLeft: "3px solid rgba(0,0,0,.65)" }}>
+      <div className="bfd-stack bfd-stack--place" style={{ flex: "1 1 0", minWidth: 0, width: "auto", borderLeft: "3px solid rgba(0,0,0,.65)" }}>
         <input
           className="bfd-stack-field"
           value={v.year_first_published}
@@ -1831,10 +1970,129 @@ if (!isEdit && (pages == null || pages < 0)) {
           placeholder="Land"
           disabled={busy}
           maxLength={100}
+          list="bfd-country-list"
           aria-label="Land"
-          title="Land (Handlungsort)"
+          title={`Land (Handlungsort) – Kürzel wie D, A, PK oder Name/frei eintippen. Füllt eine leere Region aus.${countryName(v.action_country, v.action_continent) ? ` · ${v.action_country} = ${countryName(v.action_country, v.action_continent)}` : ""}`}
           onChange={(e) => setField("action_country", e.target.value)}
+          onBlur={(e) => {
+            const n = normalizeCountryInput(e.target.value);
+            setV((prev) => {
+              const next = { ...prev };
+              const curRegion = String(prev.action_continent ?? "").trim();
+              // Name passt nicht zur eingetragenen Region (z. B. "Kuba" bei Asien): Text so lassen,
+              // sonst würde aus Kuba ein "C" = China
+              if (n.region != null && curRegion && curRegion !== String(n.region)) return prev;
+              if (n.value !== e.target.value) next.action_country = n.value;
+              // Land -> Region, nur wenn die Region noch leer ist und das Land eindeutig
+              if (n.region != null && !String(prev.action_continent ?? "").trim()) next.action_continent = String(n.region);
+              return next;
+            });
+          }}
         />
+        <datalist id="bfd-country-list">
+          {countryList.map((c) => (
+            <option key={c.key} value={c.value} label={c.label} />
+          ))}
+        </datalist>
+        <input
+          className="bfd-stack-field"
+          list="bfd-state-list"
+          value={v.action_state}
+          placeholder="Bundesland"
+          disabled={busy}
+          maxLength={100}
+          aria-label="Bundesland"
+          title="Bundesland / Provinz (Handlungsort)"
+          onChange={(e) => setField("action_state", e.target.value)}
+        />
+        <datalist id="bfd-state-list">
+          {GERMAN_STATES.map((x) => (
+            <option key={x} value={x} />
+          ))}
+        </datalist>
+        <input
+          className="bfd-stack-field"
+          list="bfd-city-list"
+          value={v.action_city}
+          placeholder="Stadt"
+          disabled={busy}
+          maxLength={100}
+          aria-label="Stadt"
+          title="Stadt (Handlungsort) – frei eintippen. Bekannte Städte (z. B. Peking) füllen leere Region/Land/Bundesland aus."
+          onChange={(e) => setField("action_city", e.target.value)}
+          onBlur={(e) => {
+            // erst beim Verlassen des Feldes, sonst würde "Bern" beim Tippen von "Bernau" schon die Schweiz setzen
+            const place = cityPlace(e.target.value, dbCities);
+            if (place) setV((prev) => fillPlaceDefaults(prev, { ...prev }, place));
+          }}
+        />
+        <datalist id="bfd-city-list">
+          {cityList.map((x) => (
+            <option key={x} value={x} />
+          ))}
+        </datalist>
+      </div>
+
+      <div className="bfd-stack bfd-stack--place" style={{ flex: "1 1 0", minWidth: 0, width: "auto" }}>
+        <input
+          className="bfd-stack-field"
+          list="bfd-landscape-list"
+          value={placeTagText(v.landscape_ids, landscapes)}
+          placeholder="Landschaft"
+          disabled={busy}
+          maxLength={200}
+          aria-label="Landschaft"
+          title={placeTagTitle(v.landscape_ids, landscapes, "Landschaft (Gebirge, Gipfel …) – Vorschlag wählen oder neu eintippen, z. B. „Anden › Cerro Torre“. Füllt leere Region/Land/Bundesland aus.")}
+          onChange={(e) => typePlaceTag("landscape_ids", landscapes, e.target.value)}
+        />
+        <datalist id="bfd-landscape-list">
+          {landscapes.map((x) => (
+            <option key={x.id} value={x.label} />
+          ))}
+        </datalist>
+        <input
+          className="bfd-stack-field"
+          list="bfd-era-list"
+          value={placeTagText(v.time_era_ids, timeEras)}
+          placeholder="Epoche"
+          disabled={busy}
+          maxLength={200}
+          aria-label="Epoche"
+          title={placeTagTitle(v.time_era_ids, timeEras, "Epoche – Vorschlag wählen oder neu eintippen, z. B. „Weimarer Republik“. Füllt leere Region/Land aus.")}
+          onChange={(e) => typePlaceTag("time_era_ids", timeEras, e.target.value)}
+        />
+        <datalist id="bfd-era-list">
+          {timeEras.map((x) => (
+            <option key={x.id} value={x.label} label={eraLabel(x)} />
+          ))}
+        </datalist>
+        <input
+          className="bfd-stack-field"
+          value={v.action_time_year}
+          placeholder="Handlungsjahr"
+          inputMode="numeric"
+          maxLength={4}
+          disabled={busy}
+          aria-label="Handlungsjahr"
+          title="Jahr, in dem die Handlung spielt (z. B. 1968) – damit werden Epochen über Jahr + Ort erkannt"
+          onChange={(e) => setField("action_time_year", String(e.target.value || "").replace(/\D/g, "").slice(0, 4))}
+        />
+        <input
+          className="bfd-stack-field"
+          list="bfd-fictional-list"
+          value={v.action_place_fictional}
+          placeholder="Fiktiver Ort"
+          disabled={busy}
+          maxLength={200}
+          aria-label="Fiktiver Ort"
+          title="Erfundener Ort oder erfundene Welt (z. B. Atlantis, Mittelerde, ein ausgedachtes Dorf). Spielt das Buch ganz in einer erfundenen Welt: Region „Fiktiv“."
+          onChange={(e) => setField("action_place_fictional", e.target.value)}
+        />
+        <datalist id="bfd-fictional-list">
+          {dbFictional.map((x) => (
+            <option key={x} value={x} />
+          ))}
+        </datalist>
       </div>
     </div>
   </div>
@@ -1882,9 +2140,17 @@ if (!isEdit && (pages == null || pages < 0)) {
           placeholder="Nationalität Autor"
           disabled={busy}
           maxLength={60}
+          list="bfd-country-list"
           aria-label="Nationalität des Autors"
-          title="Nationalität des Autors (Land, z. B. D, RCH, USA)"
+          title={`Nationalität des Autors (Land, z. B. D, RCH, USA – oder Name/frei eintippen)${countryName(v.author_nationality) ? ` · ${v.author_nationality} = ${countryName(v.author_nationality)}` : ""}`}
           onChange={(e) => { nationalityTouchedRef.current = true; setField("author_nationality", e.target.value); }}
+          onBlur={(e) => {
+            // ohne Region ist "C" mehrdeutig (China/Kuba): solche Namen bleiben ausgeschrieben
+            const raw = e.target.value;
+            const norm = normalizeCountryInput(raw);
+            const n = countryEntry(norm.value) || !countryName(norm.value) ? norm.value : raw.trim();
+            if (n !== raw) { nationalityTouchedRef.current = true; setField("author_nationality", n); }
+          }}
         />
         <input
           className="bfd-stack-field"
