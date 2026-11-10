@@ -231,7 +231,44 @@ async function guessPublisherByPrefix(pool, isbn13) {
   return { ...r, prefix };
 }
 
+/* ------------------------------------------------------------------ */
+/* ISBN-Schreibweisen für den Datenbank-Abgleich                       */
+/* ------------------------------------------------------------------ */
+// Liefert alle normalisierten Schreibweisen (nur Ziffern/X, ISBN-10 und
+// ISBN-13) der übergebenen Werte – passend zu
+// regexp_replace(upper(isbn), '[^0-9X]', '', 'g') in SQL.
+// Wird von routes/admin.js (/drafts/find) und booksPgController.js genutzt.
+function isbnVariants(...inputs) {
+  const out = new Set();
+  const clean = (v) => String(v ?? "").toUpperCase().replace(/[^0-9X]/g, "");
+  const to13 = (d10) => {
+    const core = "978" + d10.slice(0, 9);
+    let sum = 0;
+    for (let i = 0; i < 12; i++) sum += Number(core[i]) * (i % 2 ? 3 : 1);
+    return core + ((10 - (sum % 10)) % 10);
+  };
+  const to10 = (d13) => {
+    const core = d13.slice(3, 12);
+    let sum = 0;
+    for (let i = 0; i < 9; i++) sum += Number(core[i]) * (10 - i);
+    const c = (11 - (sum % 11)) % 11;
+    return core + (c === 10 ? "X" : String(c));
+  };
+  for (const raw of inputs.flat()) {
+    const d = clean(raw);
+    if (/^\d{9}[\dX]$/.test(d)) {
+      out.add(d);
+      out.add(to13(d));
+    } else if (/^\d{13}$/.test(d)) {
+      out.add(d);
+      if (d.startsWith("978")) out.add(to10(d));
+    }
+  }
+  return [...out];
+}
+
 module.exports = {
+  isbnVariants,
   norm, splitTitle, cleanPerson, authorsFromResponsibility, cleanPublisher, pickDnbPublisher,
   parseDnbRecord, fromDNB, pnorm, findPublisher, resolvePublisher, isbnPublisherPrefix, guessPublisherByPrefix,
 };
