@@ -4,6 +4,16 @@
     <meta charset="UTF-8" />
     <meta name="google" content="notranslate" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!-- iPhone/Android: als App vom Home-Bildschirm starten (Standalone).
+         Ohne diese Zeilen öffnet iOS das Icon in Safari und die Erfassung
+         zeigt das Desktop-Formular statt BookFormStagingPwa. -->
+    <meta name="theme-color" content="#0ea5e9" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-title" content="PagesInLine" />
+    <link rel="manifest" href="/manifest.json?v=3" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/icons/apple-touch-icon.png?v=3" />
     <!--
       SEO tags: in production nginx replaces the include below (SSI) with
       page-specific <title>, meta, canonical and JSON-LD from the API
