@@ -2273,6 +2273,16 @@ return res.json({
     const status = (requestedStatus && VALID_STATUSES.includes(requestedStatus))
       ? requestedStatus
       : (assignBarcodeNow ? "in_progress" : "in_stock");
+
+    // in_progress heißt: das Buch hält einen Barcode. Ohne Barcode-Vergabe ist
+    // in_progress ungültig (sonst entsteht ein in_progress-Buch ohne Barcode,
+    // das wegen trg_prevent_in_progress_status_change nicht mehr nach in_stock kann).
+    if (status === "in_progress" && !assignBarcodeNow) {
+      return res.status(400).json({
+        error: "in_progress_requires_barcode",
+        message: "Status in_progress nur mit Barcode. Ohne Barcode wird das Buch als in_stock angelegt.",
+      });
+    }
     const nowIso = new Date().toISOString();
     const statusTs = FINAL_STATUSES.has(status) ? nowIso : null;
 
