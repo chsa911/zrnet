@@ -42,9 +42,13 @@ export default function RegisterPage(props) {
         extraPayload: { followup_attempt_ids: followup.ids },
       }
     : props;
+  // iPhone-Erfassung (PWA): Buch kommt ins Lager – ohne Barcode, Status in_stock.
+  // Barcode und Maße werden später am Desktop vergeben.
   const formProps = wishlist
     ? { ...baseProps, createReadingStatus: "wishlist", assignBarcode: false }
-    : baseProps;
+    : usePwaForm
+      ? { ...baseProps, createReadingStatus: "in_stock", assignBarcode: false }
+      : baseProps;
 
   return (
     <>
