@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# backup-covers-incremental.sh — pull only NEW covers (not already in ~/p_backup)
+# backup-covers-incremental.sh — pull only NEW covers (not already in ~/csps_backup)
 # from the PRODUCTION server. Existing local files are left untouched and not
 # re-transferred, so repeat runs are fast and only fetch what's missing.
 #
@@ -11,7 +11,7 @@ set -euo pipefail
 
 REMOTE_HOST="root@46.224.178.235"
 PROD_COVERS_ROOT="/srv/zrnet/uploads/covers"   # host path, bind-mounted into the container at /uploads/covers
-LOCAL_DIR="$HOME/p_backup"
+LOCAL_DIR="${BACKUP_DIR:-$HOME/csps_backup}"   # override with BACKUP_DIR=/pfad ./backup-covers-incremental.sh
 LOCAL_COVERS_DIR="$LOCAL_DIR/covers"
 LOG="$LOCAL_DIR/backup.log"
 MODE="${1:-}"

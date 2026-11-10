@@ -26,9 +26,9 @@
     <false/>
 
     <key>StandardOutPath</key>
-    <string>/Users/chsa911/p_backup/launchd-backup.log</string>
+    <string>/Users/chsa911/csps_backup/launchd-backup.log</string>
 
     <key>StandardErrorPath</key>
-    <string>/Users/chsa911/p_backup/launchd-backup.log</string>
+    <string>/Users/chsa911/csps_backup/launchd-backup.log</string>
 </dict>
 </plist>
