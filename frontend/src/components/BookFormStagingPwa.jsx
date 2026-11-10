@@ -728,7 +728,9 @@ export default function BookFormStagingPwa({
     }
 
     const payload = {};
-    if (!isEdit) payload.assign_barcode = !!assignBarcode;
+    // Erfassung auf dem iPhone: noch kein Barcode und keine Maße – die kommen
+    // später am Desktop (wie im Staging-Fix vom 30.05.2026).
+    if (!isEdit) payload.assign_barcode = false;
 
     const nextBarcode = String(v.barcode || "").trim();
     const suggestedBarcode = String(barcodePreview?.candidate || "").trim();
@@ -736,16 +738,6 @@ export default function BookFormStagingPwa({
 
     const widthCm = parseFloatOrNull(v.width_cm);
     const heightCm = parseFloatOrNull(v.height_cm);
-    if (!isEdit && assignBarcode && !finalBarcode) {
-      const ok =
-        Number.isFinite(widthCm) && widthCm > 0 &&
-        Number.isFinite(heightCm) && heightCm > 0;
-      if (!ok) {
-        setMsg("Bitte unter „Weitere Felder“ Barcode angeben oder Breite + Höhe eintragen.", "error");
-        return;
-      }
-    }
-
     if (!isEdit && assignBarcode && finalBarcode) payload.barcode = finalBarcode;
     if (!isEdit && Number.isFinite(widthCm) && widthCm > 0) payload.width_cm = widthCm;
     if (!isEdit && Number.isFinite(heightCm) && heightCm > 0) payload.height_cm = heightCm;
