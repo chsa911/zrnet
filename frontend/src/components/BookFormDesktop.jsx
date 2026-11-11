@@ -530,14 +530,6 @@ export default function BookFormDesktop({
   const [isbnBusy, setIsbnBusy] = useState(false);
   const [msg, setMsg] = useState("");
   const [msgType, setMsgType] = useState("info"); // "success" | "error" | "info"
-  // "main" = Hauptformular (große Pflichtfelder), "enrich" = Zusatzangaben (Jahr, Ort, Epoche, Autor …)
-  const [view, setView] = useState("main");
-  const enrichFirstRef = useRef(null);
-  useEffect(() => {
-    if (view !== "enrich") return;
-    window.scrollTo?.({ top: 0 });
-    enrichFirstRef.current?.focus?.();
-  }, [view]);
 
 
   function showMsg(text, type = "info") {
@@ -1362,7 +1354,6 @@ if (!isEdit && (pages == null || pages < 0)) {
       showMsg(successMsg, "success");
       if (!isEdit) {
         setV({ ...emptyForm }); nationalityTouchedRef.current = false; origLangTouchedRef.current = false; genreTouchedRef.current = false;
-        setView("main");
         setExistingMatches([]);
         setExistingMatch(null);
         dismissedIsbnMatchesRef.current = new Set();
@@ -1392,25 +1383,6 @@ if (!isEdit && (pages == null || pages < 0)) {
       setBusy(false);
     }
   }
-
-  // Wie viele Zusatzangaben (Enrichment) sind schon eingetragen? Reine Vorbelegungen zählen nicht.
-  const enrichCount = (() => {
-    const keys = [
-      "year_first_published", "language", "sub_genre_id",
-      "action_continent", "action_country", "action_state", "action_city", "action_place_fictional",
-      "action_time_year", "author_birth_date", "author_death_date", "place_of_birth", "male_female",
-      "published_titles", "number_of_millionsellers", "title_keyword", "title_keyword2", "title_keyword3",
-      "purchase_url", "comment",
-    ];
-    let n = keys.filter((k) => String(v[k] ?? "").trim()).length;
-    if ((v.landscape_ids || []).length) n += 1;
-    if ((v.time_era_ids || []).length) n += 1;
-    const ol = String(v.original_language || "").trim();
-    if (ol && (isEdit || origLangTouchedRef.current || ol !== DEFAULT_ORIGINAL_LANGUAGE)) n += 1;
-    const nat = String(v.author_nationality || "").trim();
-    if (nat && (isEdit || nationalityTouchedRef.current || nat !== DEFAULT_AUTHOR_NATIONALITY)) n += 1;
-    return n;
-  })();
 
   const fieldProps = (key, placeholder, extra = {}) => ({
     className: extra.className || "bfd-input",
@@ -1788,123 +1760,6 @@ if (!isEdit && (pages == null || pages < 0)) {
   background: #fdecea;
   border-color: rgba(180,0,0,0.4);
 }
-
-/* Genre: Fiction / Non-Fiction als große Umschalter */
-.bfd-genre-btn {
-  font-size: clamp(18px, 2vw, 30px);
-  text-align: left;
-  color: #666;
-  background: #fff;
-}
-.bfd-genre-btn.is-active {
-  background: #111;
-  color: #fff;
-}
-
-/* Knopf zum Enrichment-Formular (füllt den Rest der ISBN-10-Zeile) */
-.bfd-btn-enrich {
-  flex: 1 1 0;
-  min-width: 0;
-  min-height: 0;
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  justify-content: center;
-  font-size: clamp(34px, 5vw, 64px);
-  line-height: 1;
-  background: #e8f0ff;
-  overflow: hidden;
-  white-space: nowrap;
-}
-.bfd-enrich-count {
-  font-size: 0.4em;
-  color: #444;
-  margin-top: 0.15em;
-}
-
-/* ---------- Enrichment-Formular ---------- */
-.bfd-enr {
-  display: grid;
-  gap: 22px;
-}
-.bfd-enr-head {
-  display: flex;
-  align-items: stretch;
-  gap: 0;
-}
-.bfd-btn-back {
-  font-size: clamp(34px, 5vw, 64px);
-  min-height: 0;
-  background: #e8f0ff;
-}
-.bfd-enr-title {
-  flex: 1 1 auto;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  padding: 0 0.3em;
-  font-size: clamp(40px, 6vw, 80px);
-  line-height: 1;
-  border: 3px solid rgba(0,0,0,.65);
-  border-left: 0;
-  min-width: 0;
-}
-.bfd-enr-subtitle {
-  font-size: 0.32em;
-  color: #555;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.bfd-enr-section-title {
-  font-size: clamp(16px, 1.6vw, 24px);
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: #fff;
-  background: #333;
-  padding: 2px 10px;
-  display: inline-block;
-}
-.bfd-enr-row {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: stretch;
-  gap: 0;
-  font-size: clamp(76px, 12vw, 138px); /* gleiche Größe wie .bfd-input -> ch-Breiten stimmen */
-}
-.bfd-enr-cell {
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
-  margin: 0;
-}
-.bfd-enr-label {
-  font-size: clamp(13px, 1.2vw, 18px);
-  line-height: 1.3;
-  color: #555;
-  padding: 4px 6px 0;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.bfd-enr-field {
-  width: 100%;
-  min-width: 0;
-  background: #fff;
-}
-/* Auswahllisten: Schrift kleiner, damit "Mitteleuropa" usw. lesbar bleibt – Feldhöhe gleich wie Eingabefelder */
-select.bfd-enr-field {
-  font-size: 0.42em;
-  height: 2.26em; /* = 0.95em der großen Eingabefelder */
-  line-height: 1;
-  padding: 0 0.3em;
-  cursor: pointer;
-}
-.bfd-enr-textarea {
-  height: 1.9em;
-  line-height: 0.95;
-  resize: vertical;
-}
 `}</style>
       {!isEdit && allMatches.length ? (
         <div className="bfd-msg bfd-existing" onMouseLeave={() => setHoveredMatch(null)}>
@@ -2046,519 +1901,6 @@ select.bfd-enr-field {
         </div>
       ) : null}
 
-    {view === "enrich" ? (
-    <div
-      className="bfd-enr"
-      onKeyDown={(e) => {
-        if (e.key === "Escape") { e.preventDefault(); setView("main"); }
-      }}
-    >
-      <div className="bfd-enr-head">
-        <button type="button" className="bfd-btn bfd-btn-back" onClick={() => setView("main")} title="Zurück zum Hauptformular (Esc)">
-          ‹ Zurück
-        </button>
-        <div className="bfd-enr-title">
-          Enrichment
-          <span className="bfd-enr-subtitle">
-            {[v.title_display, v.name_display].map((x) => String(x || "").trim()).filter(Boolean).join(" · ") || "neues Buch"}
-          </span>
-        </div>
-      </div>
-
-      <div className="bfd-enr-section">
-        <div className="bfd-enr-section-title">Buch</div>
-        <div className="bfd-enr-row">
-          <label className="bfd-enr-cell" style={{ flex: "1 1 4.6ch" }}>
-            <span className="bfd-enr-label">Erscheinungsjahr</span>
-            <input
-              className="bfd-input bfd-enr-field" ref={enrichFirstRef}
-              value={v.year_first_published}
-              placeholder="Erscheinungsjahr"
-              inputMode="numeric"
-              maxLength={4}
-              disabled={busy}
-              aria-label="Erscheinungsjahr"
-              title="Erscheinungsjahr (Erstveröffentlichung)"
-              onChange={(e) => setField("year_first_published", String(e.target.value || "").replace(/\D/g, "").slice(0, 4))}
-            />
-          </label>
-          <label className="bfd-enr-cell" style={{ flex: "1 1 5ch" }}>
-            <span className="bfd-enr-label">Sprache</span>
-            <select
-              className="bfd-input bfd-enr-field"
-              value={v.language}
-              disabled={busy}
-              aria-label="Sprache des Buchs"
-              title="Sprache des Buchs (leer = Deutsch bei Neuanlage)"
-              onChange={(e) => setField("language", e.target.value)}
-            >
-              <option value="">Sprache</option>
-              {v.language && !LANGUAGE_OPTIONS.some((l) => l.value === v.language) ? (
-                <option value={v.language}>{v.language}</option>
-              ) : null}
-              {LANGUAGE_OPTIONS.map((l) => (
-                <option key={l.value} value={l.value}>{l.label}</option>
-              ))}
-            </select>
-          </label>
-          <label className="bfd-enr-cell" style={{ flex: "1 1 5ch" }}>
-            <span className="bfd-enr-label">Originalsprache</span>
-            <select
-              className="bfd-input bfd-enr-field"
-              value={v.original_language}
-              disabled={busy}
-              aria-label="Originalsprache"
-              title="Originalsprache"
-              onChange={(e) => { origLangTouchedRef.current = true; setField("original_language", e.target.value); }}
-            >
-              <option value="">Originalsprache</option>
-              {v.original_language && !LANGUAGE_OPTIONS.some((l) => l.value === v.original_language) ? (
-                <option value={v.original_language}>{v.original_language}</option>
-              ) : null}
-              {LANGUAGE_OPTIONS.map((l) => (
-                <option key={l.value} value={l.value}>{l.label}</option>
-              ))}
-            </select>
-          </label>
-        </div>
-        <div className="bfd-enr-row">
-          <label className="bfd-enr-cell" style={{ flex: "1 1 8ch" }}>
-            <span className="bfd-enr-label">Subgenre</span>
-            <select
-              className="bfd-input bfd-enr-field"
-              value={v.sub_genre_id}
-              disabled={busy}
-              aria-label="Subgenre"
-              title="Subgenre"
-              onChange={(e) => {
-                genreTouchedRef.current = true;
-                const id = e.target.value;
-                const sg = subGenres.find((x) => x.id === id);
-                setV((prev) => ({ ...prev, sub_genre_id: id, genre_id: sg ? sg.genre_id : prev.genre_id }));
-              }}
-            >
-              <option value="">Subgenre</option>
-              {visibleSubGenres.map((sg) => (
-                <option key={sg.id} value={sg.id}>{sg.name}</option>
-              ))}
-            </select>
-          </label>
-        </div>
-      </div>
-
-      <div className="bfd-enr-section">
-        <div className="bfd-enr-section-title">Handlungsort</div>
-        <div className="bfd-enr-row">
-          <label className="bfd-enr-cell" style={{ flex: "1 1 6ch" }}>
-            <span className="bfd-enr-label">Region</span>
-            <select
-              className="bfd-input bfd-enr-field"
-              value={v.action_continent}
-              disabled={busy}
-              aria-label="Region"
-              title="Region (Handlungsort)"
-              onChange={(e) => setField("action_continent", e.target.value)}
-            >
-              <option value="">Region</option>
-              {REGION_OPTIONS.map((r) => (
-                <option key={r.value} value={r.value}>{r.label}</option>
-              ))}
-            </select>
-          </label>
-          <label className="bfd-enr-cell" style={{ flex: "1 1 4ch" }}>
-            <span className="bfd-enr-label">Land</span>
-            <input
-              className="bfd-input bfd-enr-field"
-              value={v.action_country}
-              placeholder="Land"
-              disabled={busy}
-              maxLength={100}
-              list="bfd-country-list"
-              aria-label="Land"
-              title={`Land (Handlungsort) – Kürzel wie D, A, PK oder Name/frei eintippen. Füllt eine leere Region aus.${countryName(v.action_country, v.action_continent) ? ` · ${v.action_country} = ${countryName(v.action_country, v.action_continent)}` : ""}`}
-              onChange={(e) => setField("action_country", e.target.value)}
-              onBlur={(e) => {
-                const n = normalizeCountryInput(e.target.value);
-                setV((prev) => {
-                  const next = { ...prev };
-                  const curRegion = String(prev.action_continent ?? "").trim();
-                  // Name passt nicht zur eingetragenen Region (z. B. "Kuba" bei Asien): Text so lassen,
-                  // sonst würde aus Kuba ein "C" = China
-                  if (n.region != null && curRegion && curRegion !== String(n.region)) return prev;
-                  if (n.value !== e.target.value) next.action_country = n.value;
-                  // Land -> Region, nur wenn die Region noch leer ist und das Land eindeutig
-                  if (n.region != null && !String(prev.action_continent ?? "").trim()) next.action_continent = String(n.region);
-                  return next;
-                });
-              }}
-            />
-            <datalist id="bfd-country-list">
-              {countryList.map((c) => (
-                <option key={c.key} value={c.value} label={c.label} />
-              ))}
-            </datalist>
-          </label>
-          <label className="bfd-enr-cell" style={{ flex: "1 1 6ch" }}>
-            <span className="bfd-enr-label">Bundesland</span>
-            <input
-              className="bfd-input bfd-enr-field"
-              list="bfd-state-list"
-              value={v.action_state}
-              placeholder="Bundesland"
-              disabled={busy}
-              maxLength={100}
-              aria-label="Bundesland"
-              title="Bundesland / Provinz (Handlungsort)"
-              onChange={(e) => setField("action_state", e.target.value)}
-            />
-            <datalist id="bfd-state-list">
-              {GERMAN_STATES.map((x) => (
-                <option key={x} value={x} />
-              ))}
-            </datalist>
-          </label>
-        </div>
-        <div className="bfd-enr-row">
-          <label className="bfd-enr-cell" style={{ flex: "1 1 6ch" }}>
-            <span className="bfd-enr-label">Stadt</span>
-            <input
-              className="bfd-input bfd-enr-field"
-              list="bfd-city-list"
-              value={v.action_city}
-              placeholder="Stadt"
-              disabled={busy}
-              maxLength={100}
-              aria-label="Stadt"
-              title="Stadt (Handlungsort) – frei eintippen. Bekannte Städte (z. B. Peking) füllen leere Region/Land/Bundesland aus."
-              onChange={(e) => setField("action_city", e.target.value)}
-              onBlur={(e) => {
-                // erst beim Verlassen des Feldes, sonst würde "Bern" beim Tippen von "Bernau" schon die Schweiz setzen
-                const place = cityPlace(e.target.value, dbCities);
-                if (place) setV((prev) => fillPlaceDefaults(prev, { ...prev }, place));
-              }}
-            />
-            <datalist id="bfd-city-list">
-              {cityList.map((x) => (
-                <option key={x} value={x} />
-              ))}
-            </datalist>
-          </label>
-          <label className="bfd-enr-cell" style={{ flex: "1 1 6ch" }}>
-            <span className="bfd-enr-label">Landschaft</span>
-            <input
-              className="bfd-input bfd-enr-field"
-              list="bfd-landscape-list"
-              value={placeTagText(v.landscape_ids, landscapes)}
-              placeholder="Landschaft"
-              disabled={busy}
-              maxLength={200}
-              aria-label="Landschaft"
-              title={placeTagTitle(v.landscape_ids, landscapes, "Landschaft (Gebirge, Gipfel …) – Vorschlag wählen oder neu eintippen, z. B. „Anden › Cerro Torre“. Füllt leere Region/Land/Bundesland aus.")}
-              onChange={(e) => typePlaceTag("landscape_ids", landscapes, e.target.value)}
-            />
-            <datalist id="bfd-landscape-list">
-              {landscapes.map((x) => (
-                <option key={x.id} value={x.label} />
-              ))}
-            </datalist>
-          </label>
-        </div>
-        <div className="bfd-enr-row">
-          <label className="bfd-enr-cell" style={{ flex: "1 1 8ch" }}>
-            <span className="bfd-enr-label">Fiktiver Ort</span>
-            <input
-              className="bfd-input bfd-enr-field"
-              list="bfd-fictional-list"
-              value={v.action_place_fictional}
-              placeholder="Fiktiver Ort"
-              disabled={busy}
-              maxLength={200}
-              aria-label="Fiktiver Ort"
-              title="Erfundener Ort oder erfundene Welt (z. B. Atlantis, Mittelerde, ein ausgedachtes Dorf). Spielt das Buch ganz in einer erfundenen Welt: Region „Fiktiv“."
-              onChange={(e) => setField("action_place_fictional", e.target.value)}
-            />
-            <datalist id="bfd-fictional-list">
-              {dbFictional.map((x) => (
-                <option key={x} value={x} />
-              ))}
-            </datalist>
-          </label>
-        </div>
-      </div>
-
-      <div className="bfd-enr-section">
-        <div className="bfd-enr-section-title">Handlungszeit</div>
-        <div className="bfd-enr-row">
-          <label className="bfd-enr-cell" style={{ flex: "1 1 4.6ch" }}>
-            <span className="bfd-enr-label">Handlungsjahr</span>
-            <input
-              className="bfd-input bfd-enr-field"
-              value={v.action_time_year}
-              placeholder="Handlungsjahr"
-              inputMode="numeric"
-              maxLength={4}
-              disabled={busy}
-              aria-label="Handlungsjahr"
-              title="Jahr, in dem die Handlung spielt (z. B. 1968) – damit werden Epochen über Jahr + Ort erkannt"
-              onChange={(e) => setField("action_time_year", String(e.target.value || "").replace(/\D/g, "").slice(0, 4))}
-            />
-          </label>
-          <label className="bfd-enr-cell" style={{ flex: "1 1 8ch" }}>
-            <span className="bfd-enr-label">Epoche</span>
-            <input
-              className="bfd-input bfd-enr-field"
-              list="bfd-era-list"
-              value={placeTagText(v.time_era_ids, timeEras)}
-              placeholder="Epoche"
-              disabled={busy}
-              maxLength={200}
-              aria-label="Epoche"
-              title={placeTagTitle(v.time_era_ids, timeEras, "Epoche – Vorschlag wählen oder neu eintippen, z. B. „Weimarer Republik“. Füllt leere Region/Land aus.")}
-              onChange={(e) => typePlaceTag("time_era_ids", timeEras, e.target.value)}
-            />
-            <datalist id="bfd-era-list">
-              {timeEras.map((x) => (
-                <option key={x.id} value={x.label} label={eraLabel(x)} />
-              ))}
-            </datalist>
-          </label>
-        </div>
-      </div>
-
-      <div className="bfd-enr-section">
-        <div className="bfd-enr-section-title">Autor</div>
-        <div className="bfd-enr-row">
-          <label className="bfd-enr-cell" style={{ flex: "1 1 4ch" }}>
-            <span className="bfd-enr-label">Nationalität</span>
-            <input
-              className="bfd-input bfd-enr-field"
-              value={v.author_nationality}
-              placeholder="Nationalität Autor"
-              disabled={busy}
-              maxLength={60}
-              list="bfd-country-list"
-              aria-label="Nationalität des Autors"
-              title={`Nationalität des Autors (Land, z. B. D, RCH, USA – oder Name/frei eintippen)${countryName(v.author_nationality) ? ` · ${v.author_nationality} = ${countryName(v.author_nationality)}` : ""}`}
-              onChange={(e) => { nationalityTouchedRef.current = true; setField("author_nationality", e.target.value); }}
-              onBlur={(e) => {
-                // ohne Region ist "C" mehrdeutig (China/Kuba): solche Namen bleiben ausgeschrieben
-                const raw = e.target.value;
-                const norm = normalizeCountryInput(raw);
-                const n = countryEntry(norm.value) || !countryName(norm.value) ? norm.value : raw.trim();
-                if (n !== raw) { nationalityTouchedRef.current = true; setField("author_nationality", n); }
-              }}
-            />
-          </label>
-          <label className="bfd-enr-cell" style={{ flex: "1 1 4ch" }}>
-            <span className="bfd-enr-label">Geschlecht</span>
-            <select
-              className="bfd-input bfd-enr-field"
-              value={v.male_female}
-              disabled={busy}
-              aria-label="Geschlecht Autor"
-              onChange={(e) => setField("male_female", e.target.value)}
-            >
-              <option value=""></option>
-              {v.male_female && !["male", "female"].includes(v.male_female) ? (
-                <option value={v.male_female}>{v.male_female}</option>
-              ) : null}
-              <option value="male">männlich</option>
-              <option value="female">weiblich</option>
-            </select>
-          </label>
-          <label className="bfd-enr-cell" style={{ flex: "1 1 6ch" }}>
-            <span className="bfd-enr-label">Geburtsort</span>
-            <input
-              className="bfd-input bfd-enr-field"
-              value={v.place_of_birth}
-              placeholder="Geburtsort"
-              disabled={busy}
-              aria-label="Geburtsort"
-              maxLength={100}
-              onChange={(e) => setField("place_of_birth", e.target.value)}
-            />
-          </label>
-        </div>
-        <div className="bfd-enr-row">
-          <label className="bfd-enr-cell" style={{ flex: "1 1 5.5ch" }}>
-            <span className="bfd-enr-label">Geburtsdatum</span>
-            <input
-              className="bfd-input bfd-enr-field"
-              value={v.author_birth_date}
-              placeholder="Geburtsdatum Autor"
-              disabled={busy}
-              maxLength={10}
-              aria-label="Geburtsdatum des Autors"
-              title="Geburtsdatum des Autors – z. B. 12.04.1947 oder nur 1947"
-              onChange={(e) => setField("author_birth_date", String(e.target.value || "").replace(/[^\d.-]/g, "").slice(0, 10))}
-            />
-          </label>
-          <label className="bfd-enr-cell" style={{ flex: "1 1 5.5ch" }}>
-            <span className="bfd-enr-label">Todesdatum</span>
-            <input
-              className="bfd-input bfd-enr-field"
-              value={v.author_death_date}
-              placeholder="Todesdatum Autor"
-              disabled={busy}
-              maxLength={10}
-              aria-label="Todesdatum des Autors"
-              title="Todesdatum des Autors – z. B. 03.05.1999 oder nur 1999 (leer = lebt)"
-              onChange={(e) => setField("author_death_date", String(e.target.value || "").replace(/[^\d.-]/g, "").slice(0, 10))}
-            />
-          </label>
-        </div>
-        <div className="bfd-enr-row">
-          <label className="bfd-enr-cell" style={{ flex: "1 1 3.6ch" }}>
-            <span className="bfd-enr-label">Veröffentlichte Titel</span>
-            <input
-              className="bfd-input bfd-enr-field"
-              value={v.published_titles}
-              placeholder="Titel gesamt"
-              inputMode="numeric"
-              maxLength={5}
-              disabled={busy}
-              aria-label="Titel gesamt"
-              onChange={(e) => setField("published_titles", String(e.target.value || "").replace(/\D/g, "").slice(0, 5))}
-            />
-          </label>
-          <label className="bfd-enr-cell" style={{ flex: "1 1 3.6ch" }}>
-            <span className="bfd-enr-label">Millionseller</span>
-            <input
-              className="bfd-input bfd-enr-field"
-              value={v.number_of_millionsellers}
-              placeholder="Millionseller"
-              inputMode="numeric"
-              maxLength={4}
-              disabled={busy}
-              aria-label="Millionseller"
-              onChange={(e) => setField("number_of_millionsellers", String(e.target.value || "").replace(/\D/g, "").slice(0, 4))}
-            />
-          </label>
-        </div>
-      </div>
-
-      <div className="bfd-enr-section">
-        <div className="bfd-enr-section-title">Titel-Stichworte</div>
-        <div className="bfd-enr-row">
-          <label className="bfd-enr-cell" style={{ flex: "1 1 8ch" }}>
-            <span className="bfd-enr-label">Stichwort 1</span>
-            <input
-              className="bfd-input bfd-enr-field"
-              value={v.title_keyword}
-              placeholder="Stichwort"
-              disabled={busy}
-              aria-label="Stichwort"
-              maxLength={200}
-              onChange={(e) => setField("title_keyword", e.target.value)}
-            />
-          </label>
-          <label className="bfd-enr-cell" style={{ flex: "1 1 1.6ch" }}>
-            <span className="bfd-enr-label">Pos</span>
-            <input
-              className="bfd-input bfd-enr-field"
-              value={v.title_keyword_position}
-              placeholder="Pos"
-              inputMode="numeric"
-              maxLength={2}
-              disabled={busy}
-              aria-label="Pos"
-              onChange={(e) => setField("title_keyword_position", String(e.target.value || "").replace(/\D/g, "").slice(0, 2))}
-            />
-          </label>
-        </div>
-        <div className="bfd-enr-row">
-          <label className="bfd-enr-cell" style={{ flex: "1 1 8ch" }}>
-            <span className="bfd-enr-label">Stichwort 2</span>
-            <input
-              className="bfd-input bfd-enr-field"
-              value={v.title_keyword2}
-              placeholder="Stichwort 2"
-              disabled={busy}
-              aria-label="Stichwort 2"
-              maxLength={200}
-              onChange={(e) => setField("title_keyword2", e.target.value)}
-            />
-          </label>
-          <label className="bfd-enr-cell" style={{ flex: "1 1 1.6ch" }}>
-            <span className="bfd-enr-label">Pos</span>
-            <input
-              className="bfd-input bfd-enr-field"
-              value={v.title_keyword2_position}
-              placeholder="Pos"
-              inputMode="numeric"
-              maxLength={2}
-              disabled={busy}
-              aria-label="Pos"
-              onChange={(e) => setField("title_keyword2_position", String(e.target.value || "").replace(/\D/g, "").slice(0, 2))}
-            />
-          </label>
-        </div>
-        <div className="bfd-enr-row">
-          <label className="bfd-enr-cell" style={{ flex: "1 1 8ch" }}>
-            <span className="bfd-enr-label">Stichwort 3</span>
-            <input
-              className="bfd-input bfd-enr-field"
-              value={v.title_keyword3}
-              placeholder="Stichwort 3"
-              disabled={busy}
-              aria-label="Stichwort 3"
-              maxLength={200}
-              onChange={(e) => setField("title_keyword3", e.target.value)}
-            />
-          </label>
-          <label className="bfd-enr-cell" style={{ flex: "1 1 1.6ch" }}>
-            <span className="bfd-enr-label">Pos</span>
-            <input
-              className="bfd-input bfd-enr-field"
-              value={v.title_keyword3_position}
-              placeholder="Pos"
-              inputMode="numeric"
-              maxLength={2}
-              disabled={busy}
-              aria-label="Pos"
-              onChange={(e) => setField("title_keyword3_position", String(e.target.value || "").replace(/\D/g, "").slice(0, 2))}
-            />
-          </label>
-        </div>
-      </div>
-
-      <div className="bfd-enr-section">
-        <div className="bfd-enr-section-title">Sonstiges</div>
-        <div className="bfd-enr-row">
-          <label className="bfd-enr-cell" style={{ flex: "1 1 10ch" }}>
-            <span className="bfd-enr-label">Kauf-Link</span>
-            <input
-              className="bfd-input bfd-enr-field"
-              value={v.purchase_url}
-              placeholder="https://…"
-              disabled={busy}
-              aria-label="https://…"
-              type="url"
-              maxLength={1000}
-              autoCapitalize="off"
-              spellCheck={false}
-              onChange={(e) => setField("purchase_url", e.target.value)}
-            />
-          </label>
-        </div>
-        <div className="bfd-enr-row">
-          <label className="bfd-enr-cell" style={{ flex: "1 1 10ch" }}>
-            <span className="bfd-enr-label">Kommentar</span>
-            <textarea
-              className="bfd-input bfd-enr-field bfd-enr-textarea"
-              value={v.comment}
-              placeholder="Kommentar"
-              disabled={busy}
-              aria-label="Kommentar"
-              rows={2}
-              onChange={(e) => setField("comment", e.target.value)}
-            />
-          </label>
-        </div>
-      </div>
-    </div>
-    ) : (
-    <>
     <div className="bfd-top-frame">
   <div className="bfd-row">
     <input {...numberProps("width_cm", "Width", "2.8ch")} />
@@ -2621,25 +1963,25 @@ select.bfd-enr-field {
     </span>
 
     <div className="bfd-genre bfd-stack">
-      {genres.map((g) => (
-        <button
-          key={g.id}
-          type="button"
-          className={`bfd-stack-field bfd-genre-btn${String(v.genre_id) === g.id ? " is-active" : ""}`}
-          disabled={busy}
-          aria-pressed={String(v.genre_id) === g.id}
-          title={`Genre: ${g.name}`}
-          onClick={() => {
-            genreTouchedRef.current = true;
-            setV((prev) => {
-              const keepSub = subGenres.some((sg) => sg.id === String(prev.sub_genre_id) && sg.genre_id === g.id);
-              return { ...prev, genre_id: g.id, sub_genre_id: keepSub ? prev.sub_genre_id : "" };
-            });
-          }}
-        >
-          {g.name}
-        </button>
-      ))}
+      <select
+        className="bfd-stack-field"
+        value={v.genre_id}
+        disabled={busy}
+        aria-label="Genre (Fiction / Non-Fiction)"
+        title="Genre (Fiction / Non-Fiction)"
+        onChange={(e) => {
+          genreTouchedRef.current = true;
+          const g = e.target.value;
+          setV((prev) => ({ ...prev, genre_id: g }));
+        }}
+      >
+        <option value="">Genre</option>
+        {genres.map((g) => (
+          <option key={g.id} value={g.id}>{g.name}</option>
+        ))}
+      </select>
+      {/* Subgenre entfällt: alles außer Fiction / Non-Fiction läuft über Schlagworte (Zeile darunter).
+          books.sub_genre_id bleibt in der DB und wird hier nicht mehr verändert. */}
     </div>
   </div>
 
@@ -2666,23 +2008,242 @@ select.bfd-enr-field {
       >
         {isbnBusy ? "…" : "🔍"}
       </button>
-      <button
-        type="button"
-        className="bfd-btn bfd-btn-enrich"
-        disabled={busy}
-        onClick={() => setView("enrich")}
-        title="Weitere Angaben: Erscheinungsjahr, Sprache, Handlungsort, Epoche, Autor-Daten, Stichworte …"
-      >
-        <span>Enrichment ›</span>
-        <span className="bfd-enrich-count">
-          {enrichCount ? `${enrichCount} ${enrichCount === 1 ? "Wert" : "Werte"} eingetragen` : "Jahr · Land · Epoche …"}
-        </span>
-      </button>
+
+      <div className="bfd-stack bfd-stack--place" style={{ flex: "1 1 0", minWidth: 0, width: "auto", borderLeft: "3px solid rgba(0,0,0,.65)" }}>
+        <input
+          className="bfd-stack-field"
+          value={v.year_first_published}
+          placeholder="Erscheinungsjahr"
+          inputMode="numeric"
+          maxLength={4}
+          disabled={busy}
+          aria-label="Erscheinungsjahr"
+          title="Erscheinungsjahr (Erstveröffentlichung)"
+          onChange={(e) => setField("year_first_published", String(e.target.value || "").replace(/\D/g, "").slice(0, 4))}
+        />
+        <select
+          className="bfd-stack-field"
+          value={v.action_continent}
+          disabled={busy}
+          aria-label="Region"
+          title="Region (Handlungsort)"
+          onChange={(e) => setField("action_continent", e.target.value)}
+        >
+          <option value="">Region</option>
+          {REGION_OPTIONS.map((r) => (
+            <option key={r.value} value={r.value}>{r.label}</option>
+          ))}
+        </select>
+        <input
+          className="bfd-stack-field"
+          value={v.action_country}
+          placeholder="Land"
+          disabled={busy}
+          maxLength={100}
+          list="bfd-country-list"
+          aria-label="Land"
+          title={`Land (Handlungsort) – Kürzel wie D, A, PK oder Name/frei eintippen. Füllt eine leere Region aus.${countryName(v.action_country, v.action_continent) ? ` · ${v.action_country} = ${countryName(v.action_country, v.action_continent)}` : ""}`}
+          onChange={(e) => setField("action_country", e.target.value)}
+          onBlur={(e) => {
+            const n = normalizeCountryInput(e.target.value);
+            setV((prev) => {
+              const next = { ...prev };
+              const curRegion = String(prev.action_continent ?? "").trim();
+              // Name passt nicht zur eingetragenen Region (z. B. "Kuba" bei Asien): Text so lassen,
+              // sonst würde aus Kuba ein "C" = China
+              if (n.region != null && curRegion && curRegion !== String(n.region)) return prev;
+              if (n.value !== e.target.value) next.action_country = n.value;
+              // Land -> Region, nur wenn die Region noch leer ist und das Land eindeutig
+              if (n.region != null && !String(prev.action_continent ?? "").trim()) next.action_continent = String(n.region);
+              return next;
+            });
+          }}
+        />
+        <datalist id="bfd-country-list">
+          {countryList.map((c) => (
+            <option key={c.key} value={c.value} label={c.label} />
+          ))}
+        </datalist>
+        <input
+          className="bfd-stack-field"
+          list="bfd-state-list"
+          value={v.action_state}
+          placeholder="Bundesland"
+          disabled={busy}
+          maxLength={100}
+          aria-label="Bundesland"
+          title="Bundesland / Provinz (Handlungsort)"
+          onChange={(e) => setField("action_state", e.target.value)}
+        />
+        <datalist id="bfd-state-list">
+          {GERMAN_STATES.map((x) => (
+            <option key={x} value={x} />
+          ))}
+        </datalist>
+        <input
+          className="bfd-stack-field"
+          list="bfd-city-list"
+          value={v.action_city}
+          placeholder="Stadt"
+          disabled={busy}
+          maxLength={100}
+          aria-label="Stadt"
+          title="Stadt (Handlungsort) – frei eintippen. Bekannte Städte (z. B. Peking) füllen leere Region/Land/Bundesland aus."
+          onChange={(e) => setField("action_city", e.target.value)}
+          onBlur={(e) => {
+            // erst beim Verlassen des Feldes, sonst würde "Bern" beim Tippen von "Bernau" schon die Schweiz setzen
+            const place = cityPlace(e.target.value, dbCities);
+            if (place) setV((prev) => fillPlaceDefaults(prev, { ...prev }, place));
+          }}
+        />
+        <datalist id="bfd-city-list">
+          {cityList.map((x) => (
+            <option key={x} value={x} />
+          ))}
+        </datalist>
+      </div>
+
+      <div className="bfd-stack bfd-stack--place" style={{ flex: "1 1 0", minWidth: 0, width: "auto" }}>
+        <input
+          className="bfd-stack-field"
+          list="bfd-landscape-list"
+          value={placeTagText(v.landscape_ids, landscapes)}
+          placeholder="Landschaft"
+          disabled={busy}
+          maxLength={200}
+          aria-label="Landschaft"
+          title={placeTagTitle(v.landscape_ids, landscapes, "Landschaft (Gebirge, Gipfel …) – Vorschlag wählen oder neu eintippen, z. B. „Anden › Cerro Torre“. Füllt leere Region/Land/Bundesland aus.")}
+          onChange={(e) => typePlaceTag("landscape_ids", landscapes, e.target.value)}
+        />
+        <datalist id="bfd-landscape-list">
+          {landscapes.map((x) => (
+            <option key={x.id} value={x.label} />
+          ))}
+        </datalist>
+        <input
+          className="bfd-stack-field"
+          list="bfd-era-list"
+          value={placeTagText(v.time_era_ids, timeEras)}
+          placeholder="Epoche"
+          disabled={busy}
+          maxLength={200}
+          aria-label="Epoche"
+          title={placeTagTitle(v.time_era_ids, timeEras, "Epoche – Vorschlag wählen oder neu eintippen, z. B. „Weimarer Republik“. Füllt leere Region/Land aus.")}
+          onChange={(e) => typePlaceTag("time_era_ids", timeEras, e.target.value)}
+        />
+        <datalist id="bfd-era-list">
+          {timeEras.map((x) => (
+            <option key={x.id} value={x.label} label={eraLabel(x)} />
+          ))}
+        </datalist>
+        <input
+          className="bfd-stack-field"
+          value={v.action_time_year}
+          placeholder="Handlungsjahr"
+          inputMode="numeric"
+          maxLength={4}
+          disabled={busy}
+          aria-label="Handlungsjahr"
+          title="Jahr, in dem die Handlung spielt (z. B. 1968) – damit werden Epochen über Jahr + Ort erkannt"
+          onChange={(e) => setField("action_time_year", String(e.target.value || "").replace(/\D/g, "").slice(0, 4))}
+        />
+        <input
+          className="bfd-stack-field"
+          list="bfd-fictional-list"
+          value={v.action_place_fictional}
+          placeholder="Fiktiver Ort"
+          disabled={busy}
+          maxLength={200}
+          aria-label="Fiktiver Ort"
+          title="Erfundener Ort oder erfundene Welt (z. B. Atlantis, Mittelerde, ein ausgedachtes Dorf). Spielt das Buch ganz in einer erfundenen Welt: Region „Fiktiv“."
+          onChange={(e) => setField("action_place_fictional", e.target.value)}
+        />
+        <datalist id="bfd-fictional-list">
+          {dbFictional.map((x) => (
+            <option key={x} value={x} />
+          ))}
+        </datalist>
+      </div>
     </div>
   </div>
 
   <div className="bfd-row bfd-tight-row">
-    <input {...fieldProps("isbn13", "ISBN-13", { className: "bfd-input", style: { flex: "1 1 auto", width: "100%", minWidth: 0 } })} />
+    <div style={{ display: "flex", alignItems: "stretch", width: "100%" }}>
+      <input {...fieldProps("isbn13", "ISBN-13", { className: "bfd-input", style: { flex: "0 0 auto", width: "calc(13ch + 0.06em + 6px)", minWidth: 0 } })} />
+
+      <div className="bfd-stack bfd-stack--compact" style={{ flex: "1 1 0", minWidth: 0, width: "auto", borderLeft: 0 }}>
+        <select
+          className="bfd-stack-field"
+          value={v.language}
+          disabled={busy}
+          aria-label="Sprache des Buchs"
+          title="Sprache des Buchs (leer = Deutsch bei Neuanlage)"
+          onChange={(e) => setField("language", e.target.value)}
+        >
+          <option value="">Sprache</option>
+          {v.language && !LANGUAGE_OPTIONS.some((l) => l.value === v.language) ? (
+            <option value={v.language}>{v.language}</option>
+          ) : null}
+          {LANGUAGE_OPTIONS.map((l) => (
+            <option key={l.value} value={l.value}>{l.label}</option>
+          ))}
+        </select>
+        <select
+          className="bfd-stack-field"
+          value={v.original_language}
+          disabled={busy}
+          aria-label="Originalsprache"
+          title="Originalsprache"
+          onChange={(e) => { origLangTouchedRef.current = true; setField("original_language", e.target.value); }}
+        >
+          <option value="">Originalsprache</option>
+          {v.original_language && !LANGUAGE_OPTIONS.some((l) => l.value === v.original_language) ? (
+            <option value={v.original_language}>{v.original_language}</option>
+          ) : null}
+          {LANGUAGE_OPTIONS.map((l) => (
+            <option key={l.value} value={l.value}>{l.label}</option>
+          ))}
+        </select>
+        <input
+          className="bfd-stack-field"
+          value={v.author_nationality}
+          placeholder="Nationalität Autor"
+          disabled={busy}
+          maxLength={60}
+          list="bfd-country-list"
+          aria-label="Nationalität des Autors"
+          title={`Nationalität des Autors (Land, z. B. D, RCH, USA – oder Name/frei eintippen)${countryName(v.author_nationality) ? ` · ${v.author_nationality} = ${countryName(v.author_nationality)}` : ""}`}
+          onChange={(e) => { nationalityTouchedRef.current = true; setField("author_nationality", e.target.value); }}
+          onBlur={(e) => {
+            // ohne Region ist "C" mehrdeutig (China/Kuba): solche Namen bleiben ausgeschrieben
+            const raw = e.target.value;
+            const norm = normalizeCountryInput(raw);
+            const n = countryEntry(norm.value) || !countryName(norm.value) ? norm.value : raw.trim();
+            if (n !== raw) { nationalityTouchedRef.current = true; setField("author_nationality", n); }
+          }}
+        />
+        <input
+          className="bfd-stack-field"
+          value={v.author_birth_date}
+          placeholder="Geburtsdatum Autor"
+          disabled={busy}
+          maxLength={10}
+          aria-label="Geburtsdatum des Autors"
+          title="Geburtsdatum des Autors – z. B. 12.04.1947 oder nur 1947"
+          onChange={(e) => setField("author_birth_date", String(e.target.value || "").replace(/[^\d.-]/g, "").slice(0, 10))}
+        />
+        <input
+          className="bfd-stack-field"
+          value={v.author_death_date}
+          placeholder="Todesdatum Autor"
+          disabled={busy}
+          maxLength={10}
+          aria-label="Todesdatum des Autors"
+          title="Todesdatum des Autors – z. B. 03.05.1999 oder nur 1999 (leer = lebt)"
+          onChange={(e) => setField("author_death_date", String(e.target.value || "").replace(/[^\d.-]/g, "").slice(0, 10))}
+        />
+      </div>
+    </div>
   </div>
 
   <div className="bfd-row bfd-tight-row">
@@ -2803,8 +2364,6 @@ select.bfd-enr-field {
           ) : null}
         </div>
       </div>
-    </>
-    )}
 
 
       <div className="bfd-row">

@@ -4,7 +4,7 @@
   const { pickFreeBarcode, heldByActiveBookSql, releaseBookBarcodes } = require("../utils/barcodeHolders");
   const { closeFailures } = require("../utils/saveFailures");
   const { isbnVariants } = require("../services/isbnSources");
-  const { applyBookKeywords, loadBookKeywords } = require("../routes/keywords");
+  const { applyBookKeywords, loadBookKeywords, loadKeywordsForBooks } = require("../routes/keywords");
   // Add this near your other variable definitions
   // backend/controllers/booksPgController.js
   // Postgres implementation for /api/books endpoints.
@@ -1760,6 +1760,7 @@ ${AUTHOR_RESOLVE_SELECT_SQL},
     );
 
     const coverMap = buildCoverMap();
+    const keywordMap = await loadKeywordsForBooks(pool, listRes.rows.map((r) => r.id));
 
 const items = listRes.rows.map((row) => {
   const book = rowToApi(row);
@@ -1767,6 +1768,7 @@ const items = listRes.rows.map((row) => {
 
   return {
     ...book,
+    keywords: keywordMap.get(String(book.id).toLowerCase()) || [],
     title_copies: Number(row.title_copies) || 1,
     cover_available: !!cover,
     cover_url:  cover?.full  || null,

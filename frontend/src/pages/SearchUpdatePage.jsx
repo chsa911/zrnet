@@ -8,6 +8,7 @@ import {
   copyBookCover,
 } from "../api/books";
 import BookForm from "../components/BookFormSwitcher";
+import KeywordCell from "../components/KeywordCell";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { coverUrl } from "../utils/covers";
 
@@ -689,6 +690,24 @@ export default function SearchUpdatePage() {
         .su-pages .su-text { overflow: visible; text-overflow: clip; white-space: nowrap; }
         .su-year { justify-content: flex-end; color: #555; font-size: clamp(11px, 1.2vw, 22px); font-weight: 750; letter-spacing: -0.03em; }
         .su-year .su-inline-edit { overflow: visible; text-overflow: unset; white-space: nowrap; }
+        .su-kw-backdrop { position: fixed; inset: 0; z-index: 9999; background: rgba(0,0,0,.55); display: flex; align-items: flex-start; justify-content: center; padding: 12vh 16px 16px; }
+        .su-kw-modal { width: min(560px, 100%); background: #fff; border: 4px solid #111; padding: 18px; box-sizing: border-box; color: #111; font-size: 16px; font-weight: 700; letter-spacing: 0; line-height: 1.3; display: grid; gap: 14px; }
+        .su-kw-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
+        .su-kw-label { font-size: 12px; font-weight: 900; text-transform: uppercase; letter-spacing: .06em; color: #777; }
+        .su-kw-title { font-size: 22px; font-weight: 900; overflow-wrap: anywhere; }
+        .su-kw-close { border: 0; background: transparent; font-size: 28px; line-height: 1; cursor: pointer; padding: 0 4px; }
+        .su-kw-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+        .su-kw-chip { display: inline-flex; align-items: center; gap: 2px; background: #222; color: #fff; border-radius: 999px; padding: 5px 4px 5px 12px; font-size: 15px; font-weight: 800; }
+        .su-kw-chip button { border: 0; background: transparent; color: inherit; font-size: 17px; line-height: 1; cursor: pointer; padding: 0 6px; opacity: .7; }
+        .su-kw-chip button:hover { opacity: 1; }
+        .su-kw-none { color: #888; }
+        .su-kw-form { display: flex; gap: 8px; }
+        .su-kw-form input { flex: 1 1 auto; min-width: 0; border: 3px solid #111; padding: 8px 10px; font: inherit; font-size: 17px; }
+        .su-kw-form button { border: 3px solid #111; background: #111; color: #fff; font-size: 20px; font-weight: 900; padding: 0 16px; cursor: pointer; }
+        .su-kw-form button:disabled { opacity: .4; cursor: default; }
+        .su-kw-err { color: #a00; }
+        .su-kw-hint { font-size: 12px; color: #777; }
+        .su-kw-trigger { text-align: center; }
         .su-genre, .su-subgenre { justify-content: center; text-align: center; color: #333; font-size: clamp(17px, 1.5vw, 28px); font-weight: 850; letter-spacing: -0.035em; padding: 0 8px; }
         .su-genre .su-inline-edit, .su-subgenre .su-inline-edit { text-align: center; }
         .su-genre select, .su-subgenre select { font-size: 13px; font-weight: 700; width: 100%; }
@@ -820,7 +839,7 @@ export default function SearchUpdatePage() {
           <div className="su-head">Pages</div>
           <div className="su-head">Year</div>
           <div className="su-head">Genre</div>
-          <div className="su-head">Sub</div>
+          <div className="su-head" title="Schlagworte">Tags</div>
          <div className="su-head">Ära</div>
 <div className="su-head">Region</div>
 <div className="su-head">Land</div>
@@ -918,14 +937,15 @@ export default function SearchUpdatePage() {
                     </span>
                   </div>
 
-                  {/* Subgenre dropdown – gefiltert nach Genre */}
-                  <div className="su-cell su-subgenre" title={getSubgenreTitle(b)}>
+                  {/* Schlagworte (ersetzt die Subgenre-Spalte) */}
+                  <div className="su-cell su-subgenre">
                     <span className="su-text">
-                      <InlineSelect
-                        value={getSubgenreAbbr(b)}
+                      <KeywordCell
+                        book={{ ...b, id: idOf(b) }}
                         disabled={isBusy}
-                        options={filteredSubGenres.map((sg) => ({ value: sg.abbr, label: `${sg.abbr} – ${sg.name}` }))}
-                        onSave={(val) => saveSubGenre(b, val)}
+                        onSaved={(names) =>
+                          setItems((prev) => prev.map((it) => (idOf(it) === idOf(b) ? { ...it, keywords: names } : it)))
+                        }
                       />
                     </span>
                   </div>

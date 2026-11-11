@@ -118,6 +118,28 @@ async function applyBookKeywords(db, bookId, rawNames) {
   );
 }
 
+/** Schlagwort-Namen für viele Bücher auf einmal (Admin-Liste). Map bookId -> [Name]. Nie ein Fehler. */
+async function loadKeywordsForBooks(db, bookIds) {
+  const map = new Map();
+  const ids = (bookIds || []).map((x) => String(x || "")).filter((x) => UUID_RE.test(x));
+  if (!ids.length) return map;
+  try {
+    const { rows } = await db.query(
+      `SELECT bk.book_id::text AS book_id,
+              array_agg(k.name ORDER BY bk.sort_order NULLS LAST, lower(k.name)) AS names
+         FROM public.book_keywords bk
+         JOIN public.keywords k ON k.id = bk.keyword_id
+        WHERE bk.book_id = ANY($1::uuid[])
+        GROUP BY bk.book_id`,
+      [ids]
+    );
+    for (const r of rows) map.set(r.book_id.toLowerCase(), r.names);
+  } catch (e) {
+    if (!NOT_MIGRATED.has(e?.code)) console.error("loadKeywordsForBooks failed", e);
+  }
+  return map;
+}
+
 /** Schlagworte eines Buchs, für GET /api/public/books/:id. Nie ein Fehler. */
 async function loadBookKeywords(db, bookId) {
   try {
@@ -176,16 +198,22 @@ publicRouter.get("/:slug/books", publicCache.cacheJson(keywordBooksKey), async (
     if (!kw[0]) return res.status(404).json({ error: "not_found" });
 
     const { rows: books } = await pool.query(
-      `SELECT b.id::text AS id,
-              b.title_display  AS title,
-              b.author_display AS author,
-              b.reading_status,
-              b.top_book,
-              b.registered_at
-         FROM public.book_keywords bk
-         JOIN public.books b ON b.id = bk.book_id
-        WHERE bk.keyword_id = $1::uuid
-        ORDER BY lower(b.author_display) NULLS LAST, lower(b.title_display) NULLS LAST`,
+      // mehrere Exemplare desselben Titels nur einmal (bevorzugt Top/zuletzt registriert)
+      `SELECT * FROM (
+         SELECT DISTINCT ON (lower(coalesce(b.title_display, b.id::text)), lower(coalesce(b.author_display, '')))
+                b.id::text AS id,
+                b.title_display  AS title,
+                b.author_display AS author,
+                b.reading_status,
+                b.top_book,
+                b.registered_at
+           FROM public.book_keywords bk
+           JOIN public.books b ON b.id = bk.book_id
+          WHERE bk.keyword_id = $1::uuid
+          ORDER BY lower(coalesce(b.title_display, b.id::text)), lower(coalesce(b.author_display, '')),
+                   b.top_book DESC NULLS LAST, b.registered_at DESC NULLS LAST
+       ) x
+       ORDER BY lower(x.author) NULLS LAST, lower(x.title) NULLS LAST`,
       [kw[0].id]
     );
 
@@ -245,4 +273,4 @@ adminRouter.put("/:id/keywords", async (req, res) => {
   }
 });
 
-module.exports = { publicRouter, adminRouter, loadBookKeywords, applyBookKeywords };
+module.exports = { publicRouter, adminRouter, loadBookKeywords, loadKeywordsForBooks, applyBookKeywords };
