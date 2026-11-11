@@ -522,7 +522,8 @@ router.get("/stats", async (req, res) => {
  *   finished:   diese Woche beendet       (reading_status = finished,  reading_status_updated_at)
  *   abandoned:  diese Woche abgebrochen   (reading_status = abandoned, reading_status_updated_at)
  *   enriched:   diese Woche Daten ergänzt (enriched_at)
- *   uploaded:   diese Woche neu erhalten / hochgeladen (added_at)
+ *   uploaded:   diese Woche neu erhalten / hochgeladen (added_at, ohne Wishlist)
+ *   wishlist:   diese Woche auf die Wishlist gesetzt (added_at, reading_status = wishlist)
  *   registered: diese Woche registriert   (registered_at)
  * Gleiche Definitionen wie GET /api/admin/activity/today, nur pro Woche.
  * Jede Zahl wird einzeln abgefragt: fehlt z. B. enriched_at, kommt dort null.
@@ -532,7 +533,8 @@ const RD_METRICS = [
   ["finished", "reading_status_updated_at", "AND b.reading_status::text = 'finished'"],
   ["abandoned", "reading_status_updated_at", "AND b.reading_status::text = 'abandoned'"],
   ["enriched", "enriched_at", ""],
-  ["uploaded", "added_at", ""],
+  ["uploaded", "added_at", "AND b.reading_status::text IS DISTINCT FROM 'wishlist'"],
+  ["wishlist", "added_at", "AND b.reading_status::text = 'wishlist'"],
   ["registered", "registered_at", ""],
 ];
 

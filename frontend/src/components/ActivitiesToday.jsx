@@ -23,6 +23,7 @@ const POLL_MS = 3 * 60_000;
 const COMPACT_PATHS = ["/admin/barcode-check"];
 const TILES = [
   ["uploaded", "Upload new books today"],
+  ["wishlist", "Wishlist today"],
   ["enriched", "Data added today"],
   ["registered", "Registered today"],
   ["abandoned", "Abandoned today"],
@@ -78,7 +79,7 @@ export default function ActivitiesToday() {
         .zr-act-hint { font-size: clamp(22px, 3vw, 44px); font-weight: 900; margin: 0 0 6px; }
         .zr-act-hint a { color: inherit; text-decoration: none; }
         .zr-act-title { font-size: clamp(48px, 8vw, 110px); font-weight: 900; line-height: 1.05; margin: 0 0 16px; letter-spacing: -0.01em; }
-        .zr-act-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
+        .zr-act-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 16px; }
         .zr-act-tile { border: 5px solid rgba(0,0,0,.65); padding: 18px 12px; background: #fff; }
         .zr-act-num { font-size: clamp(80px, 12vw, 180px); font-weight: 900; line-height: 1; font-variant-numeric: tabular-nums; }
         .zr-act-label { font-size: clamp(22px, 2.6vw, 38px); font-weight: 900; margin-top: 8px; }
@@ -87,7 +88,7 @@ export default function ActivitiesToday() {
         .zr-act.is-compact .zr-act-hint { font-size: clamp(14px, 1.6vw, 22px); margin: 0 0 2px; }
         .zr-act.is-compact .zr-act-hint a { text-decoration: underline; }
         .zr-act.is-compact .zr-act-title { font-size: clamp(20px, 2.4vw, 32px); margin: 0 0 6px; }
-        .zr-act.is-compact .zr-act-grid { grid-template-columns: repeat(4, 1fr); gap: 8px; }
+        .zr-act.is-compact .zr-act-grid { grid-template-columns: repeat(5, 1fr); gap: 8px; }
         .zr-act.is-compact .zr-act-tile { border-width: 3px; padding: 4px 8px; display: flex; align-items: center; justify-content: center; gap: .35em; }
         .zr-act.is-compact .zr-act-num { font-size: clamp(28px, 3.6vw, 52px); }
         .zr-act.is-compact .zr-act-label { font-size: clamp(11px, 1.15vw, 17px); margin-top: 0; text-align: left; line-height: 1.1; }

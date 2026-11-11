@@ -830,7 +830,10 @@ COUNT(b.id) FILTER (WHERE b.top_book = true)::int AS top_books
       /* -------------------- activities today -------------------- */
 
       // GET /api/admin/activity/today  – Tageszahlen (Europe/Berlin)
-      //   uploaded:   neu angelegte Bücher ohne Barcode (added_at heute, reading_status = in_stock)
+      //   uploaded:   heute neu angelegte Bücher (added_at heute, keine Wishlist) – auch
+      //               wenn sie sofort oder später registriert wurden (zählen dann zusätzlich
+      //               unter registered)
+      //   wishlist:   heute auf die Wishlist gesetzt (added_at heute, reading_status = wishlist)
       //   enriched:   heute Daten hinzugefügt, z. B. neue Physical ID (enriched_at heute,
       //               gesetzt per Trigger, siehe V20261013_02__books_enriched_at.sql)
       //   registered: heute registriert mit Barcode (registered_at heute + Barcode-Zuordnung)
@@ -856,7 +859,11 @@ COUNT(b.id) FILTER (WHERE b.top_book = true)::int AS top_books
         };
         const result = Object.fromEntries(
           await Promise.all([
-            one("uploaded", countToday("added_at", "AND b.reading_status::text = 'in_stock'")),
+            // jedes heute neu angelegte Buch (keine Wishlist) – unabhängig davon, ob es
+            // danach sofort, später oder gar nicht registriert wurde
+            one("uploaded", countToday("added_at", "AND b.reading_status::text IS DISTINCT FROM 'wishlist'")),
+            // Wishlist = eigene Kategorie (kein physisches Exemplar, zählt nicht als Upload)
+            one("wishlist", countToday("added_at", "AND b.reading_status::text = 'wishlist'")),
             one("enriched", countToday("enriched_at")),
             one("registered", countToday("registered_at",
               "AND EXISTS (SELECT 1 FROM public.barcode_assignments ba WHERE ba.book_id = b.id)")),
