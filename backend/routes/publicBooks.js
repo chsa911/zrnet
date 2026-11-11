@@ -522,7 +522,7 @@ router.get("/stats", async (req, res) => {
  *   finished:   diese Woche beendet       (reading_status = finished,  reading_status_updated_at)
  *   abandoned:  diese Woche abgebrochen   (reading_status = abandoned, reading_status_updated_at)
  *   enriched:   diese Woche Daten ergänzt (enriched_at)
- *   uploaded:   diese Woche neu erhalten / hochgeladen (added_at, ohne Wishlist)
+ *   uploaded:   diese Woche am iPhone fotografiert + hochgeladen (raw.capture.coverUploadedAt)
  *   wishlist:   diese Woche auf die Wishlist gesetzt (added_at, reading_status = wishlist)
  *   registered: diese Woche registriert   (registered_at)
  * Gleiche Definitionen wie GET /api/admin/activity/today, nur pro Woche.
@@ -530,12 +530,13 @@ router.get("/stats", async (req, res) => {
  */
 const RD_TZ = "Europe/Berlin";
 const RD_METRICS = [
-  ["finished", "reading_status_updated_at", "AND b.reading_status::text = 'finished'"],
-  ["abandoned", "reading_status_updated_at", "AND b.reading_status::text = 'abandoned'"],
-  ["enriched", "enriched_at", ""],
-  ["uploaded", "added_at", "AND b.reading_status::text IS DISTINCT FROM 'wishlist'"],
-  ["wishlist", "added_at", "AND b.reading_status::text = 'wishlist'"],
-  ["registered", "registered_at", ""],
+  ["finished", "b.reading_status_updated_at", "AND b.reading_status::text = 'finished'"],
+  ["abandoned", "b.reading_status_updated_at", "AND b.reading_status::text = 'abandoned'"],
+  ["enriched", "b.enriched_at", ""],
+  ["uploaded", "(b.raw->'capture'->>'coverUploadedAt')::timestamptz",
+    "AND b.reading_status::text IS DISTINCT FROM 'wishlist'"],
+  ["wishlist", "b.added_at", "AND b.reading_status::text = 'wishlist'"],
+  ["registered", "b.registered_at", ""],
 ];
 
 router.get("/reading-diary", async (req, res) => {
@@ -563,10 +564,10 @@ router.get("/reading-diary", async (req, res) => {
       try {
         const { rows } = await pool.query(
           `
-          SELECT to_char(date_trunc('week', b.${col} AT TIME ZONE '${RD_TZ}')::date, 'YYYY-MM-DD') AS ws,
+          SELECT to_char(date_trunc('week', ${col} AT TIME ZONE '${RD_TZ}')::date, 'YYYY-MM-DD') AS ws,
                  count(*)::int AS n
           FROM public.books b
-          WHERE b.${col} >= ($1::date::timestamp AT TIME ZONE '${RD_TZ}') ${extra}
+          WHERE ${col} >= ($1::date::timestamp AT TIME ZONE '${RD_TZ}') ${extra}
           GROUP BY 1
           `,
           [since]

@@ -830,9 +830,9 @@ COUNT(b.id) FILTER (WHERE b.top_book = true)::int AS top_books
       /* -------------------- activities today -------------------- */
 
       // GET /api/admin/activity/today  – Tageszahlen (Europe/Berlin)
-      //   uploaded:   heute neu angelegte Bücher (added_at heute, keine Wishlist) – auch
-      //               wenn sie sofort oder später registriert wurden (zählen dann zusätzlich
-      //               unter registered)
+      //   uploaded:   heute am iPhone fotografiert und hochgeladen (raw.capture.coverUploadedAt
+      //               heute, keine Wishlist) – auch wenn danach registriert (zählt dann zusätzlich
+      //               unter registered). Bücher, die nur registriert werden, zählen NICHT.
       //   wishlist:   heute auf die Wishlist gesetzt (added_at heute, reading_status = wishlist)
       //   enriched:   heute Daten hinzugefügt, z. B. neue Physical ID (enriched_at heute,
       //               gesetzt per Trigger, siehe V20261013_02__books_enriched_at.sql)
@@ -842,6 +842,13 @@ COUNT(b.id) FILTER (WHERE b.top_book = true)::int AS top_books
         const pool = req.app.get("pgPool");
         if (!pool) return res.status(500).json({ error: "pgPool missing" });
         const TODAY = `(now() AT TIME ZONE 'Europe/Berlin')::date`;
+        // Upload = heute am iPhone fotografiert und hochgeladen. Cover-Fotos kommen nur
+        // über das iPhone-Formular; POST /books/:id/cover setzt raw.capture.coverUploadedAt.
+        const UPLOAD_SQL = `
+          SELECT count(*)::int AS n FROM public.books b
+          WHERE b.raw->'capture'->>'coverUploadedAt' IS NOT NULL
+            AND ((b.raw->'capture'->>'coverUploadedAt')::timestamptz AT TIME ZONE 'Europe/Berlin')::date = ${TODAY}
+            AND b.reading_status::text IS DISTINCT FROM 'wishlist'`;
         const countToday = (col, extra = "") => `
           SELECT count(*)::int AS n FROM public.books b
           WHERE b.${col} >= now() - interval '2 days'
@@ -859,9 +866,8 @@ COUNT(b.id) FILTER (WHERE b.top_book = true)::int AS top_books
         };
         const result = Object.fromEntries(
           await Promise.all([
-            // jedes heute neu angelegte Buch (keine Wishlist) – unabhängig davon, ob es
-            // danach sofort, später oder gar nicht registriert wurde
-            one("uploaded", countToday("added_at", "AND b.reading_status::text IS DISTINCT FROM 'wishlist'")),
+            // zählt auch, wenn das Buch danach noch registriert wurde
+            one("uploaded", UPLOAD_SQL),
             // Wishlist = eigene Kategorie (kein physisches Exemplar, zählt nicht als Upload)
             one("wishlist", countToday("added_at", "AND b.reading_status::text = 'wishlist'")),
             one("enriched", countToday("enriched_at")),
