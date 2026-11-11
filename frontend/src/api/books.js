@@ -289,6 +289,39 @@ export async function getPublicBook(id, { signal, lang } = {}) {
   return http(`/public/books/${encodeURIComponent(id)}${qs ? `?${qs}` : ""}`, { signal });
 }
 
+/* ---------------- keywords (Schlagworte) ---------------- */
+
+// [{ id, slug, name, book_count }]
+export async function listKeywords({ signal } = {}) {
+  return http(`/public/keywords`, { signal });
+}
+
+// { keyword: { id, slug, name }, total, books: [{ id, title, author, cover_url, ... }] }
+export async function getKeywordBooks(slug, { signal } = {}) {
+  if (!slug) throw new Error("Missing keyword");
+  return http(`/public/keywords/${encodeURIComponent(slug)}/books`, { signal });
+}
+
+// Admin: replaces the full keyword list of a book; unknown names are created.
+export async function saveBookKeywords(bookId, names, { signal } = {}) {
+  if (!bookId) throw new Error("Missing book id");
+  return http(`/books/${encodeURIComponent(bookId)}/keywords`, {
+    method: "PUT",
+    json: { keywords: names },
+    signal,
+  });
+}
+
+// true when the admin cookie is set (GET /api/admin/me)
+export async function isAdmin({ signal } = {}) {
+  try {
+    await http(`/admin/me`, { signal, timeoutMs: 10_000 });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 /* ---------------- admin: cover files ---------------- */
 
 // All image variants on disk for one book (raw upload, legacy, normalized, home).

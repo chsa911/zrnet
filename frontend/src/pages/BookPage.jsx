@@ -5,6 +5,7 @@ import { getPublicBook } from "../api/books";
 import { createPublicBookComment, listPublicBookComments } from "../api/comments";
 import { coverUrl } from "../utils/covers";
 import { bookLangLabel, languageName } from "../utils/bookLanguages";
+import KeywordField from "../components/KeywordField";
 import "./BookPage.css";
 import { useSeo } from "../utils/seo";
 
@@ -269,6 +270,8 @@ export default function BookPage() {
                   ) : null}
                 </div>
               ) : null}
+
+              <KeywordField bookId={book?.id || safeId} initial={book?.keywords} />
 
               <div className="zr-bookpage__actions">
                 {/* Ähnliche Bücher Button */}

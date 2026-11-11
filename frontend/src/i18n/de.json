@@ -530,5 +530,22 @@
   "ao_th_total": "Gesamt",
   "ao_finished_word": "gelesen",
   "ao_abandoned_word": "abgebrochen",
-  "ao_sort_hint": "Klicken zum Sortieren"
+  "ao_sort_hint": "Klicken zum Sortieren",
+  "book.keywords": "Schlagworte",
+  "book.keywords_none": "Noch keine Schlagworte.",
+  "book.keywords_placeholder": "Schlagwort hinzufügen …",
+  "book.keywords_add": "Hinzufügen",
+  "book.keywords_remove": "„{name}“ entfernen",
+  "book.keywords_show_all": "Alle Titel mit „{name}“ anzeigen",
+  "book.keywords_saving": "Speichert …",
+  "book.keywords_save_failed": "Schlagworte konnten nicht gespeichert werden.",
+  "keyword.count": "{n} Titel",
+  "keyword.back": "Zurück",
+  "keyword.loading": "Lade …",
+  "keyword.not_found": "Dieses Schlagwort gibt es nicht (mehr).",
+  "keyword.failed": "Titel konnten nicht geladen werden.",
+  "keyword.empty": "Noch keine Titel mit diesem Schlagwort.",
+  "keyword.untitled": "Ohne Titel",
+  "seo.keyword.title": "Bücher zum Schlagwort „{name}“",
+  "seo.keyword.desc": "Alle Bücher mit dem Schlagwort „{name}“."
 }

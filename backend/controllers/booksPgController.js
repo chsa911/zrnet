@@ -4,6 +4,7 @@
   const { pickFreeBarcode, heldByActiveBookSql, releaseBookBarcodes } = require("../utils/barcodeHolders");
   const { closeFailures } = require("../utils/saveFailures");
   const { isbnVariants } = require("../services/isbnSources");
+  const { applyBookKeywords, loadBookKeywords } = require("../routes/keywords");
   // Add this near your other variable definitions
   // backend/controllers/booksPgController.js
   // Postgres implementation for /api/books endpoints.
@@ -644,8 +645,9 @@ action_time_year: row.action_time_year ?? null,
     return out;
   }
 
+  // body.keywords (Schlagwort-Namen) läuft mit über applyPlaceTags
   function hasPlaceTags(src) {
-    return PLACE_TAGS.some((t) => hasOwn(src || {}, t.key));
+    return PLACE_TAGS.some((t) => hasOwn(src || {}, t.key)) || hasOwn(src || {}, "keywords");
   }
 
   async function placeTagTablesReady(db) {
@@ -796,6 +798,7 @@ action_time_year: row.action_time_year ?? null,
         [bookId, ids]
       );
     }
+    if (hasOwn(b, "keywords")) await applyBookKeywords(db, bookId, b.keywords);
   }
 
   async function loadPlaceTags(db, bookId) {
@@ -1821,11 +1824,13 @@ const coverMap = buildCoverMap();
 const cover = coverMap.get(String(book.id));
 
 const placeTags = await loadPlaceTags(pool, id);
+const keywords = (await loadBookKeywords(pool, id)).map((k) => k.name);
 
 return res.json({
   ...row,
   ...book,
   ...placeTags,
+  keywords,
   cover_available: !!cover,
   cover_url:  cover?.full  || null,
   cover_home: cover?.home  || cover?.full || null,

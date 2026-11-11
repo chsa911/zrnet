@@ -6,6 +6,7 @@ const router = express.Router();
 const crypto = require("crypto");
 const { resolveCoverUrl, resolveLocaleCover } = require("../utils/covers");
 const { cacheJson } = require("../utils/publicCache");
+const { loadBookKeywords } = require("./keywords");
 const {
   normalizeTitleLocale,
   titleTranslationsReady,
@@ -1112,6 +1113,7 @@ router.get("/:id", cacheJson(bookCacheKey), async (req, res) => {
       ? normStr(r.purchase_source) || "manual"
       : bestVendor;
     const coverUrl = resolveCoverUrl(r.id, lang);
+    const keywords = await loadBookKeywords(pool, r.id);
     return res.json({
       id: r.id,
       cover_url: coverUrl,
@@ -1161,6 +1163,8 @@ genre_abbr: r.genre_abbr || null,
       top_book_set_at: r.top_book_set_at,
       registered_at: r.registered_at,
       barcode: r.barcode,
+      // [{ id, slug, name }]
+      keywords,
     });
   } catch (err) {
     console.error("GET /api/public/books/:id error", err);

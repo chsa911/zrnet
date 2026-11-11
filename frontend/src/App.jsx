@@ -28,6 +28,7 @@ import NewsPage from "./pages/NewsPage";
 import HomeTitlesPage from "./pages/HomeTitlesPage";
 import { API_BASE } from "./api/config";
 import SubGenrePage from "./pages/SubGenrePage";
+import KeywordPage from "./pages/KeywordPage";
 import CoachingPage from "./pages/CoachingPage";
 import ReadingDiaryPage from "./pages/ReadingDiaryPage";
 
@@ -209,6 +210,7 @@ export default function App() {
         {/* book detail */}
         <Route path="book/:id" element={<BookPage />} />
         <Route path="sub-genre/:id" element={<SubGenrePage />} />
+        <Route path="tag/:slug" element={<KeywordPage />} />
         {/* author detail */}
         <Route path="author/:author" element={<AuthorPage />} />
         {/* author profile: name | finished | abandoned | favourite */}

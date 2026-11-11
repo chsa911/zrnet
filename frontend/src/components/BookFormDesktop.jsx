@@ -14,6 +14,7 @@ import { PAGE_NUM_POS_HELP, buildPhysCode, formatPhysCode, isValidPageNumPos, no
 import usePhysCodeCheck, { physCodeKnownText, similarText } from "../utils/usePhysCodeCheck";
 import { countryEntry, countryName, countryOptions, normalizeCountryInput } from "../utils/countryCodes";
 import { cityOptions, cityPlace } from "../utils/cityDefaults";
+import KeywordsField, { mergeKeywords } from "./bookForm/fields/KeywordsField";
 import {
   friendlySaveErrorMessage,
   newRequestId,
@@ -271,6 +272,8 @@ const emptyForm = {
   action_time_year: "",
   landscape_ids: [],
   time_era_ids: [],
+  keywords: [],        // Schlagwort-Namen
+  keywords_draft: "",  // noch nicht bestätigter Text im Schlagwort-Feld
   language: "",
   author_death_date: "",
   author_birth_date: "",
@@ -505,6 +508,10 @@ export default function BookFormDesktop({
       action_time_year: toStr(pick(b, ["action_time_year"])),
       landscape_ids: Array.isArray(b.landscape_ids) ? b.landscape_ids.map(toStr).filter(Boolean) : [],
       time_era_ids: Array.isArray(b.time_era_ids) ? b.time_era_ids.map(toStr).filter(Boolean) : [],
+      keywords: Array.isArray(b.keywords)
+        ? b.keywords.map((k) => toStr(k && typeof k === "object" ? k.name : k)).filter(Boolean)
+        : [],
+      keywords_draft: "",
       language: toStr(pick(b, ["language"])).toLowerCase(),
       author_birth_date: lifeDateForInput(toStr(pick(b, ["author_birth_date", "birth_date"])), toStr(pick(b, ["author_birth_date_precision"]))),
       author_death_date: lifeDateForInput(toStr(pick(b, ["author_death_date", "death_date"])), toStr(pick(b, ["author_death_date_precision"]))),
@@ -1273,6 +1280,17 @@ if (!isEdit && (pages == null || pages < 0)) {
       }
     }
 
+    {
+      // Schlagworte: Namen; das Backend legt unbekannte an (routes/keywords.js)
+      const next = mergeKeywords(v.keywords, v.keywords_draft);
+      const prev = mergeKeywords(initial.keywords, "");
+      if (!isEdit) {
+        if (next.length) payload.keywords = next;
+      } else if (JSON.stringify(next) !== JSON.stringify(prev)) {
+        payload.keywords = next;
+      }
+    }
+
     if (isEdit && showUnknownFields) {
       for (const [k, next] of Object.entries(extras || {})) {
         if (next !== toStr((initialBook || {})[k])) payload[k] = next === "" ? null : next;
@@ -1331,7 +1349,7 @@ if (!isEdit && (pages == null || pages < 0)) {
         throw Object.assign(new Error("missing_book_id_in_response"), { code: "missing_book_id_in_response" });
       }
       requestIdRef.current = null;
-      if (payload.landscape_ids || payload.time_era_ids || payload.action_place_fictional || payload.action_city) setPlaceListsTick((n) => n + 1);
+      if (payload.landscape_ids || payload.time_era_ids || payload.keywords || payload.action_place_fictional || payload.action_city) setPlaceListsTick((n) => n + 1);
       onSuccess?.({ payload, saved });
 
       let successMsg = payload.draft_id ? "Vorhandenes Buch aktualisiert ✔" : isEdit ? "Gespeichert." : "Gespeichert ✔";
@@ -1514,6 +1532,67 @@ if (!isEdit && (pages == null || pages < 0)) {
 
 .bfd-top-frame + .bfd-row {
   margin-top: 0 !important;
+}
+
+.bfd-keywords {
+  flex: 1 1 100%;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.3em;
+  min-height: 2.2em;
+  padding: 0.25em 0.4em;
+  border: 3px solid rgba(0,0,0,.65);
+  border-top: 0;
+  box-sizing: border-box;
+  background: #fff;
+  font-size: clamp(16px, 1.6vw, 24px);
+  font-weight: 900;
+}
+
+.bfd-keywords-label {
+  color: rgba(0,0,0,.55);
+  margin-right: 0.2em;
+}
+
+.bfd-keyword {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.15em;
+  padding: 0.1em 0.2em 0.1em 0.55em;
+  border-radius: 999px;
+  background: #222;
+  color: #fff;
+  line-height: 1.2;
+}
+
+.bfd-keyword-x {
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+  padding: 0 0.3em;
+  opacity: 0.7;
+}
+
+.bfd-keyword-x:hover {
+  opacity: 1;
+}
+
+.bfd-keywords-input {
+  flex: 1 1 8em;
+  min-width: 6em;
+  font: inherit;
+  color: #333;
+  border: 0;
+  outline: none;
+  background: transparent;
+  padding: 0.1em 0;
+}
+
+.bfd-keywords-input::placeholder {
+  color: rgba(0,0,0,.4);
 }
 
 .bfd-stack {
@@ -2562,6 +2641,16 @@ select.bfd-enr-field {
         </button>
       ))}
     </div>
+  </div>
+
+  <div className="bfd-row bfd-tight-row">
+    <KeywordsField
+      value={v.keywords}
+      draft={v.keywords_draft}
+      disabled={busy}
+      reloadTick={placeListsTick}
+      onChange={(names, draft) => setV((prev) => ({ ...prev, keywords: names, keywords_draft: draft }))}
+    />
   </div>
 
   <div className="bfd-row bfd-tight-row">

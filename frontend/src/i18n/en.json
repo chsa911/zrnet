@@ -571,5 +571,22 @@
   "ao_th_total": "Total",
   "ao_finished_word": "finished",
   "ao_abandoned_word": "abandoned",
-  "ao_sort_hint": "Click to sort"
+  "ao_sort_hint": "Click to sort",
+  "book.keywords": "Keywords",
+  "book.keywords_none": "No keywords yet.",
+  "book.keywords_placeholder": "Add keyword…",
+  "book.keywords_add": "Add",
+  "book.keywords_remove": "Remove “{name}”",
+  "book.keywords_show_all": "Show all titles tagged “{name}”",
+  "book.keywords_saving": "Saving…",
+  "book.keywords_save_failed": "Keywords could not be saved.",
+  "keyword.count": "{n} titles",
+  "keyword.back": "Back",
+  "keyword.loading": "Loading…",
+  "keyword.not_found": "This keyword does not exist (anymore).",
+  "keyword.failed": "Titles could not be loaded.",
+  "keyword.empty": "No titles with this keyword yet.",
+  "keyword.untitled": "Untitled",
+  "seo.keyword.title": "Books tagged “{name}”",
+  "seo.keyword.desc": "All books tagged “{name}”."
 }

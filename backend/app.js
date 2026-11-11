@@ -54,6 +54,8 @@ app.use(morgan("dev"));
       }
       // approve / reject only carries the comment id, not the book id
       if (fullPath.startsWith("/api/admin/comments")) publicCache.invalidatePrefix("comments:");
+      // Schlagwort-Seiten (/api/public/keywords): Buch gespeichert -> Listen neu aufbauen
+      if (fullPath.startsWith("/api/books")) publicCache.invalidatePrefix("keywords:");
     });
     return next();
   });
@@ -437,6 +439,7 @@ app.get("/api/health", async (req, res, next) => {
 app.use("/api/themes", require("./routes/themes"));
 app.use("/api/public/sub-genres", require("./routes/publicSubGenres")); 
 app.use("/api/public/places", require("./routes/publicPlaces"));
+app.use("/api/public/keywords", require("./routes/keywords").publicRouter);
 // optional: make /api and /api/ not look broken
 app.get(["/api", "/api/"], (req, res) => {
   res.json({
@@ -465,6 +468,7 @@ app.use("/api/public/books", require("./routes/publicBooks"));
 app.use("/api/public/authors", require("./routes/publicAuthors"));
 app.use("/api/public/newsletter", require("./routes/publicNewsletter"));
 app.use("/api/barcodes", require("./routes/api/barcodes/previewBarcode"));
+app.use("/api/books", require("./routes/keywords").adminRouter); // PUT /api/books/:id/keywords
 app.use("/api/books", require("./routes/books"));
 app.use("/api/bmarks", require("./routes/bmarks"));
 app.use("/api/mobile", require("./routes/mobileSync"));

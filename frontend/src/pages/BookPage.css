@@ -328,6 +328,85 @@
   overflow: hidden;
 }
 
+/* ---------- Schlagworte (components/KeywordField.jsx) ---------- */
+
+.zr-bookpage__keywords {
+  margin: 14px 0 4px;
+  padding: 12px 14px;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  border-radius: 12px;
+  display: grid;
+  gap: 10px;
+}
+
+.zr-bookpage__keywordsTitle {
+  font-size: 12px;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  opacity: 0.65;
+}
+
+.zr-bookpage__keywordsList {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.zr-bookpage__keyword {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.06);
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.zr-bookpage__keywordLink {
+  color: inherit;
+  text-decoration: none;
+  padding: 7px 12px;
+  border-radius: 999px;
+}
+
+.zr-bookpage__keywordLink:hover,
+.zr-bookpage__keywordLink:focus-visible {
+  background: rgba(0, 0, 0, 0.1);
+  text-decoration: underline;
+}
+
+.zr-bookpage__keywordRemove {
+  border: 0;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  font-size: 16px;
+  line-height: 1;
+  padding: 4px 10px 4px 0;
+  margin-left: -6px;
+  opacity: 0.55;
+}
+
+.zr-bookpage__keywordRemove:hover {
+  opacity: 1;
+}
+
+.zr-bookpage__keywordsNone {
+  font-size: 13px;
+  opacity: 0.6;
+}
+
+.zr-bookpage__keywordsForm {
+  display: flex;
+  gap: 8px;
+}
+
+.zr-bookpage__keywordsForm .zr-input {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
 @media (max-width: 920px) {
   .zr-bookpage__grid {
     grid-template-columns: 1fr;
