@@ -540,8 +540,8 @@ action_time_year: row.action_time_year ?? null,
 
   /* ----------------------------- reviewed_at -------------------------------- */
 
-  // Merkt sich, wann ein Buch zuletzt per Suche gefunden oder einzeln geöffnet
-  // wurde. Läuft im Hintergrund: ein Fehler hier darf die Antwort nie stören.
+  // Merkt sich, wann ein Buch zuletzt zum Bearbeiten geöffnet wurde
+  // (GET /books/:id -> ✎ in der Suche). Suchen/Listen setzen NICHTS.
   // Schreibt NUR reviewed_at (kein updated_at), damit "letzte Aktion" gleich bleibt.
   function stampReviewed(pool, ids) {
     const list = [...new Set((ids || []).map((x) => String(x || "").trim()).filter((x) => UUID_RE.test(x)))];
@@ -1797,9 +1797,6 @@ const items = listRes.rows.map((row) => {
   };
 });
     const pages = Math.max(1, Math.ceil(total / limit) || 1);
-
-    // Nur bei echter Suche (q gesetzt): angezeigte Treffer gelten als "angeschaut"
-    if (q) stampReviewed(pool, items.map((b) => b.id));
 
     return res.json({ items, data: items, total, page, limit, pages });
   } catch (err) {

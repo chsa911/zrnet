@@ -749,6 +749,7 @@ export default function SearchUpdatePage() {
         .su-pager button.su-pager-last { font-size: 15px; font-weight: 700; }
         .su-pager-info { display: flex; align-items: center; justify-content: center; padding: 0 24px; font-size: 18px; font-weight: 800; color: #444; }
         .su-editor { margin-top: 28px; border: 4px solid #666; padding: 18px; background: #fff; }
+        .su-editor--inline { margin-top: 0; width: 100%; box-sizing: border-box; border: 0; border-bottom: 4px solid #666; background: #fffbe6; }
         .su-history-head { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 14px; }
         .su-history-title { margin: 0; font-size: 24px; font-weight: 850; }
         .su-history-close { border: 3px solid #666; background: #fff; color: #111; font-size: 16px; font-weight: 850; padding: 8px 12px; cursor: pointer; }
@@ -878,7 +879,8 @@ export default function SearchUpdatePage() {
               );
 
               return (
-                <div className={`su-book-row ${isFinished ? "is-finished" : isAbandoned ? "is-abandoned" : isLost ? "is-lost" : ""}`} key={id}>
+                <React.Fragment key={id}>
+                <div className={`su-book-row ${isFinished ? "is-finished" : isAbandoned ? "is-abandoned" : isLost ? "is-lost" : ""}`}>
                   <div className="su-cell su-code su-code--clickable" onClick={() => openBarcodeHistory(getBarcode(b))} title={b?.registered_at ? `Registered: ${fmtDateTitle(b.registered_at)}` : "Barcode-History anzeigen"} role="button" tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") openBarcodeHistory(getBarcode(b)); }}>
                     <span className="su-text">{getBarcode(b)}</span>
                   </div>
@@ -1013,6 +1015,30 @@ export default function SearchUpdatePage() {
 
                   <button disabled={isBusy} onClick={() => openEditor(b)} className="su-action su-action--edit" title={b?.updated_at ? `Edit · updated: ${fmtDateTitle(b.updated_at)}` : "Edit"} type="button">✎</button>
                 </div>
+                {editingBook && idOf(editingBook) === idOf(b) ? (
+        <div id="edit-book-form" className="su-editor su-editor--inline">
+          <BookForm
+            mode="edit"
+            bookId={idOf(editingBook)}
+            initialBook={editingBook}
+            lockBarcode={true}
+            showUnknownFields={false}
+            excludeUnknownKeys={["reading_status"]}
+            submitLabel="Speichern"
+            onCancel={closeEditor}
+            onSuccess={({ payload, saved }) => {
+              const now = new Date().toISOString();
+              const patch = saved && typeof saved === "object"
+                ? { ...saved, updated_at: saved.updated_at || now, last_action_at: saved.last_action_at || now }
+                : { ...(payload || {}), updated_at: now, last_action_at: now };
+              patchRow(idOf(editingBook), patch);
+              closeEditor();
+              setRefreshTick((n) => n + 1);
+            }}
+          />
+        </div>
+                ) : null}
+                </React.Fragment>
               );
             })
           : null}
@@ -1078,29 +1104,6 @@ export default function SearchUpdatePage() {
         </div>
       ) : null}
 
-      {editingBook ? (
-        <div id="edit-book-form" className="su-editor">
-          <BookForm
-            mode="edit"
-            bookId={idOf(editingBook)}
-            initialBook={editingBook}
-            lockBarcode={true}
-            showUnknownFields={false}
-            excludeUnknownKeys={["reading_status"]}
-            submitLabel="Speichern"
-            onCancel={closeEditor}
-            onSuccess={({ payload, saved }) => {
-              const now = new Date().toISOString();
-              const patch = saved && typeof saved === "object"
-                ? { ...saved, updated_at: saved.updated_at || now, last_action_at: saved.last_action_at || now }
-                : { ...(payload || {}), updated_at: now, last_action_at: now };
-              patchRow(idOf(editingBook), patch);
-              closeEditor();
-              setRefreshTick((n) => n + 1);
-            }}
-          />
-        </div>
-      ) : null}
     </section>
   );
 }
