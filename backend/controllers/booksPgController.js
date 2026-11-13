@@ -3504,9 +3504,24 @@ if ((patch.sub_genre_abbr ?? patch.subgenre_abbr) !== undefined) {
       if (patch.language !== undefined && cols.has("language")) {
         updates.language = normalizeCopyLanguage(patch.language);
       }
-      if (isbnInfo && cols.has("isbn13")) updates.isbn13 = isbnInfo.isbn13;
-      if (isbnInfo && cols.has("isbn10")) updates.isbn10 = isbnInfo.isbn10;
-      if (isbnInfo && cols.has("isbn13_raw")) updates.isbn13_raw = isbnInfo.isbn13_raw;
+      // Nur die ISBN-Felder schreiben, die wirklich mitgeschickt wurden.
+      // Das Formular schickt beim Bearbeiten nur GEÄNDERTE Felder: kommt z. B.
+      // nur isbn10 (per Lookup ergänzt), darf die vorhandene isbn13 nicht mit
+      // null überschrieben werden.
+      if (isbnInfo) {
+        const rawProvided =
+          patch.isbn13_raw !== undefined || patch.isbn13Raw !== undefined ||
+          patch.isbn_raw !== undefined || patch.isbn !== undefined;
+        if (cols.has("isbn13") && (patch.isbn13 !== undefined || isbnInfo.isbn13)) {
+          updates.isbn13 = isbnInfo.isbn13;
+        }
+        if (cols.has("isbn10") && (patch.isbn10 !== undefined || isbnInfo.isbn10)) {
+          updates.isbn10 = isbnInfo.isbn10;
+        }
+        if (cols.has("isbn13_raw") && (rawProvided || isbnInfo.isbn13_raw || isbnInfo.isbn13 || isbnInfo.isbn10)) {
+          updates.isbn13_raw = isbnInfo.isbn13_raw;
+        }
+      }
       if (patch.comment !== undefined && cols.has("comment")) {
         updates.comment = normalizeStr(patch.comment);
       }
