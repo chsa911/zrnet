@@ -542,7 +542,8 @@ action_time_year: row.action_time_year ?? null,
 
   // Merkt sich, wann ein Buch zuletzt zum Bearbeiten geöffnet wurde
   // (GET /books/:id -> ✎ in der Suche). Suchen/Listen setzen NICHTS.
-  // Schreibt NUR reviewed_at (kein updated_at), damit "letzte Aktion" gleich bleibt.
+  // Schreibt NUR reviewed_at (kein updated_at). "Letzte Aktion" berücksichtigt
+  // reviewed_at trotzdem (mapSort), damit angeschaute Bücher oben stehen.
   function stampReviewed(pool, ids) {
     const list = [...new Set((ids || []).map((x) => String(x || "").trim()).filter((x) => UUID_RE.test(x)))];
     if (!list.length) return;
@@ -1533,6 +1534,7 @@ title_keyword: "b.title_keyword",
       reading_status_updated_at: "COALESCE(b.reading_status_updated_at, b.registered_at)",
       last_action_at: `GREATEST(
         COALESCE(b.updated_at, '-infinity'::timestamptz),
+        COALESCE(b.reviewed_at, '-infinity'::timestamptz),
         COALESCE(b.reading_status_updated_at, '-infinity'::timestamptz),
         COALESCE(b.registered_at, '-infinity'::timestamptz),
         COALESCE(b.added_at, '-infinity'::timestamptz)

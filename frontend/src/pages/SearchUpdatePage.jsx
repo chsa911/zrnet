@@ -640,7 +640,12 @@ export default function SearchUpdatePage() {
     }
   }
 
-  function closeEditor() { setEditingBook(null); }
+  // Beim Schließen die Liste neu laden: schon das Öffnen per ✎ setzt
+  // reviewed_at, und das zählt zu "Letzte Aktion" -> Buch rückt nach oben.
+  function closeEditor() {
+    setEditingBook(null);
+    setRefreshTick((n) => n + 1);
+  }
 
   return (
     <section className="zr-section">
@@ -1032,8 +1037,7 @@ export default function SearchUpdatePage() {
                 ? { ...saved, updated_at: saved.updated_at || now, last_action_at: saved.last_action_at || now }
                 : { ...(payload || {}), updated_at: now, last_action_at: now };
               patchRow(idOf(editingBook), patch);
-              closeEditor();
-              setRefreshTick((n) => n + 1);
+              closeEditor(); // lädt die Liste neu
             }}
           />
         </div>
