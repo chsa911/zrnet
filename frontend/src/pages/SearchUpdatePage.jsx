@@ -654,7 +654,7 @@ export default function SearchUpdatePage() {
         .su-grid { width: 100%; border: 4px solid #666; border-bottom: 0; border-radius: 0; overflow: hidden; background: #fff; }
         .su-search-row, .su-book-row, .su-header-row {
           display: grid;
-          grid-template-columns: 130px 100px minmax(220px, 1fr) 80px 58px 40px 40px 40px 40px 40px 40px 40px 40px 40px 40px 40px 40px 40px 34px;
+          grid-template-columns: 130px 100px minmax(100px, 1fr) 80px 58px 40px 40px 40px 40px 40px 40px 40px 40px 40px 40px 40px 40px 40px 34px;
           align-items: stretch; width: 100%; min-width: 0;
         }
         .su-search-row { min-height: 86px; background: #f1f1f1; border-bottom: 4px solid #666; }
