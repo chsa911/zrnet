@@ -443,6 +443,7 @@ sub: row.subgenre_abbr ?? row.sub_genre ?? null,
       registered_at: row.registered_at ?? null,
       added_at: row.added_at ?? null,
       updated_at: row.updated_at ?? null,
+      reviewed_at: row.reviewed_at ?? null,
       last_action_at:
         row.last_action_at ??
         row.updated_at ??
@@ -535,6 +536,25 @@ action_time_year: row.action_time_year ?? null,
     const cols = new Set(rows.map((r) => r.column_name));
     _columnsCache.set(key, { ts: now, cols });
     return cols;
+  }
+
+  /* ----------------------------- reviewed_at -------------------------------- */
+
+  // Merkt sich, wann ein Buch zuletzt per Suche gefunden oder einzeln geöffnet
+  // wurde. Läuft im Hintergrund: ein Fehler hier darf die Antwort nie stören.
+  // Schreibt NUR reviewed_at (kein updated_at), damit "letzte Aktion" gleich bleibt.
+  function stampReviewed(pool, ids) {
+    const list = [...new Set((ids || []).map((x) => String(x || "").trim()).filter((x) => UUID_RE.test(x)))];
+    if (!list.length) return;
+    getColumns(pool, "books")
+      .then((cols) => {
+        if (!cols.has("reviewed_at")) return null;
+        return pool.query(
+          `UPDATE public.books SET reviewed_at = now() WHERE id = ANY($1::uuid[])`,
+          [list]
+        );
+      })
+      .catch((err) => console.error("stampReviewed error", err.message || err));
   }
 
   function pickKnownColumns(colsSet, obj) {
@@ -1518,6 +1538,7 @@ title_keyword: "b.title_keyword",
         COALESCE(b.added_at, '-infinity'::timestamptz)
       )`,
       updated_at: "b.updated_at",
+      reviewed_at: "b.reviewed_at",
       added_at: "b.added_at",
       pages: "b.pages",
     };
@@ -1777,6 +1798,9 @@ const items = listRes.rows.map((row) => {
 });
     const pages = Math.max(1, Math.ceil(total / limit) || 1);
 
+    // Nur bei echter Suche (q gesetzt): angezeigte Treffer gelten als "angeschaut"
+    if (q) stampReviewed(pool, items.map((b) => b.id));
+
     return res.json({ items, data: items, total, page, limit, pages });
   } catch (err) {
     console.error("listBooks error", err);
@@ -1827,6 +1851,8 @@ const cover = coverMap.get(String(book.id));
 
 const placeTags = await loadPlaceTags(pool, id);
 const keywords = (await loadBookKeywords(pool, id)).map((k) => k.name);
+
+stampReviewed(pool, [id]);
 
 return res.json({
   ...row,
