@@ -883,6 +883,17 @@ action_time_year: row.action_time_year ?? null,
       return res.status(400).json({ error: "invalid_language", message: "Ungültige Sprache (z. B. de, en, fr)." });
     }
 
+    // V20261118_01: a book in_progress must always hold a barcode; only
+    // finished/abandoned/lost releases it.
+    if (code === "23514" && /in_progress_requires_barcode/i.test(msg)) {
+      return res.status(409).json({
+        error: "in_progress_requires_barcode",
+        message:
+          "Ein Buch in Arbeit braucht einen Barcode. Der Barcode wird nur frei, wenn das Buch fertig, abgebrochen oder verloren ist.",
+        detail: detail || null,
+      });
+    }
+
     if (code === "23505" && /near_duplicate_book_blocked/i.test(msg)) {
       return res.status(409).json({
         error: "near_duplicate_book_blocked",
