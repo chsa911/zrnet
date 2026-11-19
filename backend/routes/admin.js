@@ -998,6 +998,48 @@ COUNT(b.id) FILTER (WHERE b.top_book = true)::int AS top_books
         }
       });
 
+      /* -------------------- Dashboard: häufigste Breiten -------------------- */
+
+      // GET /api/admin/stats/widths
+      // Zählungen je Breite (mm) × reading_status × Barcode (ja/nein).
+      // Gefiltert, sortiert und gezeichnet wird im Frontend (AdminWidthsPage).
+      // rules = Namen aller size_rules, deren Breitenbereich diese Breite abdeckt.
+      router.get("/stats/widths", async (req, res) => {
+        const pool = req.app.get("pgPool");
+        if (!pool) return res.status(500).json({ error: "pgPool missing" });
+
+        try {
+          const r = await pool.query(`
+            WITH counts AS (
+              SELECT
+                b.width::int                    AS width,
+                b.reading_status::text          AS status,
+                (
+                  EXISTS (SELECT 1 FROM public.barcode_assignments ba WHERE ba.book_id = b.id)
+                  OR EXISTS (SELECT 1 FROM public.book_barcodes bb WHERE bb.book_id = b.id)
+                )                               AS has_barcode,
+                count(*)::int                   AS n
+              FROM public.books b
+              WHERE b.reading_status::text IN ('in_stock', 'in_progress', 'finished', 'abandoned')
+              GROUP BY 1, 2, 3
+            )
+            SELECT
+              c.*,
+              (
+                SELECT string_agg(DISTINCT sr.name::text, ', ')
+                FROM public.size_rules sr
+                WHERE c.width BETWEEN sr.min_width AND sr.max_width
+              ) AS rules
+            FROM counts c
+            ORDER BY c.width NULLS LAST, c.status, c.has_barcode
+          `);
+          return res.json({ rows: r.rows || [] });
+        } catch (e) {
+          console.error("GET /api/admin/stats/widths failed", e);
+          return res.status(500).json({ error: "widths_failed", detail: String(e?.message || e) });
+        }
+      });
+
       /* -------------------- Dashboard: Buchbestand-Übersicht -------------------- */
 
       // GET /api/admin/stats/overview

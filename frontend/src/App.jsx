@@ -50,6 +50,7 @@ const AdminTitleTranslationsPage = lazy(() => import("./pages/AdminTitleTranslat
 const AdminCoversPage = lazy(() => import("./pages/AdminCoversPage"));
 const AdminStockPage = lazy(() => import("./pages/AdminStockPage"));
 const AdminGenreSharePage = lazy(() => import("./pages/AdminGenreSharePage"));
+const AdminWidthsPage = lazy(() => import("./pages/AdminWidthsPage"));
 const AdminDashboardPage = lazy(() => import("./pages/AdminDashboardPage"));
 const KauflinkUpdatePage = lazy(() => import("./pages/KauflinkUpdatePage"));
 const AdminPhysCodeCheckPage = lazy(() => import("./pages/AdminPhysCodeCheckPage"));
@@ -253,6 +254,7 @@ export default function App() {
 <Route path="admin/covers" element={<AdminOnly><AdminCoversPage /></AdminOnly>} />
 <Route path="admin/stock" element={<AdminOnly><AdminStockPage /></AdminOnly>} />
 <Route path="admin/genre-share" element={<AdminOnly><AdminGenreSharePage /></AdminOnly>} />
+<Route path="admin/widths" element={<AdminOnly><AdminWidthsPage /></AdminOnly>} />
 <Route path="admin/dashboard" element={<AdminOnly><AdminDashboardPage /></AdminOnly>} />
         {/* legacy admin links */}
         <Route path="register" element={<Navigate to="/admin/register" replace />} />

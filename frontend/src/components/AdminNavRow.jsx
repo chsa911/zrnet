@@ -155,6 +155,14 @@ export default function AdminNavRow({ style }) {
       >
         🥧 Fiction / Non-Fiction
       </Link>
+
+      <Link
+        to="/admin/widths"
+        className="zr-btn2 zr-btn2--ghost"
+        style={baseBtn(pathname === "/admin/widths")}
+      >
+        📐 Breiten
+      </Link>
     </div>
   );
 }
