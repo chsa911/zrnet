@@ -2539,9 +2539,8 @@ select.bfd-enr-field {
     ) : (
     <>
     <div className="bfd-top-frame">
+  {/* Reihenfolge: Seitenzahl → letztes Wort → Kapitel */}
   <div className="bfd-row">
-    <input {...numberProps("width_cm", "Width", "2.8ch")} />
-    <input {...numberProps("height_cm", "Height", "2.8ch")} />
     <input {...fieldProps("pages", "Pages", { inputMode: "numeric", style: { width: "3.0ch" }, required: !isEdit, title: "Letzte Seite, die mit einer Seitenzahl bedruckt ist (0 = keine Seitenzahl)" })} />
     <input
       {...fieldProps("page_num_pos", "Pos", { maxLength: 2, autoCapitalize: "off", autoComplete: "off", spellCheck: false, style: { width: "3.0ch" } })}
@@ -2554,11 +2553,6 @@ select.bfd-enr-field {
       }}
     />
     <input
-      {...fieldProps("chapters", "Kap", { inputMode: "numeric", style: { width: "2.8ch" }, required: !isEdit, title: "Anzahl Kapitel (0 = keine Kapitel)" })}
-      title="Anzahl Kapitel (leer = 0)"
-      aria-label="Anzahl Kapitel"
-    />
-    <input
       {...fieldProps("last_word", "Wort", { autoCapitalize: "off", autoComplete: "off", spellCheck: false, maxLength: 100, style: { width: "3.6ch" } })}
       title={
         normalizeLastWord(v.last_word)
@@ -2567,65 +2561,10 @@ select.bfd-enr-field {
       }
       aria-label="Letztes Wort im ganzen Buch"
     />
-    {physCode ? (
-      <span
-        title={
-          physCheck.known.length
-            ? physCodeKnownText(physCode, physCheck.known)
-            : physCheck.similar.length
-              ? similarText(physCheck.similar)
-              : "Buch-Nummer: Breite Höhe Seiten Position Kapitel Wort"
-        }
-        style={{
-          fontFamily: "monospace",
-          fontSize: 16,
-          alignSelf: "center",
-          whiteSpace: "nowrap",
-          padding: "0 8px",
-          color: physCheck.known.length ? "#1d4ed8" : physCheck.similar.length ? "#b45309" : undefined,
-          fontWeight: physCheck.known.length || physCheck.similar.length ? 800 : undefined,
-        }}
-      >
-        {formatPhysCode(physCode)}
-        {physCheck.known.length ? ` ↺ schon ${physCheck.known.length}× erfasst` : physCheck.checking ? "" : physCheck.similar.length ? " ≈ ähnlich" : " ✓"}
-      </span>
-    ) : null}
-
-    <span className="bfd-top-fill">
-      {barcodePreviewLoading
-        ? "Prüfe…"
-        : barcodePreview?.candidate
-          ? <BookCodeVisual code={barcodePreview.candidate} />
-          : ""}
-    </span>
-
-    <div className="bfd-genre bfd-stack">
-      {genres.map((g) => (
-        <button
-          key={g.id}
-          type="button"
-          className={`bfd-stack-field bfd-genre-btn${String(v.genre_id) === g.id ? " is-active" : ""}`}
-          disabled={busy}
-          aria-pressed={String(v.genre_id) === g.id}
-          title={`Genre: ${g.name}`}
-          onClick={() => {
-            genreTouchedRef.current = true;
-            setV((prev) => ({ ...prev, genre_id: g.id }));
-          }}
-        >
-          {g.name}
-        </button>
-      ))}
-    </div>
-  </div>
-
-  <div className="bfd-row bfd-tight-row">
-    <KeywordsField
-      value={v.keywords}
-      draft={v.keywords_draft}
-      disabled={busy}
-      reloadTick={placeListsTick}
-      onChange={(names, draft) => setV((prev) => ({ ...prev, keywords: names, keywords_draft: draft }))}
+    <input
+      {...fieldProps("chapters", "Kap", { inputMode: "numeric", style: { width: "2.8ch" }, required: !isEdit, title: "Anzahl Kapitel (0 = keine Kapitel)" })}
+      title="Anzahl Kapitel (leer = 0)"
+      aria-label="Anzahl Kapitel"
     />
   </div>
 
@@ -2779,6 +2718,72 @@ select.bfd-enr-field {
           ) : null}
         </div>
       </div>
+
+  <div className="bfd-row bfd-tight-row">
+    <KeywordsField
+      value={v.keywords}
+      draft={v.keywords_draft}
+      disabled={busy}
+      reloadTick={placeListsTick}
+      onChange={(names, draft) => setV((prev) => ({ ...prev, keywords: names, keywords_draft: draft }))}
+    />
+  </div>
+
+  {/* Zum Schluss: Breite / Höhe mit Barcode-Anzeige */}
+  <div className="bfd-row">
+    <input {...numberProps("width_cm", "Width", "2.8ch")} />
+    <input {...numberProps("height_cm", "Height", "2.8ch")} />
+    {physCode ? (
+      <span
+        title={
+          physCheck.known.length
+            ? physCodeKnownText(physCode, physCheck.known)
+            : physCheck.similar.length
+              ? similarText(physCheck.similar)
+              : "Buch-Nummer: Breite Höhe Seiten Position Kapitel Wort"
+        }
+        style={{
+          fontFamily: "monospace",
+          fontSize: 16,
+          alignSelf: "center",
+          whiteSpace: "nowrap",
+          padding: "0 8px",
+          color: physCheck.known.length ? "#1d4ed8" : physCheck.similar.length ? "#b45309" : undefined,
+          fontWeight: physCheck.known.length || physCheck.similar.length ? 800 : undefined,
+        }}
+      >
+        {formatPhysCode(physCode)}
+        {physCheck.known.length ? ` ↺ schon ${physCheck.known.length}× erfasst` : physCheck.checking ? "" : physCheck.similar.length ? " ≈ ähnlich" : " ✓"}
+      </span>
+    ) : null}
+
+    <span className="bfd-top-fill">
+      {barcodePreviewLoading
+        ? "Prüfe…"
+        : barcodePreview?.candidate
+          ? <BookCodeVisual code={barcodePreview.candidate} />
+          : ""}
+    </span>
+
+    <div className="bfd-genre bfd-stack">
+      {genres.map((g) => (
+        <button
+          key={g.id}
+          type="button"
+          className={`bfd-stack-field bfd-genre-btn${String(v.genre_id) === g.id ? " is-active" : ""}`}
+          disabled={busy}
+          aria-pressed={String(v.genre_id) === g.id}
+          title={`Genre: ${g.name}`}
+          onClick={() => {
+            genreTouchedRef.current = true;
+            setV((prev) => ({ ...prev, genre_id: g.id }));
+          }}
+        >
+          {g.name}
+        </button>
+      ))}
+    </div>
+  </div>
     </>
     )}
 
