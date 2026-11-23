@@ -2,8 +2,7 @@
 const express = require("express");
 const router = express.Router();
 const { pickFreeBarcode, countFreeBarcodes } = require("../../../utils/barcodeHolders");
-
-const cmToMm = (cm) => Math.round(Number(cm) * 10);
+const { resolveBarcodeRule, posOfBarcode, posToBand } = require("../../../utils/barcodeRules");
 
 function getPool(req) {
   const pool = req.app.get("pgPool");
@@ -12,123 +11,47 @@ function getPool(req) {
 }
 
 /**
- * Resolve size_rule (color) + pos (d/l/o) from width/height using Postgres.
- * Logic:
- *  - l if height is exactly one of eq_heights (default 205/210/215)
- *  - d if height <= min_height
- *  - o otherwise
- */
-async function resolveRuleAndPos(pool, widthCm, heightCm) {
-  const wMm = cmToMm(widthCm);
-  const hMm = cmToMm(heightCm);
-
-  if (!Number.isFinite(wMm) || !Number.isFinite(hMm) || wMm <= 0 || hMm <= 0) {
-    return null;
-  }
-
-  const { rows } = await pool.query(
-    `
-    SELECT id, name, min_height, eq_heights
-    FROM public.size_rules
-    WHERE $1 >= min_width
-      AND ($1 <= max_width OR max_width IS NULL)
-    ORDER BY min_width DESC
-    LIMIT 1
-    `,
-    [wMm]
-  );
-
-  const r = rows[0];
-  if (!r) return null;
-
-  const eq =
-    Array.isArray(r.eq_heights) && r.eq_heights.length
-      ? r.eq_heights.map(Number)
-      : [205, 210, 215];
-
-  let pos = "o";
-  if (eq.includes(hMm)) pos = "l";
-  else if (hMm <= Number(r.min_height)) pos = "d";
-  else pos = "o";
-
-  return {
-    sizeRuleId: r.id,
-    color: String(r.name || "").trim().toLowerCase(),
-    pos,
-  };
-}
-
-function posToBand(pos) {
-  if (pos === "l") return "special";
-  if (pos === "d") return "low";
-  return "high";
-}
-
-function posToPrefixLead(pos) {
-  const p = String(pos || "").toLowerCase();
-  if (p === "d") return "d";
-  if (p === "l") return "l";
-  if (p === "r") return "r";
-  return "o";
-}
-
-function expectedPrefixFromRule(rule) {
-  if (!rule?.color || !rule?.pos) return null;
-  return `${posToPrefixLead(rule.pos)}${String(rule.color).trim().toLowerCase()}`;
-}
-/**
  * GET /api/barcodes/preview-barcode?width=...&height=...
  * Also accepts: ?BBreite=...&BHoehe=...
+ *
+ * Neues System (utils/barcodeRules.js): Farbe nur über die Breite, Position
+ * nur über die Positionsgruppe (mit Ausweich-Reihenfolge, wenn voll).
+ * Die Höhe wird noch angenommen, beeinflusst den Vorschlag aber nicht mehr.
  */
 router.get("/preview-barcode", async (req, res) => {
   try {
     const pool = getPool(req);
 
-    const w = parseFloat(req.query.width ?? req.query.BBreite);
-    const h = parseFloat(req.query.height ?? req.query.BHoehe);
-
-    if (!Number.isFinite(w) || !Number.isFinite(h)) {
+    const w = parseFloat(String(req.query.width ?? req.query.BBreite ?? "").replace(",", "."));
+    if (!Number.isFinite(w)) {
       return res.status(400).json({ error: "width_and_height_required" });
     }
 
-    const rule = await resolveRuleAndPos(pool, w, h);
+    const rule = resolveBarcodeRule(w);
     if (!rule) {
       return res.status(422).json({ error: "no_series_for_size" });
     }
 
-    const band = posToBand(rule.pos);
-    const sizegroup = rule.sizeRuleId;
-    
-const rulePos = String(rule?.pos || "").trim().toLowerCase();
-
-const primaryPrefix = expectedPrefixFromRule(rule);
-const backupPrefix =
-  rulePos === "d"
-    ? expectedPrefixFromRule({ ...rule, pos: "r" })
-    : null;
-
-const expectedPrefixes = [primaryPrefix, backupPrefix];
-const cleanPrefixes = expectedPrefixes.filter(Boolean).map((x) => x.toLowerCase());
-
-if (!cleanPrefixes.length) {
-  return res.status(422).json({ error: "no_prefix_for_size" });
-}
-   
     // Same rule as the auto-pick on save (pickBestBarcode): a code is only
     // free when NO in_progress book carries it any more (see barcodeHolders).
-    const candidate = await pickFreeBarcode(pool, cleanPrefixes);
-    const availableCount = await countFreeBarcodes(pool, cleanPrefixes);
+    // pickFreeBarcode respects the order of rule.prefixes.
+    const candidate = await pickFreeBarcode(pool, rule.prefixes);
+    const availableCount = await countFreeBarcodes(pool, rule.prefixes);
 
-   return res.json({
-  sizegroup,
-  color: rule.color,
-  pos: rule.pos,
-  band,
-  expectedPrefix: cleanPrefixes[0],
-  expectedPrefixes: cleanPrefixes,
-  candidate,
-  availableCount,
-});
+    const pos = posOfBarcode(candidate) || rule.pos;
+
+    return res.json({
+      sizegroup: rule.sizeClass,
+      color: rule.color,
+      colorName: rule.colorName,
+      positionGroup: rule.positionGroup,
+      pos,
+      band: posToBand(pos),
+      expectedPrefix: rule.prefixes[0],
+      expectedPrefixes: rule.prefixes,
+      candidate,
+      availableCount,
+    });
   } catch (err) {
     console.error("api/barcodes/preview-barcode error", err);
     return res.status(500).json({ error: "internal_error" });

@@ -2,6 +2,7 @@
   const path = require("path");
   const { barcodeWildcardPattern } = require("../utils/barcodeWildcard");
   const { pickFreeBarcode, heldByActiveBookSql, releaseBookBarcodes } = require("../utils/barcodeHolders");
+  const { resolveBarcodeRule, posToBand } = require("../utils/barcodeRules");
   const { closeFailures } = require("../utils/saveFailures");
   const { isbnVariants } = require("../services/isbnSources");
   const { applyBookKeywords, loadBookKeywords, loadKeywordsForBooks } = require("../routes/keywords");
@@ -1300,91 +1301,30 @@ const k = normalizeKey(key || disp || ab);
   /* ------------------------- barcode / size helpers -------------------------- */
 
   /**
-   * Resolve size_rule + position (d/l/o) from width/height.
+   * Barcode-Regel für NEUE Bücher (utils/barcodeRules.js):
+   * Farbe nur über die Breite, Position nur über die Positionsgruppe.
+   * Die Höhe wird nicht mehr gebraucht (Parameter bleibt nur für die Aufrufer).
    * Mirrors backend/routes/api/barcodes/previewBarcode.js.
    */
-  async function resolveRuleAndPos(pool, widthCm, heightCm) {
-    const wMm = cmToMm(widthCm);
-    const hMm = cmToMm(heightCm);
-    if (!Number.isFinite(wMm) || !Number.isFinite(hMm) || wMm <= 0 || hMm <= 0) return null;
-
-    const { rows } = await pool.query(
-      `
-      SELECT id, name, min_height, eq_heights
-      FROM public.size_rules
-      WHERE $1 >= min_width
-        AND ($1 <= max_width OR max_width IS NULL)
-      ORDER BY min_width DESC
-      LIMIT 1
-      `,
-      [wMm]
-    );
-
-    const r = rows[0];
-    if (!r) return null;
-
-    const eq =
-      Array.isArray(r.eq_heights) && r.eq_heights.length
-        ? r.eq_heights.map((x) => Number(x))
-        : [205, 210, 215];
-
-    let pos = "o";
-    if (eq.includes(hMm)) pos = "l";
-    else if (hMm <= Number(r.min_height)) pos = "d";
-    else pos = "o";
-
-    return {
-      sizeRuleId: r.id,
-      color: String(r.name || "").trim().toLowerCase(),
-      pos,
-    };
+  async function resolveRuleAndPos(_pool, widthCm, _heightCm) {
+    return resolveBarcodeRule(widthCm);
   }
 
-  function posToBand(pos) {
-    if (pos === "l") return "special";
-    if (pos === "d") return "low";
-    return "high";
-  }
-
-  function posToPrefixLead(pos) {
-    const p = String(pos || "").toLowerCase();
-    if (p === "d") return "d";
-    if (p === "l") return "l";
-    if (p === "r") return "r";
-    return "o";
-  }
-
-  function expectedPrefixFromRule(rule) {
-    if (!rule?.color || !rule?.pos) return null;
-    return `${posToPrefixLead(rule.pos)}${String(rule.color).trim().toLowerCase()}`;
-  }
   /**
-   * Pick the best AVAILABLE barcode for the exact rule:
-   * - exact size rule
-   * - exact band
-   * - exact prefix
-   * - lowest rank_in_inventory
+   * Pick the best AVAILABLE barcode for the rule: the prefixes are tried in
+   * the order of the position group (e.g. db -> ob -> lb -> rb), within one
+   * prefix the lowest rank_in_inventory wins.
    */
   async function pickBestBarcode(pool, rule) {
-  const rulePos = String(rule?.pos || "").trim().toLowerCase();
+    const prefixes = (rule?.prefixes || []).filter(Boolean).map((x) => String(x).toLowerCase());
+    if (!prefixes.length) return null;
 
-const primaryPrefix = expectedPrefixFromRule(rule);
-const backupPrefix =
-  rulePos === "d"
-    ? expectedPrefixFromRule({ ...rule, pos: "r" })
-    : null;
-const prefixes = [primaryPrefix, backupPrefix];
-  const cleanPrefixes = prefixes.filter(Boolean).map((x) => x.toLowerCase());
-  if (!cleanPrefixes.length) return null;
+    // Shared rule (utils/barcodeHolders.js): free only when NO in_progress
+    // book carries the code any more (book_barcodes AND open ledger rows),
+    // and no unresolved conflict observation. Identical to preview-barcode.
+    return (await pickFreeBarcode(pool, prefixes)) ?? null;
+  }
 
-  // Shared rule (utils/barcodeHolders.js): free only when NO in_progress
-  // book carries the code any more (book_barcodes AND open ledger rows),
-  // and no unresolved conflict observation. Identical to preview-barcode.
-  const picked = await pickFreeBarcode(pool, cleanPrefixes);
-  const r = { rows: picked ? [{ barcode: picked }] : [] };
-
-  return r.rows[0]?.barcode ?? null;
-}
   async function assignBarcodeTx(
     pool,
     { bookId, barcode, expectedSizeRuleId, expectedPos, expectedPrefix, assignedAt }
@@ -2567,7 +2507,7 @@ sub_genre_id: normalizeInt(body.sub_genre_id),
           bookId,
           barcode,
           expectedSizeRuleId: rule ? rule.sizeRuleId : null,
-          expectedPos: rule ? rule.pos : null,
+          expectedPos: null, // Position ergibt sich aus dem Code selbst (Positionsgruppe)
           expectedPrefix: null,
           assignedAt: nowIso,
         });
@@ -3247,7 +3187,7 @@ if (
         bookId: id,
         barcode,
         expectedSizeRuleId: rule ? rule.sizeRuleId : null,
-        expectedPos: rule ? rule.pos : null,
+        expectedPos: null, // Position ergibt sich aus dem Code selbst (Positionsgruppe)
         expectedPrefix: null,
         assignedAt: nowIso,
       });

@@ -19,6 +19,7 @@ const { txPool, call, routeHandler, openTx, closeTx } = require("./helpers/txHar
 const { registerBook } = require("../controllers/booksPgController");
 const { releaseBookBarcodes } = require("../utils/barcodeHolders");
 const previewRouter = require("../routes/api/barcodes/previewBarcode");
+const { WIDTH_CLASSES } = require("../utils/barcodeRules");
 
 const URL = process.env.TEST_DATABASE_URL;
 const d = URL ? describe : describe.skip;
@@ -59,15 +60,9 @@ d("legacy multi-copy barcode is never suggested again", () => {
 
     // a size whose series has at least 2 free codes (one we "paint twice",
     // one that may be suggested instead)
-    const rules = await db.query(
-      `SELECT id, name, min_width, min_height, eq_heights FROM public.size_rules ORDER BY id`
-    );
-    for (const r of rules.rows) {
-      const eq = (r.eq_heights && r.eq_heights.length ? r.eq_heights : [205, 210, 215]).map(Number);
-      let hMm = Number(r.min_height) + 20; // -> position "o"
-      while (eq.includes(hMm)) hMm += 1;
-      const candidateSize = { width: Number(r.min_width) / 10, height: hMm / 10 };
-      size = candidateSize;
+    // new system (utils/barcodeRules.js): only the width matters
+    for (const c of WIDTH_CLASSES) {
+      size = { width: (c.minMm || 100) / 10, height: 19 };
       const s = await suggest();
       if (s.candidate && s.availableCount >= 2) {
         code = s.candidate;
