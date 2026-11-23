@@ -226,6 +226,49 @@ function computeKeywordFromTitle(title) {
   return { keyword: t, pos: "0" };
 }
 
+// ---- Entwurf im Browser (localStorage) ----------------------------------
+// Ungespeicherte Eingaben bleiben erhalten, wenn die Seite verlassen wird.
+const DRAFT_PREFIX = "zrnet:bookform-draft:";
+const DRAFT_MAX_AGE_MS = 30 * 24 * 60 * 60 * 1000; // 30 Tage
+
+function draftKeyFor(isEdit, id) {
+  if (isEdit) return id ? `${DRAFT_PREFIX}edit:${id}` : null;
+  return `${DRAFT_PREFIX}create`;
+}
+
+function readDraft(key, initial) {
+  if (!key) return null;
+  try {
+    const raw = window.localStorage.getItem(key);
+    if (!raw) return null;
+    const d = JSON.parse(raw);
+    if (!d || typeof d.v !== "object" || Date.now() - (d.savedAt || 0) > DRAFT_MAX_AGE_MS) {
+      window.localStorage.removeItem(key);
+      return null;
+    }
+    // Wurde das Buch inzwischen anderswo geändert, ist der Entwurf veraltet -> verwerfen
+    if (d.base !== JSON.stringify(initial)) {
+      window.localStorage.removeItem(key);
+      return null;
+    }
+    return { v: { ...initial, ...d.v }, savedAt: d.savedAt };
+  } catch {
+    return null;
+  }
+}
+
+function writeDraft(key, v, initial) {
+  if (!key) return;
+  try {
+    window.localStorage.setItem(key, JSON.stringify({ v, base: JSON.stringify(initial), savedAt: Date.now() }));
+  } catch { /* Speicher voll / blockiert – ignorieren */ }
+}
+
+function removeDraft(key) {
+  if (!key) return;
+  try { window.localStorage.removeItem(key); } catch { /* ignore */ }
+}
+
 const emptyForm = {
   barcode: "",
   author_id: "",
@@ -518,7 +561,15 @@ export default function BookFormDesktop({
     };
   }, [initialBook]);
 
-  const [v, setV] = useState(initial);
+  const draftKey = draftKeyFor(isEdit, bookId || initialBook?._id || initialBook?.id);
+  // Im Registrier-Modus mit Vorbelegung (z. B. offener Vorgang) keinen alten Entwurf darüberlegen
+  const draftAllowed = isEdit || !initialBook;
+  const [draftRestoredAt, setDraftRestoredAt] = useState(() =>
+    draftAllowed ? readDraft(draftKey, initial)?.savedAt || null : null
+  );
+  const [v, setV] = useState(() => (draftAllowed && readDraft(draftKey, initial)?.v) || initial);
+  // Stand direkt nach erfolgreichem Speichern – solange unverändert, kein Entwurf
+  const savedSnapshotRef = useRef(null);
   // true, sobald die Nationalität von Hand geändert wurde (sonst ist "D" nur Vorbelegung)
   const nationalityTouchedRef = useRef(false);
   // true, sobald die Originalsprache von Hand gewählt wurde (sonst darf die ISBN-Suche "de" ersetzen)
@@ -720,7 +771,10 @@ export default function BookFormDesktop({
   const excludeKey = (excludeUnknownKeys || []).map(String).join("\u0000");
 
   useEffect(() => {
-    setV(initial);
+    const d = draftAllowed ? readDraft(draftKey, initial) : null;
+    setV(d?.v || initial);
+    setDraftRestoredAt(d?.savedAt || null);
+    savedSnapshotRef.current = null;
     nationalityTouchedRef.current = false;
     origLangTouchedRef.current = false;
     genreTouchedRef.current = false;
@@ -739,6 +793,24 @@ export default function BookFormDesktop({
     }
     setExtras(ex);
   }, [initial, initialBook, showUnknownFields, excludeKey, knownKeys]);
+
+  // Jede Änderung sofort als Entwurf sichern (bzw. löschen, wenn nichts geändert ist)
+  useEffect(() => {
+    if (!draftAllowed || !draftKey) return;
+    const cur = JSON.stringify(v);
+    const unchanged =
+      cur === JSON.stringify(initial) ||
+      cur === JSON.stringify(emptyForm) ||
+      cur === savedSnapshotRef.current;
+    if (unchanged) removeDraft(draftKey);
+    else writeDraft(draftKey, v, initial);
+  }, [v, initial, draftKey, draftAllowed]);
+
+  function discardDraft() {
+    removeDraft(draftKey);
+    setDraftRestoredAt(null);
+    setV(initial);
+  }
 
   useEffect(() => {
     if (!msg) return;
@@ -1360,6 +1432,9 @@ if (!isEdit && (pages == null || pages < 0)) {
 
 
       showMsg(successMsg, "success");
+      removeDraft(draftKey);
+      setDraftRestoredAt(null);
+      savedSnapshotRef.current = JSON.stringify(v);
       if (!isEdit) {
         setV({ ...emptyForm }); nationalityTouchedRef.current = false; origLangTouchedRef.current = false; genreTouchedRef.current = false;
         setView("main");
@@ -1921,7 +1996,7 @@ select.bfd-enr-field {
                 requestIdRef.current = null;
                 dismissedIsbnMatchesRef.current = new Set();
                 forceNewEntryRef.current = false;
-                setV({ ...emptyForm }); nationalityTouchedRef.current = false; origLangTouchedRef.current = false; genreTouchedRef.current = false;
+                setDraftRestoredAt(null); setV({ ...emptyForm }); nationalityTouchedRef.current = false; origLangTouchedRef.current = false; genreTouchedRef.current = false;
                 setExistingMatch(null);
                 setExistingMatches([]);
                 setTitleAuthorMatches([]);
@@ -2033,6 +2108,20 @@ select.bfd-enr-field {
           {hoveredMatch ? (
             <CoverPreview id={hoveredMatch.id} src={hoveredMatch.coverUrl} />
           ) : null}
+        </div>
+      ) : null}
+
+      {draftRestoredAt ? (
+        <div className="bfd-msg bfd-msg--info" style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
+          <span>
+            Nicht gespeicherte Eingaben vom {new Date(draftRestoredAt).toLocaleString("de-DE")} wiederhergestellt.
+          </span>
+          <button type="button" className="bfd-btn bfd-btn-clear" onClick={discardDraft}>
+            Verwerfen
+          </button>
+          <button type="button" className="bfd-btn" onClick={() => setDraftRestoredAt(null)}>
+            OK
+          </button>
         </div>
       ) : null}
 
@@ -2799,7 +2888,7 @@ select.bfd-enr-field {
           disabled={busy}
           onClick={() => {
             requestIdRef.current = null;
-            setV({ ...emptyForm }); nationalityTouchedRef.current = false; origLangTouchedRef.current = false; genreTouchedRef.current = false;
+            setDraftRestoredAt(null); setV({ ...emptyForm }); nationalityTouchedRef.current = false; origLangTouchedRef.current = false; genreTouchedRef.current = false;
             setExistingMatch(null);
             setExistingMatches([]);
             showMsg("", "info");
