@@ -1033,7 +1033,15 @@ COUNT(b.id) FILTER (WHERE b.top_book = true)::int AS top_books
             FROM counts c
             ORDER BY c.width NULLS LAST, c.status, c.has_barcode
           `);
-          return res.json({ rows: r.rows || [] });
+          // Alle Größenregeln, damit das Frontend auch Breiten ohne Bücher
+          // (Lücken in der Spanne) ihrer Regel zuordnen kann.
+          const sr = await pool.query(`
+            SELECT name::text AS name, min_width::int AS min_width, max_width::int AS max_width
+            FROM public.size_rules
+            WHERE min_width IS NOT NULL AND max_width IS NOT NULL
+            ORDER BY min_width, max_width, name
+          `);
+          return res.json({ rows: r.rows || [], sizeRules: sr.rows || [] });
         } catch (e) {
           console.error("GET /api/admin/stats/widths failed", e);
           return res.status(500).json({ error: "widths_failed", detail: String(e?.message || e) });
