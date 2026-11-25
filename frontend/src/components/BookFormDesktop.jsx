@@ -65,8 +65,9 @@ const DEATH_DATE_RE = /^(\d{4}|\d{1,2}\.\d{4}|\d{1,2}\.\d{1,2}\.\d{4}|\d{4}-\d{2
 const DEFAULT_AUTHOR_NATIONALITY = "D";
 // Vorbelegung Originalsprache bei Neuanlage (Deutsch)
 const DEFAULT_ORIGINAL_LANGUAGE = "de";
-// Vorbelegung Genre bei Neuanlage: Fiction (genres.abbr = "F")
-const DEFAULT_GENRE_ABBR = "F";
+// Vorbelegung Genre bei Neuanlage: Non-Fiction (genres.abbr = "NF", sonst Treffer über den Namen)
+const DEFAULT_GENRE_ABBR = "NF";
+const DEFAULT_GENRE_NAME_RE = /^(non.?fiction|sachbuch)/i;
 // Vorbelegung Position der Seitenzahl bei Neuanlage: unten rechts
 const DEFAULT_PAGE_NUM_POS = "ur";
 
@@ -574,7 +575,7 @@ export default function BookFormDesktop({
   const nationalityTouchedRef = useRef(false);
   // true, sobald die Originalsprache von Hand gewählt wurde (sonst darf die ISBN-Suche "de" ersetzen)
   const origLangTouchedRef = useRef(false);
-  // true, sobald Genre/Subgenre von Hand gewählt wurden (sonst wird Fiction vorbelegt)
+  // true, sobald Genre/Subgenre von Hand gewählt wurden (sonst wird Non-Fiction vorbelegt)
   const genreTouchedRef = useRef(false);
   const requestIdRef = useRef(null);
   const [busy, setBusy] = useState(false);
@@ -726,7 +727,7 @@ export default function BookFormDesktop({
   const defaultGenreId = useMemo(() => {
     const g =
       genres.find((x) => String(x.abbr || "").toLowerCase() === DEFAULT_GENRE_ABBR.toLowerCase()) ||
-      genres.find((x) => /^fiction/i.test(String(x.name || "")));
+      genres.find((x) => DEFAULT_GENRE_NAME_RE.test(String(x.name || "").trim()));
     return g ? g.id : "";
   }, [genres]);
   useEffect(() => {
