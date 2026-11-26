@@ -250,16 +250,19 @@ function readDraft(key, initial) {
       window.localStorage.removeItem(key);
       return null;
     }
-    return { v: { ...initial, ...d.v }, savedAt: d.savedAt };
+    // Genre nur übernehmen, wenn es von Hand gewählt wurde – sonst greift die aktuelle Vorbelegung
+    const dv = { ...d.v };
+    if (!d.genreTouched) dv.genre_id = initial.genre_id;
+    return { v: { ...initial, ...dv }, savedAt: d.savedAt, genreTouched: !!d.genreTouched };
   } catch {
     return null;
   }
 }
 
-function writeDraft(key, v, initial) {
+function writeDraft(key, v, initial, genreTouched) {
   if (!key) return;
   try {
-    window.localStorage.setItem(key, JSON.stringify({ v, base: JSON.stringify(initial), savedAt: Date.now() }));
+    window.localStorage.setItem(key, JSON.stringify({ v, base: JSON.stringify(initial), savedAt: Date.now(), genreTouched: !!genreTouched }));
   } catch { /* Speicher voll / blockiert – ignorieren */ }
 }
 
@@ -776,7 +779,7 @@ export default function BookFormDesktop({
     savedSnapshotRef.current = null;
     nationalityTouchedRef.current = false;
     origLangTouchedRef.current = false;
-    genreTouchedRef.current = false;
+    genreTouchedRef.current = !!d?.genreTouched;
     setExistingMatches([]);
     setExistingMatch(null);
     setHoveredMatch(null);
@@ -796,14 +799,17 @@ export default function BookFormDesktop({
   // Jede Änderung sofort als Entwurf sichern (bzw. löschen, wenn nichts geändert ist)
   useEffect(() => {
     if (!draftAllowed || !draftKey) return;
-    const cur = JSON.stringify(v);
+    // Ein nur automatisch vorbelegtes Genre zählt nicht als Eingabe
+    const cur = JSON.stringify(
+      genreTouchedRef.current ? v : { ...v, genre_id: v.genre_id === defaultGenreId ? initial.genre_id : v.genre_id }
+    );
     const unchanged =
       cur === JSON.stringify(initial) ||
       cur === JSON.stringify(emptyForm) ||
       cur === savedSnapshotRef.current;
     if (unchanged) removeDraft(draftKey);
-    else writeDraft(draftKey, v, initial);
-  }, [v, initial, draftKey, draftAllowed]);
+    else writeDraft(draftKey, v, initial, genreTouchedRef.current);
+  }, [v, initial, draftKey, draftAllowed, defaultGenreId]);
 
   function discardDraft() {
     removeDraft(draftKey);
