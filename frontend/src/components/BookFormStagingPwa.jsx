@@ -9,8 +9,6 @@ import {
 } from "../api/books";
 import { previewBarcode } from "../api/barcodes";
 import { startIsbnScanner } from "../utils/isbnScanner";
-import { PAGE_NUM_POSITIONS, buildPhysCode, formatPhysCode, normalizeLastWord } from "../utils/pageNumPos";
-import usePhysCodeCheck, { physCodeKnownText, similarText } from "../utils/usePhysCodeCheck";
 import { friendlySaveErrorMessage, isNoResponseError, newRequestId, notifyOpenIssuesChanged, openIssueHint } from "../utils/saveFeedback";
 
 const toStr = (v) => (v === undefined || v === null ? "" : String(v));
@@ -437,8 +435,7 @@ export default function BookFormStagingPwa({
       return;
     }
     const w = parseFloatOrNull(v.width_cm);
-    const h = parseFloatOrNull(v.height_cm);
-    if (!(Number.isFinite(w) && w > 0 && Number.isFinite(h) && h > 0)) {
+    if (!(Number.isFinite(w) && w > 0)) {
       setBarcodePreview(null);
       setBarcodePreviewErr("");
       return;
@@ -448,7 +445,7 @@ export default function BookFormStagingPwa({
     const t = setTimeout(() => {
       (async () => {
         try {
-          const p = await previewBarcode(w, h);
+          const p = await previewBarcode(w);
           if (!alive) return;
           setBarcodePreviewErr("");
           setBarcodePreview(p);
@@ -464,7 +461,7 @@ export default function BookFormStagingPwa({
       alive = false;
       clearTimeout(t);
     };
-  }, [assignBarcode, isEdit, v.barcode, v.width_cm, v.height_cm]);
+  }, [assignBarcode, isEdit, v.barcode, v.width_cm]);
 
   useEffect(() => {
     if (!scannerOpen || !isbnVideoRef.current) return;
@@ -511,10 +508,6 @@ export default function BookFormStagingPwa({
       stopIsbnScannerRef.current = () => {};
     };
   }, [scannerOpen]);
-
-  // phys_code (Breite-Höhe-Seiten-Position-Autor) muss eindeutig sein
-  const physCode = buildPhysCode(v);
-  const physCheck = usePhysCodeCheck(physCode, isEdit ? (bookId || initialBook?._id || initialBook?.id) : undefined);
 
   function setField(key, value) {
     setV((prev) => ({ ...prev, [key]: value }));
@@ -737,10 +730,8 @@ export default function BookFormStagingPwa({
     const finalBarcode = nextBarcode || suggestedBarcode;
 
     const widthCm = parseFloatOrNull(v.width_cm);
-    const heightCm = parseFloatOrNull(v.height_cm);
     if (!isEdit && assignBarcode && finalBarcode) payload.barcode = finalBarcode;
     if (!isEdit && Number.isFinite(widthCm) && widthCm > 0) payload.width_cm = widthCm;
-    if (!isEdit && Number.isFinite(heightCm) && heightCm > 0) payload.height_cm = heightCm;
 
     const isbnN = normalizeIsbnInputs(v.isbn13, v.isbn10);
     if (isbnN.isbn13) payload.isbn13 = isbnN.isbn13;
@@ -749,10 +740,6 @@ export default function BookFormStagingPwa({
 
     const pageCount = parseIntOrNull(v.pages);
     if (pageCount !== null) payload.pages = pageCount;
-    if (String(v.page_num_pos || "").trim()) payload.page_num_pos = String(v.page_num_pos).trim();
-    const chapterCount = parseIntOrNull(v.chapters);
-    if (chapterCount !== null && chapterCount >= 0) payload.chapters = chapterCount;
-    if (normalizeLastWord(v.last_word)) payload.last_word = String(v.last_word).trim();
 
     const nullableStrings = [
       "author_firstname",
@@ -1062,55 +1049,7 @@ export default function BookFormStagingPwa({
               placeholder="320"
             />
           </label>
-          <label style={{ display: "grid", gap: 6 }}>
-            <span>Position der Seitenzahl</span>
-            <select
-              className="zr-input"
-              value={v.page_num_pos || ""}
-              onChange={(e) => setField("page_num_pos", e.target.value)}
-            >
-              <option value="">–</option>
-              {PAGE_NUM_POSITIONS.map((p) => (
-                <option key={p.value} value={p.value}>{p.value} – {p.label}</option>
-              ))}
-            </select>
-          </label>
-          <label style={{ display: "grid", gap: 6, maxWidth: 120 }}>
-            <span>Kapitel</span>
-            <input
-              className="zr-input"
-              type="text"
-              inputMode="numeric"
-              value={v.chapters || ""}
-              onChange={(e) => setField("chapters", e.target.value)}
-              placeholder="24"
-              title="Anzahl Kapitel (leer = 0)"
-            />
-          </label>
-          <label style={{ display: "grid", gap: 6, maxWidth: 160 }}>
-            <span>Letztes Wort</span>
-            <input
-              className="zr-input"
-              type="text"
-              autoCapitalize="off"
-              value={v.last_word || ""}
-              onChange={(e) => setField("last_word", e.target.value)}
-              placeholder="still"
-              title="Letztes Wort im ganzen Buch (00 = kein Text)"
-            />
-          </label>
         </div>
-        {buildPhysCode(v) ? (
-          <div style={{ fontFamily: "monospace", fontSize: 13 }}>Nr: {formatPhysCode(buildPhysCode(v))}</div>
-        ) : null}
-        {physCheck.known.length ? (
-          <div style={{ color: "#1d4ed8", fontWeight: 700, fontSize: 13 }}>
-            {physCodeKnownText(physCode, physCheck.known)}
-          </div>
-        ) : null}
-        {!physCheck.known.length && physCheck.similar.length ? (
-          <div style={{ color: "#b45309", fontWeight: 700, fontSize: 13 }}>{similarText(physCheck.similar)}</div>
-        ) : null}
       </div>
 
       <div className="zr-toolbar" style={{ marginTop: 4 }}>
@@ -1185,18 +1124,6 @@ export default function BookFormStagingPwa({
               />
             </label>
 
-            <label style={{ display: "grid", gap: 6, flex: "0 0 auto" }}>
-              <span>Höhe (cm)</span>
-              <input
-                className="zr-input"
-                type="text"
-                inputMode="decimal"
-                value={v.height_cm}
-                onChange={(e) => setField("height_cm", e.target.value)}
-                placeholder="21"
-                style={{ width: "8ch", minWidth: 0 }}
-              />
-            </label>
           </div>
 
           {barcodePreview?.candidate ? (

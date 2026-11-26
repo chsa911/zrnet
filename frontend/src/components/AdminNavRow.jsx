@@ -52,21 +52,7 @@ export default function AdminNavRow({ style }) {
         🔎 Search &amp; Update
       </Link>
 
-      <Link
-        to="/admin/check-book"
-        className="zr-btn2 zr-btn2--ghost"
-        style={baseBtn(pathname === "/admin/check-book")}
-      >
-        🔢 Buch prüfen
-      </Link>
-
-      <Link
-        to="/admin/barcode-check"
-        className="zr-btn2 zr-btn2--ghost"
-        style={baseBtn(pathname === "/admin/barcode-check")}
-      >
-        📏 Prüfen &amp; Ergänzen
-      </Link>
+      {/* „Buch prüfen“ und „Prüfen & Ergänzen“ ausgeblendet (26.11.2026) – Seiten bleiben unter /admin/check-book und /admin/barcode-check erreichbar */}
 
       <Link
         to="/admin/authors"

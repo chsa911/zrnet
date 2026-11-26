@@ -4,9 +4,10 @@
 
 export const BOOK_SAVE_ERROR_MESSAGES = {
   missing_required_fields:
-    "Bitte Pflichtfelder ausfüllen (Titel, Autor, Verlag, Breite, Höhe, Seiten, Position der Seitenzahl, Kapitel, letztes Wort).",
+    "Bitte Pflichtfelder ausfüllen (Titel, Autor, Verlag, Breite, Seiten).",
+  width_required: "Die Breite ist erforderlich, um einen Barcode zuzuweisen.",
   width_and_height_required:
-    "Breite und Höhe sind erforderlich, um einen Barcode zuzuweisen.",
+    "Die Breite ist erforderlich, um einen Barcode zuzuweisen.",
   no_series_for_size: "Für diese Maße wurde keine passende Serie gefunden.",
   no_barcodes_available: "Kein freier Barcode für diese Serie verfügbar.",
   barcode_not_found: "Barcode wurde nicht gefunden.",
@@ -104,6 +105,7 @@ export function notifyOpenIssuesChanged() {
 const NOT_LOGGED_CODES = new Set([
   "missing_required_fields",
   "width_and_height_required",
+  "width_required",
   "no_series_for_size",
   "invalid_id",
   "not_found",

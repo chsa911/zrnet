@@ -10,8 +10,8 @@ import { useNavigate } from "react-router-dom";
 export const ADMIN_HOTKEYS = {
   "/admin/register": "F1",
   "/admin/search-update": "F2",
-  "/admin/check-book": "F3",
-  "/admin/barcode-check": "F4",
+  // F3 „Buch prüfen“ und F4 „Prüfen & Ergänzen“ ausgeblendet (26.11.2026):
+  // Buch-Nummer wird für neue Bücher nicht mehr gebildet.
   "/admin/authors": "F6",
   "/admin/barcodes": "F7",
   "/admin/covers": "F8",

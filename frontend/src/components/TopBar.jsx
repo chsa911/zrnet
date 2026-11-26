@@ -151,8 +151,6 @@ export default function TopBar() {
 <Link to="/admin/highlights/received">Highlights</Link>
 <Link to="/admin/sync-issues">Sync Issues <span className="zr-more__key">{ADMIN_HOTKEYS["/admin/sync-issues"]}</span></Link>
 <Link to="/admin/barcodes">Barcodes <span className="zr-more__key">{ADMIN_HOTKEYS["/admin/barcodes"]}</span></Link>
-<Link to="/admin/check-book">Buch prüfen <span className="zr-more__key">{ADMIN_HOTKEYS["/admin/check-book"]}</span></Link>
-<Link to="/admin/barcode-check">Prüfen &amp; Ergänzen <span className="zr-more__key">{ADMIN_HOTKEYS["/admin/barcode-check"]}</span></Link>
 <Link to="/admin/covers">Cover <span className="zr-more__key">{ADMIN_HOTKEYS["/admin/covers"]}</span></Link>
 <Link to="/admin/stock">Bestand</Link>
 <Link to="/admin/genre-share">Fiction / Non-Fiction</Link>

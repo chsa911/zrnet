@@ -251,10 +251,10 @@ d("registration is persisted or reported as error", () => {
   test("required fields missing: 400, nothing saved", async () => {
     const title = `ZRTEST missing ${tag()}`;
     const r = await call(registerBook, pool, {
-      body: { ...base, width_cm: 12, height_cm: 19, title_display: title, last_word: "" },
+      body: { ...base, width_cm: 12, title_display: title, pages: "" },
     });
     expect(r.status).toBe(400);
-    expect(r.body?.fields).toContain("last_word");
+    expect(r.body?.fields).toContain("pages");
     expect(await bookCountByTitle(title)).toBe(0);
   });
 });

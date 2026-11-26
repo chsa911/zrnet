@@ -2210,8 +2210,9 @@ return res.json({
 
     
     if (assignBarcodeNow) {
-      if (!Number.isFinite(widthCm) || !Number.isFinite(heightCm) || widthCm <= 0 || heightCm <= 0) {
-        return res.status(400).json({ error: "width_and_height_required" });
+      // Barcode nur über die Breite; Höhe wird nicht mehr abgefragt
+      if (!Number.isFinite(widthCm) || widthCm <= 0) {
+        return res.status(400).json({ error: "width_required" });
       }
 
       const titleOk = !!normalizeStr(body.title_display);
@@ -2232,10 +2233,7 @@ return res.json({
       if (!publisherOk) missingFields.push("publisher");
       // pages is required, but 0 is a valid entry (book without page numbers)
       if (!Number.isFinite(pagesVal) || pagesVal < 0) missingFields.push("pages");
-      if (!normalizePageNumPos(body.page_num_pos)) missingFields.push("page_num_pos");
-      // chapters is required, but 0 is a valid entry (book without chapters)
-      if (normalizeChapters(body.chapters) === null) missingFields.push("chapters");
-      if (!normalizeLastWord(body.last_word)) missingFields.push("last_word");
+      // page_num_pos, chapters, last_word are no longer asked for (existing values stay)
       if (missingFields.length) {
         return res.status(400).json({ error: "missing_required_fields", fields: missingFields });
       }
@@ -2867,8 +2865,9 @@ if (body.sub_genre_id !== undefined && cols.has("sub_genre_id")) {
     const widthCm = toNum(body.width_cm);
     const heightCm = toNum(body.height_cm);
 
-    if (!Number.isFinite(widthCm) || !Number.isFinite(heightCm) || widthCm <= 0 || heightCm <= 0) {
-      return res.status(400).json({ error: "width_and_height_required" });
+    // Barcode nur über die Breite; Höhe wird nicht mehr abgefragt
+    if (!Number.isFinite(widthCm) || widthCm <= 0) {
+      return res.status(400).json({ error: "width_required" });
     }
 
     const rule = await resolveRuleAndPos(pool, widthCm, heightCm);
@@ -2961,10 +2960,7 @@ if (body.sub_genre_id !== undefined && cols.has("sub_genre_id")) {
         if (!publisherOk) missingFields.push("publisher");
         // pages is required, but 0 is a valid entry (book without page numbers)
         if (!Number.isFinite(pagesVal) || pagesVal < 0) missingFields.push("pages");
-        if (!(normalizePageNumPos(body.page_num_pos) || normalizePageNumPos(cur.page_num_pos))) missingFields.push("page_num_pos");
-        // chapters is required, but 0 is a valid entry (book without chapters)
-        if ((normalizeChapters(body.chapters) ?? normalizeChapters(cur.chapters)) === null) missingFields.push("chapters");
-        if (!(normalizeLastWord(body.last_word) || normalizeLastWord(cur.last_word))) missingFields.push("last_word");
+        // page_num_pos, chapters, last_word are no longer asked for (existing values stay)
         if (missingFields.length) {
           await client.query("ROLLBACK");
           return res.status(400).json({ error: "missing_required_fields", fields: missingFields });

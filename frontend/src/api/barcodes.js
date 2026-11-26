@@ -1,8 +1,9 @@
 // frontend/src/api/barcodes.js  (REPLACE FILE CONTENT)
 import { getApiRoot } from "./apiRoot";
 
-export async function previewBarcode(width, height) {
-  const qs = new URLSearchParams({ width: String(width), height: String(height) }).toString();
+// Barcode hängt nur noch von der Breite ab
+export async function previewBarcode(width) {
+  const qs = new URLSearchParams({ width: String(width) }).toString();
   const res = await fetch(`${getApiRoot()}/barcodes/preview-barcode?${qs}`, {
     method: "GET",
     credentials: "include",

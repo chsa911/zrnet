@@ -24,7 +24,7 @@ router.get("/preview-barcode", async (req, res) => {
 
     const w = parseFloat(String(req.query.width ?? req.query.BBreite ?? "").replace(",", "."));
     if (!Number.isFinite(w)) {
-      return res.status(400).json({ error: "width_and_height_required" });
+      return res.status(400).json({ error: "width_required" });
     }
 
     const rule = resolveBarcodeRule(w);

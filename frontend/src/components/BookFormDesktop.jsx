@@ -10,8 +10,6 @@ import {
 } from "../api/books";
 import { previewBarcode } from "../api/barcodes";
 import { BookCodeVisual } from "../utils/bookCodeDisplay";
-import { PAGE_NUM_POS_HELP, buildPhysCode, formatPhysCode, isValidPageNumPos, normalizeLastWord, pageNumPosLabel } from "../utils/pageNumPos";
-import usePhysCodeCheck, { physCodeKnownText, similarText } from "../utils/usePhysCodeCheck";
 import { countryEntry, countryName, countryOptions, normalizeCountryInput } from "../utils/countryCodes";
 import { cityOptions, cityPlace } from "../utils/cityDefaults";
 import KeywordsField, { mergeKeywords } from "./bookForm/fields/KeywordsField";
@@ -820,7 +818,6 @@ export default function BookFormDesktop({
 
   useEffect(() => {
     const w = parseFloatOrNull(v.width_cm);
-    const h = parseFloatOrNull(v.height_cm);
 
     setBarcodePreview(null);
     setBarcodePreviewErr("");
@@ -828,8 +825,8 @@ export default function BookFormDesktop({
 
     if (isEdit || !assignBarcode) return;
 
-    if (!(w > 0 && h > 0)) {
-      setBarcodePreviewErr("Breite und Höhe eingeben.");
+    if (!(w > 0)) {
+      setBarcodePreviewErr("Breite eingeben.");
       return;
     }
 
@@ -838,13 +835,12 @@ export default function BookFormDesktop({
 
     const t = setTimeout(async () => {
       try {
-        const p = await previewBarcode(w, h);
+        const p = await previewBarcode(w);
         if (!alive) return;
 
         setBarcodePreview({
           ...p,
           width_cm: w,
-          height_cm: h,
         });
         setBarcodePreviewErr("");
       } catch (e) {
@@ -860,7 +856,7 @@ export default function BookFormDesktop({
       alive = false;
       clearTimeout(t);
     };
-  }, [isEdit, assignBarcode, v.width_cm, v.height_cm]);
+  }, [isEdit, assignBarcode, v.width_cm]);
 
   useEffect(() => {
     if (isEdit) {
@@ -1016,9 +1012,6 @@ export default function BookFormDesktop({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isEdit, existingMatches]);
 
-  // phys_code (Breite-Höhe-Seiten-Position-Autor) muss eindeutig sein
-  const physCode = buildPhysCode(v);
-  const physCheck = usePhysCodeCheck(physCode, isEdit ? (bookId || initialBook?._id || initialBook?.id) : existingMatch?.id);
 
   function setField(key, val) {
     setV((prev) => {
@@ -1190,7 +1183,6 @@ export default function BookFormDesktop({
 
     const finalBarcode = String(v.barcode || "").trim();
     const wCm = parseFloatOrNull(v.width_cm);
-    const hCm = parseFloatOrNull(v.height_cm);
 const pages = parseIntOrNull(v.pages);
 
 // Pages ist bei Neuanlage Pflicht, 0 ist gültig (Buch ohne Seitenzahlen).
@@ -1198,34 +1190,22 @@ const pages = parseIntOrNull(v.pages);
 if (!isEdit && (pages == null || pages < 0)) {
   throw new Error("Pages ist erforderlich (0 = keine Seitenzahl).");
 }
-    // Registrierung (nicht Wishlist): Position der Seitenzahl ist Pflicht,
-    // damit der eindeutige Buch-Code (phys_code) gebildet werden kann.
+    // Registrierung (nicht Wishlist): Pflichtfelder. Höhe, Position der
+    // Seitenzahl, Kapitel und letztes Wort werden nicht mehr abgefragt.
     if (!isEdit && createReadingStatus !== "wishlist") {
       const missing = [];
       if (!String(v.title_display || "").trim()) missing.push("Titel");
       if (!String(v.author_id || "").trim() && !String(v.author_lastname || "").trim() && !String(v.name_display || "").trim()) missing.push("Autor");
       if (!String(v.publisher_id || "").trim() && !String(v.publisher_name_display || "").trim()) missing.push("Verlag");
       if (!(parseFloatOrNull(v.width_cm) > 0)) missing.push("Breite");
-      if (!(parseFloatOrNull(v.height_cm) > 0)) missing.push("Höhe");
-      { const ch = parseIntOrNull(v.chapters); if (ch == null || ch < 0) missing.push("Kapitel (0 = keine)"); }
       if (missing.length) throw new Error(`Pflichtfelder fehlen: ${missing.join(", ")}.`);
-      if (!isValidPageNumPos(v.page_num_pos)) {
-        throw new Error("Position der Seitenzahl ist erforderlich: ol om or = oben, ml mr = mitte, ul um ur = unten (links/mitte/rechts), 00 = keine.");
-      }
-      if (!normalizeLastWord(v.last_word)) {
-        throw new Error("Letztes Wort im Buch ist erforderlich (00 = kein Text).");
-      }
-      if (!buildPhysCode(v)) {
-        throw new Error("Buch-Nummer unvollständig: Breite, Höhe, Position der Seitenzahl und letztes Wort angeben.");
-      }
     }
     if (!isEdit && assignBarcode && !finalBarcode) {
-      if (!(wCm > 0 && hCm > 0)) throw new Error("Breite + Höhe oder BookCode nötig.");
+      if (!(wCm > 0)) throw new Error("Breite oder BookCode nötig.");
     }
 
     if (!lockBarcode && !isEdit && assignBarcode && finalBarcode) payload.barcode = finalBarcode;
     if (wCm !== null) payload.width_cm = wCm;
-    if (hCm !== null) payload.height_cm = hCm;
 
     {
       const dd = String(v.author_death_date || "").trim();
@@ -1261,8 +1241,6 @@ if (!isEdit && (pages == null || pages < 0)) {
       "purchase_url",
       "original_language",
       "comment",
-      "page_num_pos",
-      "last_word",
     ];
 
     for (const k of strings) {
@@ -1312,7 +1290,6 @@ if (!isEdit && (pages == null || pages < 0)) {
       "title_keyword2_position",
       "title_keyword3_position",
       "pages",
-      "chapters",
       "published_titles",
       "number_of_millionsellers",
       "genre_id",
@@ -2629,33 +2606,9 @@ select.bfd-enr-field {
     ) : (
     <>
     <div className="bfd-top-frame">
-  {/* Reihenfolge: Seitenzahl → letztes Wort → Kapitel */}
+  {/* Seitenzahl (Position, letztes Wort, Kapitel werden nicht mehr abgefragt) */}
   <div className="bfd-row">
     <input {...fieldProps("pages", "Pages", { inputMode: "numeric", style: { width: "3.0ch" }, required: !isEdit, title: "Letzte Seite, die mit einer Seitenzahl bedruckt ist (0 = keine Seitenzahl)" })} />
-    <input
-      {...fieldProps("page_num_pos", "Pos", { maxLength: 2, autoCapitalize: "off", autoComplete: "off", spellCheck: false, style: { width: "3.0ch" } })}
-      title={isValidPageNumPos(v.page_num_pos) ? `Position der Seitenzahl: ${pageNumPosLabel(v.page_num_pos)}` : PAGE_NUM_POS_HELP}
-      aria-label="Position der Seitenzahl"
-      onChange={(e) => {
-        // zwei Zeichen: ol om or / ml mr / ul um ur / 00 (keine Seitenzahl)
-        const t = String(e.target.value || "").toLowerCase().replace(/[^a-z0-9]/g, "").slice(0, 2);
-        if (t === "" || /^[omu0]$/.test(t) || /^(ol|om|or|ml|mr|ul|um|ur|00)$/.test(t)) setField("page_num_pos", t);
-      }}
-    />
-    <input
-      {...fieldProps("last_word", "Wort", { autoCapitalize: "off", autoComplete: "off", spellCheck: false, maxLength: 100, style: { width: "3.6ch" } })}
-      title={
-        normalizeLastWord(v.last_word)
-          ? `Letztes Wort „${String(v.last_word).trim()}“ → ${normalizeLastWord(v.last_word)} in der Buch-Nummer`
-          : "Letztes Wort im ganzen Buch (ganzes Wort oder 2 Buchstaben, 00 = kein Text)"
-      }
-      aria-label="Letztes Wort im ganzen Buch"
-    />
-    <input
-      {...fieldProps("chapters", "Kap", { inputMode: "numeric", style: { width: "2.8ch" }, required: !isEdit, title: "Anzahl Kapitel (0 = keine Kapitel)" })}
-      title="Anzahl Kapitel (leer = 0)"
-      aria-label="Anzahl Kapitel"
-    />
   </div>
 
   <div className="bfd-row bfd-tight-row">
@@ -2819,33 +2772,9 @@ select.bfd-enr-field {
     />
   </div>
 
-  {/* Zum Schluss: Breite / Höhe mit Barcode-Anzeige */}
+  {/* Zum Schluss: Breite mit Barcode-Anzeige (Barcode nur über die Breite) */}
   <div className="bfd-row">
     <input {...numberProps("width_cm", "Width", "2.8ch")} />
-    <input {...numberProps("height_cm", "Height", "2.8ch")} />
-    {physCode ? (
-      <span
-        title={
-          physCheck.known.length
-            ? physCodeKnownText(physCode, physCheck.known)
-            : physCheck.similar.length
-              ? similarText(physCheck.similar)
-              : "Buch-Nummer: Breite Höhe Seiten Position Kapitel Wort"
-        }
-        style={{
-          fontFamily: "monospace",
-          fontSize: 16,
-          alignSelf: "center",
-          whiteSpace: "nowrap",
-          padding: "0 8px",
-          color: physCheck.known.length ? "#1d4ed8" : physCheck.similar.length ? "#b45309" : undefined,
-          fontWeight: physCheck.known.length || physCheck.similar.length ? 800 : undefined,
-        }}
-      >
-        {formatPhysCode(physCode)}
-        {physCheck.known.length ? ` ↺ schon ${physCheck.known.length}× erfasst` : physCheck.checking ? "" : physCheck.similar.length ? " ≈ ähnlich" : " ✓"}
-      </span>
-    ) : null}
 
     <span className="bfd-top-fill">
       {barcodePreviewLoading
