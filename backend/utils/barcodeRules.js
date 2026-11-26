@@ -7,19 +7,19 @@
 //   Farbe:    nur noch über die BREITE (9 Breitenklassen, je genau eine Farbe).
 //             Die alten Kombi-Kürzel (gk, ik, pk, nk, tk ...) werden nicht
 //             mehr vergeben.
-//   Position: nur noch über die POSITIONSGRUPPE der Farbe. Die Höhe spielt
-//             keine Rolle mehr. Ist eine Position "voll" (kein freier Code
-//             mehr), wird die nächste Position der Reihenfolge genommen.
+//   Position: für ALLE Breiten gleich (seit 26.11.2026 nur noch Gruppe 1):
+//             unten -> oben -> links -> rechts. Die Höhe spielt keine Rolle.
+//             Erst wenn eine Position "voll" ist (kein freier Code mehr),
+//             wird die nächste Position der Reihenfolge genommen.
 //
 //   d = unten, o = oben, l = links, r = rechts
 //
 // Bereits vergebene (alte) Barcodes bleiben unverändert.
 
 const POSITION_ORDER = Object.freeze({
-  // Gruppe 1: standardmäßig unten, wenn voll oben, dann links, dann rechts
+  // Gruppe 1 (einzige Gruppe): standardmäßig unten, wenn voll oben,
+  // dann links, dann rechts
   1: Object.freeze(["d", "o", "l", "r"]),
-  // Gruppe 2: standardmäßig rechts, wenn voll links, dann unten, dann oben
-  2: Object.freeze(["r", "l", "d", "o"]),
 });
 
 // Breiten in mm (Eingabe in cm wird auf ganze mm gerundet, dadurch gibt es
@@ -30,10 +30,10 @@ const WIDTH_CLASSES = Object.freeze([
   { sizeClass: 3, minMm: 115, maxMm: 119,  color: "s", colorName: "schwarz",        positionGroup: 1 },
   { sizeClass: 4, minMm: 120, maxMm: 124,  color: "g", colorName: "grün",           positionGroup: 1 },
   { sizeClass: 5, minMm: 125, maxMm: 129,  color: "p", colorName: "pink",           positionGroup: 1 },
-  { sizeClass: 6, minMm: 130, maxMm: 134,  color: "n", colorName: "orange",         positionGroup: 2 },
-  { sizeClass: 7, minMm: 135, maxMm: 139,  color: "k", colorName: "Kugelschreiber", positionGroup: 2 },
-  { sizeClass: 8, minMm: 140, maxMm: 149,  color: "t", colorName: "rot",            positionGroup: 2 },
-  { sizeClass: 9, minMm: 150, maxMm: 1000, color: "u", colorName: "grau",           positionGroup: 2 },
+  { sizeClass: 6, minMm: 130, maxMm: 134,  color: "n", colorName: "orange",         positionGroup: 1 },
+  { sizeClass: 7, minMm: 135, maxMm: 139,  color: "k", colorName: "Kugelschreiber", positionGroup: 1 },
+  { sizeClass: 8, minMm: 140, maxMm: 149,  color: "t", colorName: "rot",            positionGroup: 1 },
+  { sizeClass: 9, minMm: 150, maxMm: 1000, color: "u", colorName: "grau",           positionGroup: 1 },
 ]);
 
 function cmToMm(cm) {

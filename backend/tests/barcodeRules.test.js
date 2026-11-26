@@ -39,7 +39,7 @@ describe("Breitenklassen -> Farbe", () => {
   });
 });
 
-describe("Positionsgruppen -> Suchreihenfolge", () => {
+describe("Position -> Suchreihenfolge", () => {
   test("Gruppe 1: unten, oben, links, rechts", () => {
     const r = resolveBarcodeRule(11.2); // blau
     expect(r.positionGroup).toBe(1);
@@ -47,17 +47,16 @@ describe("Positionsgruppen -> Suchreihenfolge", () => {
     expect(r.pos).toBe("d");
   });
 
-  test("Gruppe 2: rechts, links, unten, oben", () => {
+  test("alle Breiten gleich: immer unten, oben, links, rechts", () => {
     const r = resolveBarcodeRule(13.7); // Kugelschreiber
-    expect(r.positionGroup).toBe(2);
-    expect(r.prefixes).toEqual(["rk", "lk", "dk", "ok"]);
-    expect(r.pos).toBe("r");
-  });
-
-  test("Gruppen je Farbe wie in der Tabelle", () => {
-    const g = (w) => resolveBarcodeRule(w).positionGroup;
-    expect([10, 11.2, 11.7, 12.2, 12.7].map(g)).toEqual([1, 1, 1, 1, 1]);
-    expect([13.2, 13.7, 14.5, 16].map(g)).toEqual([2, 2, 2, 2]);
+    expect(r.positionGroup).toBe(1);
+    expect(r.prefixes).toEqual(["dk", "ok", "lk", "rk"]);
+    expect(r.pos).toBe("d");
+    for (let mm = 1; mm <= 1000; mm++) {
+      const x = resolveBarcodeRule(mm / 10);
+      expect(x.positions).toEqual(["d", "o", "l", "r"]);
+      expect(x.prefixes[0]).toBe("d" + x.color);
+    }
   });
 
   test("Höhe spielt keine Rolle (wird gar nicht übergeben)", () => {
