@@ -10,6 +10,7 @@ import {
 } from "../api/books";
 import { previewBarcode } from "../api/barcodes";
 import { BookCodeVisual } from "../utils/bookCodeDisplay";
+import { PAGE_NUM_POSITIONS, PAGE_NUM_POS_HELP, isValidPageNumPos } from "../utils/pageNumPos";
 import { countryEntry, countryName, countryOptions, normalizeCountryInput } from "../utils/countryCodes";
 import { cityOptions, cityPlace } from "../utils/cityDefaults";
 import KeywordsField, { mergeKeywords } from "./bookForm/fields/KeywordsField";
@@ -1314,6 +1315,29 @@ if (!isEdit && (pages == null || pages < 0)) {
       const n = parseIntOrNull(raw);
       if (n === null) throw new Error(`${k} ist keine gültige Zahl.`);
       if (!isEdit || n !== parseIntOrNull(prevRaw)) payload[k] = n;
+    }
+
+    // Nur im Bearbeiten-Modus: Höhe, Position der Seitenzahl, Kapitel, letztes Wort.
+    // Bei der Registrierung werden diese Felder nicht mehr abgefragt.
+    if (isEdit) {
+      const h = parseFloatOrNull(v.height_cm);
+      const hPrev = parseFloatOrNull(initial.height_cm);
+      if (String(v.height_cm ?? "").trim() && h === null) throw new Error("Höhe ist keine gültige Zahl.");
+      if (h !== hPrev) payload.height_cm = h;
+
+      const pos = String(v.page_num_pos || "").trim().toLowerCase();
+      const posPrev = String(initial.page_num_pos || "").trim().toLowerCase();
+      if (pos && !isValidPageNumPos(pos)) throw new Error(`Position der Seitenzahl „${pos}“ ungültig.`);
+      if (pos !== posPrev) payload.page_num_pos = pos || null;
+
+      const chRaw = String(v.chapters ?? "").trim();
+      const ch = parseIntOrNull(chRaw);
+      if (chRaw && (ch === null || ch < 0)) throw new Error("Kapitel ist keine gültige Zahl.");
+      if (ch !== parseIntOrNull(initial.chapters)) payload.chapters = ch;
+
+      const lw = String(v.last_word || "").trim() || null;
+      const lwPrev = String(initial.last_word || "").trim() || null;
+      if (lw !== lwPrev) payload.last_word = lw;
     }
 
     {
@@ -2783,7 +2807,9 @@ select.bfd-enr-field {
     <input {...numberProps("width_cm", "Width", "2.8ch")} />
 
     <span className="bfd-top-fill">
-      {barcodePreviewLoading
+      {isEdit
+        ? (String(v.barcode || "").trim() ? <BookCodeVisual code={String(v.barcode).trim()} /> : "")
+        : barcodePreviewLoading
         ? "Prüfe…"
         : barcodePreview?.candidate
           ? <BookCodeVisual code={barcodePreview.candidate} />
@@ -2809,6 +2835,42 @@ select.bfd-enr-field {
       ))}
     </div>
   </div>
+
+  {/* Nur beim Bearbeiten: alle vorhandenen Felder (bei der Registrierung nicht abgefragt) */}
+  {isEdit ? (
+    <div className="bfd-row bfd-tight-row" style={{ gap: "0.1em" }}>
+      <input
+        {...numberProps("height_cm", "Höhe", "2.8ch")}
+        title="Höhe in cm"
+        aria-label="Höhe in cm"
+      />
+      <select
+        className="bfd-input"
+        value={String(v.page_num_pos || "").toLowerCase()}
+        disabled={busy}
+        title={PAGE_NUM_POS_HELP}
+        aria-label="Position der Seitenzahl"
+        style={{ width: "2.2ch", fontSize: "clamp(40px, 6vw, 70px)", height: "calc(clamp(76px, 12vw, 138px) * 0.95)", cursor: "pointer" }}
+        onChange={(e) => setField("page_num_pos", e.target.value)}
+      >
+        <option value="">Pos</option>
+        {PAGE_NUM_POSITIONS.map((p) => (
+          <option key={p.value} value={p.value}>{p.value} – {p.label}</option>
+        ))}
+      </select>
+      <input
+        {...fieldProps("chapters", "Kap", { inputMode: "numeric", style: { width: "2.2ch" } })}
+        title="Kapitel (0 = keine)"
+        aria-label="Kapitel"
+      />
+      <input
+        {...fieldProps("last_word", "Letztes Wort", { className: "bfd-input", style: { flex: "1 1 0", minWidth: 0, width: 0 } })}
+        autoCapitalize="off"
+        title="Letztes Wort im ganzen Buch (00 = kein Text)"
+        aria-label="Letztes Wort"
+      />
+    </div>
+  ) : null}
     </>
     )}
 
